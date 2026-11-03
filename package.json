@@ -1,7 +1,7 @@
 {
   "name": "fsm-platform",
   "type": "module",
-  "version": "0.8.6",
+  "version": "0.8.8",
   "private": true,
   "license": "BUSL-1.1",
   "scripts": {
@@ -29,9 +29,19 @@
     "manual:build": "node scripts/build-manual.mjs",
     "i18n:unused": "node scripts/i18n-unused.mjs",
     "test:coverage": "vitest run --coverage",
-    "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
+    "test:lighthouse": "node scripts/lighthouse-a11y.mjs",
+    "native:add:android": "npx cap add android",
+    "native:add:ios": "npx cap add ios",
+    "native:sync": "npx cap sync",
+    "native:open:android": "npx cap open android",
+    "native:open:ios": "npx cap open ios",
+    "native:build:android": "npx cap sync android && cd android && ./gradlew assembleDebug",
+    "native:doctor": "npx cap doctor"
   },
   "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
     "@fullcalendar/core": "^6.1.22",
     "@fullcalendar/daygrid": "^6.1.22",
     "@fullcalendar/interaction": "^6.1.22",
@@ -71,6 +81,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@capacitor/cli": "8.6.0",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/leaflet": "^1.9.20",

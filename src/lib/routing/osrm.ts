@@ -7,8 +7,10 @@ import {
   type TravelEstimate,
 } from "./types";
 
-/** Ruteleverandøren får aldri mer enn ett minutt på seg. */
+/** Ruteleverandøren får aldri mer enn ett minutt på seg som standard. */
 export const ROUTING_TIMEOUT_MS = 60_000;
+const MIN_ROUTING_TIMEOUT_MS = 1_000;
+const MAX_ROUTING_TIMEOUT_MS = 120_000;
 const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 500;
 
@@ -187,8 +189,18 @@ export function createOsrmProvider(options: OsrmOptions): RoutingProvider {
 type RoutingEnv = {
   ROUTING_PROVIDER?: string;
   OSRM_BASE_URL?: string;
+  ROUTING_TIMEOUT_MS?: string;
   [key: string]: string | undefined;
 };
+
+function routingTimeout(env: RoutingEnv): number {
+  const parsed = Number.parseInt(env.ROUTING_TIMEOUT_MS ?? "", 10);
+  if (!Number.isFinite(parsed)) return ROUTING_TIMEOUT_MS;
+  return Math.min(
+    MAX_ROUTING_TIMEOUT_MS,
+    Math.max(MIN_ROUTING_TIMEOUT_MS, parsed),
+  );
+}
 
 /**
  * Velger leverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
@@ -202,7 +214,11 @@ export function resolveRoutingProvider(
   const provider = (env.ROUTING_PROVIDER ?? "").trim().toLowerCase();
   const baseUrl = (env.OSRM_BASE_URL ?? "").trim();
   if (baseUrl && (provider === "osrm" || provider === "")) {
-    return createOsrmProvider({ baseUrl, fetchImpl });
+    return createOsrmProvider({
+      baseUrl,
+      fetchImpl,
+      timeoutMs: routingTimeout(env),
+    });
   }
   return createHaversineProvider();
 }

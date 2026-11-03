@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { saveSmsSettings, saveSmsTemplate } from "@/server/sms";
+import {
+  deleteReminderRule,
+  saveReminderRule,
+} from "@/server/reminders";
 
 function smsHref(params: Record<string, string>) {
   return `/innstillinger?${new URLSearchParams({
@@ -47,4 +51,37 @@ export async function saveSmsTemplateAction(formData: FormData) {
 
   revalidateSms();
   redirect(smsHref({ ok: "template" }));
+}
+
+export async function saveReminderRuleAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const result = await saveReminderRule(actor, {
+    id: formData.get("id"),
+    departmentId: formData.get("departmentId"),
+    channel: formData.get("channel"),
+    offsetHours: formData.get("offsetHours"),
+    templateKey: formData.get("templateKey"),
+    quietStartHour: formData.get("quietStartHour"),
+    quietEndHour: formData.get("quietEndHour"),
+    timezone: formData.get("timezone"),
+    maxPerVisit: formData.get("maxPerVisit"),
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!result.ok) redirect(smsHref({ error: result.reason }));
+
+  revalidateSms();
+  redirect(smsHref({ ok: "reminder" }));
+}
+
+export async function deleteReminderRuleAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const result = await deleteReminderRule(actor, formData.get("id"));
+  if (!result.ok) redirect(smsHref({ error: result.reason }));
+
+  revalidateSms();
+  redirect(smsHref({ ok: "reminderDeleted" }));
 }

@@ -98,4 +98,52 @@ describe("ruteoptimalisering", () => {
     };
     expect(optimiseRoute(input)).toEqual(optimiseRoute(input));
   });
+
+  it("returnerer stopp med ankomst, ventetid og kjøretid", () => {
+    const visits = [
+      visit("a", "2026-11-02T09:00:00.000Z", "2026-11-02T12:00:00.000Z", 61),
+    ];
+    const result = optimiseRoute({
+      visits,
+      matrix: matrix([
+        [0, 10],
+        [10, 0],
+      ]),
+      start,
+      startAt: new Date("2026-11-02T08:00:00.000Z"),
+      startIndex: 0,
+    });
+
+    expect(result.totalWaitingMinutes).toBe(50);
+    expect(result.stops).toEqual([
+      expect.objectContaining({
+        arrivalAt: new Date("2026-11-02T08:10:00.000Z"),
+        startsAt: new Date("2026-11-02T09:00:00.000Z"),
+        endsAt: new Date("2026-11-02T10:00:00.000Z"),
+        waitMinutes: 50,
+        travelMinutes: 10,
+        distanceKm: 5,
+      }),
+    ]);
+  });
+
+  it("rapporterer visiter uten koordinater som hoppet over", () => {
+    const result = optimiseRoute({
+      visits: [
+        {
+          id: "uten",
+          point: null,
+          startsAt: new Date("2026-11-02T09:00:00.000Z"),
+          endsAt: new Date("2026-11-02T10:00:00.000Z"),
+        },
+      ],
+      matrix: matrix([[0]]),
+      start,
+      startAt: new Date("2026-11-02T08:00:00.000Z"),
+      startIndex: 0,
+    });
+
+    expect(result.stops).toEqual([]);
+    expect(result.skipped).toEqual(["uten"]);
+  });
 });

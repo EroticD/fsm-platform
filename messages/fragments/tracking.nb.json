@@ -37,11 +37,16 @@
       "etaMinutes": "{count, plural, one {# minutt} other {# minutter}}",
       "etaArrival": "Forventet rundt kl. {time}.",
       "onSite": "Montøren er på stedet.",
+      "plannedLabel": "Planlagt tid",
+      "plannedTime": "Planlagt kl. {time}.",
+      "stalePosition": "Siste posisjon er {minutes, plural, one {# minutt} other {# minutter}} gammel, så ankomsten kan ikke beregnes live.",
+      "lastKnownPosition": "Sist kjente posisjon var {time}.",
+      "livePositionNoRoute": "Vi har en fersk posisjon, men mangler koordinater til stedet og kan derfor ikke beregne ankomst.",
       "etaUnavailable": "Vi har ikke mottatt posisjon ennå, så ankomst kan ikke beregnes.",
       "lastUpdated": "Sist oppdatert {time}.",
       "noPosition": "Ingen posisjon er delt ennå.",
       "privacy": "Posisjonen brukes bare til å beregne ankomst. Den vises aldri som kart eller koordinater, og slettes etter 24 timer.",
-      "refreshHint": "Siden oppdaterer seg når du laster den på nytt."
+      "refreshHint": "Siden oppdaterer ankomsten automatisk hvert 30. sekund."
     }
   },
   "reviews": {

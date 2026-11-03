@@ -3,6 +3,53 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## 0.8.8 — 2026-11-03
+
+### Toveis SMS og påminnelser
+- Innkommende SMS med leverandørsignatur, idempotens, leveringsstatus,
+  STOP/START-samtykke og kobling mot kunde/kontakt/tråd.
+- Kontorinnboks kan lese og svare på tråder med avdelings-/kundescope.
+- Konfigurerbare påminnelsesregler per avdeling (SMS/e-post, 24 t/2 t,
+  stille timer, maks per besøk) med durabel utsending, dedupe og historikk.
+
+### SSO og SCIM
+- OIDC SSO med Entra ID, Keycloak, Authentik og Zitadel; discovery, PKCE,
+  state/nonce, verifisert e-post-kobling og eksplisitt rolle-/gruppemapping.
+- SCIM 2.0 for brukerprovisjonering med hash-lagrede token, rotasjon,
+  filtrering/paginering, deaktivering og SCIM-feilformat.
+- Admin-fane for SSO/SCIM, break-glass innlogging og revisjon.
+
+### Feltapp, navigasjon og strekkode
+- `/skann` med BarcodeDetector/kamera og manuell fallback; QR-token og
+  oppdragsreferanse løses med vanlig tilgangskontroll.
+- Naviger til Apple Maps/Google Maps/geo, kopier adresse og ring kunde.
+- PWA-forbedringer, installasjons-/oppdateringsflyt og Capacitor-skalldokumentasjon
+  for Android/iOS.
+
+### Eksisterende QR-koder på utstyr
+- Kunder kan registrere QR-verdier som allerede sitter på porter, dører og
+  maskiner, med valgfri etikett og flere koder per enhet.
+- Feltappens skanner slår opp egne token/referanser først, deretter de
+  registrerte eksterne kodene, og autoriserer alltid enheten på nytt.
+- Kodeverdier er globalt unike, kan slettes eksplisitt og følger med i
+  kundeoverføringspakken.
+
+### PDF-rapporter
+- Rettet feil der bilder og signaturer manglet i ferdige PDF-er: PDF-byggeren
+  tolket arbeidsoppdraget feil og hoppet over bildeforberedelsen.
+- Data-URL-bilder og lokalt opplastede bilder bygges nå inn, også i
+  revisjons-PDF-er. Cached PDF-er regenereres automatisk.
+- Manglende bilder gir en synlig advarsel i PDF-en og en stabil
+  driftslogg-hendelse i stedet for stille utelatelse.
+
+### Rute og sanntids ETA
+- Ruteplanlegger `/kalender/rute` med nearest-neighbour + 2-opt, kjøretid,
+  distanse, ventetid og ETA per stopp; valgfri OSRM med lokal fallback.
+- «Bruk rekkefølge» flytter bare flyttbare besøk, med overlapp-/fraværssjekk
+  og revisjon.
+- Offentlig ETA i sporingen basert på siste posisjonsping, med eksplisitt
+  ferskhet og planlagt tid når sanntidsdata mangler.
+
 ## 0.8.6 — 2026-11-03
 
 ### Kundeoverføring (CUST-EXPORT-01 v1)

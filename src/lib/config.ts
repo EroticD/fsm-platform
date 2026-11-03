@@ -1,4 +1,6 @@
 /** Minste lengde på en NEXTAUTH_SECRET som skal godtas i produksjon. */
+import { ssoConfigErrors } from "@/lib/sso";
+
 export const MIN_NEXTAUTH_SECRET_BYTES = 32;
 
 /**
@@ -88,6 +90,10 @@ export function validateProductionConfig(
       "TRUST_PROXY_HOPS is set but TRUST_PROXY is not true - ambiguous configuration",
     );
   }
+
+  // SSO-konfigurasjonen valideres ved oppstart. En halvferdig leverandør skal
+  // ikke gi en knapp som feiler først når brukeren trykker på den.
+  errors.push(...ssoConfigErrors(env));
 
   return errors;
 }

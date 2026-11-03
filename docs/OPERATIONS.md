@@ -75,6 +75,110 @@ driften:
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
+## SMS, webhooker og påminnelser
+
+SMS-leverandøren velges med `SMS_PROVIDER` (`console`, `linkmobility`,
+`pswincom` eller `twilio`). `console` er tørrkjøring og sender aldri ut av
+prosessen. Avsendernavnet kommer fra `SMS_SENDER_ID`.
+
+| Variabel | Bruk |
+| --- | --- |
+| `SMS_PROVIDER` | Aktiv leverandør. Ukjent verdi faller tilbake til `console`. |
+| `SMS_SENDER_ID` | Avsender som vises hos mottakeren. |
+| `SMS_WEBHOOK_SECRET` | Felles HMAC-hemmelighet for `console`, `linkmobility` og `pswincom`. |
+| `SMS_LINKMOBILITY_SECRET` | Overstyrer `SMS_WEBHOOK_SECRET` for Link Mobility. |
+| `SMS_PSWINCOM_SECRET` | Overstyrer `SMS_WEBHOOK_SECRET` for PSWinCom. |
+| `SMS_TWILIO_AUTH_TOKEN` | Twilio-signatur og API-token. |
+| `SMS_TWILIO_ACCOUNT_SID` | Twilio-konto for utgående sending. |
+| `SMS_LINKMOBILITY_URL` / `SMS_LINKMOBILITY_API_KEY` | Utgående Link Mobility-endepunkt og nøkkel. |
+| `SMS_PSWINCOM_URL`, `SMS_PSWINCOM_USER`, `SMS_PSWINCOM_PASSWORD` | Utgående PSWinCom-oppsett. |
+| `SMS_ALLOWLIST` | Kommaseparerte numre som er tillatt i test/staging. Tom betyr alle med samtykke. |
+| `SMS_TIMEOUT_MS` | Tidsavbrudd mot leverandøren (standard 10 000 ms). |
+
+**Webhook-URL:** `https://<vert>/api/webhooks/sms/<leverandør>`. Bruk samme URL
+for innkommende meldinger og leveringsstatus. Ruten krever gyldig signatur;
+`console` godtas uten hemmelighet bare når `NODE_ENV` ikke er `production`.
+Link Mobility og PSWinCom signerer `timestamp.body` med HMAC-SHA256 i
+`x-lm-signature`/`x-pswincom-signature` (eller `x-sms-signature`), og
+tidsstempelet må være innenfor fem minutter. Twilio bruker
+`x-twilio-signature` (SHA-1 over URL og sorterte parametre). Rate limit er 120
+forespørsler per minutt per leverandør og IP; overskridelse gir `429` med
+`Retry-After`.
+
+**Idempotens:** Innkommende meldinger lagres med unik `(provider, providerId)`,
+så leverandørens retries gir én `SmsMessage` og én `Message`. Leveringsstatus er
+også idempotent: en sen `delivered` overskriver ikke en nyere feil, og ukjent
+meldings-ID besvares med `200` slik at leverandøren slutter å prøve. STOP/START
+oppdaterer `ChannelPreference` umiddelbart og blokkerer senere utsending.
+
+**Retry og kø:** Utgående SMS ligger i `SmsMessage` og prøves tre ganger med
+eksponentiell pause (30 s, 60 s, 120 s) før `DEAD_LETTER`. En krasjet worker
+frigjør `SENDING`-rader etter 30 minutter. Påminnelser ligger i
+`ReminderDispatch`: sveip hvert femte minutt, tre forsøk med 5/10/20 minutters
+pause, og `PROCESSING`-rader eldre enn 15 minutter settes tilbake i køen.
+Stille timer flytter utsendingen til slutten av vinduet; blir tidspunktet etter
+besøkets start, hoppes påminnelsen over med årsak. Avlyste, flyttede eller
+fullførte besøk gir `SKIPPED` før noe sendes. Workeren styres med
+`REMINDER_WORKER=false` og kjører uavhengig av `PDF_JOB_WORKER`.
+
+**Overvåking:** `FsmSmsDeadLetters` i `deploy/monitoring/` fanger
+`SmsMessage` med `status = DEAD_LETTER` eller `FAILED`. Påminnelser logges uten
+telefonnummer eller meldingstekst, og hver utsendelse får en revisjonsrad med
+regel, visit, kanal og offset – ikke innhold. Historikken i innstillingene viser
+de siste 50 radene per avdeling.
+
+**Retensjon:** `SmsMessage` og `Message` beholdes sammen med kunden/oppdraget og
+følger den vanlige bevarings- og revisjonspolicyen. `ReminderDispatch` slettes
+kaskadert når regelen, avdelingen eller visiten slettes; ingen automatisk
+purring finnes fordi radene er revisjonsspor for utsending. Logg aldri
+meldingstekst, telefonnummer eller e-postadresse i feillogger.
+
+**Manuell kontroll:**
+
+```bash
+# Signert testleveranse (console i utvikling)
+curl -sS -X POST http://127.0.0.1:3000/api/webhooks/sms/console \
+  -H 'content-type: application/json' -d '{"id":"test-1","from":"4790000000","to":"4700000000","body":"Hei"}'
+
+# Se dead letters og siste påminnelser
+psql "$DATABASE_URL" -c "select id,status,\"lastError\" from \"SmsMessage\" where status in ('DEAD_LETTER','FAILED') order by \"createdAt\" desc limit 20;"
+psql "$DATABASE_URL" -c "select status,\"skipReason\",count(*) from \"ReminderDispatch\" group by 1,2;"
+```
+
+## Ruting og ETA
+
+Ruteplanen (`/kalender/rute`) og den offentlige ETA-en i sporingen bruker samme
+ruteleverandør. Uten konfigurasjon gjøres **ingen nettverkskall**: avstanden er
+luftlinje × 1,35 (veifaktor) delt på `TRACKING_AVERAGE_SPEED_KMH` (standard 50).
+Det gir forutsigbare tester og virker offline, men er bare et anslag.
+
+Vil du bruke en OSRM-kompatibel ruteserver:
+
+```dotenv
+ROUTING_PROVIDER=osrm
+OSRM_BASE_URL=https://osrm.example.com
+# ROUTING_TIMEOUT_MS=60000
+# TRACKING_AVERAGE_SPEED_KMH=50
+```
+
+- `OSRM_BASE_URL` må være serverbar og uten innlogging i nettleseren. Nøkler og
+  URL-er leses bare på serveren.
+- Ruteleverandøren har `ROUTING_TIMEOUT_MS` (standard 60 000 ms, tillatt
+  1 000–120 000). Ved feil, timeout eller ugyldig svar faller både ruteplanen og
+  ETA-en tilbake til den lokale beregningen, og ruteplanen merker dette med
+  **Beregning: Lokal estimering**.
+- Ruteplanen kaller `/table` én gang per montør (maks 50 stopp). Sporings-ETA
+  kaller `/route` for én strekning. Resultatene caches i ett minutt per
+  avrundede koordinatnøkkel.
+- ETA-en regnes fra siste `VisitLocationPing` til arbeidsstedets koordinater.
+  Ping eldre enn **ti minutter** regnes som stale: da vises planlagt tid og
+  «sist kjente posisjon», ikke en live ETA. Ingen koordinater, adresse eller navn
+  returneres fra ETA-endepunktet.
+- Den offentlige ETA-ruten er `GET /api/tracking/<token>/eta`. Den har
+  `Cache-Control: no-store`, egen rate limit på 60 kall per minutt per gyldig
+  token og samme token-scope som sporingen. Siden poller hvert 30. sekund.
+- Posisjonsping slettes etter 24 timer. ETA-endepunktet skriver ikke nye
+  posisjonsdata; bare sidevisningen oppdaterer `lastUsedAt` på lenken.
 ## Minne og swap (1 GB Droplet)
 
 Compose-grensene er dimensjonert for en 1 GB Droplet:
@@ -658,6 +762,179 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 - Opprettelse, tilbakekalling og rotasjon logges i aktivitetsloggen. Sist brukt
   og utløp vises i listen. Utløpte og tilbakekalte nøkler gir `401`.
 
+## SSO (OIDC) og SCIM-provisjonering
+
+SSO og SCIM er valgfritt og konfigureres utelukkende med miljøvariabler. Uten
+dem virker passordinnlogging som før. Passordinnloggingen fjernes aldri når SSO
+slås på – den er den dokumenterte break-glass-veien for administrator.
+
+### OIDC-leverandører
+
+List leverandørene i `SSO_PROVIDERS` med komma. Hver leverandør får en slug, og
+alle innstillinger prefikses med `SSO_<SLUG>_` (store bokstaver, bindestrek blir
+understrek). Eksempel med Entra ID og Keycloak:
+
+```dotenv
+SSO_PROVIDERS=entra,keycloak
+
+SSO_ENTRA_DISPLAY_NAME=Microsoft Entra ID
+SSO_ENTRA_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
+SSO_ENTRA_CLIENT_ID=<application-client-id>
+SSO_ENTRA_CLIENT_SECRET=<client-secret>
+SSO_ENTRA_SCOPES=openid,email,profile
+SSO_ENTRA_ALLOWED_EMAIL_DOMAINS=example.no,example.com
+SSO_ENTRA_AUTO_PROVISION=false
+SSO_ENTRA_AUTO_PROVISION_ACTIVE=false
+SSO_ENTRA_DEFAULT_ROLE=USER
+SSO_ENTRA_DEFAULT_DEPARTMENT=Oslo
+SSO_ENTRA_GROUPS_CLAIM=groups
+SSO_ENTRA_GROUP_ROLE_MAP={"FSM-Office":"OFFICE","FSM-Technicians":"TECHNICIAN"}
+SSO_ENTRA_SYNC_ROLES=false
+
+SSO_KEYCLOAK_DISPLAY_NAME=Keycloak
+SSO_KEYCLOAK_ISSUER=https://keycloak.example.no/realms/fsm
+SSO_KEYCLOAK_CLIENT_ID=fsm-web
+SSO_KEYCLOAK_CLIENT_SECRET=<client-secret>
+SSO_KEYCLOAK_ALLOWED_EMAIL_DOMAINS=example.no
+SSO_KEYCLOAK_GROUPS_CLAIM=groups
+SSO_KEYCLOAK_GROUP_ROLE_MAP=FSM-Office=OFFICE,FSM-Field=TECHNICIAN
+```
+
+| Variabel | Betydning |
+| --- | --- |
+| `SSO_<SLUG>_ENABLED` | `false` skjuler leverandøren uten å fjerne konfigurasjonen. Standard `true`. |
+| `SSO_<SLUG>_ISSUER` / `_DISCOVERY_URL` | Issuer eller full discovery-URL. Discovery utledes som `<issuer>/.well-known/openid-configuration`. |
+| `SSO_<SLUG>_CLIENT_ID` / `_CLIENT_SECRET` | Klient for den konfidensielle OIDC-applikasjonen. |
+| `SSO_<SLUG>_SCOPES` | Kommaseparert. `openid` legges alltid til. Standard `openid,email,profile`. |
+| `SSO_<SLUG>_DISPLAY_NAME` | Teksten på knappen på innloggingssiden. |
+| `SSO_<SLUG>_ALLOWED_EMAIL_DOMAINS` | Kommaseparert liste. Tom betyr alle domener. |
+| `SSO_<SLUG>_AUTO_PROVISION` | `true` oppretter ukjente brukere. Standard `false`. |
+| `SSO_<SLUG>_AUTO_PROVISION_ACTIVE` | `true` aktiverer nye brukere med en gang. Standard `false` (administrator må aktivere). |
+| `SSO_<SLUG>_DEFAULT_ROLE` | Rolle for auto-provisjonerte brukere. Standard `USER`. `CUSTOMER` er ikke tillatt. |
+| `SSO_<SLUG>_DEFAULT_DEPARTMENT` | Avdelingsnavn eller id for auto-provisjonerte brukere. |
+| `SSO_<SLUG>_GROUPS_CLAIM` | Claim med grupper/roller. Standard `groups`. Punktnotasjon og Zitadel-rolleobjekt støttes. |
+| `SSO_<SLUG>_GROUP_ROLE_MAP` | JSON-objekt eller `gruppe=ROLLE,...`. Eksplisitt mapping fra gruppe til rolle. |
+| `SSO_<SLUG>_SYNC_ROLES` | `true` oppdaterer rollen ved hver innlogging ut fra gruppene. Standard `false`: en eksisterende brukers rolle endres aldri stille. |
+
+**Redirect-URL** i IdP-en er alltid:
+
+```text
+https://<NEXTAUTH_URL>/api/auth/callback/sso-<slug>
+```
+
+Eksempel: `https://fsm.example.no/api/auth/callback/sso-entra`. URL-en må være
+eksakt, ellers avviser IdP-en tilbakekallingen. NextAuth bruker authorization
+code flow med PKCE, `state` og `nonce`, og validerer signatur, issuer, audience
+og nonce mot discovery-dokumentet.
+
+### Leverandøreksempler
+
+- **Microsoft Entra ID:** registrer en webapplikasjon, legg redirect-URL-en
+  over under *Authentication*. Gi `openid`, `email`, `profile` og eventuelt
+  `GroupMember.Read.All` for grupper. Legg `email` og `groups` som optional
+  claims i ID-tokenet. Entra setter ofte ikke `email_verified`; appen godtar i
+  stedet `xms_edov=true` fra tenanten. Autorisasjon skjer i tenanten – ikke
+  bruk en multi-tenant app uten å begrense `ALLOWED_EMAIL_DOMAINS`.
+- **Keycloak:** lag en confidential client med *Standard Flow*, skru på PKCE,
+  og legg redirect-URL-en under *Valid redirect URIs*. Legg en group membership
+  mapper til i client scope med *Add to ID token*, slik at `groups` inneholder
+  gruppenavnene som `GROUP_ROLE_MAP` refererer til.
+- **Authentik:** lag en OAuth2/OpenID-provider og en application. Redirect-URL
+  settes under *Redirect URIs*. Bruk en scope-mapping som legger gruppene i
+  `groups`-claimet. Issuer er
+  `https://<authentik>/application/o/<app-slug>/`.
+- **Zitadel:** lag en OIDC-applikasjon av typen *Web*, legg redirect-URL-en inn,
+  og be om `urn:zitadel:iam:org:project:roles` som scope/claim. Appen leser
+  rolleobjektet som nøkler, så `SSO_ZITADEL_GROUPS_CLAIM` settes til
+  `urn:zitadel:iam:org:project:roles`.
+
+SAML er ikke implementert. Entra ID, Keycloak, Authentik og Zitadel dekkes via
+OIDC; SAML kan legges til senere uten å endre kontomodellen.
+
+Appen leser claims fra **ID-tokenet**. Sørg for at grupper/roller er med der,
+ikke bare i userinfo. Entra ID utelater `groups` når brukeren er medlem av
+svært mange grupper (overage). Da må gruppene begrenses eller hentes via en
+egen app-rolle; appen mapper ikke overage-claims automatisk.
+
+### Konto, rolle og 2FA
+
+- En ny identitet matches først på `(leverandør, sub)`. E-post brukes bare ved
+  første kobling, og bare når leverandøren har bekreftet adressen.
+- En e-post som allerede tilhører en **aktiv** bruker kobles til den brukeren.
+  Rollen endres ikke med mindre `SYNC_ROLES=true` og gruppemappingen gir en
+  annen rolle. Koblingen og en eventuell rolleendring revisjonslogges.
+- Kundeportalbrukere og brukere med `customerId` kobles aldri. Ukjente brukere
+  avvises med en tydelig feilmelding når auto-provisjonering er av.
+- Auto-provisjonerte brukere får ingen passord. Standard er inaktiv konto og
+  rollen `USER`; en administrator må aktivere kontoen i **Ansatte & Roller**.
+  Sett `AUTO_PROVISION_ACTIVE=true` bare når IdP-en er autoritativ for hele
+  brukerpopulasjonen.
+- Grupper som peker på flere ulike roller avvises. Rydd mappingen i stedet for
+  å la appen velge «høyeste» rolle. `ADMIN` kan mappes eksplisitt, men bør være
+  en egen, liten gruppe.
+- Påkrevd 2FA (`REQUIRE_2FA_ROLES`) gjelder også SSO. En bruker med 2FA må
+  taste engangskoden, og en privilegert bruker uten oppsett sendes til
+  `/logg-inn/2fa/oppsett` før noen sesjon opprettes. SSO omgår aldri policyen.
+- Deaktivert bruker, øktversjon som ikke stemmer, eller en rolle som er fjernet
+  gir avvist innlogging/økt på neste forespørsel.
+
+### SCIM 2.0
+
+SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
+<scim-token>`. Sesjonscookies godtas ikke. Endepunkter:
+
+| Endepunkt | Metode | Formål |
+| --- | --- | --- |
+| `/api/scim/v2/Users` | `GET` | Liste med `filter`, `startIndex`, `count`. Støtter `eq`, `ne`, `co`, `sw`, `pr` og `and` på `userName`, `emails.value`, `externalId`, `active`, `id`, `displayName` og `role`. |
+| `/api/scim/v2/Users` | `POST` | Opprett bruker. `active=true` må sendes eksplisitt for at kontoen skal kunne logge inn. |
+| `/api/scim/v2/Users/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, deloppdater eller deaktiver. `DELETE` er myk deaktivering. |
+| `/api/scim/v2/ServiceProviderConfig` | `GET` | Kapabiliteter for IdP-oppsett. |
+
+- **Tokens:** opprettes under **Innstillinger → SSO og SCIM** av administrator.
+  Bare SHA-256-hash og et visningsprefiks lagres. Klarteksttokenet vises én gang.
+  Bruk ett token per IdP/integrasjon, og roter ved mistanke om lekkasje. Rotering
+  tilbakekaller det gamle tokenet i samme transaksjon. Sist brukt og utløp vises
+  i listen. Standard levetid er 365 dager (`SCIM_TOKEN_DEFAULT_LIFETIME_DAYS`),
+  maks 730 (`SCIM_TOKEN_MAX_LIFETIME_DAYS`).
+- **Entra:** *Provisioning → Automatic* med tenant-URL
+  `https://fsm.example.no/api/scim/v2` og det hemmelige tokenet. Test connection
+  og start provisjonering. Gruppen som gir ADMIN bør ikke være standardmapping.
+- **Keycloak/Authentik/Zitadel:** bruk SCIM-klienten eller
+  synkroniseringsjobben deres mot samme URL og token.
+- **Feltmapping:** `userName`/`emails` → `User.email`, `externalId` →
+  `User.scimExternalId`, `active` → `isActive`, `name` → navn, og
+  enterprise-extension `department` → avdeling. Passordfelt ignoreres alltid.
+  Ukjente PATCH-paths gir `400` i stedet for å bli stille ignorert.
+- **Roller:** `SCIM_DEFAULT_ROLE` (standard `USER`) brukes ved opprettelse.
+  `SCIM_GROUP_ROLE_MAP` mapper grupper/roller eksplisitt. `ADMIN` krever i
+  tillegg `SCIM_ALLOW_ADMIN=true`. `CUSTOMER` kan ikke tildeles.
+- **Domener:** `SCIM_ALLOWED_EMAIL_DOMAINS` begrenser hvilke adresser som kan
+  provisjoneres. Tom liste betyr alle.
+- **Sikkerhet:** SCIM kan ikke endre kundeportalbrukere, og kan ikke sette
+  passord. Endringer i rolle, avdeling, e-post eller aktiv status øker
+  `sessionVersion`, slik at eksisterende økter dør. Alle opprettelser,
+  oppdateringer, deaktiveringer og tokenoperasjoner revisjonslogges.
+  Bruk av tokenet revisjonslogges maks én gang i timen per token.
+- **Rate limit:** 120 kall per minutt per token, delt mellom app-instansene.
+  Overskridelse gir `429` med `Retry-After`.
+- **Feilformat:** alle feil, også 401/403/404/409, bruker
+  `application/scim+json` og `{ "schemas": [«...Error»], "detail": ..., "status": "400" }`.
+- **Begrensninger:** SCIM Groups er ikke implementert. Rolle styres av `roles`
+  / `groups` på brukeren og den eksplisitte mappingen. SAML er ikke
+  implementert; Entra ID, Keycloak, Authentik og Zitadel bruker OIDC.
+
+### Break-glass og minste privilegium
+
+- Behold minst to lokale administratorer med sterkt passord og 2FA, også når
+  SSO er på. Passordskjemaet på `/logg-inn` vises alltid.
+- En lokal administrator kan låse seg ute av SSO ved feil i IdP-en. Da brukes
+  den lokale kontoen, og `node scripts/break-glass-2fa.mjs --email ... --confirm`
+  er den dokumenterte nødveien for 2FA.
+- Gi `SSO_*_DEFAULT_ROLE=USER` og eksplisitt gruppemapping for kontor, montør
+  og eventuelt admin. Ikke map en bred «alle ansatte»-gruppe til `ADMIN`.
+- Begrens `ALLOWED_EMAIL_DOMAINS` og bruk én IdP-tenant per kundeinstallasjon.
+  Del aldri SCIM-token mellom miljøer eller kunder.
+
 ## Disk, opplastinger og opprydding
 
 - Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`).
@@ -719,6 +996,11 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 - **Ikke backup:** kundepakken er et overføringsverktøy for én eller flere
   kunder. Den erstatter ikke PostgreSQL-backup + uploadvolum, og den inneholder
   bevisst ikke passord, sesjoner, API-nøkler eller 2FA-hemmeligheter.
+- **Eksisterende QR-koder:** kundens egne QR-verdier følger med i
+  `data/equipment-qr-codes.json` og importeres med kilden `IMPORT`. Verdiene er
+  globalt unike, også på tvers av kunder. En kollisjon i målbasen er en
+  konflikt som blokkerer importen; den importeres aldri som en ny kobling på
+  feil enhet. `Product.qrToken` gjenbrukes ikke.
 - **Overvåking:** følg diskbruk på `UPLOAD_DIR` og antall jobber med status
   `FAILED`. Utløpte jobber skal forsvinne fra staging innen en time etter
   `expiresAt`.
@@ -766,9 +1048,18 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 | Appen restarter i loop | `docker compose logs app`, migrasjonssperre (`REQUIRE_BACKUP_BEFORE_MIGRATE`), OOM (`dmesg`) |
 | Innlogging logger ut alle | `sessionVersion` er økt (passord/rolle/2FA-endring) |
 | PDF vises ikke | `APP_URL`/`NEXTAUTH_URL`, `Upload`-rad for filen |
+| PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
 | Disk full | `df -h /`, `docker system df -v`, opplastingsvolum, backupfiler |
+
+Rapport-PDF-er bygger inn bilder og signaturer fra `UPLOAD_DIR` bare når
+`Upload`-raden eies av nøyaktig samme oppdrag, avdeling og kunde. Filen leses
+aldri over HTTP fra `/uploads` under rendering. Når et forventet bilde ikke kan
+bygges inn, skrives en advarsel i PDF-en og `report_pdf_images_missing` logges
+med antall (uten filnavn eller personopplysninger). PDF-cachen har en egen
+`rendererVersion`; den må økes når bildeinnbygging endres, slik at gamle PDF-er
+uten bilder ikke gjenbrukes.
 
 ### 502-sjekkliste
 
@@ -789,3 +1080,30 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 8. **Restart:** først når årsaken er funnet,
    `docker compose -f docker-compose.prod.yml up -d app`. Ved DB-utfall: start
    Postgres først, deretter appen.
+
+## Native feltapp (Capacitor)
+
+Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet laster den
+driftede HTTPS-adressen i en WebView; appen er fortsatt server-rendret og kan
+ikke eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
+[`NATIVE.md`](NATIVE.md).
+
+```bash
+npm ci
+npx cap add android          # én gang per klone; android/ er ikke i git
+npx cap add ios              # krever macOS + Xcode
+CAPACITOR_SERVER_URL=https://felt.example.no npm run native:sync
+npm run native:build:android # debug-AAB/APK med debug-nøkkel
+npm run native:open:android  # eller native:open:ios på macOS
+```
+
+- `CAPACITOR_SERVER_URL` må være HTTPS. `cleartext` er av.
+- Kamera i WebView krever `CAMERA`-tillatelse på Android og
+  `NSCameraUsageDescription` på iOS. Uten tillatelse bruker skanneren manuell
+  inntasting.
+- Signeringsnøkler, `google-services.json`, `GoogleService-Info.plist` og
+  Apple-sertifikater skal ikke i git eller i CI-loggen.
+- Push (FCM/APNs) er ikke satt opp. Butikkklar signering og oppføring gjenstår;
+  se `NATIVE.md`.
+- Etter en ny appversjon: `npm run native:sync`, bygg på nytt og rull ut. PWA-en
+  oppdateres separat gjennom service worker-meldingen i appen.

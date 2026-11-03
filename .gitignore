@@ -20,6 +20,10 @@
 /.next/
 /out/
 
+# Capacitor-plattformer genereres lokalt med `npx cap add android|ios`
+/android/
+/ios/
+
 # production
 /build
 

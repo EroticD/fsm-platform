@@ -1,7 +1,7 @@
 {
   "settings": {
     "tabs": {
-      "sms": "SMS"
+      "sms": "SMS i przypomnienia"
     }
   },
   "sms": {
@@ -111,6 +111,65 @@
       "noConsent": "Kontakt nie wyraził zgody na SMS.",
       "rate_limited": "Osiągnięto miesięczny limit SMS.",
       "generic": "Coś poszło nie tak. Spróbuj ponownie."
+    },
+    "reminders": {
+      "title": "Automatyczne przypomnienia",
+      "description": "Wysyłaj SMS lub e-mail przed zaplanowanymi wizytami. Każda reguła dotyczy jednego działu, kanału i liczby godzin przed wizytą.",
+      "quietHint": "Godziny ciszy są lokalne (0–23). Pozostaw oba puste, aby wysyłać o dowolnej porze. Okno 22–07 przechodzi przez północ.",
+      "noDepartments": "Brak aktywnych działów. Najpierw utwórz dział.",
+      "create": "Nowa reguła przypomnienia",
+      "department": "Dział",
+      "channel": "Kanał",
+      "channels": {
+        "SMS": "SMS",
+        "EMAIL": "E-mail",
+        "BOTH": "SMS i e-mail"
+      },
+      "offsetHours": "Godziny przed wizytą",
+      "templateKey": "Szablon SMS",
+      "quietStart": "Cisza od (godzina)",
+      "quietEnd": "Cisza do (godzina)",
+      "timezone": "Strefa czasowa",
+      "maxPerVisit": "Maks. przypomnień na wizytę",
+      "active": "Aktywna",
+      "createButton": "Utwórz regułę",
+      "noRules": "Nie utworzono żadnych reguł przypomnień.",
+      "ruleSummary": "{hours} godz. przed · {channel}",
+      "save": "Zapisz regułę",
+      "delete": "Usuń regułę",
+      "history": "Ostatnie przypomnienia",
+      "historyHint": "Pokazuje zaplanowane, wysłane i pominięte przypomnienia bez treści wiadomości i numerów telefonów.",
+      "noHistory": "Nie zaplanowano jeszcze żadnych przypomnień.",
+      "historyRow": "{hours} godz. przed · {channel}",
+      "sentAt": "Wysłano {time}",
+      "scheduledAt": "Zaplanowano {time}",
+      "saved": "Reguła przypomnienia została zapisana.",
+      "conflict": "Istnieje już reguła dla tego działu, kanału i liczby godzin.",
+      "status": {
+        "SCHEDULED": "Zaplanowane",
+        "PROCESSING": "Wysyłanie",
+        "SENT": "Wysłane",
+        "SKIPPED": "Pominięte",
+        "FAILED": "Niepowodzenie"
+      },
+      "reasons": {
+        "missing_consent_or_phone": "Brak zgody lub numeru telefonu",
+        "email_opt_out": "E-mail został wyrejestrowany",
+        "max_per_visit": "Osiągnięto maksimum na wizytę",
+        "quiet_hours": "Godziny ciszy",
+        "visit_deleted": "Wizyta została usunięta",
+        "work_order_deleted": "Zlecenie zostało usunięte",
+        "work_order_cancelled": "Zlecenie zostało anulowane",
+        "visit_completed": "Wizyta została zakończona",
+        "visit_cancelled": "Wizyta została anulowana",
+        "visit_moved": "Wizyta została przeniesiona",
+        "rule_inactive": "Reguła jest wyłączona",
+        "missing_phone": "Brak numeru telefonu",
+        "no_consent": "Brak zgody na SMS",
+        "missing_template": "Brak szablonu SMS",
+        "missing_customer": "Zlecenie nie ma klienta",
+        "missing_email": "Brak adresu e-mail"
+      }
     }
   }
 }

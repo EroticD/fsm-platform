@@ -27,11 +27,19 @@ vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
 vi.mock("@/lib/rate-limit-db", () => ({
   allowRequestDb: mocks.allowRequestDb,
 }));
+vi.mock("@/lib/routing", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/routing")>();
+  return {
+    ...actual,
+    getRoutingProvider: () => actual.createHaversineProvider(),
+  };
+});
 
 import {
   cleanupVisitLocationPings,
   createTrackingLink,
   getPublicTracking,
+  getPublicTrackingEta,
   hashTrackingToken,
   recordLocationPing,
   revokeTrackingLink,
@@ -81,10 +89,13 @@ function link(overrides: Record<string, unknown> = {}) {
     visitId: "visit-1",
     visit: {
       status: "EN_ROUTE",
+      startsAt: new Date("2026-10-30T13:00:00.000Z"),
       technicians: [{ user: { name: "Kari Nordmann" } }],
       workOrder: {
         latitude: 60.3913,
         longitude: 5.3221,
+        site: null,
+        customer: { sites: [] },
         department: { trackingEnabled: true },
       },
     },
@@ -248,6 +259,129 @@ describe("offentlig sporing", () => {
     expect(result.data.etaMinutes).toBeNull();
     expect(result.data.estimatedArrivalAt).toBeNull();
     expect(result.data.lastUpdatedAt).toBeNull();
+    expect(result.data.etaSource).toBe("planned");
+    expect(result.data.plannedStartsAt).toEqual(
+      new Date("2026-10-30T13:00:00.000Z"),
+    );
+    expect(result.data.hasLivePosition).toBe(false);
+    expect(result.data.stale).toBe(false);
+  });
+
+  it("viser planlagt tid og eksplisitt ferskhet ved ferskt ping", async () => {
+    mocks.prisma.visitLocationPing.findFirst.mockResolvedValue({
+      latitude: 59.9139,
+      longitude: 10.7522,
+      recordedAt: new Date("2026-10-30T11:59:00.000Z"),
+    });
+    const routing = {
+      name: "osrm" as const,
+      route: vi.fn(async () => ({
+        distanceKm: 12,
+        durationMinutes: 14,
+        provider: "osrm" as const,
+      })),
+      matrix: vi.fn(),
+    };
+
+    const result = await getPublicTracking(TOKEN, NOW, { routing });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.etaSource).toBe("live");
+    expect(result.data.etaMinutes).toBe(14);
+    expect(result.data.hasLivePosition).toBe(true);
+    expect(result.data.stale).toBe(false);
+    expect(result.data.pingAgeMinutes).toBe(1);
+    expect(result.data.travelProvider).toBe("osrm");
+    expect(routing.route).toHaveBeenCalledWith(
+      { latitude: 59.9139, longitude: 10.7522 },
+      { latitude: 60.3913, longitude: 5.3221 },
+    );
+  });
+
+  it("later ikke som et gammelt ping er live", async () => {
+    mocks.prisma.visitLocationPing.findFirst.mockResolvedValue({
+      latitude: 59.9139,
+      longitude: 10.7522,
+      recordedAt: new Date("2026-10-30T11:40:00.000Z"),
+    });
+    const routing = {
+      name: "osrm" as const,
+      route: vi.fn(async () => ({
+        distanceKm: 1,
+        durationMinutes: 1,
+        provider: "osrm" as const,
+      })),
+      matrix: vi.fn(),
+    };
+
+    const result = await getPublicTracking(TOKEN, NOW, { routing });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.etaSource).toBe("stale");
+    expect(result.data.etaMinutes).toBeNull();
+    expect(result.data.estimatedArrivalAt).toBeNull();
+    expect(result.data.stale).toBe(true);
+    expect(result.data.hasLivePosition).toBe(false);
+    expect(result.data.pingAgeMinutes).toBe(20);
+    expect(result.data.lastUpdatedAt).toEqual(
+      new Date("2026-10-30T11:40:00.000Z"),
+    );
+    expect(routing.route).not.toHaveBeenCalled();
+  });
+
+  it("faller tilbake til haversine når ruteleverandøren feiler", async () => {
+    mocks.prisma.visitLocationPing.findFirst.mockResolvedValue({
+      latitude: 59.9139,
+      longitude: 10.7522,
+      recordedAt: new Date("2026-10-30T11:59:00.000Z"),
+    });
+    const routing = {
+      name: "osrm" as const,
+      route: vi.fn(async () => {
+        throw new Error("nede");
+      }),
+      matrix: vi.fn(),
+    };
+
+    const result = await getPublicTracking(TOKEN, NOW, { routing });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.etaSource).toBe("live");
+    expect(result.data.etaMinutes).toBeGreaterThan(0);
+    expect(result.data.travelProvider).toBe("haversine");
+  });
+
+  it("avviser et velformet token som ikke finnes uten å slå opp ping", async () => {
+    mocks.prisma.trackingLink.findUnique.mockResolvedValue(null);
+
+    await expect(getPublicTracking("b".repeat(64), NOW)).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(mocks.prisma.visitLocationPing.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("leker ikke personopplysninger eller koordinater i ETA-svaret", async () => {
+    mocks.prisma.visitLocationPing.findFirst.mockResolvedValue({
+      latitude: 59.9139,
+      longitude: 10.7522,
+      recordedAt: new Date("2026-10-30T11:59:00.000Z"),
+    });
+
+    const result = await getPublicTracking(TOKEN, NOW);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const body = JSON.stringify(result.data);
+    expect(body).not.toContain("59.9139");
+    expect(body).not.toContain("10.7522");
+    expect(body).not.toContain("60.3913");
+    expect(result.data).not.toHaveProperty("latitude");
+    expect(result.data).not.toHaveProperty("longitude");
+    expect(result.data).not.toHaveProperty("address");
   });
 
   it("gir 404 etter utløp", async () => {
@@ -308,6 +442,32 @@ describe("offentlig sporing", () => {
       reason: "rate_limited",
       retryAfterSeconds: 42,
     });
+  });
+
+  it("ETA-ruten bruker eget budsjett og returnerer ikke navn", async () => {
+    mocks.prisma.visitLocationPing.findFirst.mockResolvedValue(null);
+
+    const result = await getPublicTrackingEta(TOKEN, NOW);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.etaSource).toBe("planned");
+    expect(result.data).not.toHaveProperty("technicianFirstName");
+    expect(mocks.allowRequestDb).toHaveBeenCalledWith(
+      `tracking-eta:${hashTrackingToken(TOKEN)}`,
+      60,
+      60_000,
+    );
+  });
+
+  it("ETA-ruten avviser feil token", async () => {
+    mocks.prisma.trackingLink.findUnique.mockResolvedValue(null);
+
+    await expect(getPublicTrackingEta("c".repeat(64), NOW)).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(mocks.prisma.visitLocationPing.findFirst).not.toHaveBeenCalled();
   });
 });
 

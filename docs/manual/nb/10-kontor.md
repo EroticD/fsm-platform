@@ -141,6 +141,13 @@ QR-etikett: Åpne enheten på `/enheter/<id>`, trykk **Skriv ut etikett**, og br
 enheten ved skanning. **Roter QR-token** hvis etiketten er mistet eller delt; den
 gamle etiketten slutter å virke med en gang.
 
+**Eksisterende QR-koder:** Har kunden allerede etiketter fra et annet system,
+registrerer du verdien under **Eksisterende QR-koder** på enhetssiden. Lim inn
+eller skann verdien, gi den gjerne et navn (for eksempel «Gammel QR – port 3»),
+og lagre. Etiketten blir liggende fysisk på utstyret og endres ikke. Hver verdi
+kan bare kobles til én enhet. Sletting fjerner bare koblingen i FSM, ikke den
+fysiske etiketten, og føres i revisjonsloggen.
+
 ### Vedlegg, kommentarer, fullføring
 
 **Vedlegg** tar bilder og PDF-er, maks 15 MB per bilde og 50 MB per PDF, og er interne.
@@ -275,8 +282,8 @@ svar, så kundekortet og enhetssiden viser nøyaktig hva som ble kontrollert.
 ## Kalender og dispatch
 
 Kalenderen ligger på `/kalender` med fanene **Ressursoversikt**, **Måned**,
-**Uke**, **2 uker**, **Uke (time)**, **Dag**, **Dispatch**, **Kapasitet** og
-**Rapporter**.
+**Uke**, **2 uker**, **Uke (time)**, **Dag**, **Dispatch**, **Kapasitet**,
+**Rute** og **Rapporter**.
 
 | Fane | URL |
 | --- | --- |
@@ -321,6 +328,26 @@ arbeidstid er harde krav; overlapp er bare en opptatt-markering.
 **Kapasitet** (`/kalender/kapasitet`) viser **Planlagt kapasitet mot faktisk
 belastning per avdeling, dag og montør**. Velg **Fra** og **Til**, trykk **Vis**,
 og les **Kapasitet**, **Belastning** og **Utnyttelse**.
+
+### Ruteplan
+
+**Rute** (`/kalender/rute`) foreslår kjøreorden for én dag, per montør. Velg
+**Dato** og eventuelt **Montør**, og trykk **Vis rute**. Siden viser kart,
+stoppnummer, **Ankomst**, **Planlagt**, **Kjøring**, **Venting** og total
+**Kjøretid**, **Avstand** og **Ventetid** per montør.
+
+Ruten starter ved montørens tidligste lokaliserte visitt. Visiter uten
+koordinater, eller som ikke får plass innenfor tidsvinduet, listes under
+**Visiter som ikke er med i ruten** og flyttes ikke. Beregningen bruker en
+ekstern ruteleverandør når den er konfigurert; ellers luftlinje × 1,35 og
+gjennomsnittsfart. Se **Beregning** i ruten for å se hvilken metode som ble
+brukt.
+
+**Bruk rekkefølge** flytter visittene til de foreslåtte tidspunktene i én
+transaksjon. Handlingen krever `workorders.assign`, revisjonslogges per visitt
+og avbrytes helt ved overlapp med en fast visitt eller registrert ferie/sykdom.
+Fullførte og kansellerte visiter flyttes aldri. Hvis planen er endret siden den
+ble vist, får du beskjed om å laste siden på nytt.
 
 **Fordelingsregler** og **Territorier** settes opp under **Innstillinger →
 Dispatch**. Der velger du **Modus**, justerer **Vektene** for **Kompetanse**,
@@ -450,6 +477,13 @@ arver kunde, avdeling og kontakt, får innsenderen som montør, og beskriver
 enhetene og sjekkpunktene. Du finner det i oppdragslisten som **Åpen / Ny** uten
 dato.
 
+> **Merk:** Hvis et bilde eller en signatur mangler i den ferdige PDF-en, viser
+> PDF-en en advarsel med antall bilder som ikke kunne hentes. Årsaken er som
+> regel at filen mangler `Upload`-metadata, er slettet fra filvolumet, eller
+> tilhører et annet oppdrag. Last opp bildet på nytt fra rapporten, og generer
+> PDF-en igjen. Driftsloggen viser `report_pdf_images_missing` med antall, uten
+> filnavn eller personopplysninger.
+
 > **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.5, også når
 > grensesnittet er engelsk. Det er samme språkbegrensning som i rapport-PDF-en.
 
@@ -526,11 +560,18 @@ lager et lagret søk.
 
 **Meldinger** (`/meldinger`) samler SMS-samtaler. Filtrer på **Alle** eller
 **Bare uleste**, søk på kunde, kontakt eller oppdrag, og **Start samtale** fra et
-oppdrag. **Hurtigmeldinger** sender **Send bookingbekreftelse**, **Send påminnelse**,
+oppdrag. Åpne en samtale for å lese kundens svar og svare med SMS; hver utgående
+melding viser **Status** (I kø, Sendt, Levert eller Feilet). **Hurtigmeldinger** sender **Send bookingbekreftelse**, **Send påminnelse**,
 **Send «på vei»**, **Send «ferdig»** eller **Be om vurdering**. **Samtykke og
 reservasjon** viser **Samtykke registrert** eller **Ikke registrert**; uten
 samtykke sendes ingen SMS. Tørrkjøring betyr at ingen meldinger forlater
-systemet.
+systemet. Du ser bare samtaler i din egen avdeling; kundeportalbrukere ser bare
+sine egne.
+
+Administrator kan sette opp **Automatiske påminnelser** under **Innstillinger →
+SMS**. Reglene kan sende SMS, e-post eller begge deler et valgt antall timer før
+besøket, med stille timer og en maksgrense per besøk. **Siste påminnelser** viser
+hva som er planlagt, sendt eller hoppet over – uten meldingstekst.
 
 ## Kundeportalen fra kontoret
 
@@ -551,7 +592,11 @@ til en kontaktperson på samme kunde, og e-postadressen må være unik.
 **Rapporter** lar kunden kvittere. **Dokumenter** viser filer dere har delt via
 kundekortets **Vedlegg**. **Utstyr** viser status, garanti, siste måling og
 planer. **Avtaler** viser serviceavtaler og dekningslinjer. **Besøk** viser
-sporingslenke og omtale. **Meldinger** lar kunden svare på SMS ved samtykke.
+sporingslenke og omtale. Sporingssiden viser planlagt tid når montøren ikke har
+delt posisjon, og en live ETA bare når siste posisjon er fersk (under ti
+minutter). Er posisjonen eldre, står det eksplisitt hvor gammel den er; siden
+later aldri som et gammelt ping er live. ETA-en oppdateres automatisk hvert 30.
+sekund. **Meldinger** lar kunden svare på SMS ved samtykke.
 
 Kunden kan **Book en ledig time**, **Be om ny tid**, **Kanseller forespørsel**,
 **Kvitter mottatt** og **Be om oppdatering av kontaktinformasjon**. Booking og

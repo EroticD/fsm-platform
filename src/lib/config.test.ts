@@ -149,4 +149,18 @@ describe("validateProductionConfig", () => {
     });
     expect(errors.join(" ")).toContain("TRUST_PROXY must be true or false");
   });
+
+  it("avviser halvferdig SSO-konfigurasjon i produksjon", () => {
+    const errors = validateProductionConfig({
+      NODE_ENV: "production",
+      NEXTAUTH_URL: "https://fsm.example",
+      NEXTAUTH_SECRET: STRONG_SECRET,
+      SSO_PROVIDERS: "entra",
+      SSO_ENTRA_ISSUER: "ikke-en-url",
+      SSO_ENTRA_CLIENT_ID: "",
+      SSO_ENTRA_CLIENT_SECRET: "",
+    });
+    expect(errors.join(" ")).toContain("CLIENT_ID");
+    expect(errors.join(" ")).toContain("discovery-URL");
+  });
 });

@@ -51,4 +51,15 @@ export async function register() {
       console.error("Kunne ikke starte SMS-køen:", error);
     }
   }
+
+  // Påminnelser har eget startflagg. De starter også når PDF-workeren er slått
+  // av, men bare én gang selv om jobbworkeren allerede har startet dem.
+  if (process.env.REMINDER_WORKER !== "false") {
+    try {
+      const { startReminderWorker } = await import("@/server/reminders");
+      startReminderWorker();
+    } catch (error) {
+      console.error("Kunne ikke starte påminnelsesworkeren:", error);
+    }
+  }
 }

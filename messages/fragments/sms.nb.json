@@ -1,7 +1,7 @@
 {
   "settings": {
     "tabs": {
-      "sms": "SMS"
+      "sms": "SMS og påminnelser"
     }
   },
   "sms": {
@@ -111,6 +111,65 @@
       "noConsent": "Kontakten har ikke samtykket til SMS.",
       "rate_limited": "Den månedlige SMS-grensen er nådd.",
       "generic": "Noe gikk galt. Prøv igjen."
+    },
+    "reminders": {
+      "title": "Automatiske påminnelser",
+      "description": "Send SMS eller e-post før planlagte besøk. Hver regel gjelder én avdeling, én kanal og ett antall timer før besøket.",
+      "quietHint": "Stille timer er lokale klokkeslett (0–23). La begge stå tomme for å sende når som helst. Et vindu som 22–07 går over midnatt.",
+      "noDepartments": "Ingen aktive avdelinger. Opprett en avdeling først.",
+      "create": "Ny påminnelsesregel",
+      "department": "Avdeling",
+      "channel": "Kanal",
+      "channels": {
+        "SMS": "SMS",
+        "EMAIL": "E-post",
+        "BOTH": "SMS og e-post"
+      },
+      "offsetHours": "Timer før besøk",
+      "templateKey": "SMS-mal",
+      "quietStart": "Stille fra (time)",
+      "quietEnd": "Stille til (time)",
+      "timezone": "Tidssone",
+      "maxPerVisit": "Maks påminnelser per besøk",
+      "active": "Aktiv",
+      "createButton": "Opprett regel",
+      "noRules": "Ingen påminnelsesregler er opprettet.",
+      "ruleSummary": "{hours} timer før · {channel}",
+      "save": "Lagre regelen",
+      "delete": "Slett regelen",
+      "history": "Siste påminnelser",
+      "historyHint": "Viser planlagte, sendte og hoppede påminnelser uten meldingstekst eller telefonnummer.",
+      "noHistory": "Ingen påminnelser er planlagt ennå.",
+      "historyRow": "{hours} timer før · {channel}",
+      "sentAt": "Sendt {time}",
+      "scheduledAt": "Planlagt {time}",
+      "saved": "Påminnelsesregelen er lagret.",
+      "conflict": "Det finnes allerede en regel for samme avdeling, kanal og antall timer.",
+      "status": {
+        "SCHEDULED": "Planlagt",
+        "PROCESSING": "Sendes",
+        "SENT": "Sendt",
+        "SKIPPED": "Hoppet over",
+        "FAILED": "Feilet"
+      },
+      "reasons": {
+        "missing_consent_or_phone": "Mangler samtykke eller telefonnummer",
+        "email_opt_out": "E-post er reservert",
+        "max_per_visit": "Nådd maks antall per besøk",
+        "quiet_hours": "Stille timer",
+        "visit_deleted": "Besøket er slettet",
+        "work_order_deleted": "Oppdraget er slettet",
+        "work_order_cancelled": "Oppdraget er avlyst",
+        "visit_completed": "Besøket er fullført",
+        "visit_cancelled": "Besøket er avlyst",
+        "visit_moved": "Besøket er flyttet",
+        "rule_inactive": "Regelen er slått av",
+        "missing_phone": "Mangler telefonnummer",
+        "no_consent": "Mangler SMS-samtykke",
+        "missing_template": "Mangler SMS-mal",
+        "missing_customer": "Oppdraget mangler kunde",
+        "missing_email": "Mangler e-postadresse"
+      }
     }
   }
 }

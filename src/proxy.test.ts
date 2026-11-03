@@ -43,6 +43,8 @@ describe("kundeportalens allowlist", () => {
   it("beholder de øvrige kundetillatte stiene", () => {
     expect(isAllowedForCustomer("/kundeportal", params())).toBe(true);
     expect(isAllowedForCustomer("/api/kundeportal", params())).toBe(true);
+    expect(isAllowedForCustomer("/api/tracking/abc/eta", params())).toBe(true);
+    expect(isAllowedForCustomer("/api/scim/v2/Users", params())).toBe(true);
     expect(isAllowedForCustomer("/rapporter/abc", params())).toBe(true);
     expect(isAllowedForCustomer("/rapporter", params())).toBe(false);
     expect(isAllowedForCustomer("/oppdrag", params())).toBe(false);

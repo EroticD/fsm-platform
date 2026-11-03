@@ -47,6 +47,8 @@ bare bevisst, og dokumenter hvorfor.
 | PDF | Leveres alltid som vedlegg, aldri inline. `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile` og `/RichMedia` saneres med qpdf; filen avvises hvis sanering ikke er mulig. |
 | Opplasting | Multipart strømmes til midlertidig fil med hard grense, maks 4 samtidige kropper per instans og 50 MB per PDF. Per-bruker (24 t) og per-kunde kvote håndheves; 413/507 returneres. Proxyen må også begrense kropp, tilkoblinger og tidsavbrudd. |
 | API-nøkler | Scopes og valgfri skrivebeskyttelse, standard levetid 90 dager og maks 365 dager. Opprettelse, tilbakekalling og rotasjon revisjonslogges. |
+| SSO (OIDC) | Av som standard. Når det er på, kobles identiteter bare på bekreftet e-post, auto-provisjonering er av, nye kontoer er inaktive og standardrollen er `USER`. Passordinnlogging beholdes som break-glass. |
+| SCIM | Bearer-token per integrasjon, bare SHA-256-hash lagret, standard levetid 365 dager og maks 730. `ADMIN` krever `SCIM_ALLOW_ADMIN=true` og eksplisitt mapping. Kundeportalbrukere kan ikke endres. |
 | Database | Én databasebruker som standard. Valgfri deling i migrasjons- og runtime-rolle er dokumentert i `docs/OPERATIONS.md`. |
 | Backup | Produksjon feiler lukket uten age-kryptering (`BACKUP_AGE_RECIPIENT`). |
 | Kartnøkkel | Bruk en domenebegrenset publishable-token, ikke en hemmelig servernøkkel. |
@@ -89,6 +91,25 @@ bare bevisst, og dokumenter hvorfor.
   Nøkler har alltid utløpsdato (standard 90 dager, maks 365). Opprettelse,
   tilbakekalling og rotasjon er attribuerbare i revisjonsloggen, og rotering
   tilbakekaller den gamle nøkkelen i samme transaksjon.
+- **SSO (OIDC):** NextAuth bruker authorization code flow med PKCE, `state` og
+  `nonce`, og validerer signatur, issuer, audience og nonce mot discovery.
+  Identiteter matches på `(leverandør, sub)`, aldri på e-post alene. Første
+  kobling krever `email_verified=true` (eller Entra `xms_edov=true`) og en
+  eksisterende aktiv bruker. Kundeportalbrukere kobles aldri. Auto-provisjonering
+  er av som standard; når den er på, opprettes brukeren uten passord, inaktiv og
+  med `USER` med mindre annet er eksplisitt konfigurert. Gruppemapping er
+  eksplisitt, konflikt mellom roller avvises, og `SYNC_ROLES` er av som standard.
+  Tokens, secrets og claims med persondata logges aldri – bare leverandør,
+  identitets-id og feilkode.
+- **SCIM 2.0:** Bearer-token kreves på alle `/api/scim/v2`-ruter; sesjonscookies
+  godtas ikke. Tokens lagres hashet, kan roteres/tilbakekalles og har utløp.
+  SCIM setter aldri passord, kan ikke endre kundeportalbrukere, og `ADMIN` krever
+  eksplisitt oppslag. E-postdomener kan begrenses. Rate limit er 120 kall per
+  minutt per token. Alle mutasjoner og tokenoperasjoner revisjonslogges.
+- **Break-glass:** passordinnlogging fjernes ikke når SSO er konfigurert. Hold
+  minst to lokale administratorer med sterkt passord og 2FA, og bruk den
+  dokumenterte 2FA-break-glass-prosedyren hvis IdP-en eller autentiseringsappen
+  svikter.
 - Opplastede filer har eierskap per fil. En fil kan bare knyttes til et oppdrag,
   en kunde eller et dokument av brukeren som lastet den opp, eller av den
   eksisterende eieren.

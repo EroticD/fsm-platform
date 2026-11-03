@@ -134,6 +134,13 @@ QR label: open the unit at `/enheter/<id>`, select **Print label**, and use
 the unit. **Rotate QR token** if the label is lost or shared; the old label stops
 working immediately.
 
+**Existing QR codes:** If the customer already has labels from another system,
+register the value under **Existing QR codes** on the asset page. Paste or scan
+the value, optionally give it a name (for example “Old QR – gate 3”), and save.
+The label stays physically on the equipment and is never changed. Each value can
+be linked to only one asset. Deleting removes only the mapping in FSM, not the
+physical label, and is recorded in the audit log.
+
 ### Attachments, comments and completion
 
 **Attachments** accepts images and PDFs, up to 15 MB per image and 50 MB per PDF, and is internal.
@@ -262,8 +269,8 @@ exactly what was checked.
 ## Calendar and dispatch
 
 The calendar is at `/kalender` with the tabs **Resource overview**, **Month**,
-**Week**, **2 weeks**, **Week (time)**, **Day**, **Dispatch**, **Capacity** and
-**Reports**.
+**Week**, **2 weeks**, **Week (time)**, **Day**, **Dispatch**, **Capacity**,
+**Route** and **Reports**.
 
 | Tab | URL |
 | --- | --- |
@@ -306,6 +313,26 @@ saves only when you choose it. **Suggest technician** ranks candidates by
 **Capacity** (`/kalender/kapasitet`) shows **Planned capacity against actual load
 per department, day and technician**. Choose **From** and **To**, press **Show**,
 and read **Capacity**, **Load** and **Utilisation**.
+
+### Route plan
+
+**Route** (`/kalender/rute`) suggests a driving order for one day, per
+technician. Choose **Date** and optionally **Technician**, then **Show route**.
+The page shows a map, stop numbers, **Arrival**, **Planned**, **Driving**,
+**Waiting**, and total **Drive time**, **Distance** and **Waiting time** per
+technician.
+
+The route starts at the technician's earliest located visit. Visits without
+coordinates, or that do not fit within the time window, are listed under
+**Visits not included in the route** and are not moved. The calculation uses an
+external routing provider when configured; otherwise straight-line distance ×
+1.35 and average speed. **Calculation** shows which method was used.
+
+**Use order** moves the visits to the suggested times in one transaction. The
+action requires `workorders.assign`, is audit-logged per visit, and is cancelled
+entirely on overlap with a fixed visit or registered holiday/sickness. Completed
+and cancelled visits are never moved. If the plan has changed since it was
+shown, you are asked to reload the page.
 
 **Assignment rules** and **Territories** are configured under **Settings →
 Dispatch**. There you choose a **Mode**, adjust the **Weights** for **Skills**,
@@ -425,6 +452,13 @@ department and contact, gets the submitter as technician, and describes the
 units and checkpoints. The generated title is Norwegian (“Utbedring av avvik –
 …”) in 0.8.5, even when the interface is English.
 
+> **Note:** If a photo or signature is missing from the finished PDF, the PDF
+> shows a warning with the number of images that could not be loaded. The usual
+> causes are missing `Upload` metadata, a file removed from storage, or a file
+> owned by another work order. Re-upload the image from the report and generate
+> the PDF again. The operations log shows `report_pdf_images_missing` with a
+> count, without file names or personal data.
+
 ### Status and locking
 
 A submitted report is locked. **Unlock for editing** requires a **Reason for
@@ -519,7 +553,12 @@ contact at the same customer.
 customer acknowledge. **Documents** shows files you have shared through the
 customer card's **Attachments**. **Equipment** shows status, warranty, latest
 reading and plans. **Contracts** shows service agreements and coverage lines.
-**Messages** lets the customer reply by SMS with consent.
+**Visits** shows tracking links and reviews. The tracking page shows the planned
+time when the technician has not shared a location, and a live ETA only when the
+latest position is fresh (under ten minutes). If the position is older, it says
+explicitly how old it is; the page never pretends an old ping is live. The ETA
+refreshes automatically every 30 seconds. **Messages** lets the customer reply by
+SMS with consent.
 
 The customer can **Book an available time**, **Request a new time**, **Cancel
 request**, **Acknowledge receipt** and **Request a contact information update**.

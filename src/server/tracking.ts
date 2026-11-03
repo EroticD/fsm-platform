@@ -4,7 +4,9 @@ import crypto from "node:crypto";
 import type { Prisma, VisitStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { estimateEta } from "@/lib/geo";
+import { estimateEta, isValidCoordinates, type Coordinates } from "@/lib/geo";
+import { getRoutingProvider } from "@/lib/routing";
+import type { RoutingProvider } from "@/lib/routing/types";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import {
@@ -25,6 +27,19 @@ export const TRACKING_LINK_TTL_AFTER_VISIT_MS = 2 * 60 * 60 * 1000;
 
 /** Posisjonsping slettes etter 24 timer. Ingen historikk eksponeres. */
 export const LOCATION_PING_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Grensen for å regne en posisjon som «live». Et ping eldre enn dette vises
+ * som sist kjente posisjon, ikke som en levende ETA. Ti minutter er nok til å
+ * dekke en normal mobilforsinkelse uten å love for mye.
+ */
+export const LOCATION_PING_FRESH_MS = 10 * 60 * 1000;
+
+/** Hvor ofte den offentlige ETA-ruten kan polles per gyldig token. */
+export const TRACKING_ETA_RATE_LIMIT = {
+  limit: 60,
+  windowMs: 60_000,
+} as const;
 
 /** Statusene der en offentlig sporingslenke kan vise noe. */
 const PUBLIC_TRACKING_STATUSES: readonly VisitStatus[] = ["EN_ROUTE", "ON_SITE"];
@@ -223,63 +238,128 @@ export async function revokeTrackingLinksForVisit(
   return result.count;
 }
 
+export type TrackingEtaSource = "live" | "planned" | "stale" | "on_site";
+
 export type PublicTrackingView = {
   technicianFirstName: string | null;
   status: VisitStatus;
   etaMinutes: number | null;
   estimatedArrivalAt: Date | null;
+  /** Planlagt starttid fra kalenderen. Vises når vi ikke har en live ETA. */
+  plannedStartsAt: Date;
+  /** `live` bare når posisjonen er fersk og reisen er beregnet. */
+  etaSource: TrackingEtaSource;
+  /** Sann når siste ping er innenfor ferskhetsgrensen. */
+  hasLivePosition: boolean;
+  /** Sann når et ping finnes, men er for gammelt til å være live. */
+  stale: boolean;
+  /** Alder på siste ping i hele minutter. */
+  pingAgeMinutes: number | null;
   lastUpdatedAt: Date | null;
+  travelProvider: "osrm" | "haversine" | null;
 };
+
+/** ETA-ruten returnerer aldri montørens navn eller andre personopplysninger. */
+export type PublicTrackingEtaView = Omit<
+  PublicTrackingView,
+  "technicianFirstName"
+>;
 
 export type PublicTrackingResult =
   | { ok: true; data: PublicTrackingView }
   | { ok: false; reason: "invalid" }
   | { ok: false; reason: "rate_limited"; retryAfterSeconds: number };
 
-/**
- * Leser den offentlige sporingstilstanden. Koordinater returneres aldri til
- * klienten – bare status, montørens fornavn, ETA og tidspunktet for siste
- * posisjonsoppdatering.
- *
- * En lenke som er ukjent, tilbakekalt, utløpt, tilhører en avdeling med
- * sporing avslått, eller en visitt som ikke lenger er EN_ROUTE/ON_SITE, gir
- * samme `invalid`-svar. Da kan ikke lenken brukes til å gjette seg til status.
- */
-export async function getPublicTracking(
-  token: string,
-  now = new Date(),
-): Promise<PublicTrackingResult> {
-  if (!TRACKING_TOKEN_PATTERN.test(token)) return { ok: false, reason: "invalid" };
-  if (!allowGlobalTracking(now.getTime())) {
-    return { ok: false, reason: "rate_limited", retryAfterSeconds: 60 };
-  }
+export type PublicTrackingEtaResult =
+  | { ok: true; data: PublicTrackingEtaView }
+  | { ok: false; reason: "invalid" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number };
 
-  const tokenHash = hashTrackingToken(token);
-  const link = await prisma.trackingLink.findUnique({
-    where: { tokenHash },
+const publicTrackingLinkSelect = {
+  id: true,
+  expiresAt: true,
+  revokedAt: true,
+  visitId: true,
+  visit: {
     select: {
-      id: true,
-      expiresAt: true,
-      revokedAt: true,
-      visitId: true,
-      visit: {
+      status: true,
+      startsAt: true,
+      technicians: {
+        orderBy: { userId: "asc" },
+        take: 1,
+        select: { user: { select: { name: true } } },
+      },
+      workOrder: {
         select: {
-          status: true,
-          technicians: {
-            orderBy: { userId: "asc" },
-            take: 1,
-            select: { user: { select: { name: true } } },
-          },
-          workOrder: {
+          latitude: true,
+          longitude: true,
+          site: { select: { latitude: true, longitude: true } },
+          customer: {
             select: {
-              latitude: true,
-              longitude: true,
-              department: { select: { trackingEnabled: true } },
+              sites: {
+                where: { isPrimary: true },
+                take: 1,
+                select: { latitude: true, longitude: true },
+              },
             },
           },
+          department: { select: { trackingEnabled: true } },
         },
       },
     },
+  },
+} satisfies Prisma.TrackingLinkSelect;
+
+type PublicTrackingLink = Prisma.TrackingLinkGetPayload<{
+  select: typeof publicTrackingLinkSelect;
+}>;
+
+function publicDestination(link: PublicTrackingLink): Coordinates | null {
+  const workOrder = link.visit.workOrder;
+  if (
+    workOrder.latitude !== null &&
+    workOrder.longitude !== null &&
+    isValidCoordinates(workOrder.latitude, workOrder.longitude)
+  ) {
+    return { latitude: workOrder.latitude, longitude: workOrder.longitude };
+  }
+  const site = workOrder.site;
+  if (
+    site &&
+    site.latitude !== null &&
+    site.longitude !== null &&
+    isValidCoordinates(site.latitude, site.longitude)
+  ) {
+    return { latitude: site.latitude, longitude: site.longitude };
+  }
+  const primarySite = workOrder.customer?.sites?.[0];
+  if (
+    primarySite &&
+    primarySite.latitude !== null &&
+    primarySite.longitude !== null &&
+    isValidCoordinates(primarySite.latitude, primarySite.longitude)
+  ) {
+    return {
+      latitude: primarySite.latitude,
+      longitude: primarySite.longitude,
+    };
+  }
+  return null;
+}
+
+function validToken(token: string): boolean {
+  return TRACKING_TOKEN_PATTERN.test(token);
+}
+
+async function loadPublicTrackingLink(
+  token: string,
+  now: Date,
+): Promise<PublicTrackingLink | null> {
+  if (!validToken(token)) return null;
+
+  const link = await prisma.trackingLink.findUnique({
+    where: { tokenHash: hashTrackingToken(token) },
+    select: publicTrackingLinkSelect,
   });
 
   if (
@@ -289,12 +369,157 @@ export async function getPublicTracking(
     !link.visit.workOrder.department.trackingEnabled ||
     !PUBLIC_TRACKING_STATUSES.includes(link.visit.status)
   ) {
-    return { ok: false, reason: "invalid" };
+    return null;
+  }
+  return link;
+}
+
+async function estimateLiveArrival(input: {
+  from: Coordinates;
+  to: Coordinates;
+  now: Date;
+  routing: RoutingProvider;
+}): Promise<{
+  minutes: number;
+  arrivalAt: Date;
+  provider: "osrm" | "haversine";
+} | null> {
+  try {
+    const estimate = await input.routing.route(input.from, input.to);
+    if (
+      Number.isFinite(estimate.durationMinutes) &&
+      estimate.durationMinutes >= 0
+    ) {
+      return {
+        minutes: Math.max(0, Math.round(estimate.durationMinutes)),
+        arrivalAt: new Date(
+          input.now.getTime() + estimate.durationMinutes * 60_000,
+        ),
+        provider: estimate.provider,
+      };
+    }
+  } catch {
+    // En ekstern leverandør som er nede skal falle tilbake til samme
+    // haversine-beregning som resten av appen – ikke gi en falsk ETA.
   }
 
+  const fallback = estimateEta({
+    from: input.from,
+    to: input.to,
+    now: input.now,
+  });
+  if (!fallback) return null;
+  return {
+    minutes: fallback.minutes,
+    arrivalAt: fallback.estimatedArrivalAt,
+    provider: "haversine",
+  };
+}
+
+async function buildTrackingSnapshot(
+  link: PublicTrackingLink,
+  now: Date,
+  routing: RoutingProvider,
+): Promise<PublicTrackingEtaView> {
+  const ping = await prisma.visitLocationPing.findFirst({
+    where: {
+      visitId: link.visitId,
+      recordedAt: { gte: new Date(now.getTime() - LOCATION_PING_RETENTION_MS) },
+    },
+    orderBy: { recordedAt: "desc" },
+    select: { latitude: true, longitude: true, recordedAt: true },
+  });
+
+  const ageMs = ping
+    ? Math.max(0, now.getTime() - ping.recordedAt.getTime())
+    : null;
+  const stale = ageMs !== null && ageMs > LOCATION_PING_FRESH_MS;
+  const hasLivePosition = Boolean(ping) && !stale;
+  const destination = publicDestination(link);
+
+  let eta:
+    | { minutes: number; arrivalAt: Date; provider: "osrm" | "haversine" }
+    | null = null;
+  if (
+    link.visit.status === "EN_ROUTE" &&
+    ping &&
+    !stale &&
+    destination &&
+    isValidCoordinates(ping.latitude, ping.longitude)
+  ) {
+    eta = await estimateLiveArrival({
+      from: { latitude: ping.latitude, longitude: ping.longitude },
+      to: destination,
+      now,
+      routing,
+    });
+  }
+
+  const etaSource: TrackingEtaSource =
+    link.visit.status === "ON_SITE"
+      ? "on_site"
+      : !ping
+        ? "planned"
+        : stale
+          ? "stale"
+          : eta
+            ? "live"
+            : "planned";
+
+  return {
+    status: link.visit.status,
+    etaMinutes: eta?.minutes ?? null,
+    estimatedArrivalAt: eta?.arrivalAt ?? null,
+    plannedStartsAt: link.visit.startsAt,
+    etaSource,
+    hasLivePosition,
+    stale,
+    pingAgeMinutes:
+      ageMs === null ? null : Math.floor(ageMs / 60_000),
+    lastUpdatedAt: ping?.recordedAt ?? null,
+    travelProvider: eta?.provider ?? null,
+  };
+}
+
+async function allowTrackingToken(
+  tokenHash: string,
+  keyPrefix: string,
+  limit: number,
+): Promise<{ allowed: true } | { allowed: false; retryAfterSeconds: number }> {
+  const result = await allowRequestDb(
+    `${keyPrefix}:${tokenHash}`,
+    limit,
+    60_000,
+  );
+  return result.allowed
+    ? { allowed: true }
+    : { allowed: false, retryAfterSeconds: result.retryAfterSeconds };
+}
+
+/**
+ * Leser den offentlige sporingstilstanden. Koordinater returneres aldri til
+ * klienten – bare status, montørens fornavn, ETA, planlagt tid og tidspunktet
+ * for siste posisjonsoppdatering.
+ *
+ * En lenke som er ukjent, tilbakekalt, utløpt, tilhører en avdeling med
+ * sporing avslått, eller en visitt som ikke lenger er EN_ROUTE/ON_SITE, gir
+ * samme `invalid`-svar. Da kan ikke lenken brukes til å gjette seg til status.
+ */
+export async function getPublicTracking(
+  token: string,
+  now = new Date(),
+  options: { routing?: RoutingProvider } = {},
+): Promise<PublicTrackingResult> {
+  if (validToken(token) && !allowGlobalTracking(now.getTime())) {
+    return { ok: false, reason: "rate_limited", retryAfterSeconds: 60 };
+  }
+  const link = await loadPublicTrackingLink(token, now);
+  if (!link) return { ok: false, reason: "invalid" };
+
+  const tokenHash = hashTrackingToken(token);
   // Grensen ligger per gyldig token, som for iCal-feeden. Ukjente tokens
   // skriver aldri en RateLimit-rad.
-  const limit = await allowRequestDb(`tracking:${tokenHash}`, 120, 60_000);
+  const limit = await allowTrackingToken(tokenHash, "tracking", 120);
   if (!limit.allowed) {
     return {
       ok: false,
@@ -308,42 +533,59 @@ export async function getPublicTracking(
     data: { lastUsedAt: new Date() },
   });
 
-  const ping = await prisma.visitLocationPing.findFirst({
-    where: {
-      visitId: link.visitId,
-      recordedAt: { gte: new Date(now.getTime() - LOCATION_PING_RETENTION_MS) },
-    },
-    orderBy: { recordedAt: "desc" },
-    select: { latitude: true, longitude: true, recordedAt: true },
-  });
-
-  const technicianName =
-    link.visit.technicians[0]?.user.name ?? null;
-  const eta =
-    link.visit.status === "EN_ROUTE" && ping
-      ? estimateEta({
-          from: { lat: ping.latitude, lng: ping.longitude },
-          to:
-            link.visit.workOrder.latitude !== null &&
-            link.visit.workOrder.longitude !== null
-              ? {
-                  lat: link.visit.workOrder.latitude,
-                  lng: link.visit.workOrder.longitude,
-                }
-              : null,
-          now,
-        })
-      : null;
+  const snapshot = await buildTrackingSnapshot(
+    link,
+    now,
+    options.routing ?? getRoutingProvider(),
+  );
+  const technicianName = link.visit.technicians[0]?.user.name ?? null;
 
   return {
     ok: true,
     data: {
+      ...snapshot,
       technicianFirstName: firstName(technicianName),
-      status: link.visit.status,
-      etaMinutes: eta?.minutes ?? null,
-      estimatedArrivalAt: eta?.estimatedArrivalAt ?? null,
-      lastUpdatedAt: ping?.recordedAt ?? null,
     },
+  };
+}
+
+/**
+ * Lettvekts ETA for den offentlige siden. Tokenet gir bare tilgang til denne
+ * ene visitten, og svaret inneholder verken navn, adresse eller koordinater.
+ * Egen rate limit gjør at polling ikke spiser av sidevisningens budsjett.
+ */
+export async function getPublicTrackingEta(
+  token: string,
+  now = new Date(),
+  options: { routing?: RoutingProvider } = {},
+): Promise<PublicTrackingEtaResult> {
+  if (validToken(token) && !allowGlobalTracking(now.getTime())) {
+    return { ok: false, reason: "rate_limited", retryAfterSeconds: 60 };
+  }
+  const link = await loadPublicTrackingLink(token, now);
+  if (!link) return { ok: false, reason: "invalid" };
+
+  const tokenHash = hashTrackingToken(token);
+  const limit = await allowTrackingToken(
+    tokenHash,
+    "tracking-eta",
+    TRACKING_ETA_RATE_LIMIT.limit,
+  );
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      reason: "rate_limited",
+      retryAfterSeconds: limit.retryAfterSeconds,
+    };
+  }
+
+  return {
+    ok: true,
+    data: await buildTrackingSnapshot(
+      link,
+      now,
+      options.routing ?? getRoutingProvider(),
+    ),
   };
 }
 

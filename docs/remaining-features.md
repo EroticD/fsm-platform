@@ -1,6 +1,6 @@
 # Remaining feature worklist
 
-> **Status snapshot:** `dev` @ `e83f38c` + merge (app 0.8.6), 2026-11-03.
+> **Status snapshot:** `dev` @ `249d56f` (app 0.8.8), 2026-11-03.
 > This is a queue for workers, not a description of shipped behaviour.
 > Do not mark an item done without the acceptance criteria and the gates below.
 
@@ -19,6 +19,11 @@ Levert og verifisert i 0.8.6:
 - **UX-01–07** — vedlikeholdsplaner, utstyrsfilter, dispatch-innstillinger,
   omtaler, booking-e-post, iCal og PDF-sidesøk.
 - **QA-01/02** — utvidet a11y/E2E og API-/OpenAPI-kontrakttest.
+- **SCH-01 (delvis)** — ruteplan per montør med nærmeste nabo + 2-opt,
+  tidsvinduer, kjøretid/ventetid/ETA per stopp, kartliste på `/kalender/rute`,
+  eksplisitt «Bruk rekkefølge» med transaksjon, revisjon og konfliktvern, samt
+  live ETA i offentlig sporing med ferskhetsgrense og polling. Dynamisk
+  omruting underveis gjenstår.
 - **CUST-EXPORT-01 v1** — admin-only eksport/import av kundepakker med
   manifest, sjekksum, dry-run, id-remapping, filhåndtering og reell
   PostgreSQL-test. Se kjente begrensninger i
@@ -26,6 +31,21 @@ Levert og verifisert i 0.8.6:
 
 Fortsatt åpne fra denne listen: **DATA-01** (GDPR-sletting/anonymisering)
 og **DOC-01** (dokumentasjon/overlappspolicy), samt P3.
+
+### Levert i dev etter 0.8.6
+
+- **Toveis SMS og påminnelser:** innkommende webhook med signatur,
+  idempotens, leveringsstatus og STOP/START; kontorinnboks med svar;
+  konfigurerbare SMS-/e-postpåminnelser via durabel worker.
+- **SSO og SCIM:** OIDC for Entra ID, Keycloak, Authentik og Zitadel,
+  verifisert e-post-kobling, rolle-/gruppemapping; SCIM 2.0 Users med
+  hash-lagrede token og admin-fane. SAML og SCIM Groups er ikke implementert.
+- **Feltapp, navigasjon og strekkode:** `/skann` med BarcodeDetector og
+  manuell fallback, Apple/Google Maps-dypelenker, kopier adresse/ring,
+  PWA-forbedringer og Capacitor-skall (signerte butikkbygg gjenstår).
+- **Rute og ETA:** ruteplanlegger med 2-opt, valgfri OSRM og lokal fallback,
+  «Bruk rekkefølge» med overlapp-/fraværssjekk, og sanntids ETA i sporingen.
+
 
 
 ## How to work this list
@@ -449,7 +469,10 @@ documented; baseline updated.
 - **PLAT-03 · Outbound signed webhooks** (`docs/DECISIONS.md:67`): retries,
   idempotency, dead letter, settings UI.
 - **PLAT-04 · SSO/OIDC/SAML + SCIM** (`docs/DECISIONS.md:68`): enterprise
-  provisioning with break-glass admin.
+  provisioning with break-glass admin. OIDC (Entra ID, Keycloak, Authentik,
+  Zitadel) og SCIM 2.0 for brukere er levert; SAML og SCIM Groups gjenstår.
+  Se `SECURITY.md`, `docs/OPERATIONS.md` og
+  `docs/manual/nb/31-sso-scim.md`.
 - **PLAT-05 · Advanced RBAC/field-level permissions + separation of duties**
   (`docs/DECISIONS.md:69`).
 - **PLAT-06 · HA/DR/PITR** (`docs/DECISIONS.md:73`): RPO/RTO, failover drill,
@@ -480,20 +503,20 @@ kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
 
 | Område | Ledende systemer (2026) | Status i 0.8.6 | Vurdering |
 | --- | --- | --- | --- |
-| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Mangler reiseavhengig sekvensering og sanntids re-planlegging. |
-| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | ❌ Ikke implementert | Kart/territorier finnes, men ikke ruteoptimalisering. P3. |
+| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Ruteplan finnes; dynamisk re-planlegging underveis mangler. |
+| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | 🟡 Ruteplan + ETA, ingen dynamisk omruting | Nærmeste nabo + 2-opt, valgfri OSRM og lokal fallback. SCH-01 delvis. |
 | Kundeportal og booking | Sanntids ledige tider, bekreftelse, ombooking, betaling | 🟡 Datoforespørsel + kontorplanlegging + e-postbekreftelse | Bevisst produktvalg (DOC-01). Sanntids slot-booking er neste modenhetssteg. |
 | Tilbud og estimater | Gode/bedre/beste-tilbud, godkjenning, konvertering til oppdrag | ❌ Ikke implementert | Største kommersielle gap. P2. |
 | Fakturering og betaling | Faktura fra fullført oppdrag, MVA, betalingslenker, finansiering | ❌ Ikke implementert (prislister/SLA finnes) | Største omsetningsgap. P2. |
 | Lager og deler | Lagersaldo, reservasjoner, innkjøp, bilager | ❌ Ikke implementert | P2/P3 avhengig av kundebehov. |
-| Mobil feltapp | Native app, offline, navigasjon, strekkode, tid/mileage, push | 🟡 PWA med offline skjema, bilder, signatur, QR | Sterk offline-kjerne; native app/navigasjon/tid/mileage mangler. P3. |
+| Mobil feltapp | Native app, offline, navigasjon, strekkode, tid/mileage, push | ✅ PWA + Capacitor-skall, navigasjon og strekkode | Signerte butikkbygg, push og tid/mileage gjenstår. |
 | Tid, kjøring og utlegg | Stempling, lønnseksport, kjørebok, utlegg | ❌ Ikke implementert | P2 for entreprenørmarkedet. |
 | Serviceavtaler og vedlikehold | Gjentakende planer, varsler, fornyelse, fakturering | ✅ Planer/forekomster, kontrakter, SLA, iCal | Mangler automatisert fornyelse/fakturering og forbruksbaserte avtaler. |
-| Kunde kommunikasjon | SMS/e-post, påminnelser, toveis innboks, ETA-lenker | 🟡 Varsler, SMS, e-post, portal, sporing, omtaler | Mangler toveis SMS-innboks og automatiserte påminnelsesløp. P2/P3. |
+| Kunde kommunikasjon | SMS/e-post, påminnelser, toveis innboks, ETA-lenker | ✅ Toveis SMS, påminnelser, portal, sporing og ETA | Automatiserte markedsføringsløp og samtykkehåndtering kan utvides. |
 | Rapportering/BI | Inntjening, utnyttelse, first-time-fix, egendefinerte rapporter | 🟡 Dashbord/statistikk og revisjonseksport | Mangler omsetnings-/lønnsomhetsanalyse og rapportbygger. P2. |
 | AI/Copilot | Planleggingsforslag, sammendrag, stemmeintake, prediktivt vedlikehold | ❌ Ikke implementert | P3, men raskt økende bordstake. |
 | Integrasjoner | Regnskap (QuickBooks/Xero/Fiken), CRM, betaling, webhooks | 🟡 API v1 med scopes/OpenAPI | Mangler regnskaps-/CRM-/betalingskonnektorer og utgående webhooks. P3. |
-| Enterprise-plattform | SSO/SCIM, avansert RBAC, multi-tenant, HA/PITR, objektlagring | 🟡 RBAC, revisjon, separate DB-roller | SSO, multi-tenant, S3/Redis/HA er allerede P3. |
+| Enterprise-plattform | SSO/SCIM, avansert RBAC, multi-tenant, HA/PITR, objektlagring | 🟡 SSO/SCIM, RBAC, revisjon, separate DB-roller | Multi-tenant, S3/Redis/HA/PITR gjenstår. |
 | Compliance og bevis | Revisjonskjede, legal hold, signert bevis-eksport, GDPR | ✅ Hash-kjede, legal hold, bevis- og kundeoverføring | Mangler GDPR-sletting (DATA-01) og eventuell DPA/HIPAA-malverk. |
 | Utstyr og IoT | Asset hierarchy, målere, QR, garanti, IoT/prediktivt | ✅ Hierarki, målere, QR, garanti, planer | Mangler IoT-inntak, prediktiv analyse og AR/fjernhjelp. P3. |
 | Skjema og dokumentasjon | Egendefinerte skjema, revisjoner, signatur, PDF | ✅ Maler, rapporter, revisjoner, signatur, PDF | Modent. |
@@ -508,12 +531,10 @@ kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
   reservasjon mot oppdrag, innkjøpsforslag og sporbarhet.
 - **FLD-01 · Tid, kjøring og utlegg (P2, M):** stempling, kjørebok,
   kvitteringer og lønnseksport.
-- **FL-02 · Native feltapp og navigasjon (P3, L):** native shell, offline,
-  turn-by-turn, strekkodeskanning og push.
-- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** kjøretid, tidsvinduer,
-  dynamisk omruting og sanntids ETA.
-- **COM-01 · Toveis SMS og påminnelsesløp (P2/P3, M):** felles innboks,
-  maler, automatiske påminnelser og samtykkestyring.
+- **FLD-02 · Signert native app, push og turn-by-turn (P3, L).**
+- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** ruteplan og sanntids ETA
+  er levert. Gjenstår dynamisk omruting underveis, trafikkdata og
+  turn-by-turn i feltappen.
 - **BI-01 · Lønnsomhet og rapportbygger (P2, M):** omsetning per oppdrag/
   kunde/tekniker, first-time-fix, utnyttelse og eksport.
 - **INT-01 · Regnskap/CRM/betaling og utgående webhooks (P3, L).**

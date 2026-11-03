@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "@/lib/prisma";
 import { uploadDir } from "@/lib/uploads";
+import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { sha256Hex } from "@/lib/zip";
 import {
   TRANSFER_ERROR,
@@ -59,6 +60,10 @@ export type TargetSnapshot = {
   contactsByCustomerEmail: Map<string, string>;
   sitesByCustomerName: Map<string, string>;
   productsByCustomerSerial: Map<string, { id: string; updatedAt: Date }>;
+  equipmentQrCodesByValue: Map<
+    string,
+    { id: string; productId: string; customerId: string }
+  >;
   contractsByNumber: Map<string, string>;
   workOrdersByReference: Map<string, string>;
   reportsByWorkOrderTemplate: Map<string, string>;
@@ -235,7 +240,7 @@ export async function loadTargetSnapshot(
   }
   const targetCustomerIds = [...new Set(sourceCustomerTargets.values())];
 
-  const [contacts, sites, products, contracts, workOrders, reports, documents, uploads] =
+  const [contacts, sites, products, equipmentQrCodes, contracts, workOrders, reports, documents, uploads] =
     await Promise.all([
       targetCustomerIds.length
         ? prisma.contact.findMany({
@@ -260,6 +265,14 @@ export async function loadTargetSnapshot(
             },
           })
         : Promise.resolve([]),
+      prisma.equipmentQrCode.findMany({
+        select: {
+          id: true,
+          normalizedValue: true,
+          productId: true,
+          product: { select: { customerId: true } },
+        },
+      }),
       prisma.contract.findMany({
         where: { contractNumber: { not: null } },
         select: { id: true, contractNumber: true },
@@ -335,6 +348,17 @@ export async function loadTargetSnapshot(
         updatedAt: product.updatedAt,
       });
     }
+  }
+  const equipmentQrCodesByValue = new Map<
+    string,
+    { id: string; productId: string; customerId: string }
+  >();
+  for (const code of equipmentQrCodes) {
+    equipmentQrCodesByValue.set(code.normalizedValue, {
+      id: code.id,
+      productId: code.productId,
+      customerId: code.product.customerId,
+    });
   }
   const contractsByNumber = new Map<string, string>();
   for (const contract of contracts) {
@@ -418,6 +442,7 @@ export async function loadTargetSnapshot(
     contactsByCustomerEmail,
     sitesByCustomerName,
     productsByCustomerSerial,
+    equipmentQrCodesByValue,
     contractsByNumber,
     workOrdersByReference,
     reportsByWorkOrderTemplate,
@@ -776,6 +801,86 @@ export async function analysePackage(
     }
   }
 
+  // Kundenes eksisterende QR-koder. Verdien er globalt unik, også på tvers av
+  // kunder, så en kollisjon er en konflikt og blokkerer importen.
+  const sourceProductIds = new Set(
+    dataset.products.map((product) => String(product.id)),
+  );
+  const seenQrValues = new Map<string, string>();
+  for (const code of dataset.equipmentQrCodes) {
+    const value = normalizeExternalQrValue(code.value);
+    const pathValue = `data/equipment-qr-codes.json#${code.id}.value`;
+    if (!isValidExternalQrValue(value)) {
+      setPlan(plan, "EquipmentQrCode", String(code.id), "INVALID");
+      errors.push(
+        issue(
+          "customer_transfer.invalid_data",
+          pathValue,
+          "errors.customerTransfer.invalidData",
+          "equipmentQrCode",
+        ),
+      );
+      continue;
+    }
+    const productId = String(code.productId ?? "");
+    const productPlan = plan.get(entityKey("Product", productId));
+    if (!productPlan || !sourceProductIds.has(productId)) {
+      setPlan(plan, "EquipmentQrCode", String(code.id), "CONFLICT");
+      errors.push(
+        issue(
+          "customer_transfer.invalid_reference",
+          `data/equipment-qr-codes.json#${code.id}.productId`,
+          "errors.customerTransfer.invalidReference",
+          "equipmentQrCode",
+        ),
+      );
+      continue;
+    }
+
+    const duplicateInPackage = seenQrValues.get(value);
+    if (duplicateInPackage) {
+      setPlan(plan, "EquipmentQrCode", String(code.id), "CONFLICT");
+      errors.push(
+        issue(
+          "customer_transfer.conflict",
+          pathValue,
+          "errors.customerTransfer.qrConflict",
+          "equipmentQrCode",
+        ),
+      );
+      continue;
+    }
+    seenQrValues.set(value, String(code.id));
+
+    const prior = snapshot.priorRecords.get(
+      entityKey("EquipmentQrCode", String(code.id)),
+    );
+    if (prior) {
+      setPlan(plan, "EquipmentQrCode", String(code.id), "SKIP", prior, "already_imported");
+      continue;
+    }
+
+    const existing = snapshot.equipmentQrCodesByValue.get(value);
+    if (existing) {
+      if (productPlan.targetId && existing.productId === productPlan.targetId) {
+        setPlan(plan, "EquipmentQrCode", String(code.id), "SKIP", existing.id, "duplicate");
+      } else {
+        setPlan(plan, "EquipmentQrCode", String(code.id), "CONFLICT");
+        errors.push(
+          issue(
+            "customer_transfer.conflict",
+            pathValue,
+            "errors.customerTransfer.qrConflict",
+            "equipmentQrCode",
+          ),
+        );
+      }
+      continue;
+    }
+
+    setPlan(plan, "EquipmentQrCode", String(code.id), "CREATE");
+  }
+
   for (const contract of dataset.contracts) {
     const number = normaliseContractNumber(contract.contractNumber);
     const match = number ? snapshot.contractsByNumber.get(number) : undefined;
@@ -1058,6 +1163,7 @@ export async function analysePackage(
     prisma.contact.count(),
     prisma.customerSite.count(),
     prisma.product.count(),
+    prisma.equipmentQrCode.count(),
     prisma.contract.count(),
     prisma.workOrder.count(),
     prisma.report.count(),

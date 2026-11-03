@@ -1,7 +1,7 @@
 {
   "settings": {
     "tabs": {
-      "sms": "SMS"
+      "sms": "SMS und Erinnerungen"
     }
   },
   "sms": {
@@ -111,6 +111,65 @@
       "noConsent": "Der Kontakt hat der SMS nicht zugestimmt.",
       "rate_limited": "Das monatliche SMS-Limit wurde erreicht.",
       "generic": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+    },
+    "reminders": {
+      "title": "Automatische Erinnerungen",
+      "description": "SMS oder E-Mail vor geplanten Terminen senden. Jede Regel gilt für eine Abteilung, einen Kanal und eine Anzahl Stunden vor dem Termin.",
+      "quietHint": "Ruhezeiten sind lokale Uhrzeiten (0–23). Beide leer lassen, um jederzeit zu senden. Ein Fenster wie 22–07 geht über Mitternacht.",
+      "noDepartments": "Keine aktiven Abteilungen. Legen Sie zuerst eine Abteilung an.",
+      "create": "Neue Erinnerungsregel",
+      "department": "Abteilung",
+      "channel": "Kanal",
+      "channels": {
+        "SMS": "SMS",
+        "EMAIL": "E-Mail",
+        "BOTH": "SMS und E-Mail"
+      },
+      "offsetHours": "Stunden vor dem Termin",
+      "templateKey": "SMS-Vorlage",
+      "quietStart": "Ruhe ab (Stunde)",
+      "quietEnd": "Ruhe bis (Stunde)",
+      "timezone": "Zeitzone",
+      "maxPerVisit": "Max. Erinnerungen pro Termin",
+      "active": "Aktiv",
+      "createButton": "Regel anlegen",
+      "noRules": "Es wurden keine Erinnerungsregeln angelegt.",
+      "ruleSummary": "{hours} Stunden vorher · {channel}",
+      "save": "Regel speichern",
+      "delete": "Regel löschen",
+      "history": "Letzte Erinnerungen",
+      "historyHint": "Zeigt geplante, gesendete und übersprungene Erinnerungen ohne Nachrichtentext oder Telefonnummern.",
+      "noHistory": "Es wurden noch keine Erinnerungen geplant.",
+      "historyRow": "{hours} Stunden vorher · {channel}",
+      "sentAt": "Gesendet {time}",
+      "scheduledAt": "Geplant {time}",
+      "saved": "Die Erinnerungsregel wurde gespeichert.",
+      "conflict": "Für diese Abteilung, diesen Kanal und diese Stundenzahl existiert bereits eine Regel.",
+      "status": {
+        "SCHEDULED": "Geplant",
+        "PROCESSING": "Wird gesendet",
+        "SENT": "Gesendet",
+        "SKIPPED": "Übersprungen",
+        "FAILED": "Fehlgeschlagen"
+      },
+      "reasons": {
+        "missing_consent_or_phone": "Einwilligung oder Telefonnummer fehlt",
+        "email_opt_out": "E-Mail ist abgemeldet",
+        "max_per_visit": "Maximum pro Termin erreicht",
+        "quiet_hours": "Ruhezeiten",
+        "visit_deleted": "Der Termin wurde gelöscht",
+        "work_order_deleted": "Der Auftrag wurde gelöscht",
+        "work_order_cancelled": "Der Auftrag wurde storniert",
+        "visit_completed": "Der Termin ist abgeschlossen",
+        "visit_cancelled": "Der Termin wurde storniert",
+        "visit_moved": "Der Termin wurde verschoben",
+        "rule_inactive": "Die Regel ist deaktiviert",
+        "missing_phone": "Telefonnummer fehlt",
+        "no_consent": "SMS-Einwilligung fehlt",
+        "missing_template": "SMS-Vorlage fehlt",
+        "missing_customer": "Der Auftrag hat keinen Kunden",
+        "missing_email": "E-Mail-Adresse fehlt"
+      }
     }
   }
 }

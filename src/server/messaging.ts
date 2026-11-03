@@ -181,7 +181,11 @@ export async function getMessageThread(
   const smsStatuses: Record<string, string> = {};
   for (const row of smsRows) smsStatuses[row.id] = row.status;
 
-  if (options.markRead !== false && thread.unreadCount > 0) {
+  if (
+    options.markRead !== false &&
+    actor.role !== "CUSTOMER" &&
+    thread.unreadCount > 0
+  ) {
     await prisma.$transaction([
       prisma.messageThread.update({
         where: { id: thread.id },
@@ -577,26 +581,49 @@ export async function recordInboundSms(
         return { smsId: sms.id, threadId: null as string | null };
       }
 
+      // En kunde som svarer på en SMS skal havne i samme samtale som
+      // oppdraget meldingen gjaldt. Vi gjenbruker derfor den nyeste tråden
+      // for samme kunde og kontakt; ellers opprettes en generell tråd.
+      const existingThread = await tx.messageThread.findFirst({
+        where: {
+          customerId: match.customerId,
+          contactId: match.contactId,
+        },
+        orderBy: { lastMessageAt: "desc" },
+        select: { id: true, departmentId: true },
+      });
       const threadKey = messageThreadKey({
         customerId: match.customerId,
         contactId: match.contactId,
       });
-      const thread = await tx.messageThread.upsert({
-        where: { threadKey },
-        update: {
-          lastMessageAt: new Date(),
-          unreadCount: { increment: 1 },
-        },
-        create: {
-          threadKey,
-          customerId: match.customerId,
-          departmentId: match.departmentId,
-          contactId: match.contactId,
-          unreadCount: 1,
-          lastMessageAt: new Date(),
-        },
-        select: { id: true },
-      });
+      const thread = existingThread
+        ? await tx.messageThread.update({
+            where: { id: existingThread.id },
+            data: {
+              lastMessageAt: new Date(),
+              unreadCount: { increment: 1 },
+              ...(existingThread.departmentId
+                ? {}
+                : { departmentId: match.departmentId }),
+            },
+            select: { id: true },
+          })
+        : await tx.messageThread.upsert({
+            where: { threadKey },
+            update: {
+              lastMessageAt: new Date(),
+              unreadCount: { increment: 1 },
+            },
+            create: {
+              threadKey,
+              customerId: match.customerId,
+              departmentId: match.departmentId,
+              contactId: match.contactId,
+              unreadCount: 1,
+              lastMessageAt: new Date(),
+            },
+            select: { id: true },
+          });
 
       await tx.message.create({
         data: {

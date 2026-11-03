@@ -11,9 +11,11 @@ const CUSTOMER_ALLOWED_PREFIXES = [
   "/api/kundeportal", // CSV-eksport av egne oppdrag (tilgang sjekkes i ruten)
   "/api/branding", // merkevare (firmanavn, logo, farge) i header
   "/api/rapporter", // selve PDF-filen (tilgang sjekkes per oppdrag i ruten)
+  "/api/tracking", // offentlig ETA for sporingslenken (token sjekkes i ruten)
   "/uploads", // bilder og vedlegg som vises i rapportene
   "/api/auth", // innlogging / utlogging
   "/api/v1", // REST-API: autentiseres med API-nøkkel og svarer JSON ved manglende tilgang
+  "/api/scim", // SCIM: autentiseres med eget bearer-token, ikke sesjon
   "/glemt-passord",
   "/tilbakestill-passord",
   "/aktiver-konto",

@@ -5,8 +5,11 @@ import { addDaysUtc, todayUtc, toDateOnly } from "@/lib/dates";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
 import type { ServiceActor } from "@/server/actor";
 import {
+  addEquipmentQrCode,
   addMeterReading,
   createEquipment,
+  deleteEquipmentQrCode,
+  resolveEquipmentExternalQr,
   resolveEquipmentQrToken,
   rotateEquipmentQrToken,
   updateEquipment,
@@ -252,6 +255,47 @@ describeIntegration("Utstyr og vedlikehold", () => {
     });
     expect(toDateOnly(order.scheduledFor)).toBe(toDateOnly(due));
 
+    await cleanupProduct(product.id);
+  });
+
+  it("registrerer, slår opp og sletter en ekstern QR-kode", async () => {
+    const product = await createProduct("Ekstern QR-pumpe");
+    const other = await createProduct("Annen pumpe");
+    const value = unique("LEGACY-QR");
+
+    const added = await addEquipmentQrCode(actor, {
+      equipmentId: product.id,
+      value: `  ${value}  `,
+      label: "Gammel QR",
+      source: "SCAN",
+    });
+    expect(added.ok).toBe(true);
+
+    const resolved = await resolveEquipmentExternalQr(value);
+    expect(resolved?.productId).toBe(product.id);
+
+    const duplicate = await addEquipmentQrCode(actor, {
+      equipmentId: other.id,
+      value,
+    });
+    expect(duplicate).toMatchObject({
+      ok: false,
+      reason: "conflict",
+      details: { equipmentModel: "Ekstern QR-pumpe" },
+    });
+
+    const stored = await prisma.equipmentQrCode.findUniqueOrThrow({
+      where: { normalizedValue: value },
+      select: { source: true, label: true },
+    });
+    expect(stored).toEqual({ source: "SCAN", label: "Gammel QR" });
+
+    if (!added.ok) return;
+    const deleted = await deleteEquipmentQrCode(actor, product.id, added.data.id);
+    expect(deleted.ok).toBe(true);
+    await expect(resolveEquipmentExternalQr(value)).resolves.toBeNull();
+
+    await cleanupProduct(other.id);
     await cleanupProduct(product.id);
   });
 

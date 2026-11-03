@@ -1194,7 +1194,6 @@
         "claimError": "Der Auftrag konnte nicht übernommen werden. Versuchen Sie es erneut.",
         "call": "Anrufen",
         "callPhone": "{phone} anrufen",
-        "showMap": "Karte",
         "newTab": "öffnet in einem neuen Tab",
         "historyTitle": "Abgeschlossene Aufträge / Verlauf ({count})",
         "loadMore": "Mehr anzeigen ({count})",
@@ -1222,7 +1221,6 @@
         "quickActions": "Schnellaktionen",
         "callContact": "Kontakt anrufen",
         "newTab": "öffnet in einem neuen Tab",
-        "map": "Karte",
         "customer": "Kunde",
         "unit": "Gerät",
         "documents": "Dokumente",
@@ -4092,6 +4090,32 @@
         "footer": "Etikett an der Anlage befestigen, damit die Servicehistorie nur einen Scan entfernt ist.",
         "noQr": "Die Anlage hat kein QR-Token. Vor dem Drucken das Token auf der Anlagenseite rotieren."
       },
+      "externalQr": {
+        "title": "Bestehende QR-Codes",
+        "description": "Hat der Kunde bereits QR-Etiketten aus einem anderen System? Registrieren Sie den Wert hier, damit die Feldapp die richtige Anlage findet. Das Etikett bleibt physisch an der Anlage – wir erstellen oder ändern es nicht.",
+        "empty": "Keine bestehenden QR-Codes registriert.",
+        "noLabel": "Ohne Namen",
+        "added": "Hinzugefügt am {date}",
+        "lastScanned": "Zuletzt gescannt am {date}",
+        "neverScanned": "Nie gescannt",
+        "delete": "Löschen",
+        "deleteConfirm": "Zuordnung löschen? Das physische QR-Etikett wird nicht verändert.",
+        "sources": {
+          "MANUAL": "Manuell",
+          "SCAN": "Gescannt",
+          "IMPORT": "Importiert"
+        },
+        "form": {
+          "value": "QR-Wert",
+          "valuePlaceholder": "Code einfügen oder scannen",
+          "valueHint": "Der Wert ist groß-/kleinschreibungssensitiv und wird unverändert gespeichert. Manuelles Einfügen ist immer möglich.",
+          "label": "Name (optional)",
+          "labelPlaceholder": "Alter QR – Tor 3",
+          "scan": "Bestehenden QR scannen",
+          "cancelScan": "Kamera schließen",
+          "submit": "QR-Code registrieren"
+        }
+      },
       "timeline": {
         "kinds": {
           "report": "Bericht",
@@ -4124,6 +4148,9 @@
         "retired": "Stillgelegte Anlagen können keine neuen Messwerte erhalten.",
         "invalidReading": "Der Messwert ist ungültig.",
         "qrMissing": "Die Anlage hat kein QR-Token.",
+        "qrInvalid": "Der QR-Wert ist leer oder zu lang (maximal 2048 Zeichen).",
+        "qrDuplicate": "Der QR-Code ist bereits an einer anderen Anlage registriert.",
+        "qrDuplicateNamed": "Der QR-Code ist bereits an {model} registriert.",
         "forbidden": "Kein Zugriff.",
         "notFound": "Anlage nicht gefunden.",
         "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
@@ -4143,6 +4170,8 @@
         "updated": "Die Anlage wurde aktualisiert.",
         "moved": "Die Anlage wurde in der Hierarchie verschoben.",
         "qrRotated": "Das QR-Token wurde rotiert. Das alte Etikett funktioniert nicht mehr.",
+        "qrCodeAdded": "Der bestehende QR-Code wurde registriert.",
+        "qrCodeDeleted": "Die QR-Zuordnung wurde gelöscht. Das Etikett bleibt unverändert.",
         "readingAdded": "Der Messwert wurde erfasst.",
         "planCreated": "Der Wartungsplan wurde erstellt.",
         "planUpdated": "Der Wartungsplan wurde aktualisiert.",

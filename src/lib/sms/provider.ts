@@ -40,6 +40,15 @@ export type SmsInboundMessage = {
   receivedAt: Date | null;
 };
 
+/** Leveringsstatus fra leverandørens status-callback. */
+export type SmsStatusUpdate = {
+  provider: SmsProviderName;
+  providerId: string;
+  status: "SENT" | "DELIVERED" | "FAILED";
+  occurredAt: Date | null;
+  error: string | null;
+};
+
 export type SmsWebhookRequest = {
   rawBody: string;
   headers: Headers;
@@ -50,6 +59,8 @@ export type SmsProvider = {
   name: SmsProviderName;
   send(input: SmsSendInput): Promise<SmsSendResult>;
   parseWebhook(request: SmsWebhookRequest): SmsInboundMessage | null;
+  /** Status-/leveringscallback. null betyr «ikke en statusmelding». */
+  parseStatus(request: SmsWebhookRequest): SmsStatusUpdate | null;
   verifySignature(request: SmsWebhookRequest): boolean;
 };
 
@@ -297,6 +308,103 @@ function inboundFromRecord(
   };
 }
 
+/**
+ * Oversetter leverandørenes mange statusnavn til de fire tilstandene vi
+ * lagrer. Ukjente og mellomliggende statuser (queued/pending) ignoreres, slik
+ * at en callback aldri nedgraderer en levert melding.
+ */
+export function normalizeSmsStatus(
+  value: unknown,
+): "SENT" | "DELIVERED" | "FAILED" | null {
+  const status = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (!status) return null;
+  if (
+    [
+      "delivered",
+      "delivery_success",
+      "delivered_to_handset",
+      "delivrd",
+      "read",
+      "completed",
+    ].includes(status)
+  ) {
+    return "DELIVERED";
+  }
+  if (
+    ["sent", "accepted", "sent_to_network", "submitted", "ok"].includes(status)
+  ) {
+    return "SENT";
+  }
+  if (
+    [
+      "failed",
+      "undelivered",
+      "rejected",
+      "expired",
+      "error",
+      "failed_to_send",
+      "undeliv",
+      "not_delivered",
+    ].includes(status)
+  ) {
+    return "FAILED";
+  }
+  return null;
+}
+
+function statusFromRecord(
+  provider: SmsProviderName,
+  record: JsonRecord,
+): SmsStatusUpdate | null {
+  const providerId = firstText(record, [
+    "id",
+    "messageId",
+    "providerId",
+    "smsId",
+    "MessageSid",
+    "SmsSid",
+  ]);
+  const status = normalizeSmsStatus(
+    firstText(record, [
+      "status",
+      "state",
+      "event",
+      "messageStatus",
+      "deliveryStatus",
+      "MessageStatus",
+      "SmsStatus",
+    ]),
+  );
+  if (!providerId || !status) return null;
+
+  const occurred = firstText(record, [
+    "occurredAt",
+    "timestamp",
+    "time",
+    "deliveredAt",
+  ]);
+  const parsed = occurred ? new Date(occurred) : null;
+  const error = firstText(record, [
+    "error",
+    "errorCode",
+    "reason",
+    "description",
+    "ErrorCode",
+  ]);
+
+  return {
+    provider,
+    providerId: providerId.slice(0, 200),
+    status,
+    occurredAt:
+      parsed && !Number.isNaN(parsed.getTime()) ? parsed : null,
+    error: error ? error.slice(0, 200) : null,
+  };
+}
+
 function consoleProvider(): SmsProvider {
   return {
     name: "console",
@@ -312,6 +420,10 @@ function consoleProvider(): SmsProvider {
     parseWebhook(request) {
       const record = readJson(request.rawBody);
       return record ? inboundFromRecord("console", record) : null;
+    },
+    parseStatus(request) {
+      const record = readJson(request.rawBody);
+      return record ? statusFromRecord("console", record) : null;
     },
     verifySignature(request) {
       return verifySmsSignature("console", request);
@@ -382,6 +494,10 @@ function linkMobilityProvider(): SmsProvider {
       const record = readJson(request.rawBody);
       return record ? inboundFromRecord("linkmobility", record) : null;
     },
+    parseStatus(request) {
+      const record = readJson(request.rawBody);
+      return record ? statusFromRecord("linkmobility", record) : null;
+    },
     verifySignature(request) {
       return verifySmsSignature("linkmobility", request);
     },
@@ -439,6 +555,30 @@ function pswincomProvider(): SmsProvider {
         to,
         body: body.slice(0, 1600),
         receivedAt: null,
+      };
+    },
+    parseStatus(request) {
+      const record = readJson(request.rawBody);
+      if (record) return statusFromRecord("pswincom", record);
+      const xml = request.rawBody;
+      const providerId = xmlText(xml, "ID") || xmlText(xml, "MessageId");
+      const status = normalizeSmsStatus(
+        xmlText(xml, "STATUS") ||
+          xmlText(xml, "Status") ||
+          xmlText(xml, "DELIVERYSTATUS") ||
+          xmlText(xml, "State"),
+      );
+      if (!providerId || !status) return null;
+      const error =
+        xmlText(xml, "ERROR") ||
+        xmlText(xml, "Error") ||
+        xmlText(xml, "REASON");
+      return {
+        provider: "pswincom",
+        providerId: providerId.slice(0, 200),
+        status,
+        occurredAt: null,
+        error: error ? error.slice(0, 200) : null,
       };
     },
     verifySignature(request) {
@@ -499,6 +639,15 @@ function twilioProvider(): SmsProvider {
         body: params.get("Body"),
       };
       return inboundFromRecord("twilio", record);
+    },
+    parseStatus(request) {
+      const params = new URLSearchParams(request.rawBody);
+      const record: JsonRecord = {
+        MessageSid: params.get("MessageSid") ?? params.get("SmsSid"),
+        MessageStatus: params.get("MessageStatus") ?? params.get("SmsStatus"),
+        ErrorCode: params.get("ErrorCode"),
+      };
+      return statusFromRecord("twilio", record);
     },
     verifySignature(request) {
       return verifySmsSignature("twilio", request);

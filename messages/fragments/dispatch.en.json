@@ -1,12 +1,14 @@
 {
   "metadata": {
     "routes": {
-      "kapasitet": "Capacity"
+      "kapasitet": "Capacity",
+      "rute": "Route plan"
     }
   },
   "calendar": {
     "common": {
-      "capacity": "Capacity"
+      "capacity": "Capacity",
+      "route": "Route"
     },
     "dispatch": {
       "bestMatch": "Best match",
@@ -38,6 +40,54 @@
       "suggestButton": "Suggest",
       "suggestError": "Could not load suggestions. Try again.",
       "assignCandidate": "Assign"
+    },
+    "route": {
+      "subtitle": "Suggested driving order per technician, with drive time and arrival at each stop.",
+      "filters": "Filter the route plan",
+      "date": "Date",
+      "technician": "Technician",
+      "allTechnicians": "All technicians",
+      "show": "Show route",
+      "backToDispatch": "Back to dispatch",
+      "applied": "{count, plural, one {# visit was moved.} other {# visits were moved.}}",
+      "empty": "No planned visits with coordinates on this day.",
+      "eyebrow": "Suggested route",
+      "totalDrive": "Drive time",
+      "totalDistance": "Distance",
+      "totalWaiting": "Waiting time",
+      "provider": "Calculation",
+      "providerOsrm": "Routing provider",
+      "providerLocal": "Local estimate",
+      "fallback": "The routing provider did not respond. Drive time is estimated locally from straight-line distance and average speed, so the figures are approximate.",
+      "mapHint": "The map shows the stops in the suggested order. The list below contains the same information as text.",
+      "mapAria": "Map of the suggested route for {name}",
+      "openWorkOrder": "Open work order",
+      "tableCaption": "Suggested route for {name}",
+      "stop": "Stop",
+      "eta": "Arrival",
+      "planned": "Planned",
+      "travel": "Driving",
+      "wait": "Waiting",
+      "workOrder": "Work order",
+      "applyOrder": "Use order",
+      "applyHint": "Moves the visits to the suggested times. Completed and cancelled visits are never moved. The whole change is cancelled on overlap or absence.",
+      "skippedTitle": "Visits not included in the route",
+      "skippedMissingCoordinates": "missing coordinates",
+      "skippedOutsideWindow": "does not fit within the time window",
+      "skippedLimit": "exceeds the limit of 50 stops",
+      "minutes": "{count, plural, one {# min} other {# min}}",
+      "km": "{count} km",
+      "errors": {
+        "invalid": "The date or selection is invalid.",
+        "forbidden": "You do not have permission to change the order.",
+        "notFound": "The technician or route was not found.",
+        "conflict": "The route has changed since it was shown. Reload the page.",
+        "absence": "The move collides with registered absence.",
+        "overlap": "The move overlaps another visit for the technician.",
+        "orderMismatch": "The order does not match the displayed plan. Reload the page.",
+        "applyFailed": "The order could not be applied.",
+        "unknown": "Something went wrong. Try again."
+      }
     }
   },
   "dispatch": {

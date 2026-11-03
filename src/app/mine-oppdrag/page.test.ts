@@ -44,6 +44,7 @@ vi.mock("@/components/StatusBadge", () => ({
 vi.mock("@/components/LogoutButton", () => ({ default: () => null }));
 vi.mock("@/components/SubmitButton", () => ({ default: () => null }));
 vi.mock("@/components/customer/CustomerToast", () => ({ default: () => null }));
+vi.mock("@/components/field/FieldModeStrip", () => ({ default: () => null }));
 
 import TechnicianDashboard from "./page";
 
@@ -170,7 +171,7 @@ describe("/mine-oppdrag – feltets I dag", () => {
 
     expect(html).toContain("Kari Kontakt");
     expect(html).toContain("tel:99999999");
-    expect(html).toContain("https://www.google.com/maps/search/");
+    expect(html).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=");
     expect(html).toContain("orders.fieldList.draftBadge");
     expect(html).toContain("orders.fieldList.draftContinue");
     expect(html).toContain("/mine-oppdrag/wo-1/skjema/tpl-1");

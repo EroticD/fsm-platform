@@ -5,7 +5,7 @@ import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
+import NavigateLink from "@/components/NavigateLink";
 import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
@@ -771,10 +771,14 @@ export default async function AdminWorkOrderPage({
                   </div>
                   <p className="mt-0.5 truncate text-xs text-[#5e6356]">
                     {hasAddress ? (
-                      <GoogleMapsLink
+                      <NavigateLink
+                        latitude={workOrder.site?.latitude ?? workOrder.latitude}
+                        longitude={workOrder.site?.longitude ?? workOrder.longitude}
                         address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
                         postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
                         city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
+                        label={t("fieldTools.navigate")}
+                        newTabLabel={t("fieldTools.newTab")}
                       />
                     ) : (
                       <span className="italic">{t("orders.detail.noAddress")}</span>
@@ -1166,10 +1170,14 @@ export default async function AdminWorkOrderPage({
                   </p>
                   <p className="font-bold">
                     {hasAddress ? (
-                      <GoogleMapsLink
+                      <NavigateLink
+                        latitude={workOrder.site?.latitude ?? workOrder.latitude}
+                        longitude={workOrder.site?.longitude ?? workOrder.longitude}
                         address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
                         postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
                         city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
+                        label={t("fieldTools.navigate")}
+                        newTabLabel={t("fieldTools.newTab")}
                       />
                     ) : (
                       <span className="text-xs italic text-[#5e6356]">{t("orders.detail.noAddress")}</span>

@@ -1,6 +1,6 @@
 # Tekniker
 
-Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, offline-kladder og innsending. Versjon 0.8.5 (2026-10-31).
+Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.6 (2026-11-03).
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
 
@@ -46,6 +46,25 @@ Feltappen er en installérbar nettapp. Den åpnes i eget vindu, starter på `/mi
 
 Det finnes ingen egen «Installer»-knapp i appen. Installasjonen bruker manifestet og krever HTTPS. Service workeren registreres bare i produksjonsbygget.
 
+Når appen er installert, kan du holde inne appikonet og velge **Mine oppdrag**, **Skann** eller **I dag**. De samme valgene ligger i appen. Når en ny versjon er lastet ned, viser appen **En ny versjon av feltappen er klar.** Trykk **Oppdater** når du ikke står midt i et skjema. **Senere** skjuler meldingen til neste oppstart.
+
+### Skann QR og strekkode
+
+1. Trykk **Skann** på **I dag**, i topplinjen eller i menyen.
+2. Trykk **Start kamera** og gi kameratilgang første gang.
+3. Hold QR-koden på enhetsetiketten rolig i rammen. Appen åpner enheten eller oppdraget hvis du har tilgang.
+4. Får du ikke kamera, eller støtter ikke nettleseren skanning, skriver du koden i **Kode eller referanse** og trykker **Slå opp**. Du kan lime inn hele lenken fra etiketten.
+
+Appen godtar enhets-QR, enhets-ID, oppdragsreferanse (for eksempel `O-261103-ABCD1234`) og ordrenummer. Ukjent kode, manglende tilgang og gjentatte skann gir en forklaring i stedet for å åpne feil side. Tilgangen kontrolleres på nytt på serveren; et skann gir aldri mer tilgang enn du har fra før.
+
+Har kunden allerede QR-etiketter fra et annet system, virker de også: Kontoret registrerer den eksisterende verdien under **Eksisterende QR-koder** på enheten. Du skanner etiketten på samme måte som vår egen, og appen åpner enheten hvis du har tilgang. Verdien er en opak streng – appen følger aldri en lenke eller henter innhold fra internett.
+
+### Naviger, ring og kopier adresse
+
+**Naviger** åpner den innebygde kartappen: Apple Maps på iPhone/iPad, Google Maps eller valgt kartapp på Android, og Google Maps i nettleseren på datamaskin. Appen bruker koordinater når de finnes, ellers en URL-kodet adresse. Mangler både adresse og koordinater, skjules knappen.
+
+**Ring** åpner telefonappen med oppdragets kontaktperson, kundens kontaktperson eller hovedtelefon. **Kopier adresse** legger hele adressen på utklippstavlen, slik at den kan limes inn i SMS, e-post eller et annet system.
+
 ### Før du mister nettet
 
 1. Åpne **I dag** og hvert oppdrag du skal utføre.
@@ -63,9 +82,9 @@ Side-cachen varer i åtte timer; lokale kladder i sju dager.
 
 ### Neste jobb
 
-Kortet **Neste jobb** viser dagens første gjenstående jobb, eller neste kommende jobb hvis dagen er tom. Det viser dato og klokkeslett, eller **Tid ikke satt** / **Hele dagen**, tittel, kunde, ordrenummer, adresse, kontaktperson, **Jobb 1 av N**, og **Start skjema**, **Fortsett skjema** eller **Åpne jobb**, **Ring** og **Kart**.
+Kortet **Neste jobb** viser dagens første gjenstående jobb, eller neste kommende jobb hvis dagen er tom. Det viser dato og klokkeslett, eller **Tid ikke satt** / **Hele dagen**, tittel, kunde, ordrenummer, adresse, kontaktperson, **Jobb 1 av N**, og **Start skjema**, **Fortsett skjema** eller **Åpne jobb**, **Ring** og **Naviger**.
 
-**Start skjema** åpner første sjekkliste som mangler låst rapport. **Fortsett skjema** brukes ved kladd eller ulåst rapport. Har oppdraget ingen mal, sier knappen **Åpne jobb**.
+**Start skjema** åpner første sjekkliste som mangler låst rapport. **Fortsett skjema** brukes ved kladd eller ulåst rapport. Har oppdraget ingen mal, sier knappen **Åpne jobb**. **Naviger** åpner kartappen med koordinater eller adresse.
 
 ### Forfalt, ledige og senere
 
@@ -79,7 +98,7 @@ Søkefeltet i **I dag** søker i tittel, beskrivelse, ordrenummer, kundenavn, ku
 
 ### Jobbkort og statuschips
 
-Kortet er én stor trykkflate med tittel, statuschip, kunde, ordrenummer, kontaktperson/telefon, adresse, tags, dato og klokkeslett. Finnes en kladd, vises **Kladd 14:32 · Fortsett**. **Ring** og **Kart** ligger oppå kortet og starter telefon eller Google Maps uten å åpne oppdraget.
+Kortet er én stor trykkflate med tittel, statuschip, kunde, ordrenummer, kontaktperson/telefon, adresse, tags, dato og klokkeslett. Finnes en kladd, vises **Kladd 14:32 · Fortsett**. **Ring** og **Naviger** ligger oppå kortet og starter telefon eller kartappen uten å åpne oppdraget.
 
 | Chip | Betydning |
 | --- | --- |
@@ -113,7 +132,7 @@ Står det **Ingen aktive oppdrag i din kalender akkurat nå**:
 
 ### Kunde, kontakt, adresse og kart
 
-**Hurtighandlinger** gir **Ring kontakt**, **Kart**, **Kunde**, **Utstyr** og **Dokumenter**. **Ring kontakt** bruker oppdragets kontaktperson, deretter kundens kontaktperson eller hovedtelefon. **Kart** åpner adressen i Google Maps i ny fane og skjules når adresse mangler.
+**Hurtighandlinger** gir **Ring kontakt**, **Naviger**, **Kunde**, **Utstyr** og **Dokumenter**. **Ring kontakt** bruker oppdragets kontaktperson, deretter kundens kontaktperson eller hovedtelefon. **Naviger** åpner kartappen med koordinater eller adresse og skjules når begge mangler. **Kopier adresse** ligger under adressen i **Lokasjon og kontakt**.
 
 **Lokasjon og kontakt** viser full adresse, firma-telefon, oppdragets kontaktperson og kundens øvrige kontakter med telefon og e-post. Mangler data, står det **Ikke oppgitt** eller **Ingen spesifikk kontaktperson registrert**.
 

@@ -125,7 +125,6 @@
         },
         "empty": "Noch keine Gespräche.",
         "noSubject": "Gespräch ohne Betreff",
-        "unread": "{count} ungelesen",
         "back": "Zurück zu Nachrichten",
         "fromYou": "Sie",
         "fromOffice": "Der Dienstleister",

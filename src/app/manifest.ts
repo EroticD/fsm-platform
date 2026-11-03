@@ -23,12 +23,39 @@ function preferredLocale(
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const requestHeaders = await headers();
   const locale = preferredLocale(requestHeaders.get("accept-language"));
+  const shortcutIcon = [
+    {
+      src: "/android-chrome-192x192.png",
+      sizes: "192x192",
+      type: "image/png",
+    },
+  ];
   const localized =
     locale === "en"
       ? {
           name: "FSM – field service",
           short_name: "FSM",
           description: "Work orders, checklists and documents in the field.",
+          shortcuts: [
+            {
+              name: "My jobs",
+              short_name: "Jobs",
+              url: "/mine-oppdrag",
+              icons: shortcutIcon,
+            },
+            {
+              name: "Scan",
+              short_name: "Scan",
+              url: "/skann",
+              icons: shortcutIcon,
+            },
+            {
+              name: "Today",
+              short_name: "Today",
+              url: "/mine-oppdrag#senere",
+              icons: shortcutIcon,
+            },
+          ],
         }
       : locale === "pl"
         ? {
@@ -36,6 +63,26 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
             short_name: "FSM",
             description:
               "Zlecenia, listy kontrolne i dokumenty w terenie.",
+            shortcuts: [
+              {
+                name: "Moje zlecenia",
+                short_name: "Zlecenia",
+                url: "/mine-oppdrag",
+                icons: shortcutIcon,
+              },
+              {
+                name: "Skanuj",
+                short_name: "Skanuj",
+                url: "/skann",
+                icons: shortcutIcon,
+              },
+              {
+                name: "Dzisiaj",
+                short_name: "Dzisiaj",
+                url: "/mine-oppdrag#senere",
+                icons: shortcutIcon,
+              },
+            ],
           }
         : locale === "de"
           ? {
@@ -43,20 +90,65 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
               short_name: "FSM",
               description:
                 "Aufträge, Checklisten und Dokumente im Außendienst.",
+              shortcuts: [
+                {
+                  name: "Meine Aufträge",
+                  short_name: "Aufträge",
+                  url: "/mine-oppdrag",
+                  icons: shortcutIcon,
+                },
+                {
+                  name: "Scannen",
+                  short_name: "Scannen",
+                  url: "/skann",
+                  icons: shortcutIcon,
+                },
+                {
+                  name: "Heute",
+                  short_name: "Heute",
+                  url: "/mine-oppdrag#senere",
+                  icons: shortcutIcon,
+                },
+              ],
             }
           : {
               name: "FSM – feltapp",
               short_name: "FSM",
               description:
                 "Serviceoppdrag, sjekklister og dokumenter i felt.",
+              shortcuts: [
+                {
+                  name: "Mine oppdrag",
+                  short_name: "Oppdrag",
+                  url: "/mine-oppdrag",
+                  icons: shortcutIcon,
+                },
+                {
+                  name: "Skann",
+                  short_name: "Skann",
+                  url: "/skann",
+                  icons: shortcutIcon,
+                },
+                {
+                  name: "I dag",
+                  short_name: "I dag",
+                  url: "/mine-oppdrag#senere",
+                  icons: shortcutIcon,
+                },
+              ],
             };
 
   return {
     ...localized,
+    id: "/",
     lang: locale,
     start_url: "/mine-oppdrag",
+    scope: "/",
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
+    categories: ["business", "productivity"],
+    prefer_related_applications: false,
     background_color: BRAND_COLORS.ink,
     theme_color: BRAND_COLORS.ink,
     icons: [

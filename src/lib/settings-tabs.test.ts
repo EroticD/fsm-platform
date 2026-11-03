@@ -114,6 +114,15 @@ describe("chooseSettingsTab", () => {
     expect(isSettingsTabAllowed("api", noPermissions)).toBe(false);
   });
 
+  it("lar bare administrator åpne SSO- og SCIM-fanen", () => {
+    expect(chooseSettingsTab("sso", admin)).toBe("sso");
+    expect(isSettingsTabAllowed("sso", admin)).toBe(true);
+    expect(isSettingsTabAllowed("sso", noPermissions)).toBe(false);
+    expect(chooseSettingsTab("sso", { ...noPermissions, canUsers: true })).toBe(
+      "ansatte",
+    );
+  });
+
   it("lar bare administrator åpne bevisfanen", () => {
     expect(chooseSettingsTab("bevis", admin)).toBe("bevis");
     expect(isSettingsTabAllowed("bevis", admin)).toBe(true);

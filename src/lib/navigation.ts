@@ -117,6 +117,13 @@ export const STAFF_NAV: NavItem[] = [
     section: "menu",
   },
   {
+    href: "/skann",
+    labelKey: "scan",
+    icon: "camera",
+    requires: ["equipment.view", "workorders.view"],
+    section: "menu",
+  },
+  {
     href: "/sok",
     labelKey: "search",
     icon: "search",

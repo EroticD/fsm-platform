@@ -1,0 +1,82 @@
+{
+  "sso": {
+    "or": "lub zaloguj się e-mailem",
+    "signInWith": "Zaloguj się przez {provider}",
+    "redirecting": "Przekierowywanie …",
+    "errors": {
+      "invalidClaims": "Dostawca tożsamości zwrócił nieprawidłową odpowiedź. Skontaktuj się z administratorem.",
+      "missingEmail": "Konto nie ma adresu e-mail. Skontaktuj się z administratorem.",
+      "unverifiedEmail": "Adres e-mail nie został potwierdzony przez dostawcę tożsamości. Skontaktuj się z administratorem.",
+      "domainNotAllowed": "Ta domena e-mail nie jest dozwolona dla SSO. Skontaktuj się z administratorem.",
+      "inactive": "Konto jest dezaktywowane. Skontaktuj się z administratorem.",
+      "notProvisioned": "Konto nie zostało jeszcze utworzone w FSM. Skontaktuj się z administratorem.",
+      "roleConflict": "Twoje grupy wskazują na kilka różnych ról. Skontaktuj się z administratorem.",
+      "invalidRole": "Rola z dostawcy tożsamości nie istnieje w FSM. Skontaktuj się z administratorem.",
+      "invalidDepartment": "Dział z dostawcy tożsamości nie istnieje. Skontaktuj się z administratorem.",
+      "customerAccount": "Użytkownicy portalu klienta nie mogą logować się przez SSO.",
+      "identityConflict": "Konto jest już powiązane z inną tożsamością. Skontaktuj się z administratorem.",
+      "configuration": "SSO nie jest prawidłowo skonfigurowane. Skontaktuj się z administratorem.",
+      "serverError": "Nie udało się zalogować przez SSO. Spróbuj ponownie."
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sso": "SSO i SCIM"
+    },
+    "ssoScim": {
+      "ssoTitle": "Dostawcy SSO",
+      "ssoDescription": "Dostawcy OIDC są konfigurowani zmiennymi środowiskowymi. Logowanie hasłem zawsze pozostaje dostępne jako break-glass dla administratorów.",
+      "configErrors": "Konfiguracja SSO zawiera błędy, które należy poprawić w środowisku:",
+      "ssoEmpty": "Nie skonfigurowano żadnego dostawcy SSO. Ustaw SSO_PROVIDERS i odpowiednie zmienne SSO_<NAZWA>_.",
+      "ssoActive": "Aktywny",
+      "issuer": "Issuer",
+      "provisioning": "Automatyczne tworzenie kont",
+      "autoProvisionActive": "Włączone – nowe konta są aktywne",
+      "autoProvisionInactive": "Włączone – nowe konta są nieaktywne",
+      "autoProvisionOff": "Wyłączone – użytkownik musi istnieć wcześniej",
+      "defaultRole": "Domyślna rola",
+      "allowedDomains": "Dozwolone domeny e-mail",
+      "allDomains": "Wszystkie domeny",
+      "ssoHelp": "Role z grup i domyślny dział ustawia się w środowisku. Konfigurację dla Entra ID, Keycloak, Authentik i Zitadel opisano w SECURITY.md i docs/OPERATIONS.md. Zmiany wymagają ponownego uruchomienia aplikacji.",
+      "scimTitle": "Provisioning SCIM 2.0",
+      "scimDescription": "Tokeny SCIM pozwalają dostawcy tożsamości tworzyć, aktualizować i dezaktywować użytkowników. Tokeny są przechowywane wyłącznie jako hash i wyświetlane raz.",
+      "scimEndpoint": "Endpoint",
+      "createTitle": "Nowy token SCIM",
+      "createDesc": "Używaj osobnego tokenu dla każdej integracji i rotuj go w razie podejrzenia wycieku.",
+      "listTitle": "Istniejące tokeny SCIM",
+      "listCount": "{count, plural, one {# token} other {# tokenów}}",
+      "empty": "Nie ma jeszcze tokenów SCIM.",
+      "name": "Nazwa",
+      "namePlaceholder": "Np. provisionsowanie Entra",
+      "expiresAt": "Wygasa (opcjonalnie)",
+      "expiresHint": "Pozostaw puste, aby użyć domyślnego okresu {days} dni.",
+      "create": "Utwórz token",
+      "creating": "Tworzenie …",
+      "createdTitle": "Token SCIM został utworzony",
+      "createdWarning": "Skopiuj token teraz. Jest wyświetlany tylko raz i nie można go ponownie pobrać.",
+      "copy": "Kopiuj token",
+      "copied": "Skopiowano",
+      "done": "Zapisałem token",
+      "rotate": "Rotuj token",
+      "rotating": "Rotowanie …",
+      "rotatedTitle": "Token „{name}” został zrotowany",
+      "revoke": "Unieważnij",
+      "revokeConfirm": "Unieważnić token SCIM „{name}”? Integracja natychmiast utraci dostęp.",
+      "revokeLabel": "Unieważnij token",
+      "createdColumn": "Utworzono",
+      "lastUsedColumn": "Ostatnio użyty",
+      "expiresColumn": "Wygasa",
+      "never": "Nigdy",
+      "noExpiry": "Bez terminu",
+      "active": "Aktywny",
+      "expired": "Wygasł",
+      "revoked": "Unieważniony",
+      "errors": {
+        "forbidden": "Tylko administrator może zarządzać tokenami SCIM.",
+        "invalid": "Nazwa lub data wygaśnięcia jest nieprawidłowa.",
+        "not_found": "Nie znaleziono tokenu.",
+        "error": "Nie udało się przetworzyć tokenu SCIM."
+      }
+    }
+  }
+}

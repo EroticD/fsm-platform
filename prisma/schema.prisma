@@ -45,6 +45,8 @@ model Department {
   assignmentPolicies AssignmentPolicy[]
   messageThreads     MessageThread[]
   smsMessages        SmsMessage[]
+  reminderRules      ReminderRule[]
+  reminderDispatches ReminderDispatch[]
 
   @@index([isActive])
 }
@@ -101,6 +103,11 @@ model User {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
+  /// Ekstern id fra SCIM-provisjonering. Settes bare av SCIM-tjenesten og
+  /// brukes til å matche oppdateringer fra identitetsleverandøren.
+  scimExternalId String? @unique
+  ssoIdentities  SsoIdentity[]
+
   // Kundeportalbrukere kobles til en kontaktperson på kundekortet
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
@@ -152,6 +159,9 @@ model User {
   // Målinger registrert av brukeren.
   meterReadings MeterReading[]
 
+  // Eksisterende QR-koder brukeren har registrert på utstyr.
+  equipmentQrCodes EquipmentQrCode[] @relation("EquipmentQrCodeCreatedBy")
+
   // Kapasitetsplaner der brukeren er satt opp med en egen kapasitet.
   capacityPlans CapacityPlan[]
 
@@ -191,6 +201,54 @@ model ApiKey {
 
   @@index([userId])
   @@index([keyHash])
+}
+
+/// Kobling mellom en ekstern OIDC-identitet og en lokal bruker.
+///
+/// `sub` er leverandørens stabile identifikator for klienten, ikke e-post.
+/// E-post brukes bare ved første kobling og må være bekreftet av leverandøren.
+/// En bruker kan ha identiteter fra flere leverandører, men bare én per
+/// leverandør.
+model SsoIdentity {
+  id       String @id @default(cuid())
+  /// Slug fra SSO_PROVIDERS, f.eks. «entra» eller «keycloak».
+  provider String
+  /// OIDC `sub` fra identitetstokenet.
+  subject  String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// E-posten leverandøren oppga ved koblingen. Vises i revisjonsloggen.
+  email String?
+
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+
+  @@unique([provider, subject])
+  @@unique([provider, userId])
+  @@index([userId])
+}
+
+/// Bearer-token for SCIM 2.0-provisjonering. Bare SHA-256-hashen lagres;
+/// klarteksttokenet vises én gang ved opprettelse, som for API-nøkler.
+model ScimToken {
+  id        String @id @default(cuid())
+  name      String
+  tokenHash String @unique
+  prefix    String
+
+  /// Administratoren som opprettet tokenet. Brukes til attribusjon i
+  /// revisjonsloggen og for å kunne sperre tokenet når kontoen deaktiveres.
+  createdById String?
+
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  @@index([revokedAt])
+  @@index([createdById])
 }
 
 // Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver
@@ -406,6 +464,7 @@ model Product {
   meterReadings    MeterReading[]
   maintenancePlans MaintenancePlan[]
   documents        Document[]
+  qrCodes          EquipmentQrCode[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -420,6 +479,37 @@ model Product {
   @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
   @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_serialNumber_trgm")
   @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
+}
+
+/// Hvor en eksisterende QR-kode kommer fra. MANUAL er limt inn eller skrevet,
+/// SCAN er lest med kameraet i felt, IMPORT er hentet fra en kundepakke.
+enum EquipmentQrCodeSource {
+  MANUAL
+  SCAN
+  IMPORT
+}
+
+/// QR-kode som allerede sitter fysisk på utstyret fra et annet system.
+///
+/// `value` bevarer den eksakte strengen slik den skal vises, mens
+/// `normalizedValue` er trimmet for mellomrom og usynlige tegn og har global
+/// unikhet. Sammenligningen er bevisst case-sensitiv: QR-verdier er
+/// case-sensitive, og to koder som bare skiller seg i store/små bokstaver er
+/// normalt to forskjellige fysiske koder.
+model EquipmentQrCode {
+  id              String                @id @default(cuid())
+  productId       String
+  product         Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value           String
+  normalizedValue String                @unique
+  label           String?
+  source          EquipmentQrCodeSource @default(MANUAL)
+  createdAt       DateTime              @default(now())
+  createdById     String?
+  createdBy       User?                 @relation("EquipmentQrCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lastScannedAt   DateTime?
+
+  @@index([productId])
 }
 
 /// Livssyklusen til en serviceavtale. `isActive` beholdes som et avledet
@@ -901,6 +991,7 @@ model Visit {
   trackingLinks TrackingLink[]
   locationPings VisitLocationPing[]
   reviews       Review[]
+  reminderDispatches ReminderDispatch[]
 
   @@index([workOrderId, startsAt])
   @@index([startsAt, endsAt])
@@ -1980,4 +2071,72 @@ model SmsSetting {
   /// 0 eller null betyr ingen månedlig grense.
   monthlyCap     Int?     @default(0)
   updatedAt      DateTime @updatedAt
+}
+
+/// Automatisk påminnelse før en visit. Én rad per avdeling, kanal og
+/// offset, slik at kontoret kan ha både 24-timers- og 2-timersvarsel.
+/// Reglene redigeres under Innstillinger → SMS/påminnelser.
+model ReminderRule {
+  id          String @id @default(cuid())
+  departmentId String
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// SMS | EMAIL | BOTH
+  channel     String @default("SMS")
+  /// Antall timer før visiten påminnelsen skal sendes.
+  offsetHours Int    @default(24)
+  /// Hendelsesmalen som brukes for SMS. E-post har egne innebygde tekster.
+  templateKey String @default("VISIT_REMINDER")
+  /// Stille timer i avdelingens tidssone. null betyr ingen stille periode.
+  quietStartHour Int?
+  quietEndHour   Int?
+  timezone    String @default("Europe/Oslo")
+  /// Øvre grense for antall påminnelser per visit på tvers av reglene.
+  maxPerVisit Int    @default(2)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dispatches ReminderDispatch[]
+
+  @@unique([departmentId, channel, offsetHours])
+  @@index([departmentId, isActive])
+}
+
+/// Vedvarende utsendelseslogg for påminnelser. `dedupeKey` gjør at samme
+/// regel, visit og starttid aldri planlegges to ganger, også når flere
+/// appinstanser kjører sveipet samtidig. `visitStartsAt` er frosset slik at
+/// en flyttet eller avlyst visit kan avvises før utsending.
+model ReminderDispatch {
+  id            String   @id @default(cuid())
+  ruleId        String
+  rule          ReminderRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  visitId       String
+  visit         Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  workOrderId   String?
+  customerId    String?
+  contactId     String?
+  /// SMS | EMAIL
+  channel       String
+  offsetHours   Int
+  locale        String   @default("nb")
+  /// SCHEDULED | PROCESSING | SENT | SKIPPED | FAILED
+  status        String   @default("SCHEDULED")
+  scheduledFor  DateTime
+  visitStartsAt DateTime
+  sentAt        DateTime?
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lastError     String?
+  skipReason    String?
+  smsMessageId  String?
+  dedupeKey     String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([status, scheduledFor])
+  @@index([visitId, status])
+  @@index([departmentId, createdAt])
 }

@@ -230,7 +230,7 @@ describe("feltdetalj – live opplysninger", () => {
 
     expect(html).toContain('href="tel:99999999"');
     expect(html).toContain(
-      "https://www.google.com/maps/search/?api=1&amp;query=Storgata%201%2C%206002%2C%20%C3%85lesund",
+      "https://www.google.com/maps/dir/?api=1&amp;destination=Storgata%201%2C%206002%2C%20%C3%85lesund",
     );
     expect(html).toContain('href="/kunder/cust-1"');
     expect(html).toContain('href="/enheter/prod-1"');

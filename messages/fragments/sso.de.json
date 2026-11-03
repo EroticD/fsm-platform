@@ -1,0 +1,82 @@
+{
+  "sso": {
+    "or": "oder mit E-Mail anmelden",
+    "signInWith": "Mit {provider} anmelden",
+    "redirecting": "Weiterleitung …",
+    "errors": {
+      "invalidClaims": "Der Identitätsanbieter hat eine ungültige Antwort geliefert. Kontaktieren Sie einen Administrator.",
+      "missingEmail": "Dem Konto fehlt eine E-Mail-Adresse. Kontaktieren Sie einen Administrator.",
+      "unverifiedEmail": "Die E-Mail-Adresse wurde vom Identitätsanbieter nicht bestätigt. Kontaktieren Sie einen Administrator.",
+      "domainNotAllowed": "Diese E-Mail-Domain ist für SSO nicht zugelassen. Kontaktieren Sie einen Administrator.",
+      "inactive": "Das Konto ist deaktiviert. Kontaktieren Sie einen Administrator.",
+      "notProvisioned": "Das Konto wurde noch nicht in FSM angelegt. Kontaktieren Sie einen Administrator.",
+      "roleConflict": "Ihre Gruppen verweisen auf mehrere unterschiedliche Rollen. Kontaktieren Sie einen Administrator.",
+      "invalidRole": "Die Rolle vom Identitätsanbieter existiert in FSM nicht. Kontaktieren Sie einen Administrator.",
+      "invalidDepartment": "Die Abteilung vom Identitätsanbieter existiert nicht. Kontaktieren Sie einen Administrator.",
+      "customerAccount": "Kundenportalbenutzer können sich nicht per SSO anmelden.",
+      "identityConflict": "Das Konto ist bereits mit einer anderen Identität verknüpft. Kontaktieren Sie einen Administrator.",
+      "configuration": "SSO ist nicht korrekt konfiguriert. Kontaktieren Sie einen Administrator.",
+      "serverError": "Die SSO-Anmeldung ist fehlgeschlagen. Versuchen Sie es erneut."
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sso": "SSO und SCIM"
+    },
+    "ssoScim": {
+      "ssoTitle": "SSO-Anbieter",
+      "ssoDescription": "OIDC-Anbieter werden über Umgebungsvariablen konfiguriert. Die Passwortanmeldung bleibt immer als Break-Glass für Administratoren verfügbar.",
+      "configErrors": "Die SSO-Konfiguration enthält Fehler, die in der Umgebung behoben werden müssen:",
+      "ssoEmpty": "Es ist kein SSO-Anbieter konfiguriert. Setzen Sie SSO_PROVIDERS und die zugehörigen SSO_<NAME>_-Variablen.",
+      "ssoActive": "Aktiv",
+      "issuer": "Issuer",
+      "provisioning": "Automatische Bereitstellung",
+      "autoProvisionActive": "Ein – neue Benutzer werden aktiviert",
+      "autoProvisionInactive": "Ein – neue Benutzer sind inaktiv",
+      "autoProvisionOff": "Aus – der Benutzer muss vorher existieren",
+      "defaultRole": "Standardrolle",
+      "allowedDomains": "Zugelassene E-Mail-Domains",
+      "allDomains": "Alle Domains",
+      "ssoHelp": "Gruppenrollen und Standardabteilung werden in der Umgebung gesetzt. Einrichtung für Entra ID, Keycloak, Authentik und Zitadel steht in SECURITY.md und docs/OPERATIONS.md. Änderungen erfordern einen Neustart der App.",
+      "scimTitle": "SCIM 2.0-Bereitstellung",
+      "scimDescription": "SCIM-Tokens erlauben dem Identitätsanbieter, Benutzer anzulegen, zu aktualisieren und zu deaktivieren. Tokens werden nur als Hash gespeichert und einmal angezeigt.",
+      "scimEndpoint": "Endpunkt",
+      "createTitle": "Neues SCIM-Token",
+      "createDesc": "Verwenden Sie ein eigenes Token pro Integration und rotieren Sie es bei Verdacht auf Offenlegung.",
+      "listTitle": "Vorhandene SCIM-Tokens",
+      "listCount": "{count, plural, one {# Token} other {# Tokens}}",
+      "empty": "Es gibt noch keine SCIM-Tokens.",
+      "name": "Name",
+      "namePlaceholder": "Zum Beispiel Entra-Bereitstellung",
+      "expiresAt": "Läuft ab (optional)",
+      "expiresHint": "Leer lassen für die Standardlaufzeit von {days} Tagen.",
+      "create": "Token erstellen",
+      "creating": "Wird erstellt …",
+      "createdTitle": "Das SCIM-Token wurde erstellt",
+      "createdWarning": "Kopieren Sie das Token jetzt. Es wird nur einmal angezeigt und kann nicht erneut abgerufen werden.",
+      "copy": "Token kopieren",
+      "copied": "Kopiert",
+      "done": "Ich habe das Token gespeichert",
+      "rotate": "Token rotieren",
+      "rotating": "Wird rotiert …",
+      "rotatedTitle": "Das Token «{name}» wurde rotiert",
+      "revoke": "Widerrufen",
+      "revokeConfirm": "Das SCIM-Token «{name}» widerrufen? Die Integration verliert sofort den Zugriff.",
+      "revokeLabel": "Token widerrufen",
+      "createdColumn": "Erstellt",
+      "lastUsedColumn": "Zuletzt verwendet",
+      "expiresColumn": "Läuft ab",
+      "never": "Nie",
+      "noExpiry": "Kein Ablauf",
+      "active": "Aktiv",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen",
+      "errors": {
+        "forbidden": "Nur Administratoren können SCIM-Tokens verwalten.",
+        "invalid": "Name oder Ablaufdatum ist ungültig.",
+        "not_found": "Das Token wurde nicht gefunden.",
+        "error": "Das SCIM-Token konnte nicht verarbeitet werden."
+      }
+    }
+  }
+}
