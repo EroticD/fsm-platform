@@ -1,11 +1,18 @@
 /**
  * Tolkning av skannede QR-/strekkoder.
  *
- * Feltappen godtar bare kjente former og bygger aldri en ekstern URL av
- * innholdet. En QR-kode kan inneholde en full URL til vår egen QR-etikett, en
- * relativ sti, en enhetstoken, en oppdragsreferanse eller et ordrenummer.
- * Alt annet avvises, og serveren autoriserer målet på nytt før den omdirigerer.
+ * Feltappen gjenkjenner våre egne former først og bygger aldri en ekstern URL
+ * av innholdet. En QR-kode kan inneholde en full URL til vår egen QR-etikett,
+ * en relativ sti, en enhetstoken, en oppdragsreferanse eller et ordrenummer.
+ * Alt annet som ikke er tomt eller for langt, behandles som en opak ekstern
+ * kode. Den slås bare opp i registeret over kundens eksisterende QR-koder;
+ * innholdet hentes eller følges aldri, og serveren autoriserer målet på nytt.
  */
+
+import {
+  EXTERNAL_QR_MAX_LENGTH,
+  normalizeExternalQrValue,
+} from "@/lib/equipment-qr";
 
 export type ScannedCode =
   | { kind: "equipment-token"; token: string }
@@ -13,9 +20,10 @@ export type ScannedCode =
   | { kind: "work-order-id"; id: string }
   | { kind: "work-order-reference"; reference: string }
   | { kind: "work-order-number"; number: string }
-  | { kind: "invalid"; reason: "empty" | "too-long" | "unknown" };
+  | { kind: "external"; value: string }
+  | { kind: "invalid"; reason: "empty" | "too-long" };
 
-const MAX_CODE_LENGTH = 2048;
+const MAX_CODE_LENGTH = EXTERNAL_QR_MAX_LENGTH;
 const SAFE_ID = /^[A-Za-z0-9_-]{4,64}$/;
 const EQUIPMENT_TOKEN = /^[A-Za-z0-9_-]{16,64}$/;
 const WORK_ORDER_REFERENCE = /^(?:O|B)-\d{6}-[A-Z0-9]{6,8}$/i;
@@ -40,7 +48,7 @@ function fromPathname(pathname: string): ScannedCode | null {
     const token = safeDecode(third);
     return EQUIPMENT_TOKEN.test(token)
       ? { kind: "equipment-token", token }
-      : { kind: "invalid", reason: "unknown" };
+      : null;
   }
 
   if (
@@ -49,7 +57,7 @@ function fromPathname(pathname: string): ScannedCode | null {
     !["qr", "ny", "kunder", "offline"].includes(second)
   ) {
     const id = safeDecode(second);
-    if (!SAFE_ID.test(id)) return { kind: "invalid", reason: "unknown" };
+    if (!SAFE_ID.test(id)) return null;
     return first === "enheter"
       ? { kind: "equipment-id", id }
       : { kind: "work-order-id", id };
@@ -60,7 +68,7 @@ function fromPathname(pathname: string): ScannedCode | null {
 
 /** Trim og fjern usynlige tegn fra manuell inntasting eller en skannet kode. */
 export function normalizeScannedCode(raw: string): string {
-  return raw.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  return normalizeExternalQrValue(raw);
 }
 
 export function parseScannedCode(raw: string): ScannedCode {
@@ -70,23 +78,26 @@ export function parseScannedCode(raw: string): ScannedCode {
     return { kind: "invalid", reason: "too-long" };
   }
 
-  // Full URL: bare pathname brukes. Vi følger aldri verten eller skjemaet.
+  // Full URL: egne kjente stier gjenkjennes. Alt annet blir en opak ekstern
+  // kode; vi følger aldri verten, skjemaet eller en eventuell omdirigering.
   if (/^https?:\/\//i.test(value)) {
     try {
       const fromUrl = fromPathname(new URL(value).pathname);
       if (fromUrl) return fromUrl;
     } catch {
-      return { kind: "invalid", reason: "unknown" };
+      // Ugyldig URL behandles fortsatt som en opak streng.
     }
-    return { kind: "invalid", reason: "unknown" };
+    return { kind: "external", value };
   }
 
   if (value.startsWith("/")) {
     const fromPath = fromPathname(value);
     if (fromPath) return fromPath;
-    return { kind: "invalid", reason: "unknown" };
+    return { kind: "external", value };
   }
 
+  // Våre egne former sjekkes før den eksterne katalogen, slik at
+  // oppdragsnumre og -referanser aldri skygges av en ekstern kode.
   if (WORK_ORDER_REFERENCE.test(value)) {
     return { kind: "work-order-reference", reference: value.toUpperCase() };
   }
@@ -97,7 +108,7 @@ export function parseScannedCode(raw: string): ScannedCode {
     return { kind: "equipment-token", token: value };
   }
 
-  return { kind: "invalid", reason: "unknown" };
+  return { kind: "external", value };
 }
 
 /**

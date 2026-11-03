@@ -57,6 +57,8 @@ Når appen er installert, kan du holde inne appikonet og velge **Mine oppdrag**,
 
 Appen godtar enhets-QR, enhets-ID, oppdragsreferanse (for eksempel `O-261103-ABCD1234`) og ordrenummer. Ukjent kode, manglende tilgang og gjentatte skann gir en forklaring i stedet for å åpne feil side. Tilgangen kontrolleres på nytt på serveren; et skann gir aldri mer tilgang enn du har fra før.
 
+Har kunden allerede QR-etiketter fra et annet system, virker de også: Kontoret registrerer den eksisterende verdien under **Eksisterende QR-koder** på enheten. Du skanner etiketten på samme måte som vår egen, og appen åpner enheten hvis du har tilgang. Verdien er en opak streng – appen følger aldri en lenke eller henter innhold fra internett.
+
 ### Naviger, ring og kopier adresse
 
 **Naviger** åpner den innebygde kartappen: Apple Maps på iPhone/iPad, Google Maps eller valgt kartapp på Android, og Google Maps i nettleseren på datamaskin. Appen bruker koordinater når de finnes, ellers en URL-kodet adresse. Mangler både adresse og koordinater, skjules knappen.

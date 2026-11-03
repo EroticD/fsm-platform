@@ -404,6 +404,9 @@ export async function collectExportDataset(
     where: { customerId: { in: customerIds } },
   });
   const productIds = products.map((product) => product.id);
+  const equipmentQrCodes = await prisma.equipmentQrCode.findMany({
+    where: { productId: { in: productIds } },
+  });
   const categoryIds = new Set(
     products
       .map((product) => product.categoryId)
@@ -985,6 +988,9 @@ export async function collectExportDataset(
         return { ...safe, qrTokenPresent: Boolean(qrToken) };
       })
       .sort(compareById),
+    equipmentQrCodes: equipmentQrCodes
+      .map((row) => ({ ...row }))
+      .sort(compareById),
     meterReadings: meterReadings
       .map((row) => ({ ...row, value: row.value.toString() }))
       .sort(compareById),
@@ -1085,6 +1091,7 @@ export function emptyDataset(): TransferDataset {
     sites: [],
     equipmentCategories: [],
     products: [],
+    equipmentQrCodes: [],
     meterReadings: [],
     maintenancePlans: [],
     maintenanceOccurrences: [],

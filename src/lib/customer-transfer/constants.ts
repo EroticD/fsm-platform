@@ -183,6 +183,7 @@ export const DATA_FILES = {
   sites: "sites",
   equipmentCategories: "equipment-categories",
   products: "equipment",
+  equipmentQrCodes: "equipment-qr-codes",
   meterReadings: "meter-readings",
   maintenancePlans: "maintenance-plans",
   maintenanceOccurrences: "maintenance-occurrences",
@@ -206,6 +207,14 @@ export const DATA_FILES = {
 } as const;
 
 export type DatasetKey = keyof typeof DATA_FILES;
+
+/**
+ * Datafiler som kan mangle i eldre pakker. Nye eksportpakker skriver dem alltid,
+ * men importen skal fortsatt godta en pakke laget før filen fantes.
+ */
+export const OPTIONAL_DATA_FILES: ReadonlySet<DatasetKey> = new Set([
+  "equipmentQrCodes",
+]);
 
 export const REFERENCE_FILES = {
   departments: "reference/departments",

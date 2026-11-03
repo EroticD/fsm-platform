@@ -134,6 +134,13 @@ QR label: open the unit at `/enheter/<id>`, select **Print label**, and use
 the unit. **Rotate QR token** if the label is lost or shared; the old label stops
 working immediately.
 
+**Existing QR codes:** If the customer already has labels from another system,
+register the value under **Existing QR codes** on the asset page. Paste or scan
+the value, optionally give it a name (for example “Old QR – gate 3”), and save.
+The label stays physically on the equipment and is never changed. Each value can
+be linked to only one asset. Deleting removes only the mapping in FSM, not the
+physical label, and is recorded in the audit log.
+
 ### Attachments, comments and completion
 
 **Attachments** accepts images and PDFs, up to 15 MB per image and 50 MB per PDF, and is internal.

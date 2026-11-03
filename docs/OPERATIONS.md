@@ -996,6 +996,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 - **Ikke backup:** kundepakken er et overføringsverktøy for én eller flere
   kunder. Den erstatter ikke PostgreSQL-backup + uploadvolum, og den inneholder
   bevisst ikke passord, sesjoner, API-nøkler eller 2FA-hemmeligheter.
+- **Eksisterende QR-koder:** kundens egne QR-verdier følger med i
+  `data/equipment-qr-codes.json` og importeres med kilden `IMPORT`. Verdiene er
+  globalt unike, også på tvers av kunder. En kollisjon i målbasen er en
+  konflikt som blokkerer importen; den importeres aldri som en ny kobling på
+  feil enhet. `Product.qrToken` gjenbrukes ikke.
 - **Overvåking:** følg diskbruk på `UPLOAD_DIR` og antall jobber med status
   `FAILED`. Utløpte jobber skal forsvinne fra staging innen en time etter
   `expiresAt`.

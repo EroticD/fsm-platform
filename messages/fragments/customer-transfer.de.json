@@ -100,6 +100,7 @@
       "duplicateSourceId": "Das Paket enthält doppelte Quell-IDs.",
       "invalidReference": "Das Paket verweist auf etwas, das nicht im Paket enthalten ist.",
       "crossCustomerReference": "Das Paket verknüpft Daten verschiedener Kunden. Der Import ist blockiert.",
+      "qrConflict": "Ein bestehender QR-Code ist bereits an einer anderen Anlage oder bei einem anderen Kunden registriert. Der Import ist blockiert.",
       "missingFile": "Eine vom Paket referenzierte Datei fehlt.",
       "missingPdf": "Ein Bericht-PDF fehlt im Paket.",
       "missingDataFile": "Eine erforderliche Datendatei fehlt.",

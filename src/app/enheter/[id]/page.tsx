@@ -26,11 +26,14 @@ import NavigateLink from "@/components/NavigateLink";
 import { buildPhoneUrl } from "@/lib/maps-links";
 import CopyAddressButton from "@/components/CopyAddressButton";
 import EquipmentDocuments from "@/components/equipment/EquipmentDocuments";
+import EquipmentQrCodeForm from "@/components/equipment/EquipmentQrCodeForm";
 import MeterChart from "@/components/equipment/MeterChart";
+import { displayExternalQrValue } from "@/lib/equipment-qr";
 import {
   addMeterReadingAction,
   createMaintenancePlanAction,
   deleteEquipmentAction,
+  deleteEquipmentQrCodeAction,
   deleteMaintenancePlanAction,
   moveEquipmentAction,
   rotateQrTokenAction,
@@ -125,10 +128,13 @@ export default async function EquipmentDetailPage({
   const isAdmin = user.role === "ADMIN";
   const meldt = param(query.meldt);
   const feil = param(query.feil);
+  const annen = param(query.annen);
   const feedbackKey = equipmentFeedbackKey(meldt);
   const errorMessage = feil
     ? EQUIPMENT_ERROR_KEYS.has(feil)
-      ? t(feil)
+      ? feil === "assets.errors.qrDuplicate" && annen
+        ? t("assets.errors.qrDuplicateNamed", { model: annen })
+        : t(feil)
       : t("assets.errors.generic")
     : null;
 
@@ -836,6 +842,90 @@ export default async function EquipmentDetailPage({
               </ConfirmSubmitForm>
             )}
           </div>
+        </section>
+
+        <section
+          id="qr-koder"
+          className={`${CARD} scroll-mt-24`}
+          aria-labelledby="assets-external-qr"
+        >
+          <h2
+            id="assets-external-qr"
+            className="border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em]"
+          >
+            {t("assets.externalQr.title")}
+          </h2>
+          <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
+            {t("assets.externalQr.description")}
+          </p>
+
+          {equipment.qrCodes.length === 0 ? (
+            <p className="mt-3 text-xs italic text-[var(--muted,#62685f)]">
+              {t("assets.externalQr.empty")}
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-[var(--line,#dedcd1)]">
+              {equipment.qrCodes.map((code) => (
+                <li key={code.id} className="flex flex-wrap items-start gap-2 py-3">
+                  <div className="min-w-0 flex-1">
+                    <code
+                      title={code.value}
+                      className="block max-w-full overflow-x-auto rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-1 text-xs"
+                    >
+                      {displayExternalQrValue(code.value)}
+                    </code>
+                    <p className="mt-1 text-xs font-bold text-[var(--ink,#101310)]">
+                      {code.label || t("assets.externalQr.noLabel")}
+                      <span className="ml-2 font-medium text-[var(--muted,#62685f)]">
+                        {t(`assets.externalQr.sources.${code.source}`)}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-2xs text-[var(--muted,#62685f)]">
+                      {t("assets.externalQr.added", {
+                        date: formatDateLocalized(code.createdAt, locale),
+                      })}
+                      {" · "}
+                      {code.lastScannedAt
+                        ? t("assets.externalQr.lastScanned", {
+                            date: formatDateLocalized(code.lastScannedAt, locale),
+                          })
+                        : t("assets.externalQr.neverScanned")}
+                      {code.createdBy?.name
+                        ? ` · ${code.createdBy.name}`
+                        : ""}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <ConfirmSubmitForm
+                      action={deleteEquipmentQrCodeAction}
+                      confirmMessage={t("assets.externalQr.deleteConfirm")}
+                      confirmLabel={t("assets.externalQr.delete")}
+                      danger
+                    >
+                      <input type="hidden" name="id" value={equipment.id} />
+                      <input
+                        type="hidden"
+                        name="customerId"
+                        value={equipment.customer.id}
+                      />
+                      <input type="hidden" name="codeId" value={code.id} />
+                      <button type="submit" className={DANGER_BUTTON}>
+                        <Icon name="trash" className="h-4 w-4" />
+                        {t("assets.externalQr.delete")}
+                      </button>
+                    </ConfirmSubmitForm>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canManage && (
+            <EquipmentQrCodeForm
+              equipmentId={equipment.id}
+              customerId={equipment.customer.id}
+            />
+          )}
         </section>
 
         {isAdmin && (

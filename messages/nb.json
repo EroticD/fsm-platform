@@ -299,6 +299,32 @@
         "footer": "Fest etiketten på utstyret slik at servicehistorikken alltid er ett skann unna.",
         "noQr": "Enheten mangler QR-token. Roter tokenet på enhetssiden før du skriver ut."
       },
+      "externalQr": {
+        "title": "Eksisterende QR-koder",
+        "description": "Har kunden allerede QR-etiketter fra et annet system? Registrer verdien her, så finner feltappen riktig enhet. Etiketten blir liggende fysisk på utstyret – vi lager eller endrer den ikke.",
+        "empty": "Ingen eksisterende QR-koder er registrert.",
+        "noLabel": "Uten navn",
+        "added": "Lagt til {date}",
+        "lastScanned": "Sist skannet {date}",
+        "neverScanned": "Aldri skannet",
+        "delete": "Slett",
+        "deleteConfirm": "Slette koblingen? Den fysiske QR-etiketten blir ikke endret.",
+        "sources": {
+          "MANUAL": "Manuelt",
+          "SCAN": "Skannet",
+          "IMPORT": "Importert"
+        },
+        "form": {
+          "value": "QR-verdi",
+          "valuePlaceholder": "Lim inn eller skann koden",
+          "valueHint": "Verdien er case-sensitiv og lagres som den er. Du kan alltid lime inn manuelt.",
+          "label": "Navn (valgfritt)",
+          "labelPlaceholder": "Gammel QR – port 3",
+          "scan": "Skann eksisterende QR",
+          "cancelScan": "Lukk kamera",
+          "submit": "Registrer QR-kode"
+        }
+      },
       "timeline": {
         "kinds": {
           "report": "Rapport",
@@ -331,6 +357,9 @@
         "retired": "Enheter som er utfaset kan ikke få nye målinger.",
         "invalidReading": "Målingen er ikke gyldig.",
         "qrMissing": "Enheten mangler QR-token.",
+        "qrInvalid": "QR-verdien er tom eller for lang (maks 2048 tegn).",
+        "qrDuplicate": "QR-koden er allerede registrert på en annen enhet.",
+        "qrDuplicateNamed": "QR-koden er allerede registrert på {model}.",
         "forbidden": "Du har ikke tilgang.",
         "notFound": "Fant ikke enheten.",
         "generic": "Noe gikk galt. Prøv igjen.",
@@ -350,6 +379,8 @@
         "updated": "Enheten er oppdatert.",
         "moved": "Enheten er flyttet i hierarkiet.",
         "qrRotated": "QR-tokenet er rotet. Den gamle etiketten virker ikke lenger.",
+        "qrCodeAdded": "Den eksisterende QR-koden er registrert.",
+        "qrCodeDeleted": "Koblingen til QR-koden er slettet. Etiketten er ikke endret.",
         "readingAdded": "Målingen er registrert.",
         "planCreated": "Vedlikeholdsplanen er opprettet.",
         "planUpdated": "Vedlikeholdsplanen er oppdatert.",

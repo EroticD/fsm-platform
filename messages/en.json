@@ -299,6 +299,32 @@
         "footer": "Attach the label to the equipment so service history is one scan away.",
         "noQr": "The asset has no QR token. Rotate the token on the asset page before printing."
       },
+      "externalQr": {
+        "title": "Existing QR codes",
+        "description": "Does the customer already have QR labels from another system? Register the value here so the field app finds the right asset. The label stays physically on the equipment – we never create or change it.",
+        "empty": "No existing QR codes are registered.",
+        "noLabel": "Unnamed",
+        "added": "Added {date}",
+        "lastScanned": "Last scanned {date}",
+        "neverScanned": "Never scanned",
+        "delete": "Delete",
+        "deleteConfirm": "Remove the mapping? The physical QR label is not changed.",
+        "sources": {
+          "MANUAL": "Manual",
+          "SCAN": "Scanned",
+          "IMPORT": "Imported"
+        },
+        "form": {
+          "value": "QR value",
+          "valuePlaceholder": "Paste or scan the code",
+          "valueHint": "The value is case-sensitive and stored as entered. You can always paste it manually.",
+          "label": "Name (optional)",
+          "labelPlaceholder": "Old QR – gate 3",
+          "scan": "Scan existing QR",
+          "cancelScan": "Close camera",
+          "submit": "Register QR code"
+        }
+      },
       "timeline": {
         "kinds": {
           "report": "Report",
@@ -331,6 +357,9 @@
         "retired": "Retired assets cannot receive new readings.",
         "invalidReading": "The reading is not valid.",
         "qrMissing": "The asset has no QR token.",
+        "qrInvalid": "The QR value is empty or too long (maximum 2048 characters).",
+        "qrDuplicate": "The QR code is already registered on another asset.",
+        "qrDuplicateNamed": "The QR code is already registered on {model}.",
         "forbidden": "You do not have access.",
         "notFound": "Asset not found.",
         "generic": "Something went wrong. Please try again.",
@@ -350,6 +379,8 @@
         "updated": "The asset was updated.",
         "moved": "The asset was moved in the hierarchy.",
         "qrRotated": "The QR token was rotated. The old label no longer works.",
+        "qrCodeAdded": "The existing QR code was registered.",
+        "qrCodeDeleted": "The QR code mapping was deleted. The label is unchanged.",
         "readingAdded": "The reading was registered.",
         "planCreated": "The maintenance plan was created.",
         "planUpdated": "The maintenance plan was updated.",

@@ -26,6 +26,13 @@ const mocks = vi.hoisted(() => ({
       count: vi.fn(),
       create: vi.fn(),
     },
+    equipmentQrCode: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     upload: { findMany: vi.fn() },
     customer: { findFirst: vi.fn(), findMany: vi.fn() },
     customerSite: { findFirst: vi.fn() },
@@ -43,9 +50,11 @@ vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
 vi.mock("@/server/notifications", () => ({ notifyUser: mocks.notifyUser }));
 
 import {
+  addEquipmentQrCode,
   buildCategoryTree,
   buildEquipmentTree,
   createEquipment,
+  deleteEquipmentQrCode,
   equipmentScopeFor,
   listExpiringWarranties,
   resolveEquipmentQrToken,
@@ -82,6 +91,8 @@ beforeEach(() => {
   mocks.prisma.product.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.equipmentCategory.create.mockResolvedValue({ id: "cat-new" });
   mocks.prisma.meterReading.create.mockResolvedValue({ id: "reading-1" });
+  mocks.prisma.equipmentQrCode.create.mockResolvedValue({ id: "qr-new" });
+  mocks.prisma.equipmentQrCode.delete.mockResolvedValue({ id: "qr-new" });
   mocks.prisma.user.findMany.mockResolvedValue([{ id: "user-1" }]);
 });
 
@@ -370,5 +381,161 @@ describe("utstyrets sted", () => {
         site: { connect: { id: "site-1" } },
       }),
     });
+  });
+});
+
+describe("eksisterende QR-koder", () => {
+  it("registrerer en ekstern kode med normalisert verdi uten å røre qrToken", async () => {
+    mocks.prisma.product.findFirst.mockResolvedValue({
+      id: "product-1",
+      model: "Port",
+    });
+    mocks.prisma.equipmentQrCode.findUnique.mockResolvedValue(null);
+
+    const result = await addEquipmentQrCode(actor(), {
+      equipmentId: "product-1",
+      value: "\u200B  LEGACY-42 \uFEFF",
+      label: "Gammel QR – port 3",
+      source: "SCAN",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "qr-new" } });
+    expect(mocks.prisma.equipmentQrCode.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        productId: "product-1",
+        value: "LEGACY-42",
+        normalizedValue: "LEGACY-42",
+        label: "Gammel QR – port 3",
+        source: "SCAN",
+      }),
+      select: { id: true },
+    });
+    expect(mocks.prisma.product.update).not.toHaveBeenCalled();
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        entityType: "Product",
+        entityId: "product-1",
+        metadata: expect.objectContaining({
+          qrPrefix: "LEGACY-4",
+          source: "SCAN",
+        }),
+      }),
+    );
+    const metadata = mocks.audit.mock.calls.at(-1)?.[1]?.metadata;
+    expect(JSON.stringify(metadata)).not.toContain("LEGACY-42");
+  });
+
+  it("avviser en duplikat og navngir bare en enhet aktøren kan se", async () => {
+    mocks.prisma.product.findFirst
+      .mockResolvedValueOnce({ id: "product-1", model: "Port" })
+      .mockResolvedValueOnce({ id: "product-2", model: "Dør 3" });
+    mocks.prisma.equipmentQrCode.findUnique.mockResolvedValue({
+      id: "qr-other",
+      productId: "product-2",
+      product: { id: "product-2", model: "Dør 3" },
+    });
+
+    const result = await addEquipmentQrCode(actor(), {
+      equipmentId: "product-1",
+      value: "LEGACY-42",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "conflict",
+      details: {
+        code: "equipment.errors.qrDuplicate",
+        equipmentModel: "Dør 3",
+      },
+    });
+    expect(mocks.prisma.equipmentQrCode.create).not.toHaveBeenCalled();
+  });
+
+  it("skjuler navnet når den andre enheten er utenfor aktørens tilgang", async () => {
+    mocks.prisma.product.findFirst
+      .mockResolvedValueOnce({ id: "product-1", model: "Port" })
+      .mockResolvedValueOnce(null);
+    mocks.prisma.equipmentQrCode.findUnique.mockResolvedValue({
+      id: "qr-other",
+      productId: "product-skjult",
+      product: { id: "product-skjult", model: "Hemmelig" },
+    });
+
+    const result = await addEquipmentQrCode(actor(), {
+      equipmentId: "product-1",
+      value: "LEGACY-42",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "conflict",
+      details: { equipmentModel: null },
+    });
+  });
+
+  it("avviser tomme og for lange verdier", async () => {
+    await expect(
+      addEquipmentQrCode(actor(), { equipmentId: "product-1", value: "   " }),
+    ).resolves.toMatchObject({
+      ok: false,
+      reason: "invalid",
+      details: { code: "equipment.errors.qrInvalid" },
+    });
+    await expect(
+      addEquipmentQrCode(actor(), {
+        equipmentId: "product-1",
+        value: "x".repeat(2049),
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      reason: "invalid",
+      details: { code: "equipment.errors.qrInvalid" },
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser en enhet utenfor aktørens kundeskop", async () => {
+    mocks.prisma.product.findFirst.mockResolvedValue(null);
+
+    const result = await addEquipmentQrCode(actor(), {
+      equipmentId: "product-other",
+      value: "LEGACY-42",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.equipmentQrCode.create).not.toHaveBeenCalled();
+  });
+
+  it("sletter en kode som tilhører enheten og reviderer slettingen", async () => {
+    mocks.prisma.equipmentQrCode.findFirst.mockResolvedValue({
+      id: "qr-1",
+      value: "LEGACY-42",
+      source: "MANUAL",
+    });
+
+    const result = await deleteEquipmentQrCode(actor(), "product-1", "qr-1");
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.equipmentQrCode.delete).toHaveBeenCalledWith({
+      where: { id: "qr-1" },
+    });
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        entityType: "Product",
+        entityId: "product-1",
+        action: "Slettet eksisterende QR-kode",
+      }),
+    );
+  });
+
+  it("sletter ikke en kode på en annen enhet", async () => {
+    mocks.prisma.equipmentQrCode.findFirst.mockResolvedValue(null);
+
+    const result = await deleteEquipmentQrCode(actor(), "product-1", "qr-1");
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.equipmentQrCode.delete).not.toHaveBeenCalled();
   });
 });

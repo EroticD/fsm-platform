@@ -159,6 +159,9 @@ model User {
   // Målinger registrert av brukeren.
   meterReadings MeterReading[]
 
+  // Eksisterende QR-koder brukeren har registrert på utstyr.
+  equipmentQrCodes EquipmentQrCode[] @relation("EquipmentQrCodeCreatedBy")
+
   // Kapasitetsplaner der brukeren er satt opp med en egen kapasitet.
   capacityPlans CapacityPlan[]
 
@@ -461,6 +464,7 @@ model Product {
   meterReadings    MeterReading[]
   maintenancePlans MaintenancePlan[]
   documents        Document[]
+  qrCodes          EquipmentQrCode[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -475,6 +479,37 @@ model Product {
   @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
   @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_serialNumber_trgm")
   @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
+}
+
+/// Hvor en eksisterende QR-kode kommer fra. MANUAL er limt inn eller skrevet,
+/// SCAN er lest med kameraet i felt, IMPORT er hentet fra en kundepakke.
+enum EquipmentQrCodeSource {
+  MANUAL
+  SCAN
+  IMPORT
+}
+
+/// QR-kode som allerede sitter fysisk på utstyret fra et annet system.
+///
+/// `value` bevarer den eksakte strengen slik den skal vises, mens
+/// `normalizedValue` er trimmet for mellomrom og usynlige tegn og har global
+/// unikhet. Sammenligningen er bevisst case-sensitiv: QR-verdier er
+/// case-sensitive, og to koder som bare skiller seg i store/små bokstaver er
+/// normalt to forskjellige fysiske koder.
+model EquipmentQrCode {
+  id              String                @id @default(cuid())
+  productId       String
+  product         Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value           String
+  normalizedValue String                @unique
+  label           String?
+  source          EquipmentQrCodeSource @default(MANUAL)
+  createdAt       DateTime              @default(now())
+  createdById     String?
+  createdBy       User?                 @relation("EquipmentQrCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lastScannedAt   DateTime?
+
+  @@index([productId])
 }
 
 /// Livssyklusen til en serviceavtale. `isActive` beholdes som et avledet

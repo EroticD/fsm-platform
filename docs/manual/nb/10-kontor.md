@@ -141,6 +141,13 @@ QR-etikett: Åpne enheten på `/enheter/<id>`, trykk **Skriv ut etikett**, og br
 enheten ved skanning. **Roter QR-token** hvis etiketten er mistet eller delt; den
 gamle etiketten slutter å virke med en gang.
 
+**Eksisterende QR-koder:** Har kunden allerede etiketter fra et annet system,
+registrerer du verdien under **Eksisterende QR-koder** på enhetssiden. Lim inn
+eller skann verdien, gi den gjerne et navn (for eksempel «Gammel QR – port 3»),
+og lagre. Etiketten blir liggende fysisk på utstyret og endres ikke. Hver verdi
+kan bare kobles til én enhet. Sletting fjerner bare koblingen i FSM, ikke den
+fysiske etiketten, og føres i revisjonsloggen.
+
 ### Vedlegg, kommentarer, fullføring
 
 **Vedlegg** tar bilder og PDF-er, maks 15 MB per bilde og 50 MB per PDF, og er interne.

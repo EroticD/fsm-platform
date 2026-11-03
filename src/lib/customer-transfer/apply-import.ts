@@ -6,6 +6,7 @@ import path from "node:path";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { uploadDir } from "@/lib/uploads";
+import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { toAuditActor, type ServiceActor } from "@/server/actor";
 import {
@@ -598,6 +599,39 @@ async function importEquipment(ctx: ApplyContext) {
       select: { id: true },
     });
     ctx.targets.set(entityKey("Product", String(product.id)), created.id);
+  }
+
+  // Eksisterende QR-koder importeres etter enhetene. Kilden settes til
+  // IMPORT, og Product.qrToken er fortsatt alltid tom ved import.
+  for (const code of read.dataset.equipmentQrCodes) {
+    const plan = planFor(ctx, "EquipmentQrCode", code.id);
+    if (plan?.action === "SKIP" && plan.targetId) {
+      ctx.targets.set(
+        entityKey("EquipmentQrCode", String(code.id)),
+        plan.targetId,
+      );
+      continue;
+    }
+    const productId = targetFor(ctx, "Product", code.productId);
+    const value = normalizeExternalQrValue(code.value);
+    if (!productId || !isValidExternalQrValue(value)) continue;
+    const created = await tx.equipmentQrCode.create({
+      data: {
+        productId,
+        value,
+        normalizedValue: value,
+        label: stringOrNull(code.label),
+        source: "IMPORT",
+        createdById: targetFor(ctx, "User", code.createdById) ?? null,
+        createdAt: dateOr(code.createdAt, new Date()),
+        lastScannedAt: dateOrNull(code.lastScannedAt),
+      } as any,
+      select: { id: true },
+    });
+    ctx.targets.set(
+      entityKey("EquipmentQrCode", String(code.id)),
+      created.id,
+    );
   }
 
   for (const reading of read.dataset.meterReadings) {
