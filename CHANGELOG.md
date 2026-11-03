@@ -3,6 +3,37 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## Unreleased (dev)
+
+### Toveis SMS og påminnelser
+- Innkommende SMS med leverandørsignatur, idempotens, leveringsstatus,
+  STOP/START-samtykke og kobling mot kunde/kontakt/tråd.
+- Kontorinnboks kan lese og svare på tråder med avdelings-/kundescope.
+- Konfigurerbare påminnelsesregler per avdeling (SMS/e-post, 24 t/2 t,
+  stille timer, maks per besøk) med durabel utsending, dedupe og historikk.
+
+### SSO og SCIM
+- OIDC SSO med Entra ID, Keycloak, Authentik og Zitadel; discovery, PKCE,
+  state/nonce, verifisert e-post-kobling og eksplisitt rolle-/gruppemapping.
+- SCIM 2.0 for brukerprovisjonering med hash-lagrede token, rotasjon,
+  filtrering/paginering, deaktivering og SCIM-feilformat.
+- Admin-fane for SSO/SCIM, break-glass innlogging og revisjon.
+
+### Feltapp, navigasjon og strekkode
+- `/skann` med BarcodeDetector/kamera og manuell fallback; QR-token og
+  oppdragsreferanse løses med vanlig tilgangskontroll.
+- Naviger til Apple Maps/Google Maps/geo, kopier adresse og ring kunde.
+- PWA-forbedringer, installasjons-/oppdateringsflyt og Capacitor-skalldokumentasjon
+  for Android/iOS.
+
+### Rute og sanntids ETA
+- Ruteplanlegger `/kalender/rute` med nearest-neighbour + 2-opt, kjøretid,
+  distanse, ventetid og ETA per stopp; valgfri OSRM med lokal fallback.
+- «Bruk rekkefølge» flytter bare flyttbare besøk, med overlapp-/fraværssjekk
+  og revisjon.
+- Offentlig ETA i sporingen basert på siste posisjonsping, med eksplisitt
+  ferskhet og planlagt tid når sanntidsdata mangler.
+
 ## 0.8.6 — 2026-11-03
 
 ### Kundeoverføring (CUST-EXPORT-01 v1)
