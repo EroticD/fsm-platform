@@ -469,6 +469,58 @@ documented; baseline updated.
 
 ---
 
+## Sammenligning med ledende FSM-systemer (2026)
+
+Grunnlag: offentlige funksjonsoversikter for ServiceTitan, Salesforce Field
+Service, Microsoft Dynamics 365 Field Service, Jobber/Housecall Pro,
+ServiceMax og IFS. Plattformen vår er sterk på nordisk serviceoperasjon,
+feltdokumentasjon, offline, revisjonsspor og selvdrift. De største
+kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
+**feltlogistikk** (lager/deler, rute, tid/mileage).
+
+| Område | Ledende systemer (2026) | Status i 0.8.6 | Vurdering |
+| --- | --- | --- | --- |
+| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Mangler reiseavhengig sekvensering og sanntids re-planlegging. |
+| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | ❌ Ikke implementert | Kart/territorier finnes, men ikke ruteoptimalisering. P3. |
+| Kundeportal og booking | Sanntids ledige tider, bekreftelse, ombooking, betaling | 🟡 Datoforespørsel + kontorplanlegging + e-postbekreftelse | Bevisst produktvalg (DOC-01). Sanntids slot-booking er neste modenhetssteg. |
+| Tilbud og estimater | Gode/bedre/beste-tilbud, godkjenning, konvertering til oppdrag | ❌ Ikke implementert | Største kommersielle gap. P2. |
+| Fakturering og betaling | Faktura fra fullført oppdrag, MVA, betalingslenker, finansiering | ❌ Ikke implementert (prislister/SLA finnes) | Største omsetningsgap. P2. |
+| Lager og deler | Lagersaldo, reservasjoner, innkjøp, bilager | ❌ Ikke implementert | P2/P3 avhengig av kundebehov. |
+| Mobil feltapp | Native app, offline, navigasjon, strekkode, tid/mileage, push | 🟡 PWA med offline skjema, bilder, signatur, QR | Sterk offline-kjerne; native app/navigasjon/tid/mileage mangler. P3. |
+| Tid, kjøring og utlegg | Stempling, lønnseksport, kjørebok, utlegg | ❌ Ikke implementert | P2 for entreprenørmarkedet. |
+| Serviceavtaler og vedlikehold | Gjentakende planer, varsler, fornyelse, fakturering | ✅ Planer/forekomster, kontrakter, SLA, iCal | Mangler automatisert fornyelse/fakturering og forbruksbaserte avtaler. |
+| Kunde kommunikasjon | SMS/e-post, påminnelser, toveis innboks, ETA-lenker | 🟡 Varsler, SMS, e-post, portal, sporing, omtaler | Mangler toveis SMS-innboks og automatiserte påminnelsesløp. P2/P3. |
+| Rapportering/BI | Inntjening, utnyttelse, first-time-fix, egendefinerte rapporter | 🟡 Dashbord/statistikk og revisjonseksport | Mangler omsetnings-/lønnsomhetsanalyse og rapportbygger. P2. |
+| AI/Copilot | Planleggingsforslag, sammendrag, stemmeintake, prediktivt vedlikehold | ❌ Ikke implementert | P3, men raskt økende bordstake. |
+| Integrasjoner | Regnskap (QuickBooks/Xero/Fiken), CRM, betaling, webhooks | 🟡 API v1 med scopes/OpenAPI | Mangler regnskaps-/CRM-/betalingskonnektorer og utgående webhooks. P3. |
+| Enterprise-plattform | SSO/SCIM, avansert RBAC, multi-tenant, HA/PITR, objektlagring | 🟡 RBAC, revisjon, separate DB-roller | SSO, multi-tenant, S3/Redis/HA er allerede P3. |
+| Compliance og bevis | Revisjonskjede, legal hold, signert bevis-eksport, GDPR | ✅ Hash-kjede, legal hold, bevis- og kundeoverføring | Mangler GDPR-sletting (DATA-01) og eventuell DPA/HIPAA-malverk. |
+| Utstyr og IoT | Asset hierarchy, målere, QR, garanti, IoT/prediktivt | ✅ Hierarki, målere, QR, garanti, planer | Mangler IoT-inntak, prediktiv analyse og AR/fjernhjelp. P3. |
+| Skjema og dokumentasjon | Egendefinerte skjema, revisjoner, signatur, PDF | ✅ Maler, rapporter, revisjoner, signatur, PDF | Modent. |
+
+### Nye kandidater etter sammenligningen
+
+- **REV-01 · Tilbud og estimater (P2, L):** tilbudsbygger, gode/bedre/beste,
+  godkjenning i portal, konvertering til oppdrag, versjonering og audit.
+- **REV-02 · Fakturering og betaling (P2, L):** faktura fra oppdrag/rapport,
+  MVA, kreditnota, betalingslenke, avstemming og regnskapseksport.
+- **OPS-05 · Lager, deler og innkjøp (P2/P3, L):** lagersaldo per lager/bil,
+  reservasjon mot oppdrag, innkjøpsforslag og sporbarhet.
+- **FLD-01 · Tid, kjøring og utlegg (P2, M):** stempling, kjørebok,
+  kvitteringer og lønnseksport.
+- **FL-02 · Native feltapp og navigasjon (P3, L):** native shell, offline,
+  turn-by-turn, strekkodeskanning og push.
+- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** kjøretid, tidsvinduer,
+  dynamisk omruting og sanntids ETA.
+- **COM-01 · Toveis SMS og påminnelsesløp (P2/P3, M):** felles innboks,
+  maler, automatiske påminnelser og samtykkestyring.
+- **BI-01 · Lønnsomhet og rapportbygger (P2, M):** omsetning per oppdrag/
+  kunde/tekniker, first-time-fix, utnyttelse og eksport.
+- **INT-01 · Regnskap/CRM/betaling og utgående webhooks (P3, L).**
+- **AI-01 · Copilot, stemmeintake og prediktivt vedlikehold (P3, XL).**
+
+---
+
 ## Already implemented — do not duplicate
 
 - Searchable work-order `reference` and external order number; office/field
