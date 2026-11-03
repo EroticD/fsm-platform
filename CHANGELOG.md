@@ -3,7 +3,7 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
-## Unreleased (dev)
+## 0.8.8 — 2026-11-03
 
 ### Toveis SMS og påminnelser
 - Innkommende SMS med leverandørsignatur, idempotens, leveringsstatus,
