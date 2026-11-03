@@ -354,6 +354,23 @@ test("offline: kladd havner i outboxen og replayes når nettet kommer tilbake", 
   });
 
   await context.setOffline(true);
+
+  // SEC-01: offline-kladder krever en PIN. Første gang vises oppsettpanelet
+  // når nettleseren går offline; sett PIN før kladden skrives.
+  const pinSection = page.locator(
+    'section[aria-label="Sett PIN for offline-kladder"]',
+  );
+  if (await pinSection.isVisible().catch(() => false)) {
+    const setupButton = pinSection.getByRole("button", { name: "Sett PIN" });
+    if (await setupButton.isVisible().catch(() => false)) {
+      await setupButton.click();
+    }
+    await pinSection.getByLabel("PIN", { exact: true }).fill("123456");
+    await pinSection.getByLabel("Gjenta PIN").fill("123456");
+    await pinSection.getByRole("button", { name: "Sett PIN" }).click();
+    await expect(pinSection).toBeHidden({ timeout: 10_000 });
+  }
+
   await page
     .locator('textarea[name="notes"]')
     .fill(`E2E offline kladd ${Date.now()}`);

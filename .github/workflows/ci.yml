@@ -51,6 +51,8 @@ jobs:
       E2E_CUSTOMER_PASSWORD: "CustomerTest123!"
       NEXTAUTH_SECRET: ci-only-8fK2qZ7mN4vR9xT1cB6wY3pL5sH0jG2d
       AUTH_TRUST_HOST: "true"
+      # Testdatabasen bruker én rolle med DDL; readiness nekter ellers i prod-modus.
+      ALLOW_DB_DDL_ROLE: "true"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -93,7 +95,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: E2E
-        run: npm run test:e2e
+        # Seriell kjøring: chromium og mobile-375 deler seedede rader, og
+        # parallelle drag/legal-hold-scenarier ville mutert samme visitt.
+        run: npm run test:e2e -- --workers=1
 
       - name: Lint
         run: npm run lint
@@ -141,6 +145,8 @@ jobs:
       NEXTAUTH_SECRET: ci-only-8fK2qZ7mN4vR9xT1cB6wY3pL5sH0jG2d
       NEXTAUTH_URL: http://127.0.0.1:3000
       AUTH_TRUST_HOST: "true"
+      # Testdatabasen bruker én rolle med DDL; readiness nekter ellers i prod-modus.
+      ALLOW_DB_DDL_ROLE: "true"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -61,6 +61,18 @@ import reviewsNb from "../../messages/fragments/reviews.nb.json";
 import reviewsEn from "../../messages/fragments/reviews.en.json";
 import reviewsPl from "../../messages/fragments/reviews.pl.json";
 import reviewsDe from "../../messages/fragments/reviews.de.json";
+import offlineLockNb from "../../messages/fragments/offline-lock.nb.json";
+import offlineLockEn from "../../messages/fragments/offline-lock.en.json";
+import offlineLockPl from "../../messages/fragments/offline-lock.pl.json";
+import offlineLockDe from "../../messages/fragments/offline-lock.de.json";
+import workforceNb from "../../messages/fragments/workforce.nb.json";
+import workforceEn from "../../messages/fragments/workforce.en.json";
+import workforcePl from "../../messages/fragments/workforce.pl.json";
+import workforceDe from "../../messages/fragments/workforce.de.json";
+import customerTransferNb from "../../messages/fragments/customer-transfer.nb.json";
+import customerTransferEn from "../../messages/fragments/customer-transfer.en.json";
+import customerTransferPl from "../../messages/fragments/customer-transfer.pl.json";
+import customerTransferDe from "../../messages/fragments/customer-transfer.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -111,6 +123,9 @@ const nbFragments = mergeAll([
   trackingNb,
   smsNb,
   reviewsNb,
+  offlineLockNb,
+  workforceNb,
+  customerTransferNb,
 ]);
 
 const enFragments = mergeAll([
@@ -136,6 +151,9 @@ const enFragments = mergeAll([
   trackingEn,
   smsEn,
   reviewsEn,
+  offlineLockEn,
+  workforceEn,
+  customerTransferEn,
 ]);
 
 /**
@@ -151,6 +169,9 @@ const plFragments = mergeAll([
   smsPl,
   portalExpansionPl,
   reviewsPl,
+  offlineLockPl,
+  workforcePl,
+  customerTransferPl,
 ]);
 const deFragments = mergeAll([
   p4De,
@@ -160,6 +181,9 @@ const deFragments = mergeAll([
   smsDe,
   portalExpansionDe,
   reviewsDe,
+  offlineLockDe,
+  workforceDe,
+  customerTransferDe,
 ]);
 
 export const messages = {

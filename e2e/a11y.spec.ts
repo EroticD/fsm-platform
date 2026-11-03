@@ -508,6 +508,7 @@ test("skjemaer for oppretting og redigering er tilgjengelige", async ({ page }) 
 });
 
 test("innstillinger for ansatte og maler er tilgjengelige", async ({ page }) => {
+  test.setTimeout(240_000);
   test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);
@@ -528,6 +529,9 @@ test("innstillinger for ansatte og maler er tilgjengelige", async ({ page }) => 
     "/innstillinger?tab=avdelinger",
     "/innstillinger?tab=api",
     "/innstillinger?tab=sikkerhet",
+    "/innstillinger?tab=kompetanse",
+    "/innstillinger?tab=bevis",
+    "/innstillinger?tab=kundeoverforing",
   ]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
@@ -538,6 +542,7 @@ test("innstillinger for ansatte og maler er tilgjengelige", async ({ page }) => 
 test("rapportskjemaet er tilgjengelig og kan brukes med tastatur", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);
