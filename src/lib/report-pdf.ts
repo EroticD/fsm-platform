@@ -2,7 +2,11 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import prisma from "@/lib/prisma";
 import ReportDocument from "@/components/ReportDocument";
-import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
+import {
+  buildPdfImagesDetailed,
+  collectReportImageUrls,
+  isEmbeddedImageUrl,
+} from "@/lib/report-images";
 import { formatDate } from "@/lib/dates";
 import { isSafeLogoUrl } from "@/lib/logo";
 import {
@@ -92,15 +96,29 @@ export async function renderReportPdf(
   // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
   // Signaturer og opplastet logo tas med, slik at PDF-motoren slipper å hente
   // dem fra det innloggingsbeskyttede /uploads over HTTP.
-  const record = (data ?? {}) as {
-    workOrder?: {
-      id?: string | null;
-      departmentId?: string | null;
-      customerId?: string | null;
-    } | null;
-    reports?: Parameters<typeof collectReportImageUrls>[0];
+  //
+  // Datasettet kan komme i to former: `loadReportPdf` sender arbeidsoppdraget
+  // direkte (med `reports` på toppnivå), mens revisjons-PDF-en sender
+  // `{ workOrder, reports }`. Begge må gi samme bildeliste – ellers mister
+  // den levende PDF-en alle bildene uten at selve teksten feiler.
+  const root = (data ?? {}) as Record<string, unknown>;
+  const nestedWorkOrder =
+    root.workOrder && typeof root.workOrder === "object"
+      ? (root.workOrder as Record<string, unknown>)
+      : null;
+  const workOrderRecord = (nestedWorkOrder ?? root) as {
+    id?: string | null;
+    departmentId?: string | null;
+    customerId?: string | null;
   };
-  const reportImageUrls = collectReportImageUrls(record.reports);
+  const rawReports = Array.isArray(root.reports)
+    ? root.reports
+    : root.report
+      ? [root.report]
+      : undefined;
+  const reportImageUrls = collectReportImageUrls(
+    rawReports as Parameters<typeof collectReportImageUrls>[0],
+  );
 
   // Bildene må valideres mot rapportens oppdrag. Den levende PDF-en har
   // avdeling/kunde i arbeidsoppdraget; revisjons-PDF-en har bare id, så de
@@ -110,11 +128,11 @@ export async function renderReportPdf(
     departmentId?: string | null;
     customerId?: string | null;
   } | null = null;
-  if (record.workOrder?.id) {
+  if (workOrderRecord.id) {
     const scope = {
-      id: record.workOrder.id,
-      departmentId: record.workOrder.departmentId,
-      customerId: record.workOrder.customerId,
+      id: workOrderRecord.id,
+      departmentId: workOrderRecord.departmentId,
+      customerId: workOrderRecord.customerId,
     };
     if (
       (scope.departmentId === undefined || scope.customerId === undefined) &&
@@ -161,7 +179,22 @@ export async function renderReportPdf(
       ? [{ url: safeLogoUrl, ownerTypes: BRANDING_LOGO_OWNER_TYPES }]
       : []),
   ];
-  const pdfImages = await buildPdfImages(imageRequests);
+  const { images: pdfImages, missing } =
+    await buildPdfImagesDetailed(imageRequests);
+
+  // Bilder som var forventet i rapporten, men som ikke kunne bygges inn, skal
+  // ikke forsvinne stille. Vi logger en stabil kode med antall (aldri filnavn
+  // eller personopplysninger) og viser en advarsel i selve PDF-en.
+  const missingImageCount = workOrderScope
+    ? missing.length
+    : reportImageUrls.filter((url) => !isEmbeddedImageUrl(url)).length;
+  if (missingImageCount > 0) {
+    console.error("report_pdf_images_missing", {
+      code: "report_pdf_images_missing",
+      count: missingImageCount,
+      reason: workOrderScope ? "not_embedded" : "no_work_order_scope",
+    });
+  }
 
   const origin =
     baseUrl ||
@@ -180,6 +213,7 @@ export async function renderReportPdf(
     globalCompanyName: branding?.companyName ?? undefined,
     baseUrl: origin,
     pdfImages,
+    missingImageCount,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

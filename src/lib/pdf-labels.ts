@@ -57,6 +57,7 @@ export type PdfLabels = {
   attachmentChecklist: string;
   attachmentComment: string;
   image: (index: number) => string;
+  missingImages: (count: number) => string;
 };
 
 const nb: PdfLabels = {
@@ -108,6 +109,8 @@ const nb: PdfLabels = {
   attachmentChecklist: "Sjekkliste:",
   attachmentComment: "Kommentar:",
   image: (index) => `Bilde ${index}`,
+  missingImages: (count) =>
+    `Advarsel: ${count} ${count === 1 ? "bilde" : "bilder"} i rapporten kunne ikke hentes og vises ikke i denne PDF-en.`,
 };
 
 const en: PdfLabels = {
@@ -159,6 +162,8 @@ const en: PdfLabels = {
   attachmentChecklist: "Checklist:",
   attachmentComment: "Comment:",
   image: (index) => `Image ${index}`,
+  missingImages: (count) =>
+    `Warning: ${count} ${count === 1 ? "image" : "images"} in the report could not be loaded and are not shown in this PDF.`,
 };
 
 const LABELS: Record<string, PdfLabels> = { nb, en };
