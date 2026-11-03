@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import BrandMark from "@/components/BrandMark";
-import { formatDateTimeLocalized } from "@/lib/dates";
 import { VISIT_STATUS_LABEL_KEYS } from "@/lib/visit-status";
 import { getPublicTracking } from "@/server/tracking";
+import TrackingEtaLive from "./TrackingEtaLive";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,12 +55,6 @@ export default async function PublicTrackingPage({
   const tracking = result.data;
   const technician =
     tracking.technicianFirstName ?? t("tracking.public.technicianFallback");
-  const lastUpdated = tracking.lastUpdatedAt
-    ? formatDateTimeLocalized(tracking.lastUpdatedAt, locale)
-    : null;
-  const arrival = tracking.estimatedArrivalAt
-    ? formatDateTimeLocalized(tracking.estimatedArrivalAt, locale)
-    : null;
 
   return (
     <PublicShell>
@@ -82,22 +76,23 @@ export default async function PublicTrackingPage({
           {t(VISIT_STATUS_LABEL_KEYS[tracking.status])}
         </p>
 
-        {tracking.status === "EN_ROUTE" && tracking.etaMinutes !== null && (
-          <div className="mt-4 border-t border-[var(--line,#dedcd1)] pt-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
-              {t("tracking.public.etaLabel")}
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-[var(--ink,#101310)]">
-              {t("tracking.public.etaMinutes", {
-                count: tracking.etaMinutes,
-              })}
-            </p>
-            {arrival && (
-              <p className="mt-1 text-sm font-medium text-[var(--muted,#62685f)]">
-                {t("tracking.public.etaArrival", { time: arrival })}
-              </p>
-            )}
-          </div>
+        {tracking.status === "EN_ROUTE" && (
+          <TrackingEtaLive
+            token={token}
+            locale={locale}
+            initial={{
+              status: tracking.status,
+              etaSource: tracking.etaSource,
+              etaMinutes: tracking.etaMinutes,
+              estimatedArrivalAt:
+                tracking.estimatedArrivalAt?.toISOString() ?? null,
+              plannedStartsAt: tracking.plannedStartsAt.toISOString(),
+              lastUpdatedAt: tracking.lastUpdatedAt?.toISOString() ?? null,
+              pingAgeMinutes: tracking.pingAgeMinutes,
+              stale: tracking.stale,
+              hasLivePosition: tracking.hasLivePosition,
+            }}
+          />
         )}
 
         {tracking.status === "ON_SITE" && (
@@ -105,18 +100,6 @@ export default async function PublicTrackingPage({
             {t("tracking.public.onSite")}
           </p>
         )}
-
-        {tracking.status === "EN_ROUTE" && tracking.etaMinutes === null && (
-          <p className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3 text-sm font-medium text-[var(--muted,#62685f)]">
-            {t("tracking.public.etaUnavailable")}
-          </p>
-        )}
-
-        <p className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3 text-sm font-medium text-[var(--muted,#62685f)]">
-          {lastUpdated
-            ? t("tracking.public.lastUpdated", { time: lastUpdated })
-            : t("tracking.public.noPosition")}
-        </p>
       </div>
 
       <p className="mt-4 text-xs leading-5 text-[var(--muted,#62685f)]">

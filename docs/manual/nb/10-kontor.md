@@ -275,8 +275,8 @@ svar, så kundekortet og enhetssiden viser nøyaktig hva som ble kontrollert.
 ## Kalender og dispatch
 
 Kalenderen ligger på `/kalender` med fanene **Ressursoversikt**, **Måned**,
-**Uke**, **2 uker**, **Uke (time)**, **Dag**, **Dispatch**, **Kapasitet** og
-**Rapporter**.
+**Uke**, **2 uker**, **Uke (time)**, **Dag**, **Dispatch**, **Kapasitet**,
+**Rute** og **Rapporter**.
 
 | Fane | URL |
 | --- | --- |
@@ -321,6 +321,26 @@ arbeidstid er harde krav; overlapp er bare en opptatt-markering.
 **Kapasitet** (`/kalender/kapasitet`) viser **Planlagt kapasitet mot faktisk
 belastning per avdeling, dag og montør**. Velg **Fra** og **Til**, trykk **Vis**,
 og les **Kapasitet**, **Belastning** og **Utnyttelse**.
+
+### Ruteplan
+
+**Rute** (`/kalender/rute`) foreslår kjøreorden for én dag, per montør. Velg
+**Dato** og eventuelt **Montør**, og trykk **Vis rute**. Siden viser kart,
+stoppnummer, **Ankomst**, **Planlagt**, **Kjøring**, **Venting** og total
+**Kjøretid**, **Avstand** og **Ventetid** per montør.
+
+Ruten starter ved montørens tidligste lokaliserte visitt. Visiter uten
+koordinater, eller som ikke får plass innenfor tidsvinduet, listes under
+**Visiter som ikke er med i ruten** og flyttes ikke. Beregningen bruker en
+ekstern ruteleverandør når den er konfigurert; ellers luftlinje × 1,35 og
+gjennomsnittsfart. Se **Beregning** i ruten for å se hvilken metode som ble
+brukt.
+
+**Bruk rekkefølge** flytter visittene til de foreslåtte tidspunktene i én
+transaksjon. Handlingen krever `workorders.assign`, revisjonslogges per visitt
+og avbrytes helt ved overlapp med en fast visitt eller registrert ferie/sykdom.
+Fullførte og kansellerte visiter flyttes aldri. Hvis planen er endret siden den
+ble vist, får du beskjed om å laste siden på nytt.
 
 **Fordelingsregler** og **Territorier** settes opp under **Innstillinger →
 Dispatch**. Der velger du **Modus**, justerer **Vektene** for **Kompetanse**,
@@ -558,7 +578,11 @@ til en kontaktperson på samme kunde, og e-postadressen må være unik.
 **Rapporter** lar kunden kvittere. **Dokumenter** viser filer dere har delt via
 kundekortets **Vedlegg**. **Utstyr** viser status, garanti, siste måling og
 planer. **Avtaler** viser serviceavtaler og dekningslinjer. **Besøk** viser
-sporingslenke og omtale. **Meldinger** lar kunden svare på SMS ved samtykke.
+sporingslenke og omtale. Sporingssiden viser planlagt tid når montøren ikke har
+delt posisjon, og en live ETA bare når siste posisjon er fersk (under ti
+minutter). Er posisjonen eldre, står det eksplisitt hvor gammel den er; siden
+later aldri som et gammelt ping er live. ETA-en oppdateres automatisk hvert 30.
+sekund. **Meldinger** lar kunden svare på SMS ved samtykke.
 
 Kunden kan **Book en ledig time**, **Be om ny tid**, **Kanseller forespørsel**,
 **Kvitter mottatt** og **Be om oppdatering av kontaktinformasjon**. Booking og

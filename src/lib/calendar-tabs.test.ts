@@ -32,6 +32,7 @@ describe("kalenderfaner", () => {
       "timeDay",
       "dispatch",
       "capacity",
+      "route",
       "reports",
     ]);
   });
@@ -73,6 +74,7 @@ describe("kalenderfaner", () => {
       timeDay: "calendar",
       dispatch: "users",
       capacity: "chart",
+      route: "route",
       reports: "chart",
     });
   });

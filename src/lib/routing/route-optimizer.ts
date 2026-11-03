@@ -12,11 +12,29 @@ export type RouteWindow = {
   serviceMinutes?: number;
 };
 
+/** Ett stopp i den beregnede kjøreplanen. */
+export type RouteStop = {
+  visit: RouteWindow;
+  /** Når montøren faktisk ankommer stedet. */
+  arrivalAt: Date;
+  /** Når jobben starter (aldri før visittens tidligste start). */
+  startsAt: Date;
+  /** Når jobben er ferdig. */
+  endsAt: Date;
+  /** Ventetid før jobben kan starte innenfor tidsvinduet. */
+  waitMinutes: number;
+  travelMinutes: number;
+  distanceKm: number;
+};
+
 export type OptimisedRoute = {
   order: RouteWindow[];
   skipped: string[];
   totalDistanceKm: number;
   totalTravelMinutes: number;
+  /** Sum ventetid før visittenes tidsvinduer åpner. */
+  totalWaitingMinutes: number;
+  stops: RouteStop[];
   finishAt: Date | null;
 };
 
@@ -25,6 +43,8 @@ type Schedule = {
   skipped: string[];
   travel: number;
   distance: number;
+  waiting: number;
+  stops: RouteStop[];
   finishAt: Date;
   feasible: boolean;
 };
@@ -55,10 +75,12 @@ function schedule(
 ): Schedule {
   const ordered: RouteWindow[] = [];
   const skipped: string[] = [];
+  const stops: RouteStop[] = [];
   let cursor = startIndex;
   let clock = startAt;
   let travel = 0;
   let distance = 0;
+  let waiting = 0;
 
   for (const visit of visits) {
     const target = indexById.get(visit.id);
@@ -89,10 +111,25 @@ function schedule(
       continue;
     }
 
+    const endTime = new Date(startTime.getTime() + service * 60_000);
+    const waitMinutes = Math.max(
+      0,
+      Math.round((startTime.getTime() - arrival.getTime()) / 60_000),
+    );
     travel += leg.durationMinutes;
     distance += leg.distanceKm;
+    waiting += waitMinutes;
     ordered.push(visit);
-    clock = new Date(startTime.getTime() + service * 60_000);
+    stops.push({
+      visit,
+      arrivalAt: arrival,
+      startsAt: startTime,
+      endsAt: endTime,
+      waitMinutes,
+      travelMinutes: leg.durationMinutes,
+      distanceKm: leg.distanceKm,
+    });
+    clock = endTime;
     cursor = target;
   }
 
@@ -101,6 +138,8 @@ function schedule(
     skipped,
     travel: Math.round(travel),
     distance: Math.round(distance * 1000) / 1000,
+    waiting: Math.round(waiting),
+    stops,
     finishAt: clock,
     feasible: skipped.length === 0,
   };
@@ -130,6 +169,8 @@ export function optimiseRoute(input: {
       skipped: input.visits.map((visit) => visit.id),
       totalDistanceKm: 0,
       totalTravelMinutes: 0,
+      totalWaitingMinutes: 0,
+      stops: [],
       finishAt: input.startAt,
     };
   }
@@ -222,13 +263,15 @@ export function optimiseRoute(input: {
 
   return {
     order: bestSchedule.order,
-    skipped: visits
+    skipped: input.visits
       .filter(
         (visit) => !bestSchedule.order.some((row) => row.id === visit.id),
       )
       .map((visit) => visit.id),
     totalDistanceKm: bestSchedule.distance,
     totalTravelMinutes: bestSchedule.travel,
+    totalWaitingMinutes: bestSchedule.waiting,
+    stops: bestSchedule.stops,
     finishAt: bestSchedule.finishAt,
   };
 }

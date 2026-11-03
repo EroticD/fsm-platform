@@ -1,12 +1,14 @@
 {
   "metadata": {
     "routes": {
-      "kapasitet": "Kapasitet"
+      "kapasitet": "Kapasitet",
+      "rute": "Ruteplan"
     }
   },
   "calendar": {
     "common": {
-      "capacity": "Kapasitet"
+      "capacity": "Kapasitet",
+      "route": "Rute"
     },
     "dispatch": {
       "bestMatch": "Beste match",
@@ -38,6 +40,54 @@
       "suggestButton": "Foreslå",
       "suggestError": "Kunne ikke hente forslag. Prøv igjen.",
       "assignCandidate": "Tildel"
+    },
+    "route": {
+      "subtitle": "Foreslått kjøreorden per montør, med kjøretid og ankomst per stopp.",
+      "filters": "Filtrer ruteplanen",
+      "date": "Dato",
+      "technician": "Montør",
+      "allTechnicians": "Alle montører",
+      "show": "Vis rute",
+      "backToDispatch": "Til dispatch",
+      "applied": "{count, plural, one {# visitt ble flyttet.} other {# visiter ble flyttet.}}",
+      "empty": "Ingen planlagte visiter med koordinater denne dagen.",
+      "eyebrow": "Foreslått rute",
+      "totalDrive": "Kjøretid",
+      "totalDistance": "Avstand",
+      "totalWaiting": "Ventetid",
+      "provider": "Beregning",
+      "providerOsrm": "Ruteleverandør",
+      "providerLocal": "Lokal estimering",
+      "fallback": "Ruteleverandøren svarte ikke. Kjøretiden er beregnet lokalt med luftlinje og gjennomsnittsfart, så tallene er omtrentlige.",
+      "mapHint": "Kartet viser stoppene i foreslått rekkefølge. Listen under har samme informasjon som tekst.",
+      "mapAria": "Kart over foreslått rute for {name}",
+      "openWorkOrder": "Åpne oppdrag",
+      "tableCaption": "Foreslått rute for {name}",
+      "stop": "Stopp",
+      "eta": "Ankomst",
+      "planned": "Planlagt",
+      "travel": "Kjøring",
+      "wait": "Venting",
+      "workOrder": "Oppdrag",
+      "applyOrder": "Bruk rekkefølge",
+      "applyHint": "Flytter visittene til de foreslåtte tidspunktene. Fullførte og kanselliserte visiter flyttes aldri. Hele endringen avbrytes ved overlapp eller fravær.",
+      "skippedTitle": "Visiter som ikke er med i ruten",
+      "skippedMissingCoordinates": "mangler koordinater",
+      "skippedOutsideWindow": "får ikke plass innenfor tidsvinduet",
+      "skippedLimit": "overskrider grensen på 50 stopp",
+      "minutes": "{count, plural, one {# min} other {# min}}",
+      "km": "{count} km",
+      "errors": {
+        "invalid": "Datoen eller utvalget er ugyldig.",
+        "forbidden": "Du har ikke tilgang til å endre rekkefølgen.",
+        "notFound": "Fant ikke montøren eller ruten.",
+        "conflict": "Ruten er endret siden den ble vist. Last siden på nytt.",
+        "absence": "Flyttingen kolliderer med registrert fravær.",
+        "overlap": "Flyttingen overlapper en annen visitt for montøren.",
+        "orderMismatch": "Rekkefølgen stemmer ikke med den viste planen. Last siden på nytt.",
+        "applyFailed": "Rekkefølgen kunne ikke brukes.",
+        "unknown": "Noe gikk galt. Prøv igjen."
+      }
     }
   },
   "dispatch": {
