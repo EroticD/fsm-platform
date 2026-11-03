@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "scan": "Skann"
+  },
+  "fieldTools": {
+    "scan": "Skann",
+    "today": "I dag",
+    "customers": "Kunder og utstyr",
+    "online": "På nett",
+    "offline": "Frakoblet",
+    "installed": "Installert app",
+    "navigate": "Naviger",
+    "navigateTo": "Naviger til {address}",
+    "call": "Ring",
+    "callAria": "Ring {phone}",
+    "copyAddress": "Kopier adresse",
+    "copied": "Adresse kopiert",
+    "copyFailed": "Kunne ikke kopiere",
+    "newTab": "Åpnes i kartappen eller ny fane"
+  },
+  "scanner": {
+    "title": "Skann",
+    "intro": "Skann QR-koden på utstyret, eller skriv inn enhets-ID, oppdragsreferanse eller ordrenummer.",
+    "start": "Start kamera",
+    "stop": "Stopp kamera",
+    "scanning": "Holder kameraet mot QR-koden …",
+    "starting": "Starter kamera …",
+    "unsupported": "Nettleseren støtter ikke kameraskanning. Skriv koden manuelt i feltet under.",
+    "denied": "Kameraet er blokkert. Gi tillatelse i nettleserens innstillinger, eller skriv koden manuelt.",
+    "unavailable": "Fant ikke noe kamera. Skriv koden manuelt i feltet under.",
+    "error": "Kunne ikke lese koden. Prøv igjen, eller skriv den manuelt.",
+    "duplicate": "Koden er allerede lest. Hold den rolig foran kameraet, eller prøv en annen kode.",
+    "manualLabel": "Kode eller referanse",
+    "manualPlaceholder": "F.eks. O-261103-ABCD1234 eller enhets-ID",
+    "manualSubmit": "Slå opp",
+    "manualHint": "Du kan også lime inn hele lenken fra QR-etiketten.",
+    "videoAria": "Kamera for skanning",
+    "backToField": "Tilbake til I dag",
+    "errors": {
+      "invalid": "Koden inneholder ikke en gyldig enhets- eller oppdragsreferanse.",
+      "notFound": "Fant ingen enhet eller oppdrag med denne koden. Sjekk etiketten, eller spør kontoret.",
+      "forbidden": "Du har ikke tilgang til det denne koden peker på."
+    }
+  },
+  "components": {
+    "serviceWorker": {
+      "updateReady": "En ny versjon av feltappen er klar.",
+      "update": "Oppdater",
+      "later": "Senere"
+    }
+  },
+  "orders": {
+    "fieldList": {
+      "navigate": "Naviger",
+      "navigateAria": "Naviger til {address}"
+    },
+    "fieldDetail": {
+      "navigate": "Naviger"
+    }
+  }
+}

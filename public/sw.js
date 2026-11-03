@@ -15,7 +15,7 @@
  *    offline-siden.
  *  - Statiske filer og offline-siden caches cache-first.
  */
-const CACHE = "fsm-static-v5";
+const CACHE = "fsm-static-v6";
 const PAGE_CACHE_PREFIX = "fsm-pages-v1:";
 const LEGACY_PAGE_CACHE = "fsm-pages-v1";
 const META_CACHE = "fsm-offline-meta";
@@ -803,7 +803,8 @@ self.addEventListener("install", (event) => {
       .then((cache) => cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT_URL]))
       .catch(() => undefined),
   );
-  self.skipWaiting();
+  // Vi kaller ikke skipWaiting her. En ny worker skal vente til brukeren har
+  // trykket «Oppdater», slik at et halvferdig skjema ikke lastes bort.
 });
 
 self.addEventListener("activate", (event) => {
@@ -834,6 +835,13 @@ self.addEventListener("message", (event) => {
         .keys()
         .then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
     );
+    return;
+  }
+
+  if (data.type === "SKIP_WAITING") {
+    // Brukeren har trykket «Oppdater» i appen. Den nye workeren tar over, og
+    // klienten laster siden på nytt når `controllerchange` inntreffer.
+    event.waitUntil(self.skipWaiting());
     return;
   }
 

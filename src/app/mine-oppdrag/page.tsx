@@ -25,13 +25,15 @@ import { idSchema } from "@/lib/schemas/common";
 import * as workOrderService from "@/server/work-orders";
 import StatusBadge from "@/components/StatusBadge";
 import LogoutButton from "@/components/LogoutButton";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
+import NavigateLink from "@/components/NavigateLink";
 import SubmitButton from "@/components/SubmitButton";
 import CustomerToast from "@/components/customer/CustomerToast";
 import Icon from "@/components/icons";
 import FieldLiveStatus from "@/components/field/FieldLiveStatus";
 import FieldProgressRing from "@/components/field/FieldProgressRing";
 import FieldStatLink from "@/components/field/FieldStatLink";
+import FieldModeStrip from "@/components/field/FieldModeStrip";
+import { isValidCoordinates } from "@/lib/maps-links";
 
 /** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
 const LIST_PAGE_SIZE = 25;
@@ -60,6 +62,8 @@ function listSelect(userId: string) {
     city: true,
     scheduledFor: true,
     scheduledTo: true,
+    latitude: true,
+    longitude: true,
     customer: {
       select: {
         id: true,
@@ -618,6 +622,9 @@ export default async function TechnicianDashboard({
     : "";
   const heroReference = hero?.reference?.trim() || "";
   const heroOrderNumber = hero?.orderNumber?.trim() || "";
+  const heroHasMap =
+    Boolean(heroAddress?.query) ||
+    Boolean(hero && isValidCoordinates(hero.latitude, hero.longitude));
   const routeKm = routeDistanceKm(sortByVisitStart(todayRouteRows));
   const routeDistanceLabel =
     routeKm === null ? "" : formatRouteDistance(routeKm, locale);
@@ -639,6 +646,9 @@ export default async function TechnicianDashboard({
   ) => {
     const detailHref = `/mine-oppdrag/${wo.id}`;
     const address = effectiveAddress(wo);
+    const hasMap =
+      Boolean(address.query) ||
+      isValidCoordinates(wo.latitude, wo.longitude);
     const contact = wo.contact;
     const phone = contact?.phone?.trim() || wo.customer?.phone?.trim() || "";
     const draft = wo.reportDrafts[0];
@@ -789,14 +799,19 @@ export default async function TechnicianDashboard({
                 {t("orders.fieldList.call")}
               </a>
             )}
-            {address.query && (
-              <GoogleMapsLink
+            {hasMap && (
+              <NavigateLink
+                latitude={wo.latitude}
+                longitude={wo.longitude}
                 address={address.address}
                 postalCode={address.postalCode}
                 city={address.city}
-                label={t("orders.fieldList.showMap")}
+                label={t("orders.fieldList.navigate")}
+                ariaLabel={t("orders.fieldList.navigateAria", {
+                  address: address.query || wo.title,
+                })}
                 newTabLabel={t("orders.fieldList.newTab")}
-                className={`pointer-events-auto relative z-20 inline-flex min-h-11 items-center rounded-xl border-2 px-3 text-xs font-bold no-underline transition ${mapClass}`}
+                className={`pointer-events-auto relative z-20 min-h-11 rounded-xl border-2 px-3 text-xs font-bold no-underline ${mapClass}`}
               />
             )}
             {tone === "available" && canClaim && (
@@ -959,6 +974,8 @@ export default async function TechnicianDashboard({
           </div>
         </header>
 
+        <FieldModeStrip />
+
         {claimError && (
           <div
             role="alert"
@@ -1087,14 +1104,19 @@ export default async function TechnicianDashboard({
                       {t("orders.fieldList.call")}
                     </a>
                   )}
-                  {heroAddress?.query && (
-                    <GoogleMapsLink
-                      address={heroAddress.address}
-                      postalCode={heroAddress.postalCode}
-                      city={heroAddress.city}
-                      label={t("orders.fieldList.showMap")}
+                  {heroHasMap && (
+                    <NavigateLink
+                      latitude={hero.latitude}
+                      longitude={hero.longitude}
+                      address={heroAddress?.address}
+                      postalCode={heroAddress?.postalCode}
+                      city={heroAddress?.city}
+                      label={t("orders.fieldList.navigate")}
+                      ariaLabel={t("orders.fieldList.navigateAria", {
+                        address: heroAddress?.query || hero.title,
+                      })}
                       newTabLabel={t("orders.fieldList.newTab")}
-                      className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline transition hover:border-signal/60 hover:bg-white/10"
+                      className="min-h-14 flex-1 justify-center rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline hover:border-signal/60 hover:bg-white/10"
                     />
                   )}
                 </div>

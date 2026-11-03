@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
+import NavigateLink from "@/components/NavigateLink";
 import Icon from "@/components/icons";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -111,12 +111,19 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-[var(--ink,#101310)]">{c.name}</h2>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--muted,#62685f)]">
-                      <GoogleMapsLink
+                      <NavigateLink
+                        latitude={c.latitude}
+                        longitude={c.longitude}
                         address={c.address}
                         postalCode={c.postalCode}
                         city={c.city}
                         label={c.address || t("orders.fieldCustomers.noAddress")}
-                        className="font-bold text-[var(--ink,#101310)]! underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                        ariaLabel={t("fieldTools.navigateTo", {
+                          address:
+                            c.address || t("orders.fieldCustomers.noAddress"),
+                        })}
+                        newTabLabel={t("fieldTools.newTab")}
+                        className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       />
                       {c.customerNumber ? ` • ${t("orders.fieldCustomers.customerNumber", { number: c.customerNumber })}` : ""}
                     </p>

@@ -6,7 +6,9 @@ import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
+import NavigateLink from "@/components/NavigateLink";
+import CopyAddressButton from "@/components/CopyAddressButton";
+import { isValidCoordinates } from "@/lib/maps-links";
 import AuditLogTable from "@/components/AuditLogTable";
 import Icon, { type IconName } from "@/components/icons";
 import LocationPingToggle from "@/components/field/LocationPingToggle";
@@ -337,6 +339,7 @@ export default async function TechnicianWorkOrderPage({
       workComments: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { id: "desc" } },
       product: true,
+      site: true,
       technicians: true,
       visits: {
         include: {
@@ -623,16 +626,25 @@ export default async function TechnicianWorkOrderPage({
     workOrder.customer?.contacts?.find((contact) => contact.phone)?.phone ||
     workOrder.customer?.phone ||
     null;
-  const mapQuery = [
-    workOrder.address || workOrder.customer?.address,
-    workOrder.postalCode || workOrder.customer?.postalCode,
-    workOrder.city || workOrder.customer?.city,
-  ]
+  const mapAddress = {
+    address:
+      workOrder.site?.address ||
+      workOrder.address ||
+      workOrder.customer?.address,
+    postalCode:
+      workOrder.site?.postalCode ||
+      workOrder.postalCode ||
+      workOrder.customer?.postalCode,
+    city:
+      workOrder.site?.city || workOrder.city || workOrder.customer?.city,
+  };
+  const mapQuery = [mapAddress.address, mapAddress.postalCode, mapAddress.city]
     .filter(Boolean)
     .join(", ");
-  const mapsHref = mapQuery
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
-    : null;
+  const mapLatitude = workOrder.site?.latitude ?? workOrder.latitude;
+  const mapLongitude = workOrder.site?.longitude ?? workOrder.longitude;
+  const hasMapTarget =
+    Boolean(mapQuery) || isValidCoordinates(mapLatitude, mapLongitude);
   const customerHref =
     workOrder.customer?.id && hasPermission(user, "customers.view")
       ? `/kunder/${workOrder.customer.id}`
@@ -851,7 +863,7 @@ export default async function TechnicianWorkOrderPage({
 
         {/* HURTIGHANDLINGER – telefon, kart og de viktigste detaljsidene. */}
         {(contactPhone ||
-          mapsHref ||
+          hasMapTarget ||
           customerHref ||
           unitHref ||
           documentsHref) && (
@@ -870,17 +882,17 @@ export default async function TechnicianWorkOrderPage({
                   {t("orders.fieldDetail.callContact")}
                 </a>
               )}
-              {mapsHref && (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {hasMapTarget && (
+                <NavigateLink
+                  latitude={mapLatitude}
+                  longitude={mapLongitude}
+                  address={mapAddress.address}
+                  postalCode={mapAddress.postalCode}
+                  city={mapAddress.city}
+                  label={t("orders.fieldDetail.navigate")}
+                  newTabLabel={t("orders.fieldDetail.newTab")}
                   className={QUICK_ACTION}
-                >
-                  <Icon name="navigation" className="h-4 w-4 text-signal" />
-                  {t("orders.fieldDetail.map")}
-                  <span className="sr-only"> ({t("orders.fieldDetail.newTab")})</span>
-                </a>
+                />
               )}
               {customerHref && (
                 <Link href={customerHref} className={QUICK_ACTION}>
@@ -1447,14 +1459,29 @@ export default async function TechnicianWorkOrderPage({
             <div>
               <p className="text-ink">
                 <strong>{t("orders.fieldDetail.address")}</strong>{" "}
-                <GoogleMapsLink
-                  address={workOrder.address ?? workOrder.customer?.address}
-                  postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                  city={workOrder.city ?? workOrder.customer?.city}
-                  label={workOrder.address || workOrder.customer?.address || t("orders.fieldDetail.addressUnknown")}
+                <NavigateLink
+                  latitude={mapLatitude}
+                  longitude={mapLongitude}
+                  address={mapAddress.address}
+                  postalCode={mapAddress.postalCode}
+                  city={mapAddress.city}
+                  label={
+                    mapAddress.address || t("orders.fieldDetail.addressUnknown")
+                  }
+                  newTabLabel={t("orders.fieldDetail.newTab")}
                 />
-                {workOrder.postalCode || workOrder.customer?.postalCode || ""}{" "}
-                {workOrder.city || workOrder.customer?.city || ""}
+                {mapAddress.postalCode || ""} {mapAddress.city || ""}
+                {mapQuery && (
+                  <span className="mt-2 block">
+                    <CopyAddressButton
+                      value={mapQuery}
+                      label={t("fieldTools.copyAddress")}
+                      copiedLabel={t("fieldTools.copied")}
+                      failedLabel={t("fieldTools.copyFailed")}
+                      className="border-line bg-white text-ink hover:bg-white/70"
+                    />
+                  </span>
+                )}
               </p>
               {workOrder.customer?.phone && (
                 <p className="mt-1">
