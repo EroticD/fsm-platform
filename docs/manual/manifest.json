@@ -15,6 +15,7 @@
         { "file": "10-kontor.md", "label": "Kontor", "part": "Del 1" },
         { "file": "20-tekniker.md", "label": "Tekniker", "part": "Del 2" },
         { "file": "30-administrator.md", "label": "Administrator", "part": "Del 3" },
+        { "file": "31-sso-scim.md", "label": "SSO og SCIM" },
         { "file": "90-oppslag.md", "label": "Oppslag og feilsøking" }
       ]
     },

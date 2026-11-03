@@ -295,6 +295,17 @@ export default function SettingsTabs({
             {t("settings.tabs.api")}
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            href="?tab=sso"
+            ref={currentTab === "sso" ? activeRef : undefined}
+            className={linkClass(currentTab === "sso")}
+            aria-current={currentTab === "sso" ? "page" : undefined}
+          >
+            <Icon name="shield" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.sso")}
+          </Link>
+        )}
         {canCustomerTransfer && (
           <Link
             href="?tab=kundeoverforing"

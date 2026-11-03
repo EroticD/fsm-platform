@@ -77,6 +77,10 @@ import fieldAppNb from "../../messages/fragments/field-app.nb.json";
 import fieldAppEn from "../../messages/fragments/field-app.en.json";
 import fieldAppPl from "../../messages/fragments/field-app.pl.json";
 import fieldAppDe from "../../messages/fragments/field-app.de.json";
+import ssoNb from "../../messages/fragments/sso.nb.json";
+import ssoEn from "../../messages/fragments/sso.en.json";
+import ssoPl from "../../messages/fragments/sso.pl.json";
+import ssoDe from "../../messages/fragments/sso.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -131,6 +135,7 @@ const nbFragments = mergeAll([
   workforceNb,
   customerTransferNb,
   fieldAppNb,
+  ssoNb,
 ]);
 
 const enFragments = mergeAll([
@@ -160,6 +165,7 @@ const enFragments = mergeAll([
   workforceEn,
   customerTransferEn,
   fieldAppEn,
+  ssoEn,
 ]);
 
 /**
@@ -179,6 +185,7 @@ const plFragments = mergeAll([
   workforcePl,
   customerTransferPl,
   fieldAppPl,
+  ssoPl,
 ]);
 const deFragments = mergeAll([
   p4De,
@@ -192,6 +199,7 @@ const deFragments = mergeAll([
   workforceDe,
   customerTransferDe,
   fieldAppDe,
+  ssoDe,
 ]);
 
 export const messages = {

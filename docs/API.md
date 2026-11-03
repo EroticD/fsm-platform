@@ -975,6 +975,26 @@ curl -s "$FSM_BASE_URL/api/v1/documents/cm123" \
 
 ---
 
+## SCIM 2.0 (separat fra `/api/v1`)
+
+SCIM-provisjonering ligger under `/api/scim/v2` og bruker egne tokens, ikke
+API-nøklene over. Tokens opprettes under **Innstillinger → SSO og SCIM**.
+
+- **Base URL:** `https://<din-fsm-installasjon>/api/scim/v2`
+- **Autentisering:** `Authorization: Bearer scim_...`
+- **Endepunkter:** `GET/POST /Users`, `GET/PUT/PATCH/DELETE /Users/{id}` og
+  `GET /ServiceProviderConfig`.
+- **Liste:** `filter`, `startIndex` og `count` (maks 100).
+- **Feil:** `application/scim+json` med
+  `{ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "detail": ..., "status": "400" }`.
+- **Sletting:** `DELETE` er myk deaktivering. Passord settes aldri.
+- **Rate limit:** 120 kall per minutt per token.
+
+Se `docs/OPERATIONS.md` og `docs/manual/nb/31-sso-scim.md` for oppsett mot
+Entra ID, Keycloak, Authentik og Zitadel. SCIM Groups er ikke implementert.
+
+---
+
 ## Sikkerhet og drift
 
 - Nøkkelen er en hemmelighet. Behandle den som et passord, og legg den i et

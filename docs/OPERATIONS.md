@@ -762,6 +762,179 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 - Opprettelse, tilbakekalling og rotasjon logges i aktivitetsloggen. Sist brukt
   og utløp vises i listen. Utløpte og tilbakekalte nøkler gir `401`.
 
+## SSO (OIDC) og SCIM-provisjonering
+
+SSO og SCIM er valgfritt og konfigureres utelukkende med miljøvariabler. Uten
+dem virker passordinnlogging som før. Passordinnloggingen fjernes aldri når SSO
+slås på – den er den dokumenterte break-glass-veien for administrator.
+
+### OIDC-leverandører
+
+List leverandørene i `SSO_PROVIDERS` med komma. Hver leverandør får en slug, og
+alle innstillinger prefikses med `SSO_<SLUG>_` (store bokstaver, bindestrek blir
+understrek). Eksempel med Entra ID og Keycloak:
+
+```dotenv
+SSO_PROVIDERS=entra,keycloak
+
+SSO_ENTRA_DISPLAY_NAME=Microsoft Entra ID
+SSO_ENTRA_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
+SSO_ENTRA_CLIENT_ID=<application-client-id>
+SSO_ENTRA_CLIENT_SECRET=<client-secret>
+SSO_ENTRA_SCOPES=openid,email,profile
+SSO_ENTRA_ALLOWED_EMAIL_DOMAINS=example.no,example.com
+SSO_ENTRA_AUTO_PROVISION=false
+SSO_ENTRA_AUTO_PROVISION_ACTIVE=false
+SSO_ENTRA_DEFAULT_ROLE=USER
+SSO_ENTRA_DEFAULT_DEPARTMENT=Oslo
+SSO_ENTRA_GROUPS_CLAIM=groups
+SSO_ENTRA_GROUP_ROLE_MAP={"FSM-Office":"OFFICE","FSM-Technicians":"TECHNICIAN"}
+SSO_ENTRA_SYNC_ROLES=false
+
+SSO_KEYCLOAK_DISPLAY_NAME=Keycloak
+SSO_KEYCLOAK_ISSUER=https://keycloak.example.no/realms/fsm
+SSO_KEYCLOAK_CLIENT_ID=fsm-web
+SSO_KEYCLOAK_CLIENT_SECRET=<client-secret>
+SSO_KEYCLOAK_ALLOWED_EMAIL_DOMAINS=example.no
+SSO_KEYCLOAK_GROUPS_CLAIM=groups
+SSO_KEYCLOAK_GROUP_ROLE_MAP=FSM-Office=OFFICE,FSM-Field=TECHNICIAN
+```
+
+| Variabel | Betydning |
+| --- | --- |
+| `SSO_<SLUG>_ENABLED` | `false` skjuler leverandøren uten å fjerne konfigurasjonen. Standard `true`. |
+| `SSO_<SLUG>_ISSUER` / `_DISCOVERY_URL` | Issuer eller full discovery-URL. Discovery utledes som `<issuer>/.well-known/openid-configuration`. |
+| `SSO_<SLUG>_CLIENT_ID` / `_CLIENT_SECRET` | Klient for den konfidensielle OIDC-applikasjonen. |
+| `SSO_<SLUG>_SCOPES` | Kommaseparert. `openid` legges alltid til. Standard `openid,email,profile`. |
+| `SSO_<SLUG>_DISPLAY_NAME` | Teksten på knappen på innloggingssiden. |
+| `SSO_<SLUG>_ALLOWED_EMAIL_DOMAINS` | Kommaseparert liste. Tom betyr alle domener. |
+| `SSO_<SLUG>_AUTO_PROVISION` | `true` oppretter ukjente brukere. Standard `false`. |
+| `SSO_<SLUG>_AUTO_PROVISION_ACTIVE` | `true` aktiverer nye brukere med en gang. Standard `false` (administrator må aktivere). |
+| `SSO_<SLUG>_DEFAULT_ROLE` | Rolle for auto-provisjonerte brukere. Standard `USER`. `CUSTOMER` er ikke tillatt. |
+| `SSO_<SLUG>_DEFAULT_DEPARTMENT` | Avdelingsnavn eller id for auto-provisjonerte brukere. |
+| `SSO_<SLUG>_GROUPS_CLAIM` | Claim med grupper/roller. Standard `groups`. Punktnotasjon og Zitadel-rolleobjekt støttes. |
+| `SSO_<SLUG>_GROUP_ROLE_MAP` | JSON-objekt eller `gruppe=ROLLE,...`. Eksplisitt mapping fra gruppe til rolle. |
+| `SSO_<SLUG>_SYNC_ROLES` | `true` oppdaterer rollen ved hver innlogging ut fra gruppene. Standard `false`: en eksisterende brukers rolle endres aldri stille. |
+
+**Redirect-URL** i IdP-en er alltid:
+
+```text
+https://<NEXTAUTH_URL>/api/auth/callback/sso-<slug>
+```
+
+Eksempel: `https://fsm.example.no/api/auth/callback/sso-entra`. URL-en må være
+eksakt, ellers avviser IdP-en tilbakekallingen. NextAuth bruker authorization
+code flow med PKCE, `state` og `nonce`, og validerer signatur, issuer, audience
+og nonce mot discovery-dokumentet.
+
+### Leverandøreksempler
+
+- **Microsoft Entra ID:** registrer en webapplikasjon, legg redirect-URL-en
+  over under *Authentication*. Gi `openid`, `email`, `profile` og eventuelt
+  `GroupMember.Read.All` for grupper. Legg `email` og `groups` som optional
+  claims i ID-tokenet. Entra setter ofte ikke `email_verified`; appen godtar i
+  stedet `xms_edov=true` fra tenanten. Autorisasjon skjer i tenanten – ikke
+  bruk en multi-tenant app uten å begrense `ALLOWED_EMAIL_DOMAINS`.
+- **Keycloak:** lag en confidential client med *Standard Flow*, skru på PKCE,
+  og legg redirect-URL-en under *Valid redirect URIs*. Legg en group membership
+  mapper til i client scope med *Add to ID token*, slik at `groups` inneholder
+  gruppenavnene som `GROUP_ROLE_MAP` refererer til.
+- **Authentik:** lag en OAuth2/OpenID-provider og en application. Redirect-URL
+  settes under *Redirect URIs*. Bruk en scope-mapping som legger gruppene i
+  `groups`-claimet. Issuer er
+  `https://<authentik>/application/o/<app-slug>/`.
+- **Zitadel:** lag en OIDC-applikasjon av typen *Web*, legg redirect-URL-en inn,
+  og be om `urn:zitadel:iam:org:project:roles` som scope/claim. Appen leser
+  rolleobjektet som nøkler, så `SSO_ZITADEL_GROUPS_CLAIM` settes til
+  `urn:zitadel:iam:org:project:roles`.
+
+SAML er ikke implementert. Entra ID, Keycloak, Authentik og Zitadel dekkes via
+OIDC; SAML kan legges til senere uten å endre kontomodellen.
+
+Appen leser claims fra **ID-tokenet**. Sørg for at grupper/roller er med der,
+ikke bare i userinfo. Entra ID utelater `groups` når brukeren er medlem av
+svært mange grupper (overage). Da må gruppene begrenses eller hentes via en
+egen app-rolle; appen mapper ikke overage-claims automatisk.
+
+### Konto, rolle og 2FA
+
+- En ny identitet matches først på `(leverandør, sub)`. E-post brukes bare ved
+  første kobling, og bare når leverandøren har bekreftet adressen.
+- En e-post som allerede tilhører en **aktiv** bruker kobles til den brukeren.
+  Rollen endres ikke med mindre `SYNC_ROLES=true` og gruppemappingen gir en
+  annen rolle. Koblingen og en eventuell rolleendring revisjonslogges.
+- Kundeportalbrukere og brukere med `customerId` kobles aldri. Ukjente brukere
+  avvises med en tydelig feilmelding når auto-provisjonering er av.
+- Auto-provisjonerte brukere får ingen passord. Standard er inaktiv konto og
+  rollen `USER`; en administrator må aktivere kontoen i **Ansatte & Roller**.
+  Sett `AUTO_PROVISION_ACTIVE=true` bare når IdP-en er autoritativ for hele
+  brukerpopulasjonen.
+- Grupper som peker på flere ulike roller avvises. Rydd mappingen i stedet for
+  å la appen velge «høyeste» rolle. `ADMIN` kan mappes eksplisitt, men bør være
+  en egen, liten gruppe.
+- Påkrevd 2FA (`REQUIRE_2FA_ROLES`) gjelder også SSO. En bruker med 2FA må
+  taste engangskoden, og en privilegert bruker uten oppsett sendes til
+  `/logg-inn/2fa/oppsett` før noen sesjon opprettes. SSO omgår aldri policyen.
+- Deaktivert bruker, øktversjon som ikke stemmer, eller en rolle som er fjernet
+  gir avvist innlogging/økt på neste forespørsel.
+
+### SCIM 2.0
+
+SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
+<scim-token>`. Sesjonscookies godtas ikke. Endepunkter:
+
+| Endepunkt | Metode | Formål |
+| --- | --- | --- |
+| `/api/scim/v2/Users` | `GET` | Liste med `filter`, `startIndex`, `count`. Støtter `eq`, `ne`, `co`, `sw`, `pr` og `and` på `userName`, `emails.value`, `externalId`, `active`, `id`, `displayName` og `role`. |
+| `/api/scim/v2/Users` | `POST` | Opprett bruker. `active=true` må sendes eksplisitt for at kontoen skal kunne logge inn. |
+| `/api/scim/v2/Users/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, deloppdater eller deaktiver. `DELETE` er myk deaktivering. |
+| `/api/scim/v2/ServiceProviderConfig` | `GET` | Kapabiliteter for IdP-oppsett. |
+
+- **Tokens:** opprettes under **Innstillinger → SSO og SCIM** av administrator.
+  Bare SHA-256-hash og et visningsprefiks lagres. Klarteksttokenet vises én gang.
+  Bruk ett token per IdP/integrasjon, og roter ved mistanke om lekkasje. Rotering
+  tilbakekaller det gamle tokenet i samme transaksjon. Sist brukt og utløp vises
+  i listen. Standard levetid er 365 dager (`SCIM_TOKEN_DEFAULT_LIFETIME_DAYS`),
+  maks 730 (`SCIM_TOKEN_MAX_LIFETIME_DAYS`).
+- **Entra:** *Provisioning → Automatic* med tenant-URL
+  `https://fsm.example.no/api/scim/v2` og det hemmelige tokenet. Test connection
+  og start provisjonering. Gruppen som gir ADMIN bør ikke være standardmapping.
+- **Keycloak/Authentik/Zitadel:** bruk SCIM-klienten eller
+  synkroniseringsjobben deres mot samme URL og token.
+- **Feltmapping:** `userName`/`emails` → `User.email`, `externalId` →
+  `User.scimExternalId`, `active` → `isActive`, `name` → navn, og
+  enterprise-extension `department` → avdeling. Passordfelt ignoreres alltid.
+  Ukjente PATCH-paths gir `400` i stedet for å bli stille ignorert.
+- **Roller:** `SCIM_DEFAULT_ROLE` (standard `USER`) brukes ved opprettelse.
+  `SCIM_GROUP_ROLE_MAP` mapper grupper/roller eksplisitt. `ADMIN` krever i
+  tillegg `SCIM_ALLOW_ADMIN=true`. `CUSTOMER` kan ikke tildeles.
+- **Domener:** `SCIM_ALLOWED_EMAIL_DOMAINS` begrenser hvilke adresser som kan
+  provisjoneres. Tom liste betyr alle.
+- **Sikkerhet:** SCIM kan ikke endre kundeportalbrukere, og kan ikke sette
+  passord. Endringer i rolle, avdeling, e-post eller aktiv status øker
+  `sessionVersion`, slik at eksisterende økter dør. Alle opprettelser,
+  oppdateringer, deaktiveringer og tokenoperasjoner revisjonslogges.
+  Bruk av tokenet revisjonslogges maks én gang i timen per token.
+- **Rate limit:** 120 kall per minutt per token, delt mellom app-instansene.
+  Overskridelse gir `429` med `Retry-After`.
+- **Feilformat:** alle feil, også 401/403/404/409, bruker
+  `application/scim+json` og `{ "schemas": [«...Error»], "detail": ..., "status": "400" }`.
+- **Begrensninger:** SCIM Groups er ikke implementert. Rolle styres av `roles`
+  / `groups` på brukeren og den eksplisitte mappingen. SAML er ikke
+  implementert; Entra ID, Keycloak, Authentik og Zitadel bruker OIDC.
+
+### Break-glass og minste privilegium
+
+- Behold minst to lokale administratorer med sterkt passord og 2FA, også når
+  SSO er på. Passordskjemaet på `/logg-inn` vises alltid.
+- En lokal administrator kan låse seg ute av SSO ved feil i IdP-en. Da brukes
+  den lokale kontoen, og `node scripts/break-glass-2fa.mjs --email ... --confirm`
+  er den dokumenterte nødveien for 2FA.
+- Gi `SSO_*_DEFAULT_ROLE=USER` og eksplisitt gruppemapping for kontor, montør
+  og eventuelt admin. Ikke map en bred «alle ansatte»-gruppe til `ADMIN`.
+- Begrens `ALLOWED_EMAIL_DOMAINS` og bruk én IdP-tenant per kundeinstallasjon.
+  Del aldri SCIM-token mellom miljøer eller kunder.
+
 ## Disk, opplastinger og opprydding
 
 - Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`).

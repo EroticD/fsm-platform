@@ -103,6 +103,11 @@ model User {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
+  /// Ekstern id fra SCIM-provisjonering. Settes bare av SCIM-tjenesten og
+  /// brukes til å matche oppdateringer fra identitetsleverandøren.
+  scimExternalId String? @unique
+  ssoIdentities  SsoIdentity[]
+
   // Kundeportalbrukere kobles til en kontaktperson på kundekortet
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
@@ -193,6 +198,54 @@ model ApiKey {
 
   @@index([userId])
   @@index([keyHash])
+}
+
+/// Kobling mellom en ekstern OIDC-identitet og en lokal bruker.
+///
+/// `sub` er leverandørens stabile identifikator for klienten, ikke e-post.
+/// E-post brukes bare ved første kobling og må være bekreftet av leverandøren.
+/// En bruker kan ha identiteter fra flere leverandører, men bare én per
+/// leverandør.
+model SsoIdentity {
+  id       String @id @default(cuid())
+  /// Slug fra SSO_PROVIDERS, f.eks. «entra» eller «keycloak».
+  provider String
+  /// OIDC `sub` fra identitetstokenet.
+  subject  String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// E-posten leverandøren oppga ved koblingen. Vises i revisjonsloggen.
+  email String?
+
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+
+  @@unique([provider, subject])
+  @@unique([provider, userId])
+  @@index([userId])
+}
+
+/// Bearer-token for SCIM 2.0-provisjonering. Bare SHA-256-hashen lagres;
+/// klarteksttokenet vises én gang ved opprettelse, som for API-nøkler.
+model ScimToken {
+  id        String @id @default(cuid())
+  name      String
+  tokenHash String @unique
+  prefix    String
+
+  /// Administratoren som opprettet tokenet. Brukes til attribusjon i
+  /// revisjonsloggen og for å kunne sperre tokenet når kontoen deaktiveres.
+  createdById String?
+
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  @@index([revokedAt])
+  @@index([createdById])
 }
 
 // Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver

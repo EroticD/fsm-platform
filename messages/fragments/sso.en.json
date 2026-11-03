@@ -1,0 +1,82 @@
+{
+  "sso": {
+    "or": "or sign in with email",
+    "signInWith": "Sign in with {provider}",
+    "redirecting": "Redirecting …",
+    "errors": {
+      "invalidClaims": "The identity provider returned an invalid response. Contact an administrator.",
+      "missingEmail": "The account has no email address. Contact an administrator.",
+      "unverifiedEmail": "The email address was not verified by the identity provider. Contact an administrator.",
+      "domainNotAllowed": "This email domain is not allowed for SSO. Contact an administrator.",
+      "inactive": "The account is deactivated. Contact an administrator.",
+      "notProvisioned": "The account has not been created in FSM yet. Contact an administrator.",
+      "roleConflict": "Your groups map to several different roles. Contact an administrator.",
+      "invalidRole": "The role from the identity provider does not exist in FSM. Contact an administrator.",
+      "invalidDepartment": "The department from the identity provider does not exist. Contact an administrator.",
+      "customerAccount": "Customer portal users cannot sign in with SSO.",
+      "identityConflict": "The account is already linked to another identity. Contact an administrator.",
+      "configuration": "SSO is not configured correctly. Contact an administrator.",
+      "serverError": "Could not sign in with SSO. Try again."
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sso": "SSO and SCIM"
+    },
+    "ssoScim": {
+      "ssoTitle": "SSO providers",
+      "ssoDescription": "OIDC providers are configured with environment variables. Password sign-in always remains available as break-glass for administrators.",
+      "configErrors": "The SSO configuration has errors that must be fixed in the environment:",
+      "ssoEmpty": "No SSO providers are configured. Set SSO_PROVIDERS and the corresponding SSO_<NAME>_ variables.",
+      "ssoActive": "Active",
+      "issuer": "Issuer",
+      "provisioning": "Auto-provisioning",
+      "autoProvisionActive": "On – new users are activated",
+      "autoProvisionInactive": "On – new users are inactive",
+      "autoProvisionOff": "Off – the user must exist in advance",
+      "defaultRole": "Default role",
+      "allowedDomains": "Allowed email domains",
+      "allDomains": "All domains",
+      "ssoHelp": "Group roles and the default department are set in the environment. See SECURITY.md and docs/OPERATIONS.md for Entra ID, Keycloak, Authentik and Zitadel setup. Changes require an app restart.",
+      "scimTitle": "SCIM 2.0 provisioning",
+      "scimDescription": "SCIM tokens let the identity provider create, update and deactivate users. Tokens are stored only as hashes and shown once.",
+      "scimEndpoint": "Endpoint",
+      "createTitle": "New SCIM token",
+      "createDesc": "Use one token per integration, and rotate it if it may have leaked.",
+      "listTitle": "Existing SCIM tokens",
+      "listCount": "{count, plural, one {# token} other {# tokens}}",
+      "empty": "There are no SCIM tokens yet.",
+      "name": "Name",
+      "namePlaceholder": "For example Entra provisioning",
+      "expiresAt": "Expires (optional)",
+      "expiresHint": "Leave empty for the default lifetime of {days} days.",
+      "create": "Create token",
+      "creating": "Creating …",
+      "createdTitle": "The SCIM token has been created",
+      "createdWarning": "Copy the token now. It is shown only once and cannot be retrieved again.",
+      "copy": "Copy the token",
+      "copied": "Copied",
+      "done": "I have saved the token",
+      "rotate": "Rotate token",
+      "rotating": "Rotating …",
+      "rotatedTitle": "The token «{name}» has been rotated",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke the SCIM token «{name}»? The integration loses access immediately.",
+      "revokeLabel": "Revoke the token",
+      "createdColumn": "Created",
+      "lastUsedColumn": "Last used",
+      "expiresColumn": "Expires",
+      "never": "Never",
+      "noExpiry": "No expiry",
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "errors": {
+        "forbidden": "Only administrators can manage SCIM tokens.",
+        "invalid": "The name or expiry date is invalid.",
+        "not_found": "The token was not found.",
+        "error": "Could not process the SCIM token."
+      }
+    }
+  }
+}

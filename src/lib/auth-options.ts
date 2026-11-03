@@ -1,9 +1,21 @@
+// i18n-ignore-file: revisjons- og loggtekst er stabile driftsdata.
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/credentials";
 import { clientIpFrom } from "@/lib/client-ip";
 import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
+import {
+  readSsoConfig,
+  ssoDisplayName,
+  ssoEmail,
+  ssoProviderById,
+  ssoTwoFactorGate,
+  type SsoClaims,
+  type SsoProviderConfig,
+} from "@/lib/sso";
+import { logger } from "@/lib/logger";
+import { resolveSsoUser, recordSsoLogin } from "@/server/sso";
 
 /**
  * Absolutt levetid for en innlogging, uavhengig av aktivitet. NextAuth
@@ -11,6 +23,106 @@ import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
  * kunne leve evig. Verdien lagres i tokenet ved innlogging.
  */
 export const SESSION_ABSOLUTE_MAX_AGE = 7 * 24 * 60 * 60;
+
+/**
+ * NextAuth-provider for én OIDC-leverandør.
+ *
+ * Vi bruker discovery (`wellKnown`) i stedet for hardkodede endepunkter, slik
+ * at Entra ID, Keycloak, Authentik og Zitadel alle virker uten egne
+ * providerklasser. PKCE, state og nonce er påkrevd.
+ */
+function ssoOidcProvider(config: SsoProviderConfig) {
+  return {
+    id: config.id,
+    name: config.displayName,
+    type: "oauth" as const,
+    wellKnown: config.discoveryUrl,
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    authorization: { params: { scope: config.scopes.join(" ") } },
+    checks: ["pkce", "state", "nonce"] as ("pkce" | "state" | "nonce")[],
+    idToken: true,
+    profile(profile: Record<string, unknown>) {
+      return {
+        id: typeof profile.sub === "string" ? profile.sub : "",
+        email: ssoEmail(profile),
+        name: ssoDisplayName(profile),
+        image: typeof profile.picture === "string" ? profile.picture : null,
+      };
+    },
+  };
+}
+
+/**
+ * SSO-feil vises som en stabil kode på innloggingssiden. Meldingen inneholder
+ * aldri e-post, claims eller tokens.
+ */
+const SSO_ERROR_CODES: Record<string, string> = {
+  invalid_claims: "SsoInvalidClaims",
+  missing_email: "SsoMissingEmail",
+  unverified_email: "SsoUnverifiedEmail",
+  domain_not_allowed: "SsoDomainNotAllowed",
+  inactive: "SsoInactive",
+  not_provisioned: "SsoNotProvisioned",
+  role_conflict: "SsoRoleConflict",
+  invalid_role: "SsoInvalidRole",
+  invalid_department: "SsoInvalidDepartment",
+  customer_account: "SsoCustomerAccount",
+  identity_conflict: "SsoIdentityConflict",
+  server_error: "SsoServerError",
+};
+
+function ssoErrorRedirect(reason: string): string {
+  return `/logg-inn?error=${encodeURIComponent(
+    SSO_ERROR_CODES[reason] ?? "SsoServerError",
+  )}`;
+}
+
+/**
+ * To-trinns verifisering etter SSO. Vi oppretter en kortlevd «venter på
+ * 2FA»-cookie og sender brukeren til det vanlige kode- eller oppsettsteget.
+ * NextAuth lager ingen sesjon når signIn returnerer en URL.
+ */
+async function ssoTwoFactorRedirect(user: {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  isTwoFactorEnabled: boolean;
+}): Promise<string | null> {
+  const gate = ssoTwoFactorGate(user);
+  if (gate === "ok") return null;
+
+  const { setPendingTwoFactor } = await import("@/lib/session-token");
+  await setPendingTwoFactor(user.id);
+
+  if (gate === "enroll") {
+    try {
+      const prisma = (await import("@/lib/prisma")).default;
+      await prisma.auditLog.create({
+        data: {
+          entityType: "User",
+          entityId: user.id,
+          action: "2FA: påkrevd oppsett startet",
+          userName: user.name || user.email || "Ukjent",
+          actorId: user.id,
+        },
+      });
+    } catch {
+      // Revisjonsraden er best effort, som for passordinnlogging.
+    }
+    return "/logg-inn/2fa/oppsett";
+  }
+
+  return "/logg-inn/2fa";
+}
+
+const ssoConfig = readSsoConfig();
+for (const error of ssoConfig.errors) {
+  // Hemmeligheter logges aldri – bare hvilken innstilling som er ugyldig.
+  logger.error("Ugyldig SSO-konfigurasjon", { error });
+}
+
 
 /**
  * NextAuth gir `request.headers` som enten et Headers-objekt eller et vanlig
@@ -99,6 +211,9 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+    // OIDC-leverandører fra miljøet. Passordinnloggingen over beholdes alltid
+    // som break-glass, også når SSO er konfigurert.
+    ...ssoConfig.providers.map(ssoOidcProvider),
   ],
   session: {
     strategy: "jwt", // Bruker tokens for sikkerhet
@@ -146,6 +261,50 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
+    /**
+     * SSO-innlogging. Credentials-provideren har allerede kjørt sine egne
+     * 2FA- og aktiveringskontroller i `authorize`, så den slippes rett gjennom.
+     * For OIDC kobles identiteten til en lokal bruker, og 2FA sendes videre til
+     * det vanlige kode-/oppsettsteget før noen sesjon opprettes.
+     */
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "credentials") return true;
+
+      const provider = ssoProviderById(account?.provider ?? "");
+      if (!provider) return "/logg-inn?error=SsoConfiguration";
+
+      const claims = (profile ?? {}) as SsoClaims;
+      const result = await resolveSsoUser(provider, claims);
+      if (!result.ok) {
+        logger.warn("SSO-innlogging avvist", {
+          provider: provider.slug,
+          reason: result.reason,
+        });
+        return ssoErrorRedirect(result.reason);
+      }
+
+      // NextAuth bruker `user.id` som `sub` i JWT-en. Vi overskriver
+      // profilobjektet med den lokale brukeren, slik at økten får vår id,
+      // rolle og øktversjon – aldri IdP-ens sub eller grupper.
+      const sessionUser = result.user;
+      user.id = sessionUser.id;
+      user.email = sessionUser.email;
+      user.name = sessionUser.name;
+      const mutableUser = user as typeof user & {
+        role: string;
+        sessionVersion: number;
+      };
+      mutableUser.role = sessionUser.role;
+      mutableUser.sessionVersion = sessionUser.sessionVersion;
+
+      await recordSsoLogin(sessionUser, provider, {
+        provisioned: result.provisioned,
+        linked: result.linked,
+        roleChanged: result.roleChanged,
+      });
+
+      return (await ssoTwoFactorRedirect(sessionUser)) ?? true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
