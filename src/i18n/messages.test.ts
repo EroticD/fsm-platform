@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { messages } from "./messages";
@@ -49,7 +49,9 @@ describe("i18n fragment wiring", () => {
     for (const file of files) {
       const locale = file.slice(-7, -5) as (typeof LOCALES)[number];
       if (!LOCALES.includes(locale)) continue;
-      const fragment = require(path.join(FRAGMENT_DIR, file)) as unknown;
+      const fragment = JSON.parse(
+        readFileSync(path.join(FRAGMENT_DIR, file), "utf8"),
+      ) as unknown;
       for (const key of leafPaths(fragment)) {
         expect(
           hasPath(messages[locale].common, key),
