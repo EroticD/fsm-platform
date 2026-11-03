@@ -125,7 +125,6 @@
         },
         "empty": "Ingen samtaler ennå.",
         "noSubject": "Samtale uten emne",
-        "unread": "{count} ulest",
         "back": "Tilbake til meldinger",
         "fromYou": "Deg",
         "fromOffice": "Serviceleverandøren",

@@ -45,6 +45,8 @@ model Department {
   assignmentPolicies AssignmentPolicy[]
   messageThreads     MessageThread[]
   smsMessages        SmsMessage[]
+  reminderRules      ReminderRule[]
+  reminderDispatches ReminderDispatch[]
 
   @@index([isActive])
 }
@@ -901,6 +903,7 @@ model Visit {
   trackingLinks TrackingLink[]
   locationPings VisitLocationPing[]
   reviews       Review[]
+  reminderDispatches ReminderDispatch[]
 
   @@index([workOrderId, startsAt])
   @@index([startsAt, endsAt])
@@ -1980,4 +1983,72 @@ model SmsSetting {
   /// 0 eller null betyr ingen månedlig grense.
   monthlyCap     Int?     @default(0)
   updatedAt      DateTime @updatedAt
+}
+
+/// Automatisk påminnelse før en visit. Én rad per avdeling, kanal og
+/// offset, slik at kontoret kan ha både 24-timers- og 2-timersvarsel.
+/// Reglene redigeres under Innstillinger → SMS/påminnelser.
+model ReminderRule {
+  id          String @id @default(cuid())
+  departmentId String
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  /// SMS | EMAIL | BOTH
+  channel     String @default("SMS")
+  /// Antall timer før visiten påminnelsen skal sendes.
+  offsetHours Int    @default(24)
+  /// Hendelsesmalen som brukes for SMS. E-post har egne innebygde tekster.
+  templateKey String @default("VISIT_REMINDER")
+  /// Stille timer i avdelingens tidssone. null betyr ingen stille periode.
+  quietStartHour Int?
+  quietEndHour   Int?
+  timezone    String @default("Europe/Oslo")
+  /// Øvre grense for antall påminnelser per visit på tvers av reglene.
+  maxPerVisit Int    @default(2)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dispatches ReminderDispatch[]
+
+  @@unique([departmentId, channel, offsetHours])
+  @@index([departmentId, isActive])
+}
+
+/// Vedvarende utsendelseslogg for påminnelser. `dedupeKey` gjør at samme
+/// regel, visit og starttid aldri planlegges to ganger, også når flere
+/// appinstanser kjører sveipet samtidig. `visitStartsAt` er frosset slik at
+/// en flyttet eller avlyst visit kan avvises før utsending.
+model ReminderDispatch {
+  id            String   @id @default(cuid())
+  ruleId        String
+  rule          ReminderRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  visitId       String
+  visit         Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  workOrderId   String?
+  customerId    String?
+  contactId     String?
+  /// SMS | EMAIL
+  channel       String
+  offsetHours   Int
+  locale        String   @default("nb")
+  /// SCHEDULED | PROCESSING | SENT | SKIPPED | FAILED
+  status        String   @default("SCHEDULED")
+  scheduledFor  DateTime
+  visitStartsAt DateTime
+  sentAt        DateTime?
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lastError     String?
+  skipReason    String?
+  smsMessageId  String?
+  dedupeKey     String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([status, scheduledFor])
+  @@index([visitId, status])
+  @@index([departmentId, createdAt])
 }

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import prisma from "@/lib/prisma";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
 import {
+  applySmsStatusUpdate,
   claimNextSmsMessage,
   enqueueSms,
   hasSmsConsent,
@@ -310,6 +311,60 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
         templateKey: "BOOKING_CONFIRMED",
       },
     });
+  });
+
+  it("oppdaterer leveringsstatus idempotent uten å nedgradere levert", async () => {
+    const providerId = unique("status");
+    const created = await prisma.smsMessage.create({
+      data: {
+        direction: "OUTBOUND",
+        provider: "console",
+        providerId,
+        to: contactPhone,
+        body: "Status",
+        status: "SENT",
+        contactId,
+        departmentId,
+        sentAt: new Date(),
+      },
+    });
+
+    expect(
+      await applySmsStatusUpdate({
+        provider: "console",
+        providerId,
+        status: "DELIVERED",
+        occurredAt: new Date(),
+        error: null,
+      }),
+    ).toBe("updated");
+
+    expect(
+      await applySmsStatusUpdate({
+        provider: "console",
+        providerId,
+        status: "DELIVERED",
+        occurredAt: new Date(),
+        error: null,
+      }),
+    ).toBe("ignored");
+
+    expect(
+      await applySmsStatusUpdate({
+        provider: "console",
+        providerId,
+        status: "FAILED",
+        occurredAt: new Date(),
+        error: "sen feil",
+      }),
+    ).toBe("ignored");
+
+    const stored = await prisma.smsMessage.findUnique({
+      where: { id: created.id },
+      select: { status: true, deliveredAt: true },
+    });
+    expect(stored?.status).toBe("DELIVERED");
+    expect(stored?.deliveredAt).toBeInstanceOf(Date);
   });
 
   it("dead-letterer en melding som feiler tre ganger", async () => {

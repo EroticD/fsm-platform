@@ -60,13 +60,6 @@ export default async function PortalMessagesPage({
                           thread.workOrder?.title ||
                           t("portal.expansion.messages.noSubject")}
                       </span>
-                      {thread.unreadCount > 0 && (
-                        <span className="rounded-full bg-[var(--signal,#d8ff3e)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
-                          {t("portal.expansion.messages.unread", {
-                            count: thread.unreadCount,
-                          })}
-                        </span>
-                      )}
                     </span>
                     {last && (
                       <span className="line-clamp-2 break-words text-xs text-[var(--muted,#62685f)]">

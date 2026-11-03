@@ -15,7 +15,7 @@ import {
 } from "@/server/notifications";
 import { cleanupVisitLocationPings } from "@/server/tracking";
 import { cleanupTransfers } from "@/server/customer-transfer";
-
+import { startReminderWorker } from "@/server/reminders";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
  *
@@ -777,6 +777,11 @@ export function startJobWorker(): void {
   processNotifications();
   const notificationTimer = setInterval(processNotifications, 60_000);
   notificationTimer.unref?.();
+
+  // Planlegg og send påminnelser fra den vedvarende jobbkøen. SMTP- eller
+  // leverandørfeil påvirker derfor aldri request-stien, og hver utsendelse
+  // har en egen rad i ReminderDispatch med retry og historikk.
+  startReminderWorker();
 
   // Én overdue-sjekk ved oppstart og deretter hvert sjette døgn.
   const notifyOverdue = () => {

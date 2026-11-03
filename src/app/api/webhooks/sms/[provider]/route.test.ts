@@ -4,6 +4,7 @@ import { hmacSha256Hex } from "@/lib/sms/provider";
 const mocks = vi.hoisted(() => ({
   allowRequestDb: vi.fn(async () => ({ allowed: true, retryAfterSeconds: 0 })),
   recordInboundSms: vi.fn(),
+  applySmsStatusUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/rate-limit-db", () => ({
@@ -11,6 +12,9 @@ vi.mock("@/lib/rate-limit-db", () => ({
 }));
 vi.mock("@/server/messaging", () => ({
   recordInboundSms: mocks.recordInboundSms,
+}));
+vi.mock("@/server/sms", () => ({
+  applySmsStatusUpdate: mocks.applySmsStatusUpdate,
 }));
 
 import { POST } from "./route";
@@ -69,6 +73,7 @@ beforeEach(() => {
     customerId: "customer-1",
     consentAction: null,
   });
+  mocks.applySmsStatusUpdate.mockResolvedValue("updated");
 });
 
 describe("POST /api/webhooks/sms/[provider]", () => {
@@ -172,5 +177,52 @@ describe("POST /api/webhooks/sms/[provider]", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it("bruker leverandørens statuscallback uten å lage en innkommende melding", async () => {
+    const response = await POST(
+      signedRequest({ id: "delivery-1", status: "delivered" }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      delivery: "updated",
+    });
+    expect(mocks.applySmsStatusUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "console",
+        providerId: "delivery-1",
+        status: "DELIVERED",
+      }),
+    );
+    expect(mocks.recordInboundSms).not.toHaveBeenCalled();
+  });
+
+  it("svarer 200 for ukjent statuscallback, slik at leverandøren ikke prøver evig", async () => {
+    mocks.applySmsStatusUpdate.mockResolvedValue("unknown");
+
+    const response = await POST(
+      signedRequest({ id: "ukjent", status: "failed", reason: "expired" }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      delivery: "unknown",
+    });
+  });
+
+  it("lekker ingen interne detaljer når lagringen feiler", async () => {
+    mocks.recordInboundSms.mockRejectedValue(
+      new Error("database connection string secret"),
+    );
+
+    const response = await POST(signedRequest(payload), context());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "internal" });
   });
 });

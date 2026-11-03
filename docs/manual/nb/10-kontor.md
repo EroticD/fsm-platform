@@ -526,11 +526,18 @@ lager et lagret søk.
 
 **Meldinger** (`/meldinger`) samler SMS-samtaler. Filtrer på **Alle** eller
 **Bare uleste**, søk på kunde, kontakt eller oppdrag, og **Start samtale** fra et
-oppdrag. **Hurtigmeldinger** sender **Send bookingbekreftelse**, **Send påminnelse**,
+oppdrag. Åpne en samtale for å lese kundens svar og svare med SMS; hver utgående
+melding viser **Status** (I kø, Sendt, Levert eller Feilet). **Hurtigmeldinger** sender **Send bookingbekreftelse**, **Send påminnelse**,
 **Send «på vei»**, **Send «ferdig»** eller **Be om vurdering**. **Samtykke og
 reservasjon** viser **Samtykke registrert** eller **Ikke registrert**; uten
 samtykke sendes ingen SMS. Tørrkjøring betyr at ingen meldinger forlater
-systemet.
+systemet. Du ser bare samtaler i din egen avdeling; kundeportalbrukere ser bare
+sine egne.
+
+Administrator kan sette opp **Automatiske påminnelser** under **Innstillinger →
+SMS**. Reglene kan sende SMS, e-post eller begge deler et valgt antall timer før
+besøket, med stille timer og en maksgrense per besøk. **Siste påminnelser** viser
+hva som er planlagt, sendt eller hoppet over – uten meldingstekst.
 
 ## Kundeportalen fra kontoret
 
