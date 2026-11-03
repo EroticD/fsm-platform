@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { clientIpFrom } from "@/lib/client-ip";
+import { logger } from "@/lib/logger";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { readTextWithLimit } from "@/lib/request-body";
 import {
@@ -9,6 +10,7 @@ import {
   type SmsProviderName,
 } from "@/lib/sms/provider";
 import { recordInboundSms, type InboundSmsResult } from "@/server/messaging";
+import { applySmsStatusUpdate } from "@/server/sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +34,12 @@ function errorResponse(code: string, status: number) {
  * Link Mobility godtar JSON. Uansett svarer vi «ok» også for en duplikatlevering,
  * slik at leverandøren slutter å prøve på nytt.
  */
-function successResponse(provider: SmsProviderName, result: InboundSmsResult) {
+function successResponse(
+  provider: SmsProviderName,
+  result: InboundSmsResult | { status: "updated" | "ignored" | "unknown" },
+) {
+  const delivery =
+    "status" in result ? { delivery: result.status } : { duplicate: result.duplicate };
   if (provider === "twilio") {
     return new NextResponse("<Response></Response>", {
       status: 200,
@@ -47,16 +54,20 @@ function successResponse(provider: SmsProviderName, result: InboundSmsResult) {
   }
   if (provider === "linkmobility") {
     return NextResponse.json(
-      { status: "OK", duplicate: result.duplicate },
+      { status: "OK", ...delivery },
       { status: 200, headers: NO_STORE },
     );
   }
   return NextResponse.json(
     {
       ok: true,
-      duplicate: result.duplicate,
-      threadId: result.threadId,
-      consentAction: result.consentAction,
+      ...("status" in result
+        ? delivery
+        : {
+            duplicate: result.duplicate,
+            threadId: result.threadId,
+            consentAction: result.consentAction,
+          }),
     },
     { status: 200, headers: NO_STORE },
   );
@@ -126,13 +137,38 @@ export async function POST(
     return errorResponse("invalid-signature", 403);
   }
 
-  const inbound = provider.parseWebhook({
-    rawBody: raw.data,
-    headers: request.headers,
-    url: request.url,
-  });
-  if (!inbound) return errorResponse("invalid-payload", 400);
+  // Leverandørene bruker samme endepunkt for leveringsstatus. En
+  // statuscallback har ingen avsender/tekst, og skal besvares med 200 også
+  // når vi ikke kjenner meldings-ID-en – ellers prøver leverandøren evig.
+  // Status prøves først, slik at en leveringskvittering aldri blir lagret som
+  // en ny innkommende melding.
+  try {
+    const status = provider.parseStatus({
+      rawBody: raw.data,
+      headers: request.headers,
+      url: request.url,
+    });
+    if (status) {
+      const applied = await applySmsStatusUpdate(status);
+      return successResponse(providerParam, { status: applied });
+    }
 
-  const result = await recordInboundSms(inbound);
-  return successResponse(providerParam, result);
+    const inbound = provider.parseWebhook({
+      rawBody: raw.data,
+      headers: request.headers,
+      url: request.url,
+    });
+    if (!inbound) return errorResponse("invalid-payload", 400);
+
+    const result = await recordInboundSms(inbound);
+    return successResponse(providerParam, result);
+  } catch (error) {
+    // Svar aldri med stack traces eller leverandørpayload. Leverandøren prøver
+    // igjen, og idempotensen gjør en ny levering trygg.
+    logger.error("SMS webhook failed", {
+      provider: providerParam,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return errorResponse("internal", 500);
+  }
 }

@@ -75,6 +75,76 @@ driften:
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
+## SMS, webhooker og påminnelser
+
+SMS-leverandøren velges med `SMS_PROVIDER` (`console`, `linkmobility`,
+`pswincom` eller `twilio`). `console` er tørrkjøring og sender aldri ut av
+prosessen. Avsendernavnet kommer fra `SMS_SENDER_ID`.
+
+| Variabel | Bruk |
+| --- | --- |
+| `SMS_PROVIDER` | Aktiv leverandør. Ukjent verdi faller tilbake til `console`. |
+| `SMS_SENDER_ID` | Avsender som vises hos mottakeren. |
+| `SMS_WEBHOOK_SECRET` | Felles HMAC-hemmelighet for `console`, `linkmobility` og `pswincom`. |
+| `SMS_LINKMOBILITY_SECRET` | Overstyrer `SMS_WEBHOOK_SECRET` for Link Mobility. |
+| `SMS_PSWINCOM_SECRET` | Overstyrer `SMS_WEBHOOK_SECRET` for PSWinCom. |
+| `SMS_TWILIO_AUTH_TOKEN` | Twilio-signatur og API-token. |
+| `SMS_TWILIO_ACCOUNT_SID` | Twilio-konto for utgående sending. |
+| `SMS_LINKMOBILITY_URL` / `SMS_LINKMOBILITY_API_KEY` | Utgående Link Mobility-endepunkt og nøkkel. |
+| `SMS_PSWINCOM_URL`, `SMS_PSWINCOM_USER`, `SMS_PSWINCOM_PASSWORD` | Utgående PSWinCom-oppsett. |
+| `SMS_ALLOWLIST` | Kommaseparerte numre som er tillatt i test/staging. Tom betyr alle med samtykke. |
+| `SMS_TIMEOUT_MS` | Tidsavbrudd mot leverandøren (standard 10 000 ms). |
+
+**Webhook-URL:** `https://<vert>/api/webhooks/sms/<leverandør>`. Bruk samme URL
+for innkommende meldinger og leveringsstatus. Ruten krever gyldig signatur;
+`console` godtas uten hemmelighet bare når `NODE_ENV` ikke er `production`.
+Link Mobility og PSWinCom signerer `timestamp.body` med HMAC-SHA256 i
+`x-lm-signature`/`x-pswincom-signature` (eller `x-sms-signature`), og
+tidsstempelet må være innenfor fem minutter. Twilio bruker
+`x-twilio-signature` (SHA-1 over URL og sorterte parametre). Rate limit er 120
+forespørsler per minutt per leverandør og IP; overskridelse gir `429` med
+`Retry-After`.
+
+**Idempotens:** Innkommende meldinger lagres med unik `(provider, providerId)`,
+så leverandørens retries gir én `SmsMessage` og én `Message`. Leveringsstatus er
+også idempotent: en sen `delivered` overskriver ikke en nyere feil, og ukjent
+meldings-ID besvares med `200` slik at leverandøren slutter å prøve. STOP/START
+oppdaterer `ChannelPreference` umiddelbart og blokkerer senere utsending.
+
+**Retry og kø:** Utgående SMS ligger i `SmsMessage` og prøves tre ganger med
+eksponentiell pause (30 s, 60 s, 120 s) før `DEAD_LETTER`. En krasjet worker
+frigjør `SENDING`-rader etter 30 minutter. Påminnelser ligger i
+`ReminderDispatch`: sveip hvert femte minutt, tre forsøk med 5/10/20 minutters
+pause, og `PROCESSING`-rader eldre enn 15 minutter settes tilbake i køen.
+Stille timer flytter utsendingen til slutten av vinduet; blir tidspunktet etter
+besøkets start, hoppes påminnelsen over med årsak. Avlyste, flyttede eller
+fullførte besøk gir `SKIPPED` før noe sendes. Workeren styres med
+`REMINDER_WORKER=false` og kjører uavhengig av `PDF_JOB_WORKER`.
+
+**Overvåking:** `FsmSmsDeadLetters` i `deploy/monitoring/` fanger
+`SmsMessage` med `status = DEAD_LETTER` eller `FAILED`. Påminnelser logges uten
+telefonnummer eller meldingstekst, og hver utsendelse får en revisjonsrad med
+regel, visit, kanal og offset – ikke innhold. Historikken i innstillingene viser
+de siste 50 radene per avdeling.
+
+**Retensjon:** `SmsMessage` og `Message` beholdes sammen med kunden/oppdraget og
+følger den vanlige bevarings- og revisjonspolicyen. `ReminderDispatch` slettes
+kaskadert når regelen, avdelingen eller visiten slettes; ingen automatisk
+purring finnes fordi radene er revisjonsspor for utsending. Logg aldri
+meldingstekst, telefonnummer eller e-postadresse i feillogger.
+
+**Manuell kontroll:**
+
+```bash
+# Signert testleveranse (console i utvikling)
+curl -sS -X POST http://127.0.0.1:3000/api/webhooks/sms/console \
+  -H 'content-type: application/json' -d '{"id":"test-1","from":"4790000000","to":"4700000000","body":"Hei"}'
+
+# Se dead letters og siste påminnelser
+psql "$DATABASE_URL" -c "select id,status,\"lastError\" from \"SmsMessage\" where status in ('DEAD_LETTER','FAILED') order by \"createdAt\" desc limit 20;"
+psql "$DATABASE_URL" -c "select status,\"skipReason\",count(*) from \"ReminderDispatch\" group by 1,2;"
+```
+
 ## Minne og swap (1 GB Droplet)
 
 Compose-grensene er dimensjonert for en 1 GB Droplet:

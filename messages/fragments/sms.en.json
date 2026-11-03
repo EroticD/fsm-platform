@@ -1,7 +1,7 @@
 {
   "settings": {
     "tabs": {
-      "sms": "SMS"
+      "sms": "SMS and reminders"
     }
   },
   "sms": {
@@ -111,6 +111,65 @@
       "noConsent": "The contact has not consented to SMS.",
       "rate_limited": "The monthly SMS limit has been reached.",
       "generic": "Something went wrong. Try again."
+    },
+    "reminders": {
+      "title": "Automated reminders",
+      "description": "Send SMS or email before planned visits. Each rule covers one department, one channel and a number of hours before the visit.",
+      "quietHint": "Quiet hours are local times (0–23). Leave both empty to send at any time. A window such as 22–07 crosses midnight.",
+      "noDepartments": "No active departments. Create a department first.",
+      "create": "New reminder rule",
+      "department": "Department",
+      "channel": "Channel",
+      "channels": {
+        "SMS": "SMS",
+        "EMAIL": "Email",
+        "BOTH": "SMS and email"
+      },
+      "offsetHours": "Hours before visit",
+      "templateKey": "SMS template",
+      "quietStart": "Quiet from (hour)",
+      "quietEnd": "Quiet until (hour)",
+      "timezone": "Time zone",
+      "maxPerVisit": "Max reminders per visit",
+      "active": "Active",
+      "createButton": "Create rule",
+      "noRules": "No reminder rules have been created.",
+      "ruleSummary": "{hours} hours before · {channel}",
+      "save": "Save rule",
+      "delete": "Delete rule",
+      "history": "Recent reminders",
+      "historyHint": "Shows scheduled, sent and skipped reminders without message text or phone numbers.",
+      "noHistory": "No reminders have been scheduled yet.",
+      "historyRow": "{hours} hours before · {channel}",
+      "sentAt": "Sent {time}",
+      "scheduledAt": "Scheduled {time}",
+      "saved": "The reminder rule has been saved.",
+      "conflict": "A rule already exists for this department, channel and number of hours.",
+      "status": {
+        "SCHEDULED": "Scheduled",
+        "PROCESSING": "Sending",
+        "SENT": "Sent",
+        "SKIPPED": "Skipped",
+        "FAILED": "Failed"
+      },
+      "reasons": {
+        "missing_consent_or_phone": "Missing consent or phone number",
+        "email_opt_out": "Email has opted out",
+        "max_per_visit": "Maximum per visit reached",
+        "quiet_hours": "Quiet hours",
+        "visit_deleted": "The visit was deleted",
+        "work_order_deleted": "The work order was deleted",
+        "work_order_cancelled": "The work order was cancelled",
+        "visit_completed": "The visit was completed",
+        "visit_cancelled": "The visit was cancelled",
+        "visit_moved": "The visit was moved",
+        "rule_inactive": "The rule is disabled",
+        "missing_phone": "Missing phone number",
+        "no_consent": "Missing SMS consent",
+        "missing_template": "Missing SMS template",
+        "missing_customer": "The work order has no customer",
+        "missing_email": "Missing email address"
+      }
     }
   }
 }

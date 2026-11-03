@@ -42,6 +42,7 @@ import {
 import { listEvidenceCandidates } from "@/server/evidence-export";
 import { getSlaSettingsView } from "@/server/sla";
 import { getSmsSettingsView } from "@/server/sms";
+import { getReminderSettingsView } from "@/server/reminders";
 import { getDispatchSettings } from "@/server/dispatch";
 import { getWorkforceAdminView } from "@/server/workforce-admin";
 import { listPriceLists } from "@/server/contracts";
@@ -88,6 +89,8 @@ import {
 import {
   saveSmsSettingsAction,
   saveSmsTemplateAction,
+  saveReminderRuleAction,
+  deleteReminderRuleAction,
 } from "./sms-actions";
 import {
   deleteTerritoryAction,
@@ -292,6 +295,10 @@ export default async function SettingsPage({
       : null;
   const smsSettings =
     currentTab === "sms" && canSms ? await getSmsSettingsView(user) : null;
+  const reminderSettings =
+    currentTab === "sms" && canSms
+      ? await getReminderSettingsView(user)
+      : null;
   const priceLists =
     currentTab === "sla" && hasPermission(user, "contracts.manage")
       ? await listPriceLists(user)
@@ -539,10 +546,17 @@ export default async function SettingsPage({
             templates={smsSettings.data.templates}
             provider={smsSettings.data.provider}
             senderId={smsSettings.data.senderId}
+            reminders={
+              reminderSettings?.ok
+                ? reminderSettings.data
+                : { departments: [], rules: [], dispatches: [] }
+            }
             error={resolvedParams.error}
             ok={resolvedParams.ok}
             saveSettings={saveSmsSettingsAction}
             saveTemplate={saveSmsTemplateAction}
+            saveReminder={saveReminderRuleAction}
+            deleteReminder={deleteReminderRuleAction}
           />
         )}
 

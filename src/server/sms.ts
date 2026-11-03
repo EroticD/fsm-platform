@@ -13,6 +13,7 @@ import {
   smsProviderInfo,
   smsSenderId,
   type SmsProviderName,
+  type SmsStatusUpdate,
 } from "@/lib/sms/provider";
 import {
   isSmsEventKey,
@@ -655,6 +656,79 @@ export async function processSmsMessage(
     });
     return "retry";
   }
+}
+
+/**
+ * Bruker en leverandørens status-callback. Idempotent: samme status kan
+ * leveres flere ganger, og en sen «delivered» overskriver aldri en nyere
+ * feil. Ukjente meldings-ID-er ignoreres, slik at leverandøren ikke prøver
+ * evig på en melding vi aldri har køet.
+ */
+export async function applySmsStatusUpdate(
+  update: SmsStatusUpdate,
+): Promise<"updated" | "ignored" | "unknown"> {
+  const row = await prisma.smsMessage.findUnique({
+    where: {
+      provider_providerId: {
+        provider: update.provider,
+        providerId: update.providerId,
+      },
+    },
+    select: {
+      id: true,
+      direction: true,
+      status: true,
+      sentAt: true,
+      deliveredAt: true,
+    },
+  });
+  if (!row) return "unknown";
+  if (row.direction !== "OUTBOUND") return "ignored";
+
+  const at = update.occurredAt ?? new Date();
+
+  if (update.status === "DELIVERED") {
+    if (row.status === "DELIVERED" && row.deliveredAt) return "ignored";
+    await prisma.smsMessage.update({
+      where: { id: row.id },
+      data: {
+        status: "DELIVERED",
+        deliveredAt: at,
+        sentAt: row.sentAt ?? at,
+        lastError: null,
+      },
+    });
+    return "updated";
+  }
+
+  if (update.status === "SENT") {
+    if (row.status === "DELIVERED" || row.status === "SENT") return "ignored";
+    await prisma.smsMessage.update({
+      where: { id: row.id },
+      data: {
+        status: "SENT",
+        sentAt: row.sentAt ?? at,
+        lastError: null,
+      },
+    });
+    return "updated";
+  }
+
+  // FAILED: en allerede levert melding skal ikke nedgraderes av en sen
+  // feilcallback fra en mellomliggende kanal.
+  if (row.status === "DELIVERED" || row.status === "DEAD_LETTER") {
+    return "ignored";
+  }
+  await prisma.smsMessage.update({
+    where: { id: row.id },
+    data: {
+      status: "FAILED",
+      lastError: (update.error ?? "provider-status-failed").slice(0, 500),
+      lockedAt: null,
+      lockedBy: null,
+    },
+  });
+  return "updated";
 }
 
 /** Tømmer køen én gang. Brukes av workeren og av tester. */

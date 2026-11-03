@@ -125,7 +125,6 @@
         },
         "empty": "No conversations yet.",
         "noSubject": "Conversation without a subject",
-        "unread": "{count} unread",
         "back": "Back to messages",
         "fromYou": "You",
         "fromOffice": "The service provider",
