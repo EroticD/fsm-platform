@@ -4,12 +4,16 @@ import type { ServiceActor } from "./actor";
 const mocks = vi.hoisted(() => ({
   getEquipment: vi.fn(),
   resolveEquipmentQrToken: vi.fn(),
+  resolveEquipmentExternalQr: vi.fn(),
+  recordEquipmentQrCodeScan: vi.fn(),
   findFirst: vi.fn(),
 }));
 
 vi.mock("@/server/equipment", () => ({
   getEquipment: mocks.getEquipment,
   resolveEquipmentQrToken: mocks.resolveEquipmentQrToken,
+  resolveEquipmentExternalQr: mocks.resolveEquipmentExternalQr,
+  recordEquipmentQrCodeScan: mocks.recordEquipmentQrCodeScan,
 }));
 vi.mock("@/lib/prisma", () => ({
   default: { workOrder: { findFirst: mocks.findFirst } },
@@ -47,16 +51,102 @@ const customer: ServiceActor = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.resolveEquipmentExternalQr.mockResolvedValue(null);
 });
 
 describe("resolveScanCode", () => {
-  it("rejects an unknown code without touching the database", async () => {
+  it("returns not_found for an unknown external code", async () => {
+    mocks.resolveEquipmentExternalQr.mockResolvedValue(null);
+
     await expect(resolveScanCode(technician, "hello world")).resolves.toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(mocks.resolveEquipmentExternalQr).toHaveBeenCalledWith("hello world");
+    expect(mocks.getEquipment).not.toHaveBeenCalled();
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("resolves a registered external code and records the scan", async () => {
+    mocks.resolveEquipmentExternalQr.mockResolvedValue({
+      id: "qr-1",
+      productId: "prod-9",
+    });
+    mocks.getEquipment.mockResolvedValue({ ok: true, data: { equipment: {} } });
+
+    await expect(resolveScanCode(technician, "legacy-asset-42")).resolves.toEqual({
+      ok: true,
+      href: "/enheter/prod-9",
+    });
+    expect(mocks.resolveEquipmentExternalQr).toHaveBeenCalledWith(
+      "legacy-asset-42",
+    );
+    expect(mocks.getEquipment).toHaveBeenCalledWith(technician, "prod-9");
+    expect(mocks.recordEquipmentQrCodeScan).toHaveBeenCalledWith("qr-1");
+  });
+
+  it("does not reveal equipment behind an external code", async () => {
+    mocks.resolveEquipmentExternalQr.mockResolvedValue({
+      id: "qr-2",
+      productId: "prod-10",
+    });
+    mocks.getEquipment.mockResolvedValue({ ok: false, reason: "forbidden" });
+
+    await expect(resolveScanCode(technician, "asset-42")).resolves.toEqual({
+      ok: false,
+      reason: "forbidden",
+    });
+    expect(mocks.recordEquipmentQrCodeScan).not.toHaveBeenCalled();
+  });
+
+  it("keeps work-order numbers ahead of external lookup", async () => {
+    mocks.findFirst.mockResolvedValue({ id: "wo-3" });
+
+    await expect(resolveScanCode(technician, "100123")).resolves.toEqual({
+      ok: true,
+      href: "/mine-oppdrag/wo-3",
+    });
+    expect(mocks.resolveEquipmentExternalQr).not.toHaveBeenCalled();
+  });
+
+  it("falls back to an external code when a work-order number has no match", async () => {
+    mocks.findFirst.mockResolvedValue(null);
+    mocks.resolveEquipmentExternalQr.mockResolvedValue({
+      id: "qr-num",
+      productId: "prod-num",
+    });
+    mocks.getEquipment.mockResolvedValue({ ok: true, data: { equipment: {} } });
+
+    await expect(resolveScanCode(technician, "100123")).resolves.toEqual({
+      ok: true,
+      href: "/enheter/prod-num",
+    });
+    expect(mocks.resolveEquipmentExternalQr).toHaveBeenCalledWith("100123");
+    expect(mocks.getEquipment).toHaveBeenCalledWith(technician, "prod-num");
+  });
+
+  it("lets a customer portal user open an external code that looks like a reference", async () => {
+    mocks.resolveEquipmentExternalQr.mockResolvedValue({
+      id: "qr-cust",
+      productId: "prod-cust",
+    });
+    mocks.getEquipment.mockResolvedValue({ ok: true, data: { equipment: {} } });
+
+    await expect(
+      resolveScanCode(customer, "O-261103-ABCD1234"),
+    ).resolves.toEqual({ ok: true, href: "/enheter/prod-cust" });
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty and oversized codes without a lookup", async () => {
+    await expect(resolveScanCode(technician, "   ")).resolves.toEqual({
       ok: false,
       reason: "invalid",
     });
-    expect(mocks.getEquipment).not.toHaveBeenCalled();
-    expect(mocks.findFirst).not.toHaveBeenCalled();
+    await expect(
+      resolveScanCode(technician, "x".repeat(2049)),
+    ).resolves.toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.resolveEquipmentExternalQr).not.toHaveBeenCalled();
   });
 
   it("re-authorizes an equipment QR token before redirecting", async () => {

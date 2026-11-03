@@ -16,6 +16,10 @@ import {
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import {
+  isValidExternalQrValue,
+  normalizeExternalQrValue,
+} from "@/lib/equipment-qr";
+import {
   equipmentCategoryCreateSchema,
   equipmentCategoryUpdateSchema,
   equipmentCreateSchema,
@@ -59,6 +63,8 @@ export const EQUIPMENT_ERROR_CODES = {
   retired: "equipment.errors.retired",
   invalidReading: "equipment.errors.invalidReading",
   qrMissing: "equipment.errors.qrMissing",
+  qrInvalid: "equipment.errors.qrInvalid",
+  qrDuplicate: "equipment.errors.qrDuplicate",
 } as const;
 
 export type EquipmentListParams = {
@@ -480,6 +486,18 @@ export async function getEquipment(actor: ServiceActor, equipmentId: string) {
           status: true,
           scheduledFor: true,
           createdAt: true,
+        },
+      },
+      qrCodes: {
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        select: {
+          id: true,
+          value: true,
+          label: true,
+          source: true,
+          createdAt: true,
+          lastScannedAt: true,
+          createdBy: { select: { id: true, name: true } },
         },
       },
       _count: {
@@ -1382,6 +1400,211 @@ export async function resolveEquipmentQrToken(
     where: { qrToken: value, customer: { deletedAt: null } },
     select: { id: true, model: true },
   });
+}
+
+/**
+ * Slår opp en kunders eksisterende QR-kode. Strengen er opak; vi følger
+ * aldri en URL eller henter eksternt innhold. Bare den normaliserte verdien
+ * brukes, og oppslaget er globalt fordi samme fysiske kode ikke kan peke på
+ * to enheter.
+ */
+export async function resolveEquipmentExternalQr(
+  value: string,
+): Promise<{ id: string; productId: string } | null> {
+  const normalizedValue = normalizeExternalQrValue(value);
+  if (!isValidExternalQrValue(normalizedValue)) return null;
+  return prisma.equipmentQrCode.findFirst({
+    where: {
+      normalizedValue,
+      product: { customer: { deletedAt: null } },
+    },
+    select: { id: true, productId: true },
+  });
+}
+
+/** Oppdaterer «sist skannet» uten å blokkere skanneren. */
+export async function recordEquipmentQrCodeScan(codeId: string): Promise<void> {
+  if (!codeId) return;
+  try {
+    await prisma.equipmentQrCode.update({
+      where: { id: codeId },
+      data: { lastScannedAt: new Date() },
+    });
+  } catch (error) {
+    console.error("Kunne ikke oppdatere sist skannet for QR-kode:", error);
+  }
+}
+
+export type EquipmentQrCodeInput = {
+  equipmentId?: unknown;
+  value?: unknown;
+  label?: unknown;
+  source?: unknown;
+};
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2002",
+  );
+}
+
+/** Aldri hele koden i revisjonsloggen: bare en kort prefiks og SHA-256. */
+function qrAuditMetadata(value: string): { qrPrefix: string; qrHash: string } {
+  return {
+    qrPrefix: value.slice(0, 8),
+    qrHash: crypto.createHash("sha256").update(value).digest("hex").slice(0, 16),
+  };
+}
+
+/**
+ * Registrerer en QR-kode som allerede sitter fysisk på utstyret. Vi endrer
+ * aldri `Product.qrToken` og genererer aldri en ny fysisk kode.
+ */
+export async function addEquipmentQrCode(
+  actor: ServiceActor,
+  input: EquipmentQrCodeInput,
+): Promise<ServiceResult<{ id: string }>> {
+  const denied = requirePermission(actor, "equipment.manage");
+  if (denied) return denied;
+
+  const equipmentId = cleanId(input.equipmentId);
+  if (!equipmentId) {
+    return fail("invalid", { code: EQUIPMENT_ERROR_CODES.invalidInput });
+  }
+
+  const value = normalizeExternalQrValue(input.value);
+  if (!isValidExternalQrValue(value)) {
+    return fail("invalid", { code: EQUIPMENT_ERROR_CODES.qrInvalid });
+  }
+  const label = cleanText(input.label, { maxLength: LIMITS.short }) || null;
+  const source = input.source === "SCAN" ? "SCAN" : "MANUAL";
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const equipment = await tx.product.findFirst({
+        where: { id: equipmentId, ...equipmentScopeFor(actor) },
+        select: { id: true, model: true },
+      });
+      if (!equipment) return fail("not_found");
+
+      const existing = await tx.equipmentQrCode.findUnique({
+        where: { normalizedValue: value },
+        select: {
+          id: true,
+          productId: true,
+          product: { select: { id: true, model: true } },
+        },
+      });
+      if (existing) {
+        const visible =
+          existing.productId === equipmentId
+            ? equipment
+            : await tx.product.findFirst({
+                where: {
+                  id: existing.productId,
+                  ...equipmentScopeFor(actor),
+                },
+                select: { id: true, model: true },
+              });
+        return fail("conflict", {
+          code: EQUIPMENT_ERROR_CODES.qrDuplicate,
+          // Navnet på en annen enhet sendes bare videre når aktøren faktisk
+          // har tilgang til den. Ellers får brukeren en generell melding.
+          equipmentModel: visible?.model ?? null,
+        });
+      }
+
+      let created: { id: string };
+      try {
+        created = await tx.equipmentQrCode.create({
+          data: {
+            productId: equipmentId,
+            value,
+            normalizedValue: value,
+            label,
+            source,
+            createdById: actor.id || null,
+          },
+          select: { id: true },
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          // En samtidig registrering kan vinne kappløpet etter sjekken over.
+          return fail("conflict", {
+            code: EQUIPMENT_ERROR_CODES.qrDuplicate,
+            equipmentModel: null,
+          });
+        }
+        throw error;
+      }
+
+      await audit(tx, {
+        entityType: "Product",
+        entityId: equipmentId,
+        action: "Registrerte eksisterende QR-kode",
+        actor: toAuditActor(actor),
+        metadata: {
+          ...qrAuditMetadata(value),
+          source,
+          label,
+        },
+      });
+
+      return ok({ id: created.id });
+    });
+  } catch (error) {
+    console.error("Feil ved registrering av eksisterende QR-kode:", error);
+    return fail("error");
+  }
+}
+
+/** Sletter en registrert ekstern kode. Selve fysiske etiketten røres ikke. */
+export async function deleteEquipmentQrCode(
+  actor: ServiceActor,
+  equipmentId: string,
+  codeId: string,
+): Promise<ServiceResult<undefined>> {
+  const denied = requirePermission(actor, "equipment.manage");
+  if (denied) return denied;
+
+  const productId = cleanId(equipmentId);
+  const id = cleanId(codeId);
+  if (!productId || !id) {
+    return fail("invalid", { code: EQUIPMENT_ERROR_CODES.invalidInput });
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const code = await tx.equipmentQrCode.findFirst({
+        where: {
+          id,
+          productId,
+          product: equipmentScopeFor(actor),
+        },
+        select: { id: true, value: true, source: true },
+      });
+      if (!code) return fail("not_found");
+
+      await tx.equipmentQrCode.delete({ where: { id: code.id } });
+      await audit(tx, {
+        entityType: "Product",
+        entityId: productId,
+        action: "Slettet eksisterende QR-kode",
+        actor: toAuditActor(actor),
+        metadata: {
+          ...qrAuditMetadata(code.value),
+          source: code.source,
+        },
+      });
+      return ok(undefined);
+    });
+  } catch (error) {
+    console.error("Feil ved sletting av eksisterende QR-kode:", error);
+    return fail("error");
+  }
 }
 
 export async function listMeterReadings(

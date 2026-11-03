@@ -21,6 +21,8 @@ import {
 } from "@/server/customer-transfer";
 import type { ServiceActor } from "@/server/actor";
 import { parseChecksumsFile } from "@/lib/customer-transfer/manifest";
+import { analysePackage } from "@/lib/customer-transfer/analyse";
+import { DEFAULT_POLICIES } from "@/lib/customer-transfer/constants";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
@@ -87,6 +89,7 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
   let tempRoot = "";
   let admin: ServiceActor;
   let sourceCustomerName = "";
+  let sourceQrValue = "";
   let packageBuffer: Buffer = Buffer.alloc(0);
   let packageChecksum = "";
   let packageHashes = new Set<string>();
@@ -336,6 +339,16 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
       },
     });
     ids.productId = unit.id;
+    sourceQrValue = unique("LEGACY-INT-");
+    await prisma.equipmentQrCode.create({
+      data: {
+        productId: unit.id,
+        value: sourceQrValue,
+        normalizedValue: sourceQrValue,
+        label: "Gammel QR – pumpe",
+        source: "MANUAL",
+      },
+    });
     // Samme serienummer hos en annen kunde: må ikke krysstilknyttes.
     await prisma.product.create({
       data: {
@@ -669,6 +682,10 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     const read = readPackage(packageBuffer);
     expect(read.ok).toBe(true);
     if (!read.ok) throw new Error("package invalid");
+    // Testene kjører kilde og mål i samme database. En ekstern QR-kode er
+    // globalt unik, så kildekoden fjernes etter eksport for å simulere en
+    // overføring til en annen installasjon.
+    await prisma.equipmentQrCode.deleteMany({ where: { productId: unit.id } });
     sourceIds = new Set<string>();
     for (const [key, rows] of Object.entries(read.result.dataset)) {
       if (key === "auditSnapshot" || key === "users" || key === "departments") continue;
@@ -777,6 +794,7 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     expect(manifest.counts.customers).toBe(1);
     expect(manifest.counts.portalUsers).toBe(1);
     expect(manifest.counts.products).toBeGreaterThanOrEqual(3);
+    expect(manifest.counts.equipmentQrCodes).toBe(1);
     expect(manifest.counts.reports).toBe(1);
     expect(manifest.counts.documents).toBe(1);
 
@@ -902,6 +920,12 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     const unit = customer.products.find((product) => product.model === "Pumpe");
     expect(unit?.parentId).toBeTruthy();
     expect(unit?.qrToken).toBeNull();
+    const importedQr = await prisma.equipmentQrCode.findUnique({
+      where: { normalizedValue: sourceQrValue },
+    });
+    expect(importedQr?.productId).toBe(unit?.id);
+    expect(importedQr?.source).toBe("IMPORT");
+    expect(importedQr?.label).toBe("Gammel QR – pumpe");
     const system = customer.products.find((product) => product.model === "System");
     expect(system?.parentId).toBeTruthy();
     const leafCategory = await prisma.equipmentCategory.findUnique({
@@ -1159,6 +1183,57 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     }
     const allowed = await createImportJob(admin, packageBuffer, "allowed.zip");
     expect(allowed.ok).toBe(true);
+  });
+
+  it("blokkerer duplikate eksterne QR-koder i samme pakke", async () => {
+    const read = readPackage(packageBuffer);
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    const rows = read.result.dataset.equipmentQrCodes;
+    expect(rows).toHaveLength(1);
+    const duplicate = { ...rows[0], id: "ct-qr-duplicate" };
+    read.result.dataset.equipmentQrCodes = [...rows, duplicate];
+
+    const analysis = await analysePackage(read.result, DEFAULT_POLICIES, {
+      createMissingReferences: false,
+      restoreDeleted: false,
+    });
+
+    expect(analysis.canImport).toBe(false);
+    expect(
+      analysis.errors.some((error) => error.code === "customer_transfer.conflict"),
+    ).toBe(true);
+    expect(
+      analysis.plan.get("EquipmentQrCode:ct-qr-duplicate")?.action,
+    ).toBe("CONFLICT");
+  });
+
+  it("blokkerer en ekstern QR-kode som allerede finnes på en annen enhet", async () => {
+    const read = readPackage(packageBuffer);
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    const [code] = read.result.dataset.equipmentQrCodes;
+    const otherProduct = read.result.dataset.products.find(
+      (product) => product.id !== code.productId,
+    );
+    expect(otherProduct).toBeTruthy();
+    if (!otherProduct) return;
+    read.result.dataset.equipmentQrCodes = [
+      { ...code, id: "ct-qr-other-asset", productId: otherProduct.id },
+    ];
+
+    const analysis = await analysePackage(read.result, DEFAULT_POLICIES, {
+      createMissingReferences: false,
+      restoreDeleted: false,
+    });
+
+    expect(analysis.canImport).toBe(false);
+    expect(
+      analysis.errors.some((error) => error.code === "customer_transfer.conflict"),
+    ).toBe(true);
+    expect(
+      analysis.plan.get("EquipmentQrCode:ct-qr-other-asset")?.action,
+    ).toBe("CONFLICT");
   });
 
   it("rydder utløpte staging-kataloger", async () => {

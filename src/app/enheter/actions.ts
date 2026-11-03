@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { equipmentErrorParam } from "@/lib/equipment-feedback";
 import {
+  addEquipmentQrCode,
   addMeterReading,
   createEquipment,
   deleteEquipment,
+  deleteEquipmentQrCode,
   moveEquipment,
   rotateEquipmentQrToken,
   updateEquipment,
@@ -20,11 +22,12 @@ import {
 
 function detailHref(
   id: string,
-  options: { meldt?: string; feil?: string; hash?: string } = {},
+  options: { meldt?: string; feil?: string; hash?: string; annen?: string } = {},
 ) {
   const params = new URLSearchParams();
   if (options.meldt) params.set("meldt", options.meldt);
   if (options.feil) params.set("feil", options.feil);
+  if (options.annen) params.set("annen", options.annen);
   const suffix = params.toString();
   return `/enheter/${id}${suffix ? `?${suffix}` : ""}${options.hash ?? ""}`;
 }
@@ -130,6 +133,63 @@ export async function rotateQrTokenAction(formData: FormData) {
 
   revalidateEquipment(id, customerId);
   redirect(detailHref(id, { meldt: "qr-rotated", hash: "#qr" }));
+}
+
+export async function addEquipmentQrCodeAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const id = String(formData.get("id") ?? "");
+  const customerId = String(formData.get("customerId") ?? "");
+  const result = await addEquipmentQrCode(actor, {
+    equipmentId: id,
+    value: formData.get("value"),
+    label: formData.get("label"),
+    source: formData.get("source"),
+  });
+
+  if (!result.ok) {
+    const details = result.details;
+    const equipmentModel =
+      details && typeof details === "object"
+        ? (details as { equipmentModel?: unknown }).equipmentModel
+        : null;
+    redirect(
+      detailHref(id, {
+        feil: equipmentErrorParam(result),
+        hash: "#qr-koder",
+        annen:
+          typeof equipmentModel === "string" && equipmentModel
+            ? equipmentModel
+            : undefined,
+      }),
+    );
+  }
+
+  revalidateEquipment(id, customerId);
+  redirect(detailHref(id, { meldt: "qr-code-added", hash: "#qr-koder" }));
+}
+
+export async function deleteEquipmentQrCodeAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const id = String(formData.get("id") ?? "");
+  const customerId = String(formData.get("customerId") ?? "");
+  const codeId = String(formData.get("codeId") ?? "");
+  const result = await deleteEquipmentQrCode(actor, id, codeId);
+
+  if (!result.ok) {
+    redirect(
+      detailHref(id, {
+        feil: equipmentErrorParam(result),
+        hash: "#qr-koder",
+      }),
+    );
+  }
+
+  revalidateEquipment(id, customerId);
+  redirect(detailHref(id, { meldt: "qr-code-deleted", hash: "#qr-koder" }));
 }
 
 export async function addMeterReadingAction(formData: FormData) {

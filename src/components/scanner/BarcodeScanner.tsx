@@ -60,7 +60,18 @@ function noticeForCameraError(error: unknown): {
  * Den skannede koden sendes som en URL-parameter til serveren, som avgjør om
  * brukeren faktisk har tilgang til enheten eller oppdraget.
  */
-export default function BarcodeScanner() {
+export default function BarcodeScanner({
+  onDetected,
+  autoStart = false,
+  showManual = true,
+}: {
+  /** Når satt, fylles verdien inn i skjemaet i stedet for å navigere. */
+  onDetected?: (code: string) => void;
+  /** Starter kameraet automatisk når komponenten vises. */
+  autoStart?: boolean;
+  /** Skjuler det innebygde manuelle feltet når vertsskjemaet har eget felt. */
+  showManual?: boolean;
+} = {}) {
   const t = useTranslations("common");
   const router = useRouter();
   const [state, setState] = useState<ScannerState>("idle");
@@ -73,6 +84,7 @@ export default function BarcodeScanner() {
   const runningRef = useRef(false);
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const mountedRef = useRef(true);
+  const autoStartedRef = useRef(false);
 
   const releaseCamera = useCallback(() => {
     runningRef.current = false;
@@ -92,6 +104,18 @@ export default function BarcodeScanner() {
     setNotice("");
   }, [releaseCamera]);
 
+  const handleCode = useCallback(
+    (code: string) => {
+      releaseCamera();
+      if (onDetected) {
+        onDetected(code);
+        return;
+      }
+      router.push(`/skann?kode=${encodeURIComponent(code)}`);
+    },
+    [onDetected, releaseCamera, router],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -99,6 +123,14 @@ export default function BarcodeScanner() {
       releaseCamera();
     };
   }, [releaseCamera]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    void startCamera();
+    // startCamera er en stabil klikkhandler; vi vil bare starte én gang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   async function startCamera() {
     setNotice("");
@@ -177,8 +209,7 @@ export default function BarcodeScanner() {
             setNotice(t("scanner.duplicate"));
           } else {
             lastScanRef.current = { code, at: Date.now() };
-            releaseCamera();
-            router.push(`/skann?kode=${encodeURIComponent(code)}`);
+            handleCode(code);
             return;
           }
         }
@@ -202,7 +233,7 @@ export default function BarcodeScanner() {
       return;
     }
     releaseCamera();
-    router.push(`/skann?kode=${encodeURIComponent(code)}`);
+    handleCode(code);
   }
 
   const cameraActive = state === "starting" || state === "scanning";
@@ -261,7 +292,7 @@ export default function BarcodeScanner() {
         action="/skann"
         method="get"
         onSubmit={submitManual}
-        className="space-y-2"
+        className={showManual ? "space-y-2" : "hidden"}
       >
         <label
           htmlFor="scan-manual"

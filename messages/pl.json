@@ -4090,6 +4090,32 @@
         "footer": "Przymocuj etykietę do urządzenia, aby historia serwisowa była zawsze o jedno skanowanie.",
         "noQr": "Urządzenie nie ma tokenu QR. Obróć token na stronie urządzenia przed drukowaniem."
       },
+      "externalQr": {
+        "title": "Istniejące kody QR",
+        "description": "Czy klient ma już etykiety QR z innego systemu? Zarejestruj wartość tutaj, aby aplikacja terenowa znalazła właściwe urządzenie. Etykieta pozostaje fizycznie na urządzeniu – nigdy jej nie tworzymy ani nie zmieniamy.",
+        "empty": "Brak zarejestrowanych istniejących kodów QR.",
+        "noLabel": "Bez nazwy",
+        "added": "Dodano {date}",
+        "lastScanned": "Ostatnio skanowano {date}",
+        "neverScanned": "Nigdy nie skanowano",
+        "delete": "Usuń",
+        "deleteConfirm": "Usunąć powiązanie? Fizyczna etykieta QR nie zostanie zmieniona.",
+        "sources": {
+          "MANUAL": "Ręcznie",
+          "SCAN": "Zeskanowano",
+          "IMPORT": "Zaimportowano"
+        },
+        "form": {
+          "value": "Wartość QR",
+          "valuePlaceholder": "Wklej lub zeskanuj kod",
+          "valueHint": "Wartość jest wrażliwa na wielkość liter i zapisywana bez zmian. Zawsze możesz wkleić ją ręcznie.",
+          "label": "Nazwa (opcjonalnie)",
+          "labelPlaceholder": "Stary QR – brama 3",
+          "scan": "Zeskanuj istniejący QR",
+          "cancelScan": "Zamknij kamerę",
+          "submit": "Zarejestruj kod QR"
+        }
+      },
       "timeline": {
         "kinds": {
           "report": "Raport",
@@ -4122,6 +4148,9 @@
         "retired": "Wycofane urządzenia nie mogą otrzymywać nowych odczytów.",
         "invalidReading": "Odczyt jest nieprawidłowy.",
         "qrMissing": "Urządzenie nie ma tokenu QR.",
+        "qrInvalid": "Wartość QR jest pusta lub zbyt długa (maksymalnie 2048 znaków).",
+        "qrDuplicate": "Kod QR jest już zarejestrowany na innym urządzeniu.",
+        "qrDuplicateNamed": "Kod QR jest już zarejestrowany na {model}.",
         "forbidden": "Brak dostępu.",
         "notFound": "Nie znaleziono urządzenia.",
         "generic": "Coś poszło nie tak. Spróbuj ponownie.",
@@ -4141,6 +4170,8 @@
         "updated": "Urządzenie zostało zaktualizowane.",
         "moved": "Urządzenie zostało przeniesione w hierarchii.",
         "qrRotated": "Token QR został obrócony. Stara etykieta nie działa.",
+        "qrCodeAdded": "Istniejący kod QR został zarejestrowany.",
+        "qrCodeDeleted": "Powiązanie kodu QR zostało usunięte. Etykieta pozostaje bez zmian.",
         "readingAdded": "Odczyt został zarejestrowany.",
         "planCreated": "Plan konserwacji został utworzony.",
         "planUpdated": "Plan konserwacji został zaktualizowany.",

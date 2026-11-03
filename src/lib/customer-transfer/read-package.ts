@@ -5,6 +5,7 @@ import {
   ALLOWED_MIME_SET,
   DATA_FILES,
   MIME_EXTENSION,
+  OPTIONAL_DATA_FILES,
   REFERENCE_FILES,
   TRANSFER_ERROR,
   TRANSFER_LIMITS,
@@ -891,6 +892,8 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
   for (const filePath of expectedDataFiles) {
     const entry = entryMap.get(filePath);
     if (!entry) {
+      const key = datasetFileKey.get(filePath) as DatasetKey | undefined;
+      if (key && OPTIONAL_DATA_FILES.has(key)) continue;
       errors.push(
         issue(
           TRANSFER_ERROR.invalid_data,

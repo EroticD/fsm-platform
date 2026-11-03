@@ -100,6 +100,7 @@
       "duplicateSourceId": "The package contains duplicate source IDs.",
       "invalidReference": "The package references something that is not in the package.",
       "crossCustomerReference": "The package links data across customers. Import is blocked.",
+      "qrConflict": "An existing QR code is already registered on another asset or customer. Import is blocked.",
       "missingFile": "A file referenced by the package is missing.",
       "missingPdf": "A report PDF is missing from the package.",
       "missingDataFile": "A required data file is missing.",

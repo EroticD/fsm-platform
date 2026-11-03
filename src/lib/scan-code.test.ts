@@ -41,12 +41,12 @@ describe("parseScannedCode", () => {
 
   it("does not treat fixed subpages as ids", () => {
     expect(parseScannedCode("/mine-oppdrag/kunder")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
+      kind: "external",
+      value: "/mine-oppdrag/kunder",
     });
     expect(parseScannedCode("/oppdrag/ny")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
+      kind: "external",
+      value: "/oppdrag/ny",
     });
   });
 
@@ -75,30 +75,60 @@ describe("parseScannedCode", () => {
     });
   });
 
-  it("rejects empty, unsafe and unknown values", () => {
-    expect(parseScannedCode("  ")).toEqual({ kind: "invalid", reason: "empty" });
+  it("treats previously unknown values as opaque external codes", () => {
+    expect(parseScannedCode("hello world")).toEqual({
+      kind: "external",
+      value: "hello world",
+    });
     expect(parseScannedCode("javascript:alert(1)")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
+      kind: "external",
+      value: "javascript:alert(1)",
     });
     expect(parseScannedCode("https://example.test/other")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
+      kind: "external",
+      value: "https://example.test/other",
     });
     expect(parseScannedCode("/enheter/qr/short")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
-    });
-    expect(parseScannedCode("hello world")).toEqual({
-      kind: "invalid",
-      reason: "unknown",
+      kind: "external",
+      value: "/enheter/qr/short",
     });
   });
 
-  it("reports oversized input instead of parsing it", () => {
+  it("never treats a URL as something to fetch or follow", () => {
+    const parsed = parseScannedCode("https://legacy.example/asset/42?x=1");
+    expect(parsed).toEqual({
+      kind: "external",
+      value: "https://legacy.example/asset/42?x=1",
+    });
+  });
+
+  it("trims zero-width characters before treating a value as external", () => {
+    expect(parseScannedCode("\u200B  asset-42 \uFEFF")).toEqual({
+      kind: "external",
+      value: "asset-42",
+    });
+  });
+
+  it("reports empty and oversized input", () => {
+    expect(parseScannedCode("  ")).toEqual({ kind: "invalid", reason: "empty" });
     expect(parseScannedCode("A".repeat(2049))).toEqual({
       kind: "invalid",
       reason: "too-long",
+    });
+    expect(parseScannedCode("A".repeat(2048))).toEqual({
+      kind: "external",
+      value: "A".repeat(2048),
+    });
+  });
+
+  it("keeps work-order forms ahead of external lookup", () => {
+    expect(parseScannedCode("O-261103-ABCD1234")).toEqual({
+      kind: "work-order-reference",
+      reference: "O-261103-ABCD1234",
+    });
+    expect(parseScannedCode("123456")).toEqual({
+      kind: "work-order-number",
+      number: "123456",
     });
   });
 });

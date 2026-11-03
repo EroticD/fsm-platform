@@ -100,6 +100,7 @@
       "duplicateSourceId": "Pakken inneholder dupliserte kilde-ID-er.",
       "invalidReference": "Pakken har en referanse som ikke finnes i pakken.",
       "crossCustomerReference": "Pakken kobler data på tvers av kunder. Importen er blokkert.",
+      "qrConflict": "En eksisterende QR-kode er allerede registrert på en annen enhet eller kunde. Importen er blokkert.",
       "missingFile": "En fil som pakken refererer til mangler.",
       "missingPdf": "En rapport-PDF mangler i pakken.",
       "missingDataFile": "En obligatorisk datafil mangler.",
