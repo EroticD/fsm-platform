@@ -360,16 +360,15 @@ test("offline: kladd havner i outboxen og replayes når nettet kommer tilbake", 
   const pinSection = page.locator(
     'section[aria-label="Sett PIN for offline-kladder"]',
   );
-  if (await pinSection.isVisible().catch(() => false)) {
-    const setupButton = pinSection.getByRole("button", { name: "Sett PIN" });
-    if (await setupButton.isVisible().catch(() => false)) {
-      await setupButton.click();
-    }
-    await pinSection.getByLabel("PIN", { exact: true }).fill("123456");
-    await pinSection.getByLabel("Gjenta PIN").fill("123456");
-    await pinSection.getByRole("button", { name: "Sett PIN" }).click();
-    await expect(pinSection).toBeHidden({ timeout: 10_000 });
+  await expect(pinSection).toBeVisible({ timeout: 20_000 });
+  const setupButton = pinSection.getByRole("button", { name: "Sett PIN" });
+  if (await setupButton.isVisible().catch(() => false)) {
+    await setupButton.click();
   }
+  await pinSection.getByLabel("PIN", { exact: true }).fill("123456");
+  await pinSection.getByLabel("Gjenta PIN").fill("123456");
+  await pinSection.getByRole("button", { name: "Sett PIN" }).click();
+  await expect(pinSection).toBeHidden({ timeout: 10_000 });
 
   await page
     .locator('textarea[name="notes"]')

@@ -50,6 +50,7 @@ jobs:
       E2E_CUSTOMER_EMAIL: kunde@example.test
       E2E_CUSTOMER_PASSWORD: "CustomerTest123!"
       NEXTAUTH_SECRET: ci-only-8fK2qZ7mN4vR9xT1cB6wY3pL5sH0jG2d
+      NEXTAUTH_URL: http://127.0.0.1:3000
       AUTH_TRUST_HOST: "true"
       # Testdatabasen bruker én rolle med DDL; readiness nekter ellers i prod-modus.
       ALLOW_DB_DDL_ROLE: "true"
@@ -94,19 +95,34 @@ jobs:
       - name: Installer Playwright-nettleser
         run: npx playwright install --with-deps chromium
 
-      - name: E2E
-        # Seriell kjøring: chromium og mobile-375 deler seedede rader, og
-        # parallelle drag/legal-hold-scenarier ville mutert samme visitt.
-        run: npm run test:e2e -- --workers=1
+      - name: Bygg produksjonsbundle
+        run: npm run build
+
+      - name: E2E mot produksjonsserver
+        # Produksjonsserveren er stabil under E2E; `next dev` rekompilerer midt
+        # i drag- og offline-scenarier og gir falske tidsavbrudd. Seriell
+        # kjøring hindrer at chromium og mobile-375 muterer samme seedede rad.
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+        run: |
+          npm run start > /tmp/next-start.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+            cat /tmp/next-start.log
+            exit 1
+          fi
+          npm run test:e2e -- --workers=1
 
       - name: Lint
         run: npm run lint
 
       - name: i18n-sjekk
         run: npm run check:i18n:strict
-
-      - name: Bygg
-        run: npm run build
 
   a11y:
     name: Tilgjengelighet (axe og Lighthouse)
