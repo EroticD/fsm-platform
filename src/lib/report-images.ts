@@ -33,6 +33,16 @@ const EMBEDDED_IMAGE = /^data:image\/(png|jpe?g|webp|gif);base64,/i;
 /** Kun filer i appens egen opplastingsmappe. */
 const LOCAL_UPLOAD = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
+/** Er dette en data-URL som PDF-motoren kan lese direkte? */
+export function isEmbeddedImageUrl(url: string | null | undefined): boolean {
+  return EMBEDDED_IMAGE.test((url ?? "").trim());
+}
+
+/** Er dette en fil i appens egen opplastingsmappe? */
+export function isLocalUploadUrl(url: string | null | undefined): boolean {
+  return LOCAL_UPLOAD.test((url ?? "").trim());
+}
+
 /**
  * Velger hvilken kilde PDF-motoren får lov å hente bildet fra.
  *
@@ -87,9 +97,10 @@ type ReportLike = {
   units?: Array<{ answersJson?: string | null }> | null;
 };
 
-/** Ser verdien ut som en bilde-URL? */
+/** Ser verdien ut som en bilde-URL? Data-URL-er har ikke filendelse. */
 function looksLikeImage(url: string): boolean {
-  return /\.(jpe?g|png|webp|gif)$/i.test(url.trim());
+  const trimmed = url.trim();
+  return EMBEDDED_IMAGE.test(trimmed) || /\.(jpe?g|png|webp|gif)$/i.test(trimmed);
 }
 
 /**
@@ -139,19 +150,9 @@ export function collectReportImageUrls(reports: ReportLike[] | null | undefined)
   return urls;
 }
 
-/** Skalerer ned ett opplastet bilde og gir det tilbake som data-URL. */
-async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
-  if (!url.startsWith(LOCAL_PREFIX)) return null;
-
-  const root = uploadDir();
-  const decoded = decodeURIComponent(url.slice(LOCAL_PREFIX.length));
-  const filePath = path.join(root, ...decoded.split("/"));
-
-  // Aldri les filer utenfor opplastingsmappen.
-  if (filePath !== root && !filePath.startsWith(root + path.sep)) return null;
-
+/** Skalerer og orienterer et bilde som allerede er lest inn. */
+async function toPdfImage(file: Buffer): Promise<PdfImage | null> {
   try {
-    const file = await fs.readFile(filePath);
     const { data, info } = await sharp(file)
       // Telefonbilder har ofte orienteringen i EXIF – snu bildet før det skaleres.
       .rotate()
@@ -172,14 +173,58 @@ async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
       width: Math.round(info.width * scale),
       height: Math.round(info.height * scale),
     };
-  } catch (error) {
-    console.error("Kunne ikke skalere bilde til PDF:", url, error);
+  } catch {
+    return null;
+  }
+}
+
+/** Skalerer ned ett opplastet bilde og gir det tilbake som data-URL. */
+async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
+  if (!url.startsWith(LOCAL_PREFIX)) return null;
+
+  const root = uploadDir();
+  const decoded = decodeURIComponent(url.slice(LOCAL_PREFIX.length));
+  const filePath = path.join(root, ...decoded.split("/"));
+
+  // Aldri les filer utenfor opplastingsmappen.
+  if (filePath !== root && !filePath.startsWith(root + path.sep)) return null;
+
+  try {
+    const file = await fs.readFile(filePath);
+    return await toPdfImage(file);
+  } catch {
+    // Stabile koder uten filnavn eller annen metadata i loggen.
+    console.error("report_pdf_image_scale_failed", { code: "local_upload" });
+    return null;
+  }
+}
+
+/** Skalerer ned et bilde som allerede ligger som data-URL i rapporten. */
+async function shrinkDataUrlToPdfImage(url: string): Promise<PdfImage | null> {
+  const comma = url.indexOf(",");
+  if (comma === -1) return null;
+  try {
+    const file = Buffer.from(url.slice(comma + 1), "base64");
+    if (file.length === 0) return null;
+    return await toPdfImage(file);
+  } catch {
+    console.error("report_pdf_image_scale_failed", { code: "data_url" });
     return null;
   }
 }
 
 /** Hvor mange bilder som skaleres samtidig før PDF-en settes sammen. */
 const IMAGE_SCALE_CONCURRENCY = 4;
+
+export type PdfImageBuildResult = {
+  images: Record<string, PdfImage>;
+  /**
+   * Lokale opplastinger som var forventet i PDF-en, men som ikke kunne bygges
+   * inn (mangler `Upload`-rad, feil eier eller filen er borte). Brukes til en
+   * synlig advarsel i PDF-en i stedet for at bildet bare forsvinner.
+   */
+  missing: string[];
+};
 
 /**
  * Gjør bildene klare for PDF-en.
@@ -190,16 +235,15 @@ const IMAGE_SCALE_CONCURRENCY = 4;
  * rapporten og på vedleggssiden – uten at bildet lagres to ganger i PDF-en.
  *
  * Nøkkelen er den opprinnelige URL-en, slik at PDF-komponenten kan slå opp
- * bildet den vil vise. Bilder vi ikke får skalert (eksterne, filer som er
- * borte, eller filer uten gyldig eier) mangler i kartet, og da brukes den
- * opprinnelige URL-en.
+ * bildet den vil vise. Data-URL-er er selvstendige og krever ingen
+ * opplastingsrad, men skaleres på samme måte.
  *
  * Sharp bruker mye minne per bilde. Derfor skaleres bildene i små bolker i
  * stedet for alle på en gang – en rapport kan ha mange vedlegg.
  */
-export async function buildPdfImages(
+export async function buildPdfImagesDetailed(
   requests: readonly PdfImageRequest[],
-): Promise<Record<string, PdfImage>> {
+): Promise<PdfImageBuildResult> {
   // Slå opp eierskapet til alle filene før noe leses fra disk. En fil uten
   // `Upload`-rad, eller med en eiertype som ikke er lov for bruken, hoppes
   // over – eldre filer uten metadata feiler dermed lukket.
@@ -208,12 +252,26 @@ export async function buildPdfImages(
     if (!unique.has(request.url)) unique.set(request.url, request);
   }
 
-  const ownerships = await loadUploadOwnerships([...unique.keys()]);
-  const urls: string[] = [];
+  const localOwnerships = await loadUploadOwnerships(
+    [...unique.keys()].filter((url) => !isEmbeddedImageUrl(url)),
+  );
+  const localUrls: string[] = [];
+  const dataUrls: string[] = [];
+  const missing: string[] = [];
+
   for (const [url, request] of unique) {
+    // En data-URL er selve bildet og kan ikke peke på en fil utenfor PDF-en.
+    if (isEmbeddedImageUrl(url)) {
+      dataUrls.push(url);
+      continue;
+    }
+
     const storedName = uploadStoredName(url);
-    const upload = storedName ? ownerships.get(storedName) : undefined;
-    if (!hasAllowedOwner(upload, request.ownerTypes)) continue;
+    const upload = storedName ? localOwnerships.get(storedName) : undefined;
+    if (!hasAllowedOwner(upload, request.ownerTypes)) {
+      missing.push(url);
+      continue;
+    }
 
     // Rapporteringsbilder må eies av nøyaktig rapportens oppdrag. En fil med
     // riktig eiertype, men fra et annet oppdrag/kunde/avdeling, skal ikke
@@ -225,37 +283,68 @@ export async function buildPdfImages(
         upload.ownerType !== "WORK_ORDER" ||
         upload.ownerId !== scope.id
       ) {
+        missing.push(url);
         continue;
       }
       if (
         scope.departmentId !== undefined &&
         upload.departmentId !== scope.departmentId
       ) {
+        missing.push(url);
         continue;
       }
       if (scope.customerId !== undefined && upload.customerId !== scope.customerId) {
+        missing.push(url);
         continue;
       }
     }
 
-    urls.push(url);
+    localUrls.push(url);
   }
 
   const scaled: (readonly [string, PdfImage])[] = [];
 
-  for (let start = 0; start < urls.length; start += IMAGE_SCALE_CONCURRENCY) {
-    const batch = urls.slice(start, start + IMAGE_SCALE_CONCURRENCY);
+  const scale = async (
+    url: string,
+    shrink: (url: string) => Promise<PdfImage | null>,
+  ) => {
+    const image = await shrink(url);
+    return image ? ([url, image] as const) : null;
+  };
+
+  for (let start = 0; start < localUrls.length; start += IMAGE_SCALE_CONCURRENCY) {
+    const batch = localUrls.slice(start, start + IMAGE_SCALE_CONCURRENCY);
     const results = await Promise.all(
-      batch.map(async (url) => {
-        const image = await shrinkToPdfImage(url);
-        return image ? ([url, image] as const) : null;
-      }),
+      batch.map((url) => scale(url, shrinkToPdfImage)),
+    );
+
+    for (const [index, entry] of results.entries()) {
+      if (entry) scaled.push(entry);
+      // En lokal fil som ikke kunne leses/skaleres er også en manglende bilde.
+      else missing.push(batch[index]);
+    }
+  }
+
+  for (let start = 0; start < dataUrls.length; start += IMAGE_SCALE_CONCURRENCY) {
+    const batch = dataUrls.slice(start, start + IMAGE_SCALE_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((url) => scale(url, shrinkDataUrlToPdfImage)),
     );
 
     for (const entry of results) {
+      // Data-URL-en kan uansett tegnes direkte av PDF-motoren, så en feilet
+      // nedskalering er ikke en manglende bilde.
       if (entry) scaled.push(entry);
     }
   }
 
-  return Object.fromEntries(scaled);
+  return { images: Object.fromEntries(scaled), missing };
+}
+
+/** Som `buildPdfImagesDetailed`, men returnerer bare bildekartet. */
+export async function buildPdfImages(
+  requests: readonly PdfImageRequest[],
+): Promise<Record<string, PdfImage>> {
+  const { images } = await buildPdfImagesDetailed(requests);
+  return images;
 }

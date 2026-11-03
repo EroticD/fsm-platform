@@ -445,6 +445,13 @@ department and contact, gets the submitter as technician, and describes the
 units and checkpoints. The generated title is Norwegian (“Utbedring av avvik –
 …”) in 0.8.5, even when the interface is English.
 
+> **Note:** If a photo or signature is missing from the finished PDF, the PDF
+> shows a warning with the number of images that could not be loaded. The usual
+> causes are missing `Upload` metadata, a file removed from storage, or a file
+> owned by another work order. Re-upload the image from the report and generate
+> the PDF again. The operations log shows `report_pdf_images_missing` with a
+> count, without file names or personal data.
+
 ### Status and locking
 
 A submitted report is locked. **Unlock for editing** requires a **Reason for

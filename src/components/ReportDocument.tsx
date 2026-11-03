@@ -170,6 +170,7 @@ export default function ReportDocument({
   globalCompanyName,
   baseUrl,
   pdfImages,
+  missingImageCount,
   locale,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -181,6 +182,8 @@ export default function ReportDocument({
   baseUrl?: string;
   /** Nedskalerte bilder, nøklet på den opprinnelige URL-en. */
   pdfImages?: Record<string, PdfImage>;
+  /** Antall forventede bilder som ikke kunne bygges inn i PDF-en. */
+  missingImageCount?: number;
   /** PDF-språk. Standard er norsk fordi arkiverte rapporter er norske. */
   locale?: string | null;
 }) {
@@ -507,6 +510,22 @@ export default function ReportDocument({
       lineHeight: 1.35
     },
 
+    // Synlig advarsel når et forventet bilde mangler, så PDF-en ikke ser
+    // komplett ut uten at mottakeren får vite det.
+    imageWarning: {
+      padding: 8,
+      borderRadius: 4,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: '#fde68a',
+      backgroundColor: '#fffbeb'
+    },
+    imageWarningText: {
+      fontSize: 9,
+      color: '#92400e',
+      lineHeight: 1.35
+    },
+
     reportTitle: { fontSize: 13, fontWeight: 'bold', color: '#111827', marginBottom: 10, lineHeight: 1.35 },
 
     unitCard: {
@@ -755,6 +774,14 @@ export default function ReportDocument({
             </Text>
           </View>
         )}
+
+        {missingImageCount ? (
+          <View style={styles.imageWarning}>
+            <Text style={styles.imageWarningText}>
+              {labels.missingImages(missingImageCount)}
+            </Text>
+          </View>
+        ) : null}
 
         {/* ÉN SEKSJON PER UTFYLT SJEKKLISTE */}
         {planned.map(({ block, units, legacy }, blockIndex) => (

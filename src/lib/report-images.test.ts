@@ -12,7 +12,10 @@ vi.mock("sharp", () => ({ default: mocks.sharp }));
 
 import {
   buildPdfImages,
+  buildPdfImagesDetailed,
   collectReportImageUrls,
+  isEmbeddedImageUrl,
+  isLocalUploadUrl,
   PDF_IMAGE_MAX_WIDTH,
   resolvePdfImageSource,
 } from "./report-images";
@@ -72,6 +75,26 @@ describe("collectReportImageUrls", () => {
     ]);
 
     expect(urls).toEqual(["/uploads/tekniker.png"]);
+  });
+
+  it("tar med data-URL-er fra offline-signaturer og bilde svar", () => {
+    const signature = "data:image/png;base64,c2ln";
+    const photo = "data:image/jpeg;base64,cGhvdG8=";
+    const urls = collectReportImageUrls([
+      {
+        dataJson: JSON.stringify({
+          answers: { f1: JSON.stringify([photo]) },
+        }),
+        technicianSignatureUrl: signature,
+        units: [],
+      },
+    ]);
+
+    expect(urls).toEqual([signature, photo]);
+    expect(isEmbeddedImageUrl(signature)).toBe(true);
+    expect(isEmbeddedImageUrl(photo)).toBe(true);
+    expect(isLocalUploadUrl("/uploads/a.jpg")).toBe(true);
+    expect(isLocalUploadUrl("https://evil.example/a.jpg")).toBe(false);
   });
 });
 
@@ -307,6 +330,64 @@ describe("buildPdfImages – eierskap", () => {
     ]);
 
     expect(images).toEqual({});
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildPdfImagesDetailed – manglende bilder rapporteres", () => {
+  const reportImage = "/uploads/11111111-1111-4111-8111-111111111111.png";
+  const ownerRow = {
+    storedName: "11111111-1111-4111-8111-111111111111.png",
+    ownerType: "WORK_ORDER",
+    ownerId: "wo1",
+    departmentId: "dep-a",
+    customerId: null,
+    uploadedById: "tekniker",
+  };
+
+  it("skalerer en data-URL uten å kreve opplastingsrad", async () => {
+    const result = await buildPdfImagesDetailed([
+      {
+        url: "data:image/png;base64,b3JpZ2luYWw=",
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+      },
+    ]);
+
+    expect(result.missing).toEqual([]);
+    expect(result.images["data:image/png;base64,b3JpZ2luYWw="]).toMatchObject({
+      src: expect.stringMatching(/^data:image\/jpeg;base64,/),
+      width: PDF_IMAGE_MAX_WIDTH,
+    });
+    expect(mocks.prisma.upload.findMany).not.toHaveBeenCalled();
+  });
+
+  it("markerer en fil som mangler på disk som manglende", async () => {
+    mocks.prisma.upload.findMany.mockResolvedValue([ownerRow]);
+    mocks.readFile.mockRejectedValueOnce(new Error("ENOENT"));
+
+    const result = await buildPdfImagesDetailed([
+      {
+        url: reportImage,
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: null },
+      },
+    ]);
+
+    expect(result.images[reportImage]).toBeUndefined();
+    expect(result.missing).toEqual([reportImage]);
+  });
+
+  it("markerer eksterne URL-er som manglende uten å hente dem", async () => {
+    const result = await buildPdfImagesDetailed([
+      {
+        url: "https://evil.example/bilde.png",
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: null },
+      },
+    ]);
+
+    expect(result.images).toEqual({});
+    expect(result.missing).toEqual(["https://evil.example/bilde.png"]);
     expect(mocks.readFile).not.toHaveBeenCalled();
   });
 });

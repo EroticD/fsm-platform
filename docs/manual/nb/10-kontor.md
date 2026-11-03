@@ -470,6 +470,13 @@ arver kunde, avdeling og kontakt, får innsenderen som montør, og beskriver
 enhetene og sjekkpunktene. Du finner det i oppdragslisten som **Åpen / Ny** uten
 dato.
 
+> **Merk:** Hvis et bilde eller en signatur mangler i den ferdige PDF-en, viser
+> PDF-en en advarsel med antall bilder som ikke kunne hentes. Årsaken er som
+> regel at filen mangler `Upload`-metadata, er slettet fra filvolumet, eller
+> tilhører et annet oppdrag. Last opp bildet på nytt fra rapporten, og generer
+> PDF-en igjen. Driftsloggen viser `report_pdf_images_missing` med antall, uten
+> filnavn eller personopplysninger.
+
 > **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.5, også når
 > grensesnittet er engelsk. Det er samme språkbegrensning som i rapport-PDF-en.
 

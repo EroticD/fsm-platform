@@ -1043,9 +1043,18 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | Appen restarter i loop | `docker compose logs app`, migrasjonssperre (`REQUIRE_BACKUP_BEFORE_MIGRATE`), OOM (`dmesg`) |
 | Innlogging logger ut alle | `sessionVersion` er økt (passord/rolle/2FA-endring) |
 | PDF vises ikke | `APP_URL`/`NEXTAUTH_URL`, `Upload`-rad for filen |
+| PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
 | Disk full | `df -h /`, `docker system df -v`, opplastingsvolum, backupfiler |
+
+Rapport-PDF-er bygger inn bilder og signaturer fra `UPLOAD_DIR` bare når
+`Upload`-raden eies av nøyaktig samme oppdrag, avdeling og kunde. Filen leses
+aldri over HTTP fra `/uploads` under rendering. Når et forventet bilde ikke kan
+bygges inn, skrives en advarsel i PDF-en og `report_pdf_images_missing` logges
+med antall (uten filnavn eller personopplysninger). PDF-cachen har en egen
+`rendererVersion`; den må økes når bildeinnbygging endres, slik at gamle PDF-er
+uten bilder ikke gjenbrukes.
 
 ### 502-sjekkliste
 
