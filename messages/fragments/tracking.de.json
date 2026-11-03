@@ -37,11 +37,16 @@
       "etaMinutes": "{count, plural, one {# Minute} other {# Minuten}}",
       "etaArrival": "Voraussichtlich gegen {time}.",
       "onSite": "Der Techniker ist vor Ort.",
+      "plannedLabel": "Geplante Zeit",
+      "plannedTime": "Geplant für {time}.",
+      "stalePosition": "Die letzte Position ist {minutes, plural, one {# Minute} other {# Minuten}} alt, daher kann die Ankunft nicht live berechnet werden.",
+      "lastKnownPosition": "Letzte bekannte Position war {time}.",
+      "livePositionNoRoute": "Wir haben eine frische Position, aber keine Koordinaten für den Ort, daher kann die Ankunft nicht berechnet werden.",
       "etaUnavailable": "Wir haben noch keinen Standort erhalten, daher kann die Ankunft nicht geschätzt werden.",
       "lastUpdated": "Zuletzt aktualisiert {time}.",
       "noPosition": "Es wurde noch kein Standort geteilt.",
       "privacy": "Der Standort wird nur zur Schätzung der Ankunft verwendet. Er wird nie als Karte oder Koordinaten angezeigt und nach 24 Stunden gelöscht.",
-      "refreshHint": "Lade die Seite neu, um den Status zu aktualisieren."
+      "refreshHint": "Die Seite aktualisiert die Ankunft automatisch alle 30 Sekunden."
     }
   },
   "reviews": {

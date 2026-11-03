@@ -37,11 +37,16 @@
       "etaMinutes": "{count, plural, one {# minute} other {# minutes}}",
       "etaArrival": "Expected around {time}.",
       "onSite": "The technician is on site.",
+      "plannedLabel": "Planned time",
+      "plannedTime": "Planned for {time}.",
+      "stalePosition": "The last position is {minutes, plural, one {# minute} other {# minutes}} old, so arrival cannot be calculated live.",
+      "lastKnownPosition": "Last known position was {time}.",
+      "livePositionNoRoute": "We have a fresh position but no coordinates for the site, so arrival cannot be calculated.",
       "etaUnavailable": "We have not received a location yet, so arrival cannot be estimated.",
       "lastUpdated": "Last updated {time}.",
       "noPosition": "No location has been shared yet.",
       "privacy": "The location is used only to estimate arrival. It is never shown as a map or coordinates, and it is deleted after 24 hours.",
-      "refreshHint": "Reload the page to refresh the status."
+      "refreshHint": "The page updates the arrival automatically every 30 seconds."
     }
   },
   "reviews": {

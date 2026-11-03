@@ -19,6 +19,11 @@ Levert og verifisert i 0.8.6:
 - **UX-01–07** — vedlikeholdsplaner, utstyrsfilter, dispatch-innstillinger,
   omtaler, booking-e-post, iCal og PDF-sidesøk.
 - **QA-01/02** — utvidet a11y/E2E og API-/OpenAPI-kontrakttest.
+- **SCH-01 (delvis)** — ruteplan per montør med nærmeste nabo + 2-opt,
+  tidsvinduer, kjøretid/ventetid/ETA per stopp, kartliste på `/kalender/rute`,
+  eksplisitt «Bruk rekkefølge» med transaksjon, revisjon og konfliktvern, samt
+  live ETA i offentlig sporing med ferskhetsgrense og polling. Dynamisk
+  omruting underveis gjenstår.
 - **CUST-EXPORT-01 v1** — admin-only eksport/import av kundepakker med
   manifest, sjekksum, dry-run, id-remapping, filhåndtering og reell
   PostgreSQL-test. Se kjente begrensninger i
@@ -480,8 +485,8 @@ kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
 
 | Område | Ledende systemer (2026) | Status i 0.8.6 | Vurdering |
 | --- | --- | --- | --- |
-| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Mangler reiseavhengig sekvensering og sanntids re-planlegging. |
-| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | ❌ Ikke implementert | Kart/territorier finnes, men ikke ruteoptimalisering. P3. |
+| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Ruteplan finnes; dynamisk re-planlegging underveis mangler. |
+| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | 🟡 Ruteplan + ETA, ingen dynamisk omruting | Nærmeste nabo + 2-opt, valgfri OSRM og lokal fallback. SCH-01 delvis. |
 | Kundeportal og booking | Sanntids ledige tider, bekreftelse, ombooking, betaling | 🟡 Datoforespørsel + kontorplanlegging + e-postbekreftelse | Bevisst produktvalg (DOC-01). Sanntids slot-booking er neste modenhetssteg. |
 | Tilbud og estimater | Gode/bedre/beste-tilbud, godkjenning, konvertering til oppdrag | ❌ Ikke implementert | Største kommersielle gap. P2. |
 | Fakturering og betaling | Faktura fra fullført oppdrag, MVA, betalingslenker, finansiering | ❌ Ikke implementert (prislister/SLA finnes) | Største omsetningsgap. P2. |
@@ -510,8 +515,9 @@ kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
   kvitteringer og lønnseksport.
 - **FL-02 · Native feltapp og navigasjon (P3, L):** native shell, offline,
   turn-by-turn, strekkodeskanning og push.
-- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** kjøretid, tidsvinduer,
-  dynamisk omruting og sanntids ETA.
+- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** ruteplan og sanntids ETA
+  er levert. Gjenstår dynamisk omruting underveis, trafikkdata og
+  turn-by-turn i feltappen.
 - **COM-01 · Toveis SMS og påminnelsesløp (P2/P3, M):** felles innboks,
   maler, automatiske påminnelser og samtykkestyring.
 - **BI-01 · Lønnsomhet og rapportbygger (P2, M):** omsetning per oppdrag/

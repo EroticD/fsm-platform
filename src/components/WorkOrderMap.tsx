@@ -83,6 +83,7 @@ export type TechnicianMapPoint = {
 export default function WorkOrderMap({
   points,
   technicians = [],
+  routePath = [],
   ariaLabel,
   noPointsLabel,
   openLabel,
@@ -93,6 +94,8 @@ export default function WorkOrderMap({
 }: {
   points: WorkOrderMapPoint[];
   technicians?: TechnicianMapPoint[];
+  /** Valgfri rute i rekkefølge. Tegnes som en tynn linje under markørene. */
+  routePath?: Array<{ lat: number; lng: number }>;
   ariaLabel: string;
   noPointsLabel: string;
   openLabel: string;
@@ -241,6 +244,19 @@ export default function WorkOrderMap({
 
       const markerLayer = L.layerGroup().addTo(map);
       const technicianLayer = L.layerGroup().addTo(map);
+
+      if (routePath.length > 1) {
+        L.polyline(
+          routePath.map((point) => [point.lat, point.lng] as [number, number]),
+          {
+            color: "#101310",
+            weight: 3,
+            opacity: 0.55,
+            dashArray: "6 6",
+            interactive: false,
+          },
+        ).addTo(map);
+      }
 
       const buildPopup = (point: WorkOrderMapPoint) => {
         const popup = document.createElement("div");
@@ -397,6 +413,9 @@ export default function WorkOrderMap({
         ...technicians.map(
           (technician) => [technician.lat, technician.lng] as [number, number],
         ),
+        ...routePath.map(
+          (point) => [point.lat, point.lng] as [number, number],
+        ),
       ]);
 
       if (points.length === 1 && technicians.length === 0) {
@@ -423,7 +442,7 @@ export default function WorkOrderMap({
       map?.remove();
       map = null;
     };
-  }, [points, technicians, openLabel, layerLabels, settings]);
+  }, [points, technicians, routePath, openLabel, layerLabels, settings]);
 
   return (
     <div className="space-y-2 [--focus-ring:var(--ink,#101310)]">

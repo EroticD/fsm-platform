@@ -1,12 +1,14 @@
 {
   "metadata": {
     "routes": {
-      "kapasitet": "Kapazität"
+      "kapasitet": "Kapazität",
+      "rute": "Routenplan"
     }
   },
   "calendar": {
     "common": {
-      "capacity": "Kapazität"
+      "capacity": "Kapazität",
+      "route": "Route"
     },
     "dispatch": {
       "bestMatch": "Beste Übereinstimmung",
@@ -38,6 +40,54 @@
       "suggestButton": "Vorschlagen",
       "suggestError": "Vorschläge konnten nicht geladen werden. Versuche es erneut.",
       "assignCandidate": "Zuweisen"
+    },
+    "route": {
+      "subtitle": "Vorgeschlagene Fahrreihenfolge pro Techniker, mit Fahrzeit und Ankunft an jedem Stopp.",
+      "filters": "Routenplan filtern",
+      "date": "Datum",
+      "technician": "Techniker",
+      "allTechnicians": "Alle Techniker",
+      "show": "Route anzeigen",
+      "backToDispatch": "Zur Disposition",
+      "applied": "{count, plural, one {# Termin wurde verschoben.} other {# Termine wurden verschoben.}}",
+      "empty": "Keine geplanten Termine mit Koordinaten an diesem Tag.",
+      "eyebrow": "Vorgeschlagene Route",
+      "totalDrive": "Fahrzeit",
+      "totalDistance": "Strecke",
+      "totalWaiting": "Wartezeit",
+      "provider": "Berechnung",
+      "providerOsrm": "Routen-Anbieter",
+      "providerLocal": "Lokale Schätzung",
+      "fallback": "Der Routen-Anbieter hat nicht geantwortet. Die Fahrzeit wird lokal aus Luftlinie und Durchschnittsgeschwindigkeit geschätzt, daher sind die Werte ungefähr.",
+      "mapHint": "Die Karte zeigt die Stopps in der vorgeschlagenen Reihenfolge. Die Liste unten enthält dieselben Informationen als Text.",
+      "mapAria": "Karte der vorgeschlagenen Route für {name}",
+      "openWorkOrder": "Auftrag öffnen",
+      "tableCaption": "Vorgeschlagene Route für {name}",
+      "stop": "Stopp",
+      "eta": "Ankunft",
+      "planned": "Geplant",
+      "travel": "Fahrt",
+      "wait": "Warten",
+      "workOrder": "Auftrag",
+      "applyOrder": "Reihenfolge übernehmen",
+      "applyHint": "Verschiebt die Termine auf die vorgeschlagenen Zeiten. Abgeschlossene und stornierte Termine werden nie verschoben. Die gesamte Änderung wird bei Überschneidung oder Abwesenheit abgebrochen.",
+      "skippedTitle": "Termine nicht in der Route",
+      "skippedMissingCoordinates": "fehlende Koordinaten",
+      "skippedOutsideWindow": "passt nicht in das Zeitfenster",
+      "skippedLimit": "überschreitet das Limit von 50 Stopps",
+      "minutes": "{count, plural, one {# Min.} other {# Min.}}",
+      "km": "{count} km",
+      "errors": {
+        "invalid": "Datum oder Auswahl ist ungültig.",
+        "forbidden": "Du hast keine Berechtigung, die Reihenfolge zu ändern.",
+        "notFound": "Techniker oder Route wurde nicht gefunden.",
+        "conflict": "Die Route hat sich seit der Anzeige geändert. Lade die Seite neu.",
+        "absence": "Die Verschiebung kollidiert mit eingetragener Abwesenheit.",
+        "overlap": "Die Verschiebung überschneidet sich mit einem anderen Termin des Technikers.",
+        "orderMismatch": "Die Reihenfolge stimmt nicht mit dem angezeigten Plan überein. Lade die Seite neu.",
+        "applyFailed": "Die Reihenfolge konnte nicht übernommen werden.",
+        "unknown": "Etwas ist schiefgelaufen. Versuche es erneut."
+      }
     }
   },
   "dispatch": {

@@ -262,8 +262,8 @@ exactly what was checked.
 ## Calendar and dispatch
 
 The calendar is at `/kalender` with the tabs **Resource overview**, **Month**,
-**Week**, **2 weeks**, **Week (time)**, **Day**, **Dispatch**, **Capacity** and
-**Reports**.
+**Week**, **2 weeks**, **Week (time)**, **Day**, **Dispatch**, **Capacity**,
+**Route** and **Reports**.
 
 | Tab | URL |
 | --- | --- |
@@ -306,6 +306,26 @@ saves only when you choose it. **Suggest technician** ranks candidates by
 **Capacity** (`/kalender/kapasitet`) shows **Planned capacity against actual load
 per department, day and technician**. Choose **From** and **To**, press **Show**,
 and read **Capacity**, **Load** and **Utilisation**.
+
+### Route plan
+
+**Route** (`/kalender/rute`) suggests a driving order for one day, per
+technician. Choose **Date** and optionally **Technician**, then **Show route**.
+The page shows a map, stop numbers, **Arrival**, **Planned**, **Driving**,
+**Waiting**, and total **Drive time**, **Distance** and **Waiting time** per
+technician.
+
+The route starts at the technician's earliest located visit. Visits without
+coordinates, or that do not fit within the time window, are listed under
+**Visits not included in the route** and are not moved. The calculation uses an
+external routing provider when configured; otherwise straight-line distance ×
+1.35 and average speed. **Calculation** shows which method was used.
+
+**Use order** moves the visits to the suggested times in one transaction. The
+action requires `workorders.assign`, is audit-logged per visit, and is cancelled
+entirely on overlap with a fixed visit or registered holiday/sickness. Completed
+and cancelled visits are never moved. If the plan has changed since it was
+shown, you are asked to reload the page.
 
 **Assignment rules** and **Territories** are configured under **Settings →
 Dispatch**. There you choose a **Mode**, adjust the **Weights** for **Skills**,
@@ -519,7 +539,12 @@ contact at the same customer.
 customer acknowledge. **Documents** shows files you have shared through the
 customer card's **Attachments**. **Equipment** shows status, warranty, latest
 reading and plans. **Contracts** shows service agreements and coverage lines.
-**Messages** lets the customer reply by SMS with consent.
+**Visits** shows tracking links and reviews. The tracking page shows the planned
+time when the technician has not shared a location, and a live ETA only when the
+latest position is fresh (under ten minutes). If the position is older, it says
+explicitly how old it is; the page never pretends an old ping is live. The ETA
+refreshes automatically every 30 seconds. **Messages** lets the customer reply by
+SMS with consent.
 
 The customer can **Book an available time**, **Request a new time**, **Cancel
 request**, **Acknowledge receipt** and **Request a contact information update**.

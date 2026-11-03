@@ -37,11 +37,16 @@
       "etaMinutes": "{count, plural, one {# minuta} few {# minuty} many {# minut} other {# minuty}}",
       "etaArrival": "Oczekiwany około {time}.",
       "onSite": "Technik jest na miejscu.",
+      "plannedLabel": "Planowany czas",
+      "plannedTime": "Planowo o {time}.",
+      "stalePosition": "Ostatnia pozycja ma {minutes, plural, one {# minutę} few {# minuty} many {# minut} other {# minuty}}, więc przyjazdu nie można obliczyć na żywo.",
+      "lastKnownPosition": "Ostatnia znana pozycja: {time}.",
+      "livePositionNoRoute": "Mamy świeżą pozycję, ale brak współrzędnych miejsca, więc nie można obliczyć przyjazdu.",
       "etaUnavailable": "Nie otrzymaliśmy jeszcze lokalizacji, więc nie można oszacować przyjazdu.",
       "lastUpdated": "Ostatnia aktualizacja {time}.",
       "noPosition": "Nie udostępniono jeszcze lokalizacji.",
       "privacy": "Lokalizacja służy wyłącznie do szacowania przyjazdu. Nigdy nie jest pokazywana jako mapa ani współrzędne i jest usuwana po 24 godzinach.",
-      "refreshHint": "Odśwież stronę, aby zaktualizować status."
+      "refreshHint": "Strona automatycznie aktualizuje przyjazd co 30 sekund."
     }
   },
   "reviews": {

@@ -75,6 +75,41 @@ driften:
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
+## Ruting og ETA
+
+Ruteplanen (`/kalender/rute`) og den offentlige ETA-en i sporingen bruker samme
+ruteleverandør. Uten konfigurasjon gjøres **ingen nettverkskall**: avstanden er
+luftlinje × 1,35 (veifaktor) delt på `TRACKING_AVERAGE_SPEED_KMH` (standard 50).
+Det gir forutsigbare tester og virker offline, men er bare et anslag.
+
+Vil du bruke en OSRM-kompatibel ruteserver:
+
+```dotenv
+ROUTING_PROVIDER=osrm
+OSRM_BASE_URL=https://osrm.example.com
+# ROUTING_TIMEOUT_MS=60000
+# TRACKING_AVERAGE_SPEED_KMH=50
+```
+
+- `OSRM_BASE_URL` må være serverbar og uten innlogging i nettleseren. Nøkler og
+  URL-er leses bare på serveren.
+- Ruteleverandøren har `ROUTING_TIMEOUT_MS` (standard 60 000 ms, tillatt
+  1 000–120 000). Ved feil, timeout eller ugyldig svar faller både ruteplanen og
+  ETA-en tilbake til den lokale beregningen, og ruteplanen merker dette med
+  **Beregning: Lokal estimering**.
+- Ruteplanen kaller `/table` én gang per montør (maks 50 stopp). Sporings-ETA
+  kaller `/route` for én strekning. Resultatene caches i ett minutt per
+  avrundede koordinatnøkkel.
+- ETA-en regnes fra siste `VisitLocationPing` til arbeidsstedets koordinater.
+  Ping eldre enn **ti minutter** regnes som stale: da vises planlagt tid og
+  «sist kjente posisjon», ikke en live ETA. Ingen koordinater, adresse eller navn
+  returneres fra ETA-endepunktet.
+- Den offentlige ETA-ruten er `GET /api/tracking/<token>/eta`. Den har
+  `Cache-Control: no-store`, egen rate limit på 60 kall per minutt per gyldig
+  token og samme token-scope som sporingen. Siden poller hvert 30. sekund.
+- Posisjonsping slettes etter 24 timer. ETA-endepunktet skriver ikke nye
+  posisjonsdata; bare sidevisningen oppdaterer `lastUsedAt` på lenken.
+
 ## Minne og swap (1 GB Droplet)
 
 Compose-grensene er dimensjonert for en 1 GB Droplet:

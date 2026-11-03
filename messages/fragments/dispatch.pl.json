@@ -1,12 +1,14 @@
 {
   "metadata": {
     "routes": {
-      "kapasitet": "Pojemność"
+      "kapasitet": "Pojemność",
+      "rute": "Plan trasy"
     }
   },
   "calendar": {
     "common": {
-      "capacity": "Pojemność"
+      "capacity": "Pojemność",
+      "route": "Trasa"
     },
     "dispatch": {
       "bestMatch": "Najlepsze dopasowanie",
@@ -38,6 +40,54 @@
       "suggestButton": "Zaproponuj",
       "suggestError": "Nie udało się pobrać propozycji. Spróbuj ponownie.",
       "assignCandidate": "Przydziel"
+    },
+    "route": {
+      "subtitle": "Proponowana kolejność jazdy dla każdego technika, z czasem jazdy i przyjazdem na każdym przystanku.",
+      "filters": "Filtruj plan trasy",
+      "date": "Data",
+      "technician": "Technik",
+      "allTechnicians": "Wszyscy technicy",
+      "show": "Pokaż trasę",
+      "backToDispatch": "Wróć do dyspozytorni",
+      "applied": "{count, plural, one {Przeniesiono # wizytę.} few {Przeniesiono # wizyty.} many {Przeniesiono # wizyt.} other {Przeniesiono # wizyty.}}",
+      "empty": "Brak zaplanowanych wizyt ze współrzędnymi w tym dniu.",
+      "eyebrow": "Proponowana trasa",
+      "totalDrive": "Czas jazdy",
+      "totalDistance": "Dystans",
+      "totalWaiting": "Czas oczekiwania",
+      "provider": "Obliczenie",
+      "providerOsrm": "Dostawca tras",
+      "providerLocal": "Szacowanie lokalne",
+      "fallback": "Dostawca tras nie odpowiedział. Czas jazdy jest szacowany lokalnie na podstawie odległości w linii prostej i średniej prędkości, więc wartości są przybliżone.",
+      "mapHint": "Mapa pokazuje przystanki w proponowanej kolejności. Lista poniżej zawiera te same informacje w formie tekstowej.",
+      "mapAria": "Mapa proponowanej trasy dla {name}",
+      "openWorkOrder": "Otwórz zlecenie",
+      "tableCaption": "Proponowana trasa dla {name}",
+      "stop": "Przystanek",
+      "eta": "Przyjazd",
+      "planned": "Planowo",
+      "travel": "Jazda",
+      "wait": "Oczekiwanie",
+      "workOrder": "Zlecenie",
+      "applyOrder": "Użyj kolejności",
+      "applyHint": "Przenosi wizyty na proponowane godziny. Zakończone i anulowane wizyty nigdy nie są przenoszone. Cała zmiana jest anulowana przy nakładaniu się lub nieobecności.",
+      "skippedTitle": "Wizyty poza trasą",
+      "skippedMissingCoordinates": "brak współrzędnych",
+      "skippedOutsideWindow": "nie mieści się w oknie czasowym",
+      "skippedLimit": "przekracza limit 50 przystanków",
+      "minutes": "{count, plural, one {# min} few {# min} many {# min} other {# min}}",
+      "km": "{count} km",
+      "errors": {
+        "invalid": "Data lub wybór są nieprawidłowe.",
+        "forbidden": "Nie masz uprawnień do zmiany kolejności.",
+        "notFound": "Nie znaleziono technika ani trasy.",
+        "conflict": "Trasa zmieniła się od wyświetlenia. Odśwież stronę.",
+        "absence": "Przeniesienie koliduje z zarejestrowaną nieobecnością.",
+        "overlap": "Przeniesienie nakłada się na inną wizytę technika.",
+        "orderMismatch": "Kolejność nie odpowiada wyświetlonemu planowi. Odśwież stronę.",
+        "applyFailed": "Nie udało się zastosować kolejności.",
+        "unknown": "Coś poszło nie tak. Spróbuj ponownie."
+      }
     }
   },
   "dispatch": {
