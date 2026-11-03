@@ -1,0 +1,82 @@
+{
+  "sso": {
+    "or": "eller logg inn med e-post",
+    "signInWith": "Logg inn med {provider}",
+    "redirecting": "Sender deg videre …",
+    "errors": {
+      "invalidClaims": "Identitetsleverandøren sendte et ugyldig svar. Kontakt administrator.",
+      "missingEmail": "Kontoen mangler e-postadresse. Kontakt administrator.",
+      "unverifiedEmail": "E-postadressen er ikke bekreftet av identitetsleverandøren. Kontakt administrator.",
+      "domainNotAllowed": "E-postdomenet er ikke tillatt for SSO. Kontakt administrator.",
+      "inactive": "Kontoen er deaktivert. Kontakt administrator.",
+      "notProvisioned": "Kontoen er ikke opprettet i FSM ennå. Kontakt administrator.",
+      "roleConflict": "Gruppene dine gir flere ulike roller. Kontakt administrator.",
+      "invalidRole": "Rollen fra identitetsleverandøren finnes ikke i FSM. Kontakt administrator.",
+      "invalidDepartment": "Avdelingen fra identitetsleverandøren finnes ikke. Kontakt administrator.",
+      "customerAccount": "Kundeportalbrukere kan ikke logge inn med SSO.",
+      "identityConflict": "Kontoen er allerede koblet til en annen identitet. Kontakt administrator.",
+      "configuration": "SSO er ikke riktig konfigurert. Kontakt administrator.",
+      "serverError": "Kunne ikke logge inn med SSO. Prøv igjen."
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sso": "SSO og SCIM"
+    },
+    "ssoScim": {
+      "ssoTitle": "SSO-leverandører",
+      "ssoDescription": "OIDC-leverandører konfigureres med miljøvariabler. Passordinnlogging beholdes alltid som break-glass for administrator.",
+      "configErrors": "SSO-konfigurasjonen har feil som må rettes i miljøet:",
+      "ssoEmpty": "Ingen SSO-leverandører er konfigurert. Sett SSO_PROVIDERS og de tilhørende SSO_<NAVN>_-variablene.",
+      "ssoActive": "Aktiv",
+      "issuer": "Issuer",
+      "provisioning": "Auto-provisjonering",
+      "autoProvisionActive": "På – nye brukere aktiveres",
+      "autoProvisionInactive": "På – nye brukere er inaktive",
+      "autoProvisionOff": "Av – brukeren må finnes på forhånd",
+      "defaultRole": "Standardrolle",
+      "allowedDomains": "Tillatte e-postdomener",
+      "allDomains": "Alle domener",
+      "ssoHelp": "Roller fra grupper og standardavdeling settes i miljøet. Se SECURITY.md og docs/OPERATIONS.md for oppsett mot Entra ID, Keycloak, Authentik og Zitadel. Endringer krever ny appstart.",
+      "scimTitle": "SCIM 2.0-provisjonering",
+      "scimDescription": "SCIM-tokens gir identitetsleverandøren tilgang til å opprette, oppdatere og deaktivere brukere. Tokens lagres bare som hash og vises én gang.",
+      "scimEndpoint": "Endepunkt",
+      "createTitle": "Nytt SCIM-token",
+      "createDesc": "Bruk et eget token per integrasjon, og roter det ved mistanke om lekkasje.",
+      "listTitle": "Eksisterende SCIM-tokens",
+      "listCount": "{count, plural, one {# token} other {# tokens}}",
+      "empty": "Det finnes ingen SCIM-tokens ennå.",
+      "name": "Navn",
+      "namePlaceholder": "F.eks. Entra-provisjonering",
+      "expiresAt": "Utløper (valgfritt)",
+      "expiresHint": "La stå tom for standard levetid på {days} dager.",
+      "create": "Opprett token",
+      "creating": "Oppretter …",
+      "createdTitle": "SCIM-tokenet er opprettet",
+      "createdWarning": "Kopier tokenet nå. Det vises bare denne ene gangen og kan ikke hentes frem igjen.",
+      "copy": "Kopier tokenet",
+      "copied": "Kopiert",
+      "done": "Jeg har lagret tokenet",
+      "rotate": "Roter token",
+      "rotating": "Roterer …",
+      "rotatedTitle": "Tokenet «{name}» er rotet",
+      "revoke": "Tilbakekall",
+      "revokeConfirm": "Tilbakekalle SCIM-tokenet «{name}»? Integrasjonen mister tilgangen med en gang.",
+      "revokeLabel": "Tilbakekall tokenet",
+      "createdColumn": "Opprettet",
+      "lastUsedColumn": "Sist brukt",
+      "expiresColumn": "Utløper",
+      "never": "Aldri",
+      "noExpiry": "Ingen utløp",
+      "active": "Aktiv",
+      "expired": "Utløpt",
+      "revoked": "Tilbakekalt",
+      "errors": {
+        "forbidden": "Bare administrator kan administrere SCIM-tokens.",
+        "invalid": "Navn eller utløpsdato er ugyldig.",
+        "not_found": "Fant ikke tokenet.",
+        "error": "Kunne ikke behandle SCIM-tokenet."
+      }
+    }
+  }
+}

@@ -449,7 +449,10 @@ documented; baseline updated.
 - **PLAT-03 · Outbound signed webhooks** (`docs/DECISIONS.md:67`): retries,
   idempotency, dead letter, settings UI.
 - **PLAT-04 · SSO/OIDC/SAML + SCIM** (`docs/DECISIONS.md:68`): enterprise
-  provisioning with break-glass admin.
+  provisioning with break-glass admin. OIDC (Entra ID, Keycloak, Authentik,
+  Zitadel) og SCIM 2.0 for brukere er levert; SAML og SCIM Groups gjenstår.
+  Se `SECURITY.md`, `docs/OPERATIONS.md` og
+  `docs/manual/nb/31-sso-scim.md`.
 - **PLAT-05 · Advanced RBAC/field-level permissions + separation of duties**
   (`docs/DECISIONS.md:69`).
 - **PLAT-06 · HA/DR/PITR** (`docs/DECISIONS.md:73`): RPO/RTO, failover drill,

@@ -17,6 +17,7 @@ import CustomerTransferTab from "@/components/settings/CustomerTransferTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
+import SsoScimTab from "@/components/settings/SsoScimTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
@@ -35,6 +36,8 @@ import {
   getStatistics,
 } from "@/server/settings";
 import { listApiKeys } from "@/server/api-keys";
+import { listScimTokens } from "@/server/scim-tokens";
+import { readSsoConfig } from "@/lib/sso";
 import {
   getAuditRetentionView,
   listAuditHolds,
@@ -70,6 +73,11 @@ import {
   revokeApiKeyAction,
   rotateApiKeyAction,
 } from "./api-actions";
+import {
+  createScimTokenAction,
+  revokeScimTokenAction,
+  rotateScimTokenAction,
+} from "./scim-actions";
 import {
   releaseAuditHoldAction,
   saveAuditRetentionAction,
@@ -285,6 +293,10 @@ export default async function SettingsPage({
 
   const apiKeys =
     currentTab === "api" && isAdmin ? await listApiKeys(user) : null;
+
+  const ssoConfig = currentTab === "sso" && isAdmin ? readSsoConfig() : null;
+  const scimTokens =
+    currentTab === "sso" && isAdmin ? await listScimTokens(user) : null;
 
   const slaSettings =
     currentTab === "sla" && canSla
@@ -624,6 +636,30 @@ export default async function SettingsPage({
             createKey={createApiKeyAction}
             revokeKey={revokeApiKeyAction}
             rotateKey={rotateApiKeyAction}
+          />
+        )}
+
+        {currentTab === "sso" && isAdmin && ssoConfig && (
+          <SsoScimTab
+            providers={ssoConfig.providers.map((provider) => ({
+              slug: provider.slug,
+              displayName: provider.displayName,
+              issuer: provider.issuer,
+              autoProvision: provider.autoProvision,
+              autoProvisionActive: provider.autoProvisionActive,
+              defaultRole: provider.defaultRole,
+              allowedEmailDomains: provider.allowedEmailDomains,
+            }))}
+            configErrors={ssoConfig.errors}
+            tokens={scimTokens?.ok ? scimTokens.tokens : []}
+            error={
+              scimTokens && !scimTokens.ok
+                ? scimTokens.error
+                : resolvedParams.error
+            }
+            createToken={createScimTokenAction}
+            rotateToken={rotateScimTokenAction}
+            revokeToken={revokeScimTokenAction}
           />
         )}
 

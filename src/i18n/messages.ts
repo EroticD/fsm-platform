@@ -73,6 +73,10 @@ import customerTransferNb from "../../messages/fragments/customer-transfer.nb.js
 import customerTransferEn from "../../messages/fragments/customer-transfer.en.json";
 import customerTransferPl from "../../messages/fragments/customer-transfer.pl.json";
 import customerTransferDe from "../../messages/fragments/customer-transfer.de.json";
+import ssoNb from "../../messages/fragments/sso.nb.json";
+import ssoEn from "../../messages/fragments/sso.en.json";
+import ssoPl from "../../messages/fragments/sso.pl.json";
+import ssoDe from "../../messages/fragments/sso.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -126,6 +130,7 @@ const nbFragments = mergeAll([
   offlineLockNb,
   workforceNb,
   customerTransferNb,
+  ssoNb,
 ]);
 
 const enFragments = mergeAll([
@@ -154,6 +159,7 @@ const enFragments = mergeAll([
   offlineLockEn,
   workforceEn,
   customerTransferEn,
+  ssoEn,
 ]);
 
 /**
@@ -172,6 +178,7 @@ const plFragments = mergeAll([
   offlineLockPl,
   workforcePl,
   customerTransferPl,
+  ssoPl,
 ]);
 const deFragments = mergeAll([
   p4De,
@@ -184,6 +191,7 @@ const deFragments = mergeAll([
   offlineLockDe,
   workforceDe,
   customerTransferDe,
+  ssoDe,
 ]);
 
 export const messages = {

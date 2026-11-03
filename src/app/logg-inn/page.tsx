@@ -4,7 +4,10 @@ import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import ErrorBanner from "@/components/ErrorBanner";
 import BrandMark from "@/components/BrandMark";
+import LoginSsoButtons from "@/components/LoginSsoButtons";
 import { controlClassName } from "@/components/ui/controlStyles";
+import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { readSsoConfig } from "@/lib/sso";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 
@@ -13,6 +16,22 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("loginTitle") };
 }
 
+const SSO_ERROR_KEYS: Record<string, string> = {
+  SsoInvalidClaims: "sso.errors.invalidClaims",
+  SsoMissingEmail: "sso.errors.missingEmail",
+  SsoUnverifiedEmail: "sso.errors.unverifiedEmail",
+  SsoDomainNotAllowed: "sso.errors.domainNotAllowed",
+  SsoInactive: "sso.errors.inactive",
+  SsoNotProvisioned: "sso.errors.notProvisioned",
+  SsoRoleConflict: "sso.errors.roleConflict",
+  SsoInvalidRole: "sso.errors.invalidRole",
+  SsoInvalidDepartment: "sso.errors.invalidDepartment",
+  SsoCustomerAccount: "sso.errors.customerAccount",
+  SsoIdentityConflict: "sso.errors.identityConflict",
+  SsoConfiguration: "sso.errors.configuration",
+  SsoServerError: "sso.errors.serverError",
+};
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -20,36 +39,47 @@ export default async function LoginPage({
 }) {
   const { error: errorParam, callbackUrl = "/" } = await searchParams;
   const t = await getTranslations("common");
+  const safeCallbackUrl = safeRelativeTarget(callbackUrl);
+  const sso = readSsoConfig();
+  const ssoProviders = sso.providers.map((provider) => ({
+    id: provider.id,
+    name: provider.displayName,
+  }));
 
   const branding = await prisma.branding.findFirst().catch(() => null);
   const companyName = branding?.companyName || "FSM System";
 
   let error: string | null = null;
   if (errorParam) {
-    switch (errorParam) {
-      case "CredentialsSignin":
-        error = t("loginErrorCredentials");
-        break;
-      case "AccountNotActivated":
-        error = t("loginErrorInactive");
-        break;
-      case "AccessDenied":
-        error = t("loginErrorAccessDenied");
-        break;
-      case "SessionRequired":
-        error = t("loginErrorSessionRequired");
-        break;
-      case "TooManyAttempts":
-        error = t("loginErrorTooMany");
-        break;
-      case "TwoFactorUnavailable":
-        error = t("loginErrorTwoFactorUnavailable");
-        break;
-      case "TwoFactorExpired":
-        error = t("auth.twoFactor.errors.TwoFactorExpired");
-        break;
-      default:
-        error = t("loginErrorDefault");
+    const ssoKey = SSO_ERROR_KEYS[errorParam];
+    if (ssoKey) {
+      error = t(ssoKey);
+    } else {
+      switch (errorParam) {
+        case "CredentialsSignin":
+          error = t("loginErrorCredentials");
+          break;
+        case "AccountNotActivated":
+          error = t("loginErrorInactive");
+          break;
+        case "AccessDenied":
+          error = t("loginErrorAccessDenied");
+          break;
+        case "SessionRequired":
+          error = t("loginErrorSessionRequired");
+          break;
+        case "TooManyAttempts":
+          error = t("loginErrorTooMany");
+          break;
+        case "TwoFactorUnavailable":
+          error = t("loginErrorTwoFactorUnavailable");
+          break;
+        case "TwoFactorExpired":
+          error = t("auth.twoFactor.errors.TwoFactorExpired");
+          break;
+        default:
+          error = t("loginErrorDefault");
+      }
     }
   }
 
@@ -72,6 +102,11 @@ export default async function LoginPage({
 
         <ErrorBanner id="login-error" message={error} className="mb-4 border" />
 
+        <LoginSsoButtons
+          providers={ssoProviders}
+          callbackUrl={safeCallbackUrl}
+        />
+
         {/*
           Skjemaet sender e-post og passord i selve forespørselen (POST) via en
           server-action, slik at passordet aldri havner i adressefeltet – og
@@ -79,7 +114,7 @@ export default async function LoginPage({
           rukket å laste/hydrere ennå.
         */}
         <form action={loginAction} className="space-y-4">
-          <input type="hidden" name="callbackUrl" value={callbackUrl} />
+          <input type="hidden" name="callbackUrl" value={safeCallbackUrl} />
 
           <div>
             <label
