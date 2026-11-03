@@ -48,7 +48,12 @@ test("technician: feltkortet viser visitt og statusflyt", async ({ page }) => {
     .evaluateAll((links) =>
       links
         .map((link) => link.getAttribute("href"))
-        .find((href) => /^\/mine-oppdrag\/[a-z0-9]+$/.test(href ?? "")),
+        .find(
+          (href) =>
+            /^\/mine-oppdrag\/[a-z0-9]+$/.test(href ?? "") &&
+            href !== "/mine-oppdrag/kunder" &&
+            href !== "/mine-oppdrag/ny",
+        ),
     );
   expect(detailHref).toBeTruthy();
   await page.goto(detailHref!);
