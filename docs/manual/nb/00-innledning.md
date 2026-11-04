@@ -1,6 +1,6 @@
 # Introduksjon og systemoversikt
 
-*Gjelder FSM-plattformen versjon 0.8.5, 31. oktober 2026.*
+*Gjelder FSM-plattformen versjon 0.8.9, 4. november 2026.*
 
 ## Hva FSM-plattformen er
 
@@ -18,6 +18,40 @@ Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne j
 | **Kundeportalbruker** | Kunde eller kontaktperson | Bestiller service, følger besøk, leser rapporter og ser eget utstyr | Egen kunde, med tildelt portaltilgang |
 
 > **Merk:** «Kontor» er en rolle, ikke en fysisk plass. Administrator kan lage egne roller og gi enkeltbrukere tilpassede rettigheter.
+
+## Hva er nytt i 0.8.9
+
+- **Toveis SMS, kontorinnboks og påminnelser.** Innkommende SMS havner i samme
+  samtale som de utgående, med leveringsstatus og STOP/START-samtykke. Kontoret
+  leser og svarer under **Meldinger**, og administrator kan sette opp
+  automatiske SMS-/e-postpåminnelser med stille timer og maksgrense per besøk.
+  Se [kontorkapitlet](10-kontor.md) og
+  [administratorkapitlet](30-administrator.md).
+- **SSO og SCIM.** Innlogging med OIDC mot Microsoft Entra ID, Keycloak,
+  Authentik eller Zitadel, og SCIM 2.0 for automatisk brukerprovisjonering.
+  Passordinnlogging beholdes som nødvei. Se [SSO og SCIM](31-sso-scim.md).
+- **Feltapp med kamera og QR.** Skanneren virker på iOS og Android over HTTPS,
+  bruker nettleserens strekkode-API når det finnes og en reserve ellers.
+  Manuell kode, navigasjon og eksisterende QR-etiketter fra andre systemer er
+  også støttet. Se [teknikerkapitlet](20-tekniker.md).
+- **PDF i appen eller som nedlasting.** Rapporter og revisjoner kan vises trygt i
+  appens PDF-vindu etter sanitering. Direkte lenker og **Last ned PDF** gir
+  fortsatt en fil. Se [rapporter](10-kontor.md).
+- **Kundeoverføring.** Administrator kan eksportere og importere kundepakker
+  som ZIP, med forhåndsvisning, sjekksummer og import i én transaksjon. Se
+  [kundeoverføring](10-kontor.md).
+- **Ruteplanlegging og sanntids ETA.** Ruteplanleggeren foreslår kjøreorden,
+  kjøretid, avstand og ventetid, med valgfri OSRM og lokal beregning som
+  reserve. Sporingssiden viser hvor fersk posisjonen er. Se
+  [ruteplan](10-kontor.md) og
+  [sporing](30-administrator.md).
+- **Kundeadskillelse og enhetsflytting.** Steds- og enhetsvelgere henter bare
+  data for valgt kunde. En enhet kan flyttes til en annen kunde med
+  servicehistorikk, etter forhåndsvisning og kontroll av kontrakter. Se
+  [utstyr](10-kontor.md).
+- **Opplastingsgrenser og kvoter.** 15 MB per bilde, 50 MB per PDF, 2 GiB per
+  bruker per døgn og 10 GiB per kunde. Grensene kan justeres i miljøet. Se
+  [opplasting og OCR](30-administrator.md).
 
 ## Slik er systemet bygget opp
 
@@ -107,7 +141,7 @@ Rollekapitlene beskriver hvert skritt i detalj. Her ser du hvordan rollene og da
 1. **Administrator** slår på live-sporing for avdelingen. Det er av som standard og gjelder bare visiter i den avdelingen.
 2. **Montøren** setter visitten til «På vei» og kan dele posisjon. Kunden åpner sporingslenken fra «Besøk» eller får den tilsendt.
 3. **Kundeportalbrukeren** ser fornavn, status og estimert ankomst. Posisjonen vises aldri som kart eller koordinater, og lenken utløper når visitten er ferdig eller etter to timer.
-4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.8.5.
+4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.8.9.
 
 ### 5. Rettigheter, varsler og aktivitetslogg gjennom alle flytene
 
@@ -164,7 +198,7 @@ Manualen har en introduksjonsdel, tre rollekapitler og en oppslagsdel. Start med
 - Menyvalg vises som **Innstillinger → API-nøkler**.
 - **Merk** forklarer noe som er lett å misforstå. **Tips** er en snarvei eller et godt råd. **Advarsel** betyr at handlingen kan føre til datatap eller feil.
 - Datoer og klokkeslett vises i Europe/Oslo med 24-timers klokke. Mangler en tid eller dato, viser systemet «Tid ikke satt» eller «Ingen dato»; det betyr ikke at verdien er midnatt.
-- Rapport-PDF-er har norske etiketter i 0.8.5, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
+- Rapport-PDF-er har norske etiketter i 0.8.9, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
 
 > **Advarsel:** En innsendt og låst rapport skal ikke endres uten en god grunn. Opplåsing krever administrator og begrunnelse, og alle endringer havner i aktivitetsloggen.
 

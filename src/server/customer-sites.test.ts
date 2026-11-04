@@ -16,14 +16,19 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  searchNormalizedIds: vi.fn(async () => [] as Array<{ id: string; score: number; total: number }>),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/search-sql", () => ({
+  searchNormalizedIds: mocks.searchNormalizedIds,
+}));
 
 import {
   createCustomerSite,
   deleteCustomerSite,
+  getCustomerSiteOptions,
   listCustomerSites,
   setPrimaryCustomerSite,
   updateCustomerSite,
@@ -68,6 +73,7 @@ beforeEach(() => {
   mocks.prisma.customerSite.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.customerSite.delete.mockResolvedValue({});
   mocks.audit.mockResolvedValue(undefined);
+  mocks.searchNormalizedIds.mockResolvedValue([]);
 });
 
 describe("kundesteder", () => {
@@ -79,8 +85,51 @@ describe("kundesteder", () => {
     );
   });
 
-  it("første sted blir primært og revisjonslogges", async () => {
-    const result = await createCustomerSite(actor(), "cust-1", {
+  it("avgrenser stedsvalgene til kunden og søker bare i kundens rader", async () => {
+    mocks.searchNormalizedIds.mockResolvedValue([
+      { id: "site-1", score: 1, total: 1 },
+    ]);
+
+    const result = await getCustomerSiteOptions(actor(), "cust-1", {
+      query: "lager",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.searchNormalizedIds).toHaveBeenCalledWith(
+      "CustomerSite",
+      "lager",
+      100,
+      undefined,
+      false,
+      { customerId: "cust-1" },
+    );
+    expect(mocks.prisma.customerSite.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerId: "cust-1", id: { in: ["site-1"] } },
+      }),
+    );
+  });
+
+  it("nekter stedsvalg uten relevante rettigheter", async () => {
+    const result = await getCustomerSiteOptions(
+      actor({ permissions: ["reports.view"] }),
+      "cust-1",
+    );
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.customerSite.findMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser ukjent eller slettet kunde", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue(null);
+
+    const result = await getCustomerSiteOptions(actor(), "borte");
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.customerSite.findMany).not.toHaveBeenCalled();
+  });
+
+  it("første sted blir primært og revisjonslogges", async () => {    const result = await createCustomerSite(actor(), "cust-1", {
       name: "Lager",
       address: "Gata 1",
     });

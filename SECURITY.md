@@ -44,7 +44,7 @@ bare bevisst, og dokumenter hvorfor.
 | To-trinns verifisering | Valgfritt som standard. Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for å kreve oppsett før innlogging. Administrasjonsroller kan nullstilles med den dokumenterte break-glass-prosedyren. |
 | Offline | Sidecache i 8 timer og lokale rapportkladder i 7 dager. Brukeren kan forkaste kladdene eksplisitt. |
 | Bookinger | Forespørsler, ikke reservasjoner; kontoret bekrefter. Serveren håndhever eierskap, frister og rate limits. Ledig tid er veiledende. |
-| PDF | Leveres alltid som vedlegg, aldri inline. `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile` og `/RichMedia` saneres med qpdf; filen avvises hvis sanering ikke er mulig. |
+| PDF | Direkte lenker leveres som vedlegg. Appens PDF-viser ber eksplisitt om `inline`, og får det bare etter at `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile` og `/RichMedia` er sanert med qpdf; filen avvises med 422 hvis sanering ikke er mulig. |
 | Opplasting | Multipart strømmes til midlertidig fil med hard grense, maks 4 samtidige kropper per instans og 50 MB per PDF. Per-bruker (24 t) og per-kunde kvote håndheves; 413/507 returneres. Proxyen må også begrense kropp, tilkoblinger og tidsavbrudd. |
 | API-nøkler | Scopes og valgfri skrivebeskyttelse, standard levetid 90 dager og maks 365 dager. Opprettelse, tilbakekalling og rotasjon revisjonslogges. |
 | SSO (OIDC) | Av som standard. Når det er på, kobles identiteter bare på bekreftet e-post, auto-provisjonering er av, nye kontoer er inaktive og standardrollen er `USER`. Passordinnlogging beholdes som break-glass. |
@@ -124,6 +124,13 @@ bare bevisst, og dokumenter hvorfor.
   timer, og alle ping for en visitt slettes når visitten blir `DONE`/
   `CANCELLED`. `Permissions-Policy` tillater geolocation bare for appens eget
   opphav (`geolocation=(self)`).
+- **Kamera og mikrofon:** `Permissions-Policy` tillater kamera bare for appens
+  eget opphav (`camera=(self)`), slik at QR-skanneren i feltappen virker i
+  iOS Safari og Android-nettlesere. Mikrofonen er fortsatt av for alle
+  (`microphone=()`). Kameraet åpnes bare etter et eksplisitt klikk fra
+  brukeren, og alle spor stoppes når skanneren lukkes, komponenten fjernes
+  eller brukeren navigerer bort. Kameraskanning krever HTTPS (sikker kontekst);
+  appen viser en egen melding og lar brukeren skrive koden manuelt ellers.
 - **DPIA (personvernkonsekvensvurdering):** live sporing behandler montørens
   posisjon som personopplysning. Behandlingen er begrenset til frivillig,
   eksplisitt deling mens visitten er `EN_ROUTE`, med formålsbegrensning (ETA til

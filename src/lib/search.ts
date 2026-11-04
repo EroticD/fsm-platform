@@ -1121,9 +1121,10 @@ export async function performSearch(
         const reportHref = singleReport
           ? `/rapporter/${r.workOrderId}`
           : `/rapporter/${r.workOrderId}?rapport=${encodeURIComponent(r.id)}`;
-        const directHref = singleReport
-          ? `/api/rapporter/${r.workOrderId}/pdf`
-          : `/api/rapporter/${r.workOrderId}/pdf?rapport=${encodeURIComponent(r.id)}`;
+        // «Åpne PDF» går til appens PDF-viser, ikke rett til nedlasting.
+        // Direkte API-lenker er fortsatt vedlegg og brukes bare av eksplisitte
+        // nedlastingsknapper.
+        const directHref = withReturnTo(reportHref, returnTo);
         // Rapportnavnet skal være hovedtittelen; oppdragets tittel er en
         // egen, merket undertitteldel så de ikke blandes sammen.
         const reportName =

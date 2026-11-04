@@ -23,6 +23,8 @@ export function buildCsp(nonce: string): string {
     // FullCalendar laster chevron-ikonene (fcicons) som en innebygd data-URL.
     "font-src 'self' data:",
     "connect-src 'self'",
+    // Rapportviseren henter PDF-en som en blob og viser den i en iframe på
+    // samme opphav. `<object>` er fortsatt blokkert.
     "frame-src 'self' blob:",
     "frame-ancestors 'self'",
     "object-src 'none'",

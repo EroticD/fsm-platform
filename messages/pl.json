@@ -759,6 +759,10 @@
       }
     },
     "orders": {
+      "sitePicker": {
+        "loading": "Ładowanie lokalizacji …",
+        "loadFailed": "Nie udało się załadować lokalizacji klienta. Wybierz klienta ponownie."
+      },
       "list": {
         "views": {
           "alle": {
@@ -1177,7 +1181,6 @@
         "timeNotSet": "Nie ustawiono godziny",
         "allDay": "Cały dzień",
         "openWorkOrder": "Otwórz zlecenie",
-        "openWorkOrderAria": "Otwórz zlecenie {title}",
         "overdueEmpty": "Brak zaległych zleceń.",
         "availableEmpty": "Brak dostępnych zleceń.",
         "laterEmpty": "Brak nadchodzących zleceń.",
@@ -1649,6 +1652,9 @@
         "snapshotTitle": "Treść wersji {revision}",
         "snapshotMissing": "Nie udało się znaleźć treści tej wersji.",
         "downloadPdf": "Pobierz wersję (PDF)",
+        "openPdf": "Otwórz wersję (PDF)",
+        "backToRevisions": "Wróć do wersji",
+        "viewerTitle": "Wersja {revision}: {name}",
         "unitSummary": "{count, plural, one {# urządzenie} few {# urządzenia} many {# urządzeń} other {# urządzenia}} · odchylenia: {deviations}",
         "noUnits": "Raport nie używa urządzeń",
         "noUnitLabel": "Bez nazwy",
@@ -1666,8 +1672,24 @@
         "reportFor": "Raport dla: {title}",
         "reportName": "Raport: {name}",
         "singleReportFallback": "Raport",
+        "download": "Pobierz PDF"
+      },
+      "pdfViewer": {
+        "loading": "Ładowanie PDF…",
+        "openInNewTab": "Otwórz w nowej karcie",
         "download": "Pobierz PDF",
-        "iframeTitle": "Raport serwisowy – {title}"
+        "retry": "Spróbuj ponownie",
+        "previewHint": "PDF się nie wyświetla? Otwórz go w nowej karcie lub pobierz.",
+        "iframeTitle": "PDF: {title}",
+        "errors": {
+          "forbidden": "Nie masz dostępu do tego PDF.",
+          "notFound": "Nie znaleziono PDF. Raport mógł zostać usunięty lub przeniesiony.",
+          "activeContent": "PDF zawiera aktywną treść i nie może zostać wyświetlony.",
+          "activeContentHint": "Spróbuj ponownie później lub pobierz PDF. Ze względów bezpieczeństwa nie jest wyświetlany bez oczyszczenia.",
+          "rateLimited": "Zbyt wiele żądań PDF. Odczekaj {seconds} sekund i spróbuj ponownie.",
+          "rateLimitedUnknown": "Zbyt wiele żądań PDF. Odczekaj chwilę i spróbuj ponownie.",
+          "unavailable": "Nie udało się załadować PDF. Spróbuj ponownie."
+        }
       }
     },
     "customers": {
@@ -2102,7 +2124,13 @@
         "delete": "Usuń lokalizację",
         "deleteConfirm": "Usunąć lokalizację „{name}”? Zlecenia i sprzęt wskazujące na nią utracą powiązanie.",
         "edit": "Edytuj lokalizację",
-        "save": "Zapisz lokalizację"
+        "save": "Zapisz lokalizację",
+        "searchLabel": "Filtruj lokalizacje",
+        "searchPlaceholder": "Szukaj według nazwy, adresu, kodu pocztowego lub miasta...",
+        "search": "Filtruj",
+        "resetSearch": "Resetuj",
+        "noMatches": "Brak lokalizacji pasujących do „{query}”.",
+        "showing": "Wyświetlono {shown} z {total} lokalizacji."
       }
     },
     "documents": {
@@ -3423,6 +3451,7 @@
         "pageOf": "Strona {page} z {pages}",
         "performed": "Zakończono {date}",
         "signed": "podpisany",
+        "view": "Wyświetl raport",
         "download": "Pobierz PDF",
         "acknowledged": "✓ Potwierdzono {date}",
         "commentPlaceholder": "Komentarz (opcjonalnie)",
@@ -4163,7 +4192,18 @@
         "invalidDepartment": "Dział nie istnieje.",
         "invalidTemplate": "Lista kontrolna nie istnieje.",
         "planInUse": "Plan ma historię i nie można go usunąć.",
-        "alreadyGenerated": "Wystąpienie zostało już wygenerowane."
+        "alreadyGenerated": "Wystąpienie zostało już wygenerowane.",
+        "targetCustomerNotFound": "Docelowy klient nie istnieje lub został usunięty.",
+        "targetCustomerDeleted": "Docelowy klient został usunięty i nie może otrzymać urządzenia.",
+        "targetSiteMismatch": "Lokalizacja nie należy do docelowego klienta.",
+        "crossCustomerChild": "Jedno lub więcej podurządzeń należy do innego klienta. Przeniesienie jest zablokowane.",
+        "contractBlocked": "Urządzenie jest powiązane z umową u innego klienta. Najpierw usuń lub przenieś pozycję umowy.",
+        "workOrderCustomerMismatch": "Przenoszone zlecenie należy do trzeciego klienta. Najpierw popraw powiązanie.",
+        "workOrderNumberConflict": "Numer zlecenia już istnieje w dziale docelowym.",
+        "documentCustomerMismatch": "Dokument należy do trzeciego klienta. Najpierw popraw powiązanie.",
+        "targetDepartmentMissing": "Docelowy klient nie ma aktywnego działu.",
+        "subtreeTooLarge": "Drzewo jest zbyt duże, aby przenieść je w jednej operacji.",
+        "stalePreview": "Podgląd jest nieaktualny. Odśwież go i potwierdź przeniesienie ponownie."
       },
       "feedback": {
         "created": "Urządzenie zostało zarejestrowane.",
@@ -4176,12 +4216,82 @@
         "planCreated": "Plan konserwacji został utworzony.",
         "planUpdated": "Plan konserwacji został zaktualizowany.",
         "planDeleted": "Plan konserwacji został usunięty.",
-        "deleted": "Urządzenie zostało usunięte."
+        "deleted": "Urządzenie zostało usunięte.",
+        "movedToCustomer": "Urządzenie i historia serwisowa zostały przeniesione do nowego klienta."
       },
       "planStatus": {
         "PENDING": "Oczekuje",
         "GENERATED": "Wygenerowano",
         "SKIPPED": "Pominięto"
+      },
+      "move": {
+        "link": "Przenieś do innego klienta",
+        "heading": "Przenieś urządzenie do innego klienta",
+        "subtitle": "Przenieś urządzenie wraz z całą historią serwisową. Stary klient traci dostęp, a nowy klient otrzymuje pełną historię.",
+        "back": "Powrót do urządzenia",
+        "currentCustomer": "Obecny klient",
+        "targetCustomer": "Nowy klient",
+        "searchLabel": "Szukaj klienta",
+        "searchPlaceholder": "Nazwa, numer klienta, NIP lub miasto",
+        "searchHint": "Wyszukiwanie wymaga co najmniej dwóch znaków i pokazuje maksymalnie dziesięć wyników.",
+        "searchEmpty": "Żaden klient nie pasuje do wyszukiwania.",
+        "searchError": "Wyszukiwanie klientów nie powiodło się. Spróbuj ponownie.",
+        "searching": "Wyszukiwanie…",
+        "selectedCustomer": "Wybrany klient",
+        "changeCustomer": "Zmień klienta",
+        "targetSite": "Nowa lokalizacja (opcjonalnie)",
+        "targetSiteHint": "Lokalizacja musi należeć do nowego klienta. Bez lokalizacji pole lokalizacji urządzenia zostanie wyczyszczone.",
+        "siteNone": "Brak lokalizacji",
+        "siteLoading": "Pobieranie lokalizacji…",
+        "siteError": "Nie udało się pobrać lokalizacji klienta.",
+        "whatMoves": "To zostanie przeniesione",
+        "warning": "Stary klient natychmiast traci dostęp do urządzenia i całej historii serwisowej. Nowy klient otrzymuje tę samą historię. Identyfikatory, kody QR i pliki zostają zachowane.",
+        "counts": {
+          "products": "Urządzenia",
+          "workOrders": "Zlecenia",
+          "visits": "Wizyty",
+          "reports": "Raporty",
+          "reportRevisions": "Wersje raportów",
+          "reportUnits": "Urządzenia w raportach",
+          "meterReadings": "Odczyty",
+          "plans": "Plany konserwacji",
+          "planOccurrences": "Wystąpienia planów",
+          "documents": "Dokumenty",
+          "documentVersions": "Wersje dokumentów",
+          "uploads": "Pliki",
+          "qrCodes": "Kody QR",
+          "comments": "Komentarze"
+        },
+        "confirm": "Potwierdź przeniesienie",
+        "confirmHint": "Przeniesienia nie można cofnąć z tej strony.",
+        "confirmTyping": "Wpisz „{name}”, aby potwierdzić",
+        "confirmCheckbox": "Rozumiem, że stary klient traci dostęp do urządzenia i historii.",
+        "submit": "Przenieś urządzenie",
+        "submitting": "Przenoszenie…",
+        "previewLoading": "Obliczanie, co zostanie przeniesione…",
+        "previewError": "Nie udało się obliczyć przeniesienia. Spróbuj ponownie.",
+        "blocked": "Przeniesienie jest zablokowane",
+        "noop": "Urządzenie jest już u tego klienta w tej lokalizacji. Nic nie zostało zmienione.",
+        "noSelection": "Wybierz klienta, aby zobaczyć, co zostanie przeniesione.",
+        "contractsNote": "Urządzeń powiązanych z umową nie można przenieść, dopóki pozycja umowy nie zostanie usunięta lub przeniesiona. Chroni to zobowiązania finansowe.",
+        "blockers": {
+          "contractBlocked": "Urządzenie jest powiązane z {count} pozycją(-ami) umowy u innego klienta. Najpierw usuń lub przenieś pozycję umowy.",
+          "crossCustomerChild": "{count} podurządzenie(-ń) należy już do innego klienta. Najpierw popraw hierarchię.",
+          "targetCustomerNotFound": "Docelowy klient nie istnieje lub został usunięty.",
+          "targetSiteMismatch": "Lokalizacja nie należy do docelowego klienta.",
+          "targetDepartmentMissing": "Docelowy klient nie ma aktywnego działu, więc zlecenia nie mogą zostać przeniesione.",
+          "workOrderNumberConflict": "{count} numer(-ów) zlecenia już istnieje w dziale docelowym.",
+          "workOrderCustomerMismatch": "{count} zlecenie(-ń) należy do trzeciego klienta. Najpierw popraw powiązanie.",
+          "documentCustomerMismatch": "{count} dokument(-ów) należy do trzeciego klienta. Najpierw popraw powiązanie.",
+          "subtreeTooLarge": "Drzewo jest zbyt duże, aby przenieść je w jednej operacji.",
+          "targetCustomerDeleted": "Docelowy klient został usunięty i nie może otrzymać urządzenia."
+        },
+        "warnings": {
+          "departmentFallback": "Docelowy klient nie ma działu. Zlecenia używają aktywnego działu domyślnego.",
+          "oldContactCleared": "Kontakty starego klienta zostały usunięte z przeniesionych zleceń i komentarzy.",
+          "workOrderContractCleared": "Powiązanie z umową starego klienta zostało usunięte z przeniesionych zleceń.",
+          "noTargetSelected": "Wybierz docelowego klienta, aby kontynuować."
+        }
       }
     },
     "contractsPage": {

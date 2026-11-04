@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { uploadErrorMessage, uploadFailureText } from "@/lib/upload-error";
 import Icon from "@/components/icons";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -69,7 +70,7 @@ export default function WorkOrderAttachments({
     setBusy(true);
     setProgress({ done: 0, total: files.length });
 
-    const failed: string[] = [];
+    const failed: Array<{ name: string; message: string }> = [];
 
     // Last opp én og én: mobilbilder og PDF-er kan være store, og flere
     // samtidige opplastinger gjør trege nett unødvendig tunge.
@@ -83,7 +84,12 @@ export default function WorkOrderAttachments({
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.fileUrl) {
           throw new Error(
-            apiErrorMessage(json, t, t("orders.attachments.uploadError")),
+            uploadErrorMessage(
+              res,
+              json,
+              t,
+              t("orders.attachments.uploadError"),
+            ),
           );
         }
 
@@ -96,8 +102,11 @@ export default function WorkOrderAttachments({
         if (!result.ok) throw new Error(
           apiErrorMessage(result, t, t("orders.attachments.saveError")),
         );
-      } catch {
-        failed.push(file.name);
+      } catch (error) {
+        failed.push({
+          name: file.name,
+          message: error instanceof Error ? error.message : "",
+        });
       }
       setProgress({ done: index + 1, total: files.length });
     }
@@ -107,9 +116,12 @@ export default function WorkOrderAttachments({
 
     if (failed.length > 0) {
       setError(
-        failed.length === 1
-          ? t("orders.attachments.uploadFailedOne", { name: failed[0] })
-          : t("orders.attachments.uploadFailedMany", { count: failed.length, names: failed.join(", ") }),
+        uploadFailureText(
+          failed,
+          (name) => t("orders.attachments.uploadFailedOne", { name }),
+          (count, names) =>
+            t("orders.attachments.uploadFailedMany", { count, names }),
+        ),
       );
     }
 

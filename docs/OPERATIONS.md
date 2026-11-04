@@ -5,7 +5,7 @@
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
 
 ```dotenv
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.5
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
 POSTGRES_IMAGE=postgres:15.13
 ```
 
@@ -14,9 +14,9 @@ POSTGRES_IMAGE=postgres:15.13
 - Vil du være helt sikker på at taggen ikke flyttes, pinn til digest:
 
   ```bash
-  docker pull ghcr.io/eroticd/fsm-platform:v0.8.5
+  docker pull ghcr.io/eroticd/fsm-platform:v0.8.9
   docker inspect --format='{{index .RepoDigests 0}}' \
-    ghcr.io/eroticd/fsm-platform:v0.8.5
+    ghcr.io/eroticd/fsm-platform:v0.8.9
   # APP_IMAGE=ghcr.io/eroticd/fsm-platform@sha256:<digest>
   ```
 
@@ -39,6 +39,35 @@ POSTGRES_IMAGE=postgres:15.13
   base-image-digestene (`node:22-bookworm-slim`, `debian:bookworm-slim`)
   oppdateres bevisst og pinnes i release-grenen. Det er ikke gjort automatisk
   her, fordi et digest-bytte må følges av et fullt bygg og ny skanning.
+
+## Sikkerhetsheadere og kamera
+
+Next setter disse headerne for alle ruter (se `src/lib/security-headers.ts` og
+`next.config.ts`):
+
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(self), microphone=(), geolocation=(self)
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+`camera=(self)` er nødvendig for QR-skanneren i feltappen. Uten den blokkerer
+nettleseren `getUserMedia` før brukeren får spurt om tillatelse. Kameraet er
+bare tilgjengelig for appens eget opphav; innebygd tredjepartsinnhold og
+iframe-er får ikke tilgang. Mikrofonen er fortsatt av. Endres headeren, må
+`src/lib/security-headers.test.ts` oppdateres, og kamera/HTTPS-oppførselen
+testes på iPhone (Safari) og Android (Chrome).
+
+Kameraskanning krever **HTTPS** i produksjon. `localhost` regnes som sikker
+kontekst av nettleseren, men en LAN-adresse over `http://` gjør det ikke – da
+vises en egen HTTPS-melding i skanneren. Sjekk headeren etter deploy:
+
+```bash
+curl -sI https://<vert>/skann | grep -i permissions-policy
+# forventet: permissions-policy: camera=(self), microphone=(), geolocation=(self)
+```
 
 ## Miljøfiler og hemmeligheter
 
@@ -1048,6 +1077,7 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | Appen restarter i loop | `docker compose logs app`, migrasjonssperre (`REQUIRE_BACKUP_BEFORE_MIGRATE`), OOM (`dmesg`) |
 | Innlogging logger ut alle | `sessionVersion` er økt (passord/rolle/2FA-endring) |
 | PDF vises ikke | `APP_URL`/`NEXTAUTH_URL`, `Upload`-rad for filen |
+| PDF vises ikke i appen, men kan lastes ned | nettleserens PDF-støtte, CSP `frame-src 'self' blob:`/`object-src 'none'`, prøv **Åpne i ny fane** |
 | PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
@@ -1060,6 +1090,14 @@ bygges inn, skrives en advarsel i PDF-en og `report_pdf_images_missing` logges
 med antall (uten filnavn eller personopplysninger). PDF-cachen har en egen
 `rendererVersion`; den må økes når bildeinnbygging endres, slik at gamle PDF-er
 uten bilder ikke gjenbrukes.
+
+Rapport- og revisjons-PDF-er leveres som vedlegg som standard. Den innebygde
+viseren ber eksplisitt om `?inline=1`, og ruten svarer først
+`Content-Disposition: inline` etter at `sanitizePdfActiveContent` har godkjent
+filen. Feiler saneringen, svarer ruten 422 og viser en feilmelding i appen; den
+usanerte filen sendes aldri. Begge variantene har `Cache-Control: no-store` og
+`X-Content-Type-Options: nosniff`. CSP-en tillater `frame-src 'self' blob:` for
+viseren og beholder `object-src 'none'`.
 
 ### 502-sjekkliste
 

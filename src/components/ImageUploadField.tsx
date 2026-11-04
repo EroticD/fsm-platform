@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { apiErrorMessage } from "@/lib/api-error-message";
+import { uploadErrorMessage } from "@/lib/upload-error";
 import Icon from "@/components/icons";
 
 /**
@@ -187,7 +187,8 @@ export default function ImageUploadField({
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.fileUrl) {
       throw new Error(
-        apiErrorMessage(
+        uploadErrorMessage(
+          res,
           json,
           t,
           t("orders.imageUpload.uploadFailedOne", { name: file.name }),

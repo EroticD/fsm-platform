@@ -3,7 +3,7 @@
 Dette kapitlet er for deg som jobber på kontoret: du tar imot henvendelser,
 oppretter og planlegger oppdrag, fordeler montører, følger opp rapporter og
 holder kunde-, utstyrs- og avtaledata oppdatert. Det gjelder FSM-plattformen
-0.8.5 (31.10.2026).
+0.8.9 (04.11.2026).
 
 Oppdrag og serviceavtaler tilhører en avdeling: du ser normalt bare egen
 avdeling, mens administrator ser alt. Kunder, utstyr og dokumenter er felles,
@@ -151,8 +151,10 @@ fysiske etiketten, og føres i revisjonsloggen.
 ### Vedlegg, kommentarer, fullføring
 
 **Vedlegg** tar bilder og PDF-er, maks 15 MB per bilde og 50 MB per PDF, og er interne.
-**Kommentarer** er dialogen mellom kontor og montør; skriv i feltet og trykk
-**Legg til kommentar**.
+I tillegg gjelder en rullerende døgnkvote på 2 GiB per bruker og 10 GiB samlet
+lagring per kunde. Standardverdiene kan endres med `UPLOAD_QUOTA_USER_MB` og
+`UPLOAD_QUOTA_CUSTOMER_MB`. **Kommentarer** er dialogen mellom kontor og montør;
+skriv i feltet og trykk **Legg til kommentar**.
 
 **Fullfør** setter status **Fullført** etter bekreftelsen **Fullføre oppdraget?
 Oppdraget og rapporten låses for redigering.** **Kanseller oppdrag** krever
@@ -224,6 +226,11 @@ brukeren.
 dokumenter, avtaler og bilder som hører til kunden. **Avtaler** viser
 serviceavtaler, dekningslinjer, neste service, SLA og prislister.
 
+**Steder** og **Utstyr** på kundekortet har egne søkefelt. Søket kjøres på
+serveren og er avgrenset til den åpne kunden, så du kan søke på navn, adresse,
+postnummer, sted, modell eller serienummer uten at andre kunders rader dukker
+opp. **Nullstill** fjerner søket, og telleren viser hvor mange treff kunden har.
+
 ## Utstyr og enheter
 
 Utstyrsregisteret ligger på `/enheter`. Søk på modell, serienummer, plassering
@@ -239,6 +246,11 @@ eller kunde, filtrer på status og kategori, eller slå på **Vis hierarki**.
    relevant.
 5. Trykk **Registrer enhet**.
 
+Når du har valgt **Kunde**, lastes bare den kundens **Steder** og
+**Overordnet enhet** fra serveren. Bytter du kunde, tømmes og lastes listene på
+nytt, så du kan ikke velge et sted eller en enhet som hører til en annen kunde.
+Det samme gjelder **Nytt oppdrag** og **Rediger oppdrag**.
+
 **Rediger enhet** endrer de samme feltene.
 
 Statusene er **Aktiv**, **Ute av drift** og **Utfaset**; kritikalitet er
@@ -246,6 +258,51 @@ Statusene er **Aktiv**, **Ute av drift** og **Utfaset**; kritikalitet er
 målinger. En enhet med underenheter, historikk eller planer kan ikke slettes.
 **Overordnet enhet** bygger hierarki, og **Flytt i hierarkiet** endrer
 plassering.
+
+### Flytte enhet til en annen kunde
+
+Når utstyr bytter eier eller kunde, kan hele enheten flyttes med
+servicehistorikken. Flyttingen krever **Administrer utstyr** og **Administrer
+kunder**, eller administrator.
+
+1. Åpne enheten på `/enheter/<id>` og velg **Flytt til annen kunde**.
+2. Søk opp målkunden og velg eventuelt målsted. Velger du ikke sted, blir
+   enheten stående uten sted hos den nye kunden.
+3. Kontroller **Hva som flyttes** og forhåndsvisningen. Den viser antall
+   oppdrag, visiter, rapporter, revisjoner, målinger, planer, dokumenter,
+   vedlegg og QR-koder som følger med.
+4. Skriv målkundens navn for å bekrefte, eller kryss av bekreftelsen, og trykk
+   **Flytt enheten**.
+
+**Dette flyttes:** enheten og eventuelle underenheter (maks 1000), hierarkiet
+mellom dem, oppdrag og visiter, rapporter med revisjoner, rapportenheter og
+PDF-er, målinger, vedlikeholdsplaner og forekomster, dokumenter med versjoner,
+vedlegg/opplastinger, registrerte QR-koder og kommentarer. Rotenheten får
+målstedet. Underenheter mister det gamle stedet fordi det tilhørte den forrige
+kunden, og må plasseres på nytt etter flyttingen. Rotenheten kobles ikke lenger
+til en eventuell gammel overordnet enhet.
+
+**Dette blokkerer flyttingen:**
+
+- **Kontraktslinjer som tilhører en avtale hos en annen kunde** og peker på
+  enheten eller en underenhet. En flytting kan ikke bare endre hvem en
+  økonomisk forpliktelse peker på. Rydd eller avslutt avtalelinjene først.
+- Underenheter som allerede tilhører en annen kunde.
+- Oppdragsnummer som kolliderer med et nummer i målkundens avdeling.
+- Manglende eller slettet målkunde, eller et målsted som ikke tilhører kunden.
+- Mer enn 1000 enheter i undertreet.
+
+**Dette flyttes ikke:** kontraktslinjer, den gamle kundens portalbrukere,
+globale dokumenter uten kunde- eller enhetstilknytning, og selve revisjonsloggen.
+Kontaktpersoner fra den gamle kunden tømmes på oppdragene, og oppdrag som peker
+på en avtale hos en annen kunde mister avtalelenken. Du får varsel om dette i
+forhåndsvisningen. Målkundens avdeling brukes hvis den finnes; ellers brukes
+din egen avdeling, og du får beskjed.
+
+Flyttingen er idempotent: gjentas den etter at enheten står hos målkunden, får
+du beskjed om at ingenting ble endret. Alle valideringer kjøres før første
+skriving, så en avvist flytting etterlater ikke halve endringer. Handlingen
+revisjonslogges. Vil du angre, må du flytte enheten tilbake manuelt.
 
 ### Målinger
 
@@ -354,7 +411,7 @@ Dispatch**. Der velger du **Modus**, justerer **Vektene** for **Kompetanse**,
 **Avstand**, **Reisetid**, **Ledig tid**, **SLA** og **Belastning**, og legger
 inn territorier med **Postnummerprefikser**, **Kommunekoder** og **Radius (km)**.
 **Kapasitetsplaner** vises i kapasitetsvisningen, men redigeres ikke i
-**Innstillinger** i 0.8.5. Det samme gjelder kompetanse, fravær og arbeidstid:
+**Innstillinger** i 0.8.9. Det samme gjelder kompetanse, fravær og arbeidstid:
 de brukes av dispatch og booking, men har ikke eget skjema i **Innstillinger**.
 
 ## Avtaler, SLA og prislister
@@ -466,8 +523,12 @@ signert**, og **Rapportnr.** når rapporten har nummer.
 
 **Åpne skjema** åpner rapportvisningen med **Hovedresultat**, **Signert av**,
 **Enheter som ble kontrollert**, **Svar på sjekkpunkter** og **Generelle notater
-fra montør**, med bilder og vedlegg. **Last ned PDF** lager PDF-en; **Lukk PDF**
-går tilbake.
+fra montør**, med bilder og vedlegg. PDF-en vises i appens eget PDF-vindu.
+**Åpne i ny fane** viser samme PDF i nettleseren, **Last ned PDF** lager et
+vedlegg, og **Lukk PDF** går tilbake. Hvis PDF-en ikke kan vises, for eksempel
+fordi den inneholder aktivt innhold som ikke kan fjernes, viser viseren en
+feilmelding med **Prøv igjen** og nedlasting. Revisjoner åpnes på samme måte fra
+**Revisjoner** med **Åpne revisjonen (PDF)**.
 
 En rapport kan ha **Montør / tekniker**- og **Kunde**-signatur, tegnet på
 skjermen. Bilder lastes opp per sjekkpunkt eller enhet. Avvik vises som **Avvik
@@ -484,7 +545,7 @@ dato.
 > PDF-en igjen. Driftsloggen viser `report_pdf_images_missing` med antall, uten
 > filnavn eller personopplysninger.
 
-> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.5, også når
+> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.9, også når
 > grensesnittet er engelsk. Det er samme språkbegrensning som i rapport-PDF-en.
 
 ### Status og låsing
@@ -494,10 +555,11 @@ og er en administratorhandling. Etter retting låses rapporten igjen.
 
 ### Kundeportalen og utstyrshistorikk
 
-Kunden ser **Rapporter** i portalen. Bare innsendte, låste rapporter kan åpnes
-som PDF; en opplåst rapport er utilgjengelig til den låses igjen. Kunden kan
-**Kvitter mottatt** med kommentar og **Be om oppdatering av
-kontaktinformasjon**; det siste oppdaterer ikke kundekortet automatisk.
+Kunden ser **Rapporter** i portalen. Bare innsendte, låste rapporter kan åpnes;
+**Vis rapport** åpner PDF-en i appen, og **Last ned PDF** lager et vedlegg. En
+opplåst rapport er utilgjengelig til den låses igjen. Kunden kan **Kvitter
+mottatt** med kommentar og **Be om oppdatering av kontaktinformasjon**; det
+siste oppdaterer ikke kundekortet automatisk.
 
 Rapportens enheter er koblet til kundens utstyr. **Servicehistorikk** på enheten
 viser alle kontroller med dato, resultat, kommentarer, sjekkpunkter og bilder.
@@ -663,6 +725,16 @@ deaktivert uten passord.
 4. Etter importen får hver portalerbruker ny id, er deaktivert og mangler
    passord. Send vanlig invitasjon eller tilbakestill passord før innlogging.
    Ansatte og maler opprettes aldri automatisk.
+
+**Gjentatte forsøk og feil:** Eksporten er idempotent. Samme administrator,
+samme kundeutvalg og samme valg innen ti minutter gjenbruker den samme jobben i
+stedet for å starte en ny, så et dobbeltklikk koster ikke et nytt forsøk. Det er
+maks 10 eksportstarter per time; overskridelse gir en tydelig melding om å vente.
+Feil lagres på jobben og vises i grensesnittet, slik at du kan rette årsaken og
+prøve igjen uten å gjette. Forhåndsvisningen er gyldig i 30 minutter; er pakken
+eller utvalget endret siden den ble vist, må du laste opp og forhåndsvise på
+nytt. Importfeil blokkerer skriving, og en avbrutt import ruller tilbake hele
+transaksjonen og rydder midlertidige filer.
 
 **Begrensninger:** Pakken er begrenset til 500 MiB og 50 MiB per fil, og
 eksporten kjører synkront. Globale dokumenter uten kunde-/utstyrseier følger

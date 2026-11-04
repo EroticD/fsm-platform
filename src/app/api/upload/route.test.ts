@@ -20,8 +20,8 @@ vi.mock("@/lib/rate-limit-db", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/upload-slot", () => ({
-  MAX_REQUEST_BYTES: 2048,
-  maxBytesForMime: () => 2048,
+  MAX_REQUEST_BYTES: 8 * 1024,
+  maxBytesForMime: () => 8 * 1024,
   withUploadSlot: async <T>(fn: () => Promise<T>) => fn(),
 }));
 
@@ -107,7 +107,7 @@ describe("POST /api/upload – innholdskontroll", () => {
   it("avviser en chunked forespørsel over grensen før den bufres ferdig", async () => {
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        for (let index = 0; index < 20; index += 1) {
+        for (let index = 0; index < 100; index += 1) {
           controller.enqueue(new Uint8Array(1024));
         }
         controller.close();
@@ -183,11 +183,34 @@ describe("POST /api/upload – strømming og kvote", () => {
     expect(tempEntries).toEqual([]);
   });
 
+  it("tar imot nettleserens FormData med en ekte fil når standardkvoten gjelder", async () => {
+    uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
+    process.env.UPLOAD_DIR = uploadRoot;
+
+    // En realistisk rapport-PDF er større enn den gamle, feilaktige
+    // standardkvoten på 2 KiB. Ruten skal bruke kvotene i bytes (2 GiB).
+    const file = new File(
+      [Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(4096)])],
+      "rapport.pdf",
+      { type: "application/pdf" },
+    );
+
+    const response = await POST(multipart(file, { purpose: "document" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      fileType: "application/pdf",
+    });
+    const stored = await fs.readdir(uploadRoot);
+    expect(stored.filter((name) => name.endsWith(".pdf"))).toHaveLength(1);
+  });
+
   it("svarer 507 når brukerkvoten er brukt opp", async () => {
     uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
     process.env.UPLOAD_DIR = uploadRoot;
     mocks.prisma.upload.aggregate.mockResolvedValue({
-      _sum: { size: 2048 },
+      _sum: { size: 2 * 1024 * 1024 * 1024 },
     });
 
     const response = await POST(multipart(pdfFile()));

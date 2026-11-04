@@ -3,6 +3,44 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## 0.8.9 — 2026-11-04
+
+### Kundeadskillelse og enhetsflytting
+- Steds- og enhetsvelgere henter bare data for valgt kunde; all informasjon
+  lastes server-side og valideres på nytt ved lagring. Ingen andre kunders
+  steder eller enheter sendes til nettleseren.
+- Kundekortet har søkbare lister for steder og enheter.
+- Ny flytteflyt for enhet: hele enheten (og eventuell underenhet) flyttes med
+  oppdrag, rapporter/revisjoner/PDF, målinger, vedlikeholdsplaner, dokumenter,
+  vedlegg og QR-koder. Aktive kontraktslinjer blokkerer flytting, og alle
+  handlinger revideres.
+
+### Kamera og QR
+- Kamera blokkeres ikke lenger av `Permissions-Policy`; iOS/Android får
+  kameraforhåndsspørsel på `/skann`.
+- BarcodeDetector brukes når den finnes, med ZXing som fallback på Safari og
+  andre nettlesere som mangler API-et. Tydelige feil for HTTPS, nekting,
+  manglende kamera og dekodingsfeil.
+
+### Rettelser
+- Opplasting: standardkvotene ble feilaktig regnet i byte i stedet for MB, så
+  reelle bilder/PDF-er fikk 507. Standard er nå 2 GiB per bruker og 10 GiB per
+  kunde, med tydelige proxy-/serverfeil i klienten.
+- PDF: rapporter og revisjoner kan vises trygt i appen (`?inline=1`) etter
+  sanitering, med nedlasting som eget valg. Direkte nedlasting er fortsatt
+  standard for ukjente klienter.
+- Kundeoverføring: eksport dedupliseres per kundeutvalg/valg, feil lagres på
+  jobben og vises i UI, og første forsøk blokkeres ikke av gamle tellere.
+  Grensen er 10 starter/time med versjonert nøkkel.
+- Feltapp: navnet på featured-oppdraget og korttitlene åpner oppdraget.
+
+### Dokumentasjon og skjermbilder
+- README er forenklet med Docker quick start, Caddy, flytting av database og
+  datavolum, og oppdatering til ny versjon.
+- Brukermanualene (nb/en) er oppdatert med nye funksjoner og regenererte PDF-er.
+- Skjermbilder er regenerert for alle sider i desktop/mobil, nye sider er lagt
+  til, og utdaterte eksperimentmapper er fjernet.
+
 ## 0.8.8 — 2026-11-03
 
 ### Toveis SMS og påminnelser

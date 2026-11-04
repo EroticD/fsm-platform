@@ -27,7 +27,8 @@
         "resultTitle": "Pakiet jest gotowy",
         "checksum": "SHA-256",
         "expires": "Dostępny do {date}",
-        "download": "Pobierz ZIP"
+        "download": "Pobierz ZIP",
+        "reused": "Użyto ponownie ostatniego eksportu z tymi samymi klientami i opcjami."
       },
       "import": {
         "title": "Importuj klienta",
@@ -145,7 +146,9 @@
       "cycle": "Drzewo zawiera cykl.",
       "externalFileNotFetched": "Zewnętrzny adres URL pliku nie został pobrany podczas eksportu.",
       "symlink": "Dowiązania symboliczne w archiwum nie są obsługiwane.",
-      "unknownEntry": "Nieznany plik najwyższego poziomu został zignorowany z ostrzeżeniem."
+      "unknownEntry": "Nieznany plik najwyższego poziomu został zignorowany z ostrzeżeniem.",
+      "rateLimitedRetry": "Zbyt wiele prób eksportu. Spróbuj ponownie za {minutes} minut.",
+      "exportInProgress": "Eksport nadal trwa. Spróbuj ponownie za chwilę."
     }
   },
   "auditActions": {

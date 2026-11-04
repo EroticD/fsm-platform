@@ -16,7 +16,9 @@ import {
   getEquipment,
   getEquipmentFormOptions,
   getEquipmentHistory,
+  getCustomerEquipmentOptions,
 } from "@/server/equipment";
+import { getCustomerSiteOptions } from "@/server/customer-sites";
 import CustomerToast from "@/components/customer/CustomerToast";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import ErrorBanner from "@/components/ErrorBanner";
@@ -123,8 +125,25 @@ export default async function EquipmentDetailPage({
   const history = historyResult.ok ? historyResult.data : [];
   const options = optionsResult.ok
     ? optionsResult.data
-    : { customers: [], categories: [], equipment: [], sites: [] };
+    : { customers: [], categories: [] };
+  // Steder og overordnede enheter hentes bare for denne enhetens kunde, etter
+  // at detaljene er lest. Da inneholder verken HTML eller side-payload rader
+  // fra en annen kunde.
+  const [siteOptionsResult, customerEquipmentResult] = await Promise.all([
+    getCustomerSiteOptions(user, equipment.customer.id, { limit: 200 }),
+    getCustomerEquipmentOptions(user, equipment.customer.id, {
+      excludeId: equipment.id,
+      limit: 500,
+    }),
+  ]);
+  const customerSites = siteOptionsResult.ok ? siteOptionsResult.data.sites : [];
+  const customerEquipment = customerEquipmentResult.ok
+    ? customerEquipmentResult.data.equipment
+    : [];
   const canManage = hasPermission(user, "equipment.manage");
+  const canMoveToCustomer =
+    user.role === "ADMIN" ||
+    (canManage && hasPermission(user, "customers.manage"));
   const isAdmin = user.role === "ADMIN";
   const meldt = param(query.meldt);
   const feil = param(query.feil);
@@ -147,7 +166,7 @@ export default async function EquipmentDetailPage({
   const warrantyExpiring =
     daysUntilWarranty !== null && daysUntilWarranty >= 0 && daysUntilWarranty <= 30;
 
-  const parentOptions = options.equipment.filter((asset) => asset.id !== id);
+  const parentOptions = customerEquipment;
   const mapTarget = {
     latitude: equipment.site?.latitude ?? null,
     longitude: equipment.site?.longitude ?? null,
@@ -251,6 +270,15 @@ export default async function EquipmentDetailPage({
                 newTabLabel={t("fieldTools.newTab")}
                 className={INK_BUTTON}
               />
+              {canMoveToCustomer && (
+                <Link
+                  href={`/enheter/${equipment.id}/flytt`}
+                  className={INK_BUTTON}
+                >
+                  <Icon name="sync" className="h-4 w-4" />
+                  {t("assets.move.link")}
+                </Link>
+              )}
               <Link href={`/enheter/${equipment.id}/etikett`} className={SIGNAL_BUTTON}>
                 <Icon name="file" className="h-4 w-4" />
                 {t("assets.detail.printLabel")}
@@ -378,14 +406,12 @@ export default async function EquipmentDetailPage({
                   <label htmlFor="edit-site" className={LABEL}>{t("assets.form.site")}</label>
                   <select id="edit-site" name="siteId" defaultValue={equipment.siteId ?? ""} className={CONTROL}>
                     <option value="">{t("assets.form.noSite")}</option>
-                    {options.sites
-                      .filter((site) => site.customerId === equipment.customer.id)
-                      .map((site) => (
-                        <option key={site.id} value={site.id}>
-                          {site.name}
-                          {site.address ? ` — ${site.address}` : ""}
-                        </option>
-                      ))}
+                    {customerSites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.name}
+                        {site.address ? ` — ${site.address}` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -479,7 +505,7 @@ export default async function EquipmentDetailPage({
                 <select id="move-parent" name="parentId" defaultValue={equipment.parentId ?? ""} className={CONTROL}>
                   <option value="">{t("assets.detail.noParent")}</option>
                   {parentOptions.map((asset) => (
-                    <option key={asset.id} value={asset.id}>{asset.model} · {asset.customer.name}</option>
+                    <option key={asset.id} value={asset.id}>{asset.model}{asset.serialNumber ? ` (${asset.serialNumber})` : ""}</option>
                   ))}
                 </select>
                 <SubmitButton className={`${SIGNAL_BUTTON} mt-2`}>{t("assets.detail.moveSave")}</SubmitButton>

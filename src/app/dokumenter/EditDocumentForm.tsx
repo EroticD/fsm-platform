@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { apiErrorMessage } from "@/lib/api-error-message";
+import { uploadErrorMessage } from "@/lib/upload-error";
 import TagSelector from "@/components/TagSelector";
 import Icon from "@/components/icons";
 import DocumentContextFields from "./DocumentContextFields";
@@ -74,7 +74,7 @@ export default function EditDocumentForm({
       formData.append("purpose", "document");
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(data, t, t("documents.edit.uploadFailed")));
+      if (!res.ok) throw new Error(uploadErrorMessage(res, data, t, t("documents.edit.uploadFailed")));
       setNewFileUrl(data.fileUrl);
       setNewFileName(data.fileName);
       setNewFileSize(data.fileSize);

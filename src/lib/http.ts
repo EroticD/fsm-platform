@@ -18,16 +18,40 @@ export function noStoreJson<T>(body: T, init: ResponseInit = {}): NextResponse {
 }
 
 /**
- * `Content-Disposition` for filer som skal lastes ned, aldri vises inline.
+ * Bygger `Content-Disposition` med et trygt filnavn.
  *
- * PDF-er kan inneholde aktivt innhold (JavaScript/lenker), og skal derfor ikke
- * få kjøre i nettleserens PDF-viser på appens domene. Filnavnet saniteres mot
- * anførselstegn, skråstreker og kontrolltegn, og det legges ved en RFC 5987-
- * variant for tegn utenfor ASCII.
+ * Filnavnet saniteres mot anførselstegn, skråstreker og kontrolltegn, og det
+ * legges ved en RFC 5987-variant for tegn utenfor ASCII. Selve typen
+ * (`attachment`/`inline`) bestemmes av kalleren, slik at en PDF bare kan vises
+ * inline etter at aktivt innhold er sanert.
  */
-export function attachmentDisposition(fileName: string): string {
+function contentDisposition(
+  type: "attachment" | "inline",
+  fileName: string,
+): string {
   const basename = (fileName.split(/[\\/]/).pop() || "fil").trim() || "fil";
   const fallback =
     basename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_") || "fil";
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(basename)}`;
+  return `${type}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(basename)}`;
+}
+
+/**
+ * `Content-Disposition` for filer som skal lastes ned, aldri vises inline.
+ *
+ * PDF-er kan inneholde aktivt innhold (JavaScript/lenker), og skal derfor ikke
+ * få kjøre i nettleserens PDF-viser på appens domene uten eksplisitt valg.
+ */
+export function attachmentDisposition(fileName: string): string {
+  return contentDisposition("attachment", fileName);
+}
+
+/**
+ * `Content-Disposition` for PDF-er som skal vises i appens eget PDF-vindu.
+ *
+ * Brukes bare etter at `sanitizePdfActiveContent` har godkjent filen. Standard
+ * nedlastingslenke beholder `attachment` slik at en direkte URL fortsatt er et
+ * trygt vedlegg.
+ */
+export function inlineDisposition(fileName: string): string {
+  return contentDisposition("inline", fileName);
 }

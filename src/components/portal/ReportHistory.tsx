@@ -165,6 +165,12 @@ export default async function ReportHistory({
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Link
+                            href={`/rapporter/${workOrder.id}?rapport=${encodeURIComponent(report.id)}&returnTo=${encodeURIComponent("/kundeportal/rapporter")}`}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+                          >
+                            {t("p3.portalReports.view")}
+                          </Link>
+                          <Link
                             href={`/api/rapporter/${workOrder.id}/pdf?rapport=${encodeURIComponent(report.id)}`}
                             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                           >

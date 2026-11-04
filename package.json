@@ -1,7 +1,7 @@
 {
   "name": "fsm-platform",
   "type": "module",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "private": true,
   "license": "BUSL-1.1",
   "scripts": {
@@ -49,6 +49,8 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.9",
     "leaflet": "^1.9.4",

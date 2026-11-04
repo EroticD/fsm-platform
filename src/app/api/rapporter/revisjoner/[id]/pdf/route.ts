@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
-import { attachmentDisposition } from "@/lib/http";
+import { attachmentDisposition, inlineDisposition } from "@/lib/http";
 import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { getReportRevisionForPdf } from "@/server/report-revisions";
 
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
  * databasen eller PDF-cachen – dokumentet bygges utelukkende fra revisjonen.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const viewer = await getCurrentUser();
@@ -21,6 +21,13 @@ export async function GET(
   }
 
   const { id } = await params;
+  const url = new URL(request.url);
+
+  // Samme regel som for vanlige rapport-PDF-er: standard er vedlegg, og inline
+  // brukes bare når den innebygde viseren ber om det og saneringen lykkes.
+  const wantsInline =
+    url.searchParams.get("inline") === "1" &&
+    url.searchParams.get("download") !== "1";
 
   // Samme tak som for vanlige rapport-PDF-er; rendering er CPU-tungt.
   const limit = await allowRequestDb(`pdf:${viewer.id}`, 10, 60_000);
@@ -64,8 +71,11 @@ export async function GET(
   return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      // Også revisjons-PDF-er leveres som vedlegg, aldri inline.
-      "Content-Disposition": attachmentDisposition(fileName),
+      // Direkte lenker er vedlegg. Revisjonsviseren får inline bare etter at
+      // aktivt innhold er sanert eller fjernet ovenfor.
+      "Content-Disposition": wantsInline
+        ? inlineDisposition(fileName)
+        : attachmentDisposition(fileName),
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     },

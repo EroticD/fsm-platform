@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { attachmentDisposition, noStoreJson } from "./http";
+import {
+  attachmentDisposition,
+  inlineDisposition,
+  noStoreJson,
+} from "./http";
 
 describe("noStoreJson", () => {
   it("setter private no-store og Vary: Cookie", async () => {
@@ -43,5 +47,22 @@ describe("attachmentDisposition", () => {
     expect(attachmentDisposition("Årsrapport.pdf")).toContain(
       "filename*=UTF-8''%C3%85rsrapport.pdf",
     );
+  });
+});
+
+describe("inlineDisposition", () => {
+  it("merker PDF-en som inline og bevarer filnavnet", () => {
+    expect(inlineDisposition("rapport.pdf")).toBe(
+      "inline; filename=\"rapport.pdf\"; filename*=UTF-8''rapport.pdf",
+    );
+  });
+
+  it("saniterer filnavnet på samme måte som vedlegg", () => {
+    const value = inlineDisposition('../ra"pport\r\n.pdf');
+
+    expect(value).toContain('filename="ra_pport__.pdf"');
+    expect(value).not.toContain("\r");
+    expect(value).not.toContain("\n");
+    expect(value.startsWith("inline;")).toBe(true);
   });
 });

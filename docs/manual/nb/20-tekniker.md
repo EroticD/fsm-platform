@@ -1,6 +1,6 @@
 # Tekniker
 
-Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.6 (2026-11-03).
+Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.9 (2026-11-04).
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
 
@@ -34,7 +34,7 @@ Du kan ikke bytte passord i feltappen. Logg ut og bruk **Glemt passord** på inn
 2. Rull til bunnen. Der ligger **Endre språk**.
 3. Velg **Norsk**, **English**, **Polski** eller **Deutsch**.
 
-Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.5.
+Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.9.
 
 ### Installer feltappen (PWA)
 
@@ -53,7 +53,16 @@ Når appen er installert, kan du holde inne appikonet og velge **Mine oppdrag**,
 1. Trykk **Skann** på **I dag**, i topplinjen eller i menyen.
 2. Trykk **Start kamera** og gi kameratilgang første gang.
 3. Hold QR-koden på enhetsetiketten rolig i rammen. Appen åpner enheten eller oppdraget hvis du har tilgang.
-4. Får du ikke kamera, eller støtter ikke nettleseren skanning, skriver du koden i **Kode eller referanse** og trykker **Slå opp**. Du kan lime inn hele lenken fra etiketten.
+4. Får du ikke kamera, skriver du koden i **Kode eller referanse** og trykker **Slå opp**. Du kan lime inn hele lenken fra etiketten.
+
+Kameraet krever at appen åpnes over **HTTPS** (en sikker adresse). På en vanlig `http://`-adresse, for eksempel en LAN-adresse under utvikling, blokkerer nettleseren kameraet og appen viser en egen HTTPS-melding. Bruk den installerte appen eller `https://`-adressen i produksjon.
+
+- **iPhone/iPad (Safari):** Gi kameratilgang når Safari spør. Har du avslått, går du til **Innstillinger → Safari → Kamera** (eller **Innstillinger → appen**) og velger **Spør hver gang** eller **Tillat**. Kameraskanning virker i iOS Safari også uten nettleserens innebygde strekkode-API; appen bruker da en reserve.
+- **Android (Chrome):** Trykk **Tillat** på kamera-spørsmålet. Har du avslått, åpner du låseikonet ved adressen → **Tillatelser** → **Kamera**, eller **Innstillinger → Apper → Chrome → Tillatelser → Kamera**.
+- **Kameraet er opptatt:** Lukk andre apper som bruker kameraet, og trykk **Start kamera** igjen.
+- **Koden leses ikke:** Hold etiketten roligere, unngå motlys og sørg for godt lys. Appen fortsetter å lete og viser en egen melding hvis bildet ikke kan dekodes.
+
+Hvis nettleseren ikke har kamerastøtte i det hele tatt, vises det en melding om det – men på iPhone og Android skal reserve-skanneren være tilgjengelig så lenge appen kjører over HTTPS og du har gitt kameratilgang.
 
 Appen godtar enhets-QR, enhets-ID, oppdragsreferanse (for eksempel `O-261103-ABCD1234`) og ordrenummer. Ukjent kode, manglende tilgang og gjentatte skann gir en forklaring i stedet for å åpne feil side. Tilgangen kontrolleres på nytt på serveren; et skann gir aldri mer tilgang enn du har fra før.
 
@@ -274,6 +283,22 @@ Samtidig låses rapporten med låsetidspunkt og låser, lokal kladd og outbox fo
 
 Er **Marker oppdraget som fullført** krysset av, settes oppdraget til **Fullført** i samme transaksjon. Rapporten er låst; retting krever administratoropplåsing med årsak. Ny innsending lager revisjon og nullstiller kundens kvittering.
 
+### PDF i appen eller som nedlasting
+
+**Se rapport (PDF)** åpner rapporten i appens eget PDF-vindu. Der kan du bla,
+zoome og lukke uten å forlate oppdraget. **Last ned PDF** lager en fil du kan
+sende eller lagre. En direkte lenke til PDF-ruten gir alltid nedlasting, fordi
+bare appens eget vindu ber om inline-visning.
+
+PDF-en saniteres før den vises. Inneholder den aktivt innhold som ikke kan
+fjernes trygt, viser viseren en feilmelding med **Prøv igjen** og nedlasting i
+stedet for å åpne noe usikkert. Rapportdataene og låsen er uendret. Mangler et
+bilde eller en signatur, viser PDF-en en advarsel med antall bilder som ikke
+kunne hentes; last opp bildet på nytt fra rapporten og generer PDF-en igjen.
+
+Åpne PDF-er du trenger mens du er på nett. PDF-visning krever nett, og en
+direkte nedlasting bør gjøres før du mister dekningen.
+
 ## Offline, kladder og outbox
 
 ### Autolagring
@@ -341,7 +366,8 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Kan ikke fullføre med sveip** | Enheten mangler navn, har avvik, eller et påkrevd felt mangler | Fyll ut feltet, last opp bildet, eller bruk **Avvik funnet** bevisst |
 | **2FA-koden virker ikke** | Feil kode, klokkeavvik, brukt gjenopprettingskode | Vent på ny kode, sjekk klokken, bruk en ubrukt gjenopprettingskode, eller be administrator nullstille 2FA |
 | **Visittknappene mangler / status låst** | Visitten eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne visiter og oppdrag kan endres |
-| **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, eller manglende tilgang | Kom på nett, åpne via **Se rapport (PDF)**, og meld fra hvis tilgang mangler |
+| **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, manglende tilgang eller aktivt innhold som ikke kan saniteres | Kom på nett, åpne via **Se rapport (PDF)**, last ned filen, og meld fra hvis tilgang mangler |
+| **Bilde mangler i PDF** | Filen er slettet, mangler metadata eller tilhører et annet oppdrag | Last opp bildet på nytt fra rapporten, og generer PDF-en igjen |
 | **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn åtte timer | Åpne jobben på nytt mens du er på nett, og hold appen installert |
 
 ## Slik henger teknikerarbeidet sammen med resten

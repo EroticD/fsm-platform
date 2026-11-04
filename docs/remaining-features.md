@@ -1,6 +1,6 @@
 # Remaining feature worklist
 
-> **Status snapshot:** `dev` @ `249d56f` (app 0.8.8), 2026-11-03.
+> **Status snapshot:** `dev` @ `a615dd7` (app 0.8.9), 2026-11-04.
 > This is a queue for workers, not a description of shipped behaviour.
 > Do not mark an item done without the acceptance criteria and the gates below.
 

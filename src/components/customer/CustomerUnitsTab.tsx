@@ -88,6 +88,7 @@ export default async function CustomerUnitsTab({
             type="search"
             name="enhet"
             defaultValue={unitQuery}
+            maxLength={120}
             aria-label={t("customers.units.searchLabel")}
             placeholder={t("customers.units.searchPlaceholder")}
             className={`${CUSTOMER_CONTROL} pl-9 text-sm`}

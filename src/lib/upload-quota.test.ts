@@ -25,6 +25,23 @@ afterEach(() => {
 });
 
 describe("checkUploadQuota", () => {
+  it("bruker 2 GiB og 10 GiB når miljøvariablene mangler", () => {
+    expect(userQuotaBytes()).toBe(2 * 1024 * 1024 * 1024);
+    expect(customerQuotaBytes()).toBe(10 * 1024 * 1024 * 1024);
+  });
+
+  it("tillater en vanlig opplasting på noen megabyte med standardkvotene", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { size: 0 } });
+
+    await expect(
+      checkUploadQuota({
+        userId: "u1",
+        customerId: "c1",
+        size: 5 * 1024 * 1024,
+      }),
+    ).resolves.toEqual({ allowed: true });
+  });
+
   it("tillater opplasting innenfor begge kvotene", async () => {
     await expect(
       checkUploadQuota({ userId: "u1", customerId: "c1", size: 1024 }),
