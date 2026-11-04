@@ -1177,7 +1177,6 @@
         "timeNotSet": "Uhrzeit nicht festgelegt",
         "allDay": "Ganztägig",
         "openWorkOrder": "Auftrag öffnen",
-        "openWorkOrderAria": "Auftrag {title} öffnen",
         "overdueEmpty": "Keine überfälligen Aufträge.",
         "availableEmpty": "Derzeit keine verfügbaren Aufträge.",
         "laterEmpty": "Keine kommenden Aufträge.",

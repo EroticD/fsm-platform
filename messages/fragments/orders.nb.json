@@ -403,7 +403,6 @@
       "timeNotSet": "Tid ikke satt",
       "allDay": "Hele dagen",
       "openWorkOrder": "Åpne oppdrag",
-      "openWorkOrderAria": "Åpne oppdraget {title}",
       "overdueEmpty": "Ingen forfalte oppdrag.",
       "availableEmpty": "Ingen ledige oppdrag akkurat nå.",
       "laterEmpty": "Ingen kommende oppdrag.",

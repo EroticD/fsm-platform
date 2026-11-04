@@ -155,12 +155,74 @@ async function renderHtml(params: Record<string, string> = {}) {
   return renderToStaticMarkup(element);
 }
 
+/** Ingen lenker skal ligge inne i hverandre – det gir dobbel navigasjon. */
+function expectNoNestedAnchors(html: string) {
+  let depth = 0;
+  for (const match of html.matchAll(/<a\b|<\/a>/g)) {
+    if (match[0] === "</a>") {
+      depth -= 1;
+      expect(depth).toBeGreaterThanOrEqual(0);
+    } else {
+      depth += 1;
+      expect(depth).toBeLessThanOrEqual(1);
+    }
+  }
+  expect(depth).toBe(0);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue(technician);
 });
 
 describe("/mine-oppdrag – feltets I dag", () => {
+  it("gjør navnet i helten til en lenke til samme mål som CTA-en", async () => {
+    queue(
+      {
+        today: [row(), row({ id: "wo-2", title: "Andre jobb" })],
+      },
+      { today: 2 },
+    );
+
+    const html = await renderHtml();
+
+    const heroTitleTag =
+      html.match(
+        /<h2[^>]*>\s*(<a\b[^>]*>)\s*Service på port<\/a>\s*<\/h2>/,
+      )?.[1] ?? "";
+    const heroTitleHref = heroTitleTag.match(/href="([^"]+)"/)?.[1];
+    const ctaTag = html.match(
+      /<a\b[^>]*class="[^"]*\bfield-cta\b[^"]*"[^>]*>/,
+    )?.[0];
+    const ctaHref = ctaTag?.match(/href="([^"]+)"/)?.[1];
+
+    expect(heroTitleHref).toBe("/mine-oppdrag/wo-1/skjema/tpl-1");
+    expect(ctaHref).toBe(heroTitleHref);
+    // Snarveiene i helten skal fortsatt være egne, fungerende lenker.
+    expect(html).toContain("tel:99999999");
+    expect(html).toContain('href="#forfalt"');
+    expectNoNestedAnchors(html);
+  });
+
+  it("gjør oppdragsnavnet i listekortet til kortets lenke", async () => {
+    queue({ overdue: [row()] }, { overdue: 1 });
+
+    const html = await renderHtml();
+
+    const cardTitleTag =
+      html.match(
+        /<h3[^>]*>\s*(<a\b[^>]*>)\s*<span[^>]*>Service på port<\/span><\/a>\s*<\/h3>/,
+      )?.[1] ?? "";
+    expect(cardTitleTag.match(/href="([^"]+)"/)?.[1]).toBe(
+      "/mine-oppdrag/wo-1",
+    );
+    // Ringing, kart og kladd er egne klikkflater – ikke pakket i tittellenken.
+    expect(html).toContain("tel:99999999");
+    expect(html).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=");
+    expect(html).toContain("/mine-oppdrag/wo-1/skjema/tpl-1");
+    expectNoNestedAnchors(html);
+  });
+
   it("viser kontaktperson, ringeknapp, kart og kladd på kortet", async () => {
     queue(
       { overdue: [row()] },

@@ -1177,7 +1177,6 @@
         "timeNotSet": "Nie ustawiono godziny",
         "allDay": "Cały dzień",
         "openWorkOrder": "Otwórz zlecenie",
-        "openWorkOrderAria": "Otwórz zlecenie {title}",
         "overdueEmpty": "Brak zaległych zleceń.",
         "availableEmpty": "Brak dostępnych zleceń.",
         "laterEmpty": "Brak nadchodzących zleceń.",
