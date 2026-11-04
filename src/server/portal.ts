@@ -562,7 +562,7 @@ export async function createBooking(
     .filter(Boolean)
     .join(", ");
   const geoAddressHash = addressHash(addressQuery);
-  const coordinates = geoAddressHash ? await geocodeAddress(addressQuery) : null;
+  const coordinates = geoAddressHash ? await geocodeAddress(addressQuery, bookingAddress) : null;
 
   const customerLimit = await allowRequestDb(
     `booking:customer:${customerId}`,

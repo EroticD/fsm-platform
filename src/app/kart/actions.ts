@@ -10,7 +10,8 @@ import { allowRequestDb } from "@/lib/rate-limit-db";
 import {
   addressHash,
   effectiveAddress,
-  geocodeAddress,
+  geocodeAddressDetailed,
+  type GeocodeStatus,
 } from "@/lib/geocode";
 
 /** Antall adresser per klikk. Nominatim krever maks én forespørsel per sekund. */
@@ -60,6 +61,7 @@ export async function geocodeMissingAction() {
   });
 
   let geocoded = 0;
+  const failures: GeocodeStatus[] = [];
   for (const [index, workOrder] of missing.entries()) {
     if (index > 0) {
       // Vær snill mot Nominatim: maks én forespørsel per sekund.
@@ -71,23 +73,43 @@ export async function geocodeMissingAction() {
       city: workOrder.city,
       customer: workOrder.customer,
     });
-    if (!location.query) continue;
-    const coordinates = await geocodeAddress(location.query);
-    if (!coordinates) continue;
+    if (!location.query) {
+      failures.push("no_result");
+      continue;
+    }
+    const result = await geocodeAddressDetailed(location.query, location);
+    if (result.status !== "ok" || !result.coordinates) {
+      failures.push(result.status);
+      continue;
+    }
 
     await prisma.workOrder.update({
       where: { id: workOrder.id },
       data: {
-        latitude: coordinates.lat,
-        longitude: coordinates.lng,
+        latitude: result.coordinates.lat,
+        longitude: result.coordinates.lng,
         geoAddressHash: addressHash(location.query),
       },
     });
     geocoded += 1;
   }
 
+  const failure: GeocodeStatus | null =
+    geocoded === 0
+      ? failures.includes("unavailable") || failures.includes("timeout")
+        ? failures.includes("timeout")
+          ? "timeout"
+          : "unavailable"
+        : failures.includes("disabled")
+          ? "disabled"
+          : failures.length > 0
+            ? "no_result"
+            : null
+      : null;
+
   revalidatePath("/kart");
+  const failureParam = failure ? `&geokodingsfeil=${failure}` : "";
   redirect(
-    `/kart?geokodet=${geocoded}&geokodingsgjenstår=${Math.max(0, missing.length - geocoded)}`,
+    `/kart?geokodet=${geocoded}&geokodingsgjenstår=${Math.max(0, missing.length - geocoded)}${failureParam}`,
   );
 }

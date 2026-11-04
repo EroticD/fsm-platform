@@ -3,6 +3,19 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## Unreleased (dev)
+
+### Geokoding
+- Geokoding bruker nå en leverandørkjede: Nominatim → Kartverket → Photon.
+  Blokkert eller utilgjengelig Nominatim gjør ikke lenger at alle adresser
+  feiler stille.
+- Kartverket brukes med gate, postnummer og kommune for autoritative norske
+  adresser; Photon er siste fallback.
+- Knappen på kartet viser nå hvorfor geokoding feilet (ingen treff, timeout,
+  utilgjengelig eller deaktivert) i stedet for «0 adresser».
+- Geokoding ved oppretting/redigering av oppdrag bruker samme fallback og
+  logger en stabil feilkode uten adresse/PII.
+
 ## 0.8.9 — 2026-11-04
 
 ### Kundeadskillelse og enhetsflytting
