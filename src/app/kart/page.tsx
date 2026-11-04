@@ -377,12 +377,22 @@ export default async function MapPage({
             role="status"
             className="office-card border-[var(--line,#dedcd1)] p-4 text-sm font-bold text-[var(--ink,#101310)]"
           >
-            {firstParam(params.geokodingsfeil) === "rate"
-              ? t("p3.map.geocode.rateLimited")
-              : t("p3.map.geocode.result", {
-                  count: Number(firstParam(params.geokodet) ?? 0),
-                  remaining: Number(firstParam(params.geokodingsgjenstår) ?? 0),
-                })}
+            {(() => {
+              const failure = firstParam(params.geokodingsfeil);
+              const count = Number(firstParam(params.geokodet) ?? 0);
+              const remaining = Number(firstParam(params.geokodingsgjenstår) ?? 0);
+              if (failure === "rate") return t("p3.map.geocode.rateLimited");
+              if (failure === "unavailable" || failure === "timeout") {
+                return t(
+                  failure === "timeout"
+                    ? "p3.map.geocode.timeout"
+                    : "p3.map.geocode.unavailable",
+                );
+              }
+              if (failure === "disabled") return t("p3.map.geocode.disabled");
+              if (failure === "no_result") return t("p3.map.geocode.noResult");
+              return t("p3.map.geocode.result", { count, remaining });
+            })()}
           </div>
         )}
 

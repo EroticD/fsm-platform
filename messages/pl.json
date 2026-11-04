@@ -3519,7 +3519,11 @@
           "hint": "Są wyświetlane w mieście klienta, dopóki adres nie zostanie zgeokodowany. Maksymalnie 3 adresy na kliknięcie.",
           "action": "Geokoduj adresy",
           "result": "Zgeokodowano {count} adresów. Z tej partii pozostało {remaining}.",
-          "rateLimited": "Zbyt wiele prób geokodowania. Odczekaj chwilę i spróbuj ponownie."
+          "rateLimited": "Zbyt wiele prób geokodowania. Odczekaj chwilę i spróbuj ponownie.",
+          "noResult": "Nie znaleziono adresów. Sprawdź ulicę, kod pocztowy i miasto.",
+          "unavailable": "Usługa geokodowania nie odpowiedziała. Spróbuj ponownie później.",
+          "timeout": "Geokodowanie przekroczyło limit czasu. Spróbuj ponownie.",
+          "disabled": "Geokodowanie jest wyłączone w tej instalacji."
         }
       },
       "signature": {

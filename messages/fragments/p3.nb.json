@@ -173,7 +173,11 @@
         "hint": "De vises på kundens by til adressen er geokodet. Opptil 3 adresser per klikk.",
         "action": "Geokod adresser",
         "result": "Geokodet {count} adresser. {remaining} gjenstår i denne runden.",
-        "rateLimited": "For mange geokodingsforsøk. Vent litt og prøv igjen."
+        "rateLimited": "For mange geokodingsforsøk. Vent litt og prøv igjen.",
+        "noResult": "Ingen adresser ble funnet. Kontroller gateadresse, postnummer og by.",
+        "unavailable": "Geokodingstjenesten svarte ikke. Prøv igjen om litt.",
+        "timeout": "Geokoding tok for lang tid. Prøv igjen.",
+        "disabled": "Geokoding er slått av i denne installasjonen."
       }
     },
     "signature": {

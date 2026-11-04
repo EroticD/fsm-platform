@@ -173,7 +173,11 @@
         "hint": "They appear at the customer city until the address is geocoded. Up to 3 addresses per click.",
         "action": "Geocode addresses",
         "result": "Geocoded {count} addresses. {remaining} remain from this batch.",
-        "rateLimited": "Too many geocoding attempts. Wait a moment and try again."
+        "rateLimited": "Too many geocoding attempts. Wait a moment and try again.",
+        "noResult": "No addresses were found. Check the street address, postal code and city.",
+        "unavailable": "The geocoding service did not respond. Try again shortly.",
+        "timeout": "Geocoding timed out. Try again.",
+        "disabled": "Geocoding is disabled in this installation."
       }
     },
     "signature": {

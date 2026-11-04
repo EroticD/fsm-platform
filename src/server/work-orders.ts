@@ -544,7 +544,7 @@ export async function createWorkOrder(
     customer: site ?? customerAddress,
   });
   const geoHash = addressHash(address.query);
-  const coordinates = geoHash ? await geocodeAddress(address.query) : null;
+  const coordinates = geoHash ? await geocodeAddress(address.query, address) : null;
 
   let id: string;
   try {
@@ -874,7 +874,7 @@ export async function updateWorkOrder(
   const geoHash = addressHash(effective.query);
   const coordinates =
     geoHash && geoHash !== currentWorkOrder.geoAddressHash
-      ? await geocodeAddress(effective.query)
+      ? await geocodeAddress(effective.query, effective)
       : currentWorkOrder.latitude != null && currentWorkOrder.longitude != null
         ? { lat: currentWorkOrder.latitude, lng: currentWorkOrder.longitude }
         : null;
