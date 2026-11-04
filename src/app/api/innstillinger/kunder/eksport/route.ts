@@ -6,7 +6,15 @@ import {
   transferRateLimit,
   transferFailureResponse,
 } from "@/lib/customer-transfer/http";
-import { exportCustomerPackage } from "@/server/customer-transfer";
+import {
+  EXPORT_RATE_LIMIT,
+  exportRateLimitKey,
+  normaliseExportOptions,
+} from "@/lib/customer-transfer/export-request";
+import {
+  exportCustomerPackage,
+  findReusableExport,
+} from "@/server/customer-transfer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,13 +38,6 @@ export async function POST(request: NextRequest) {
   const origin = requireSameOrigin(request);
   if (origin) return origin;
 
-  const limited = await transferRateLimit(
-    `customer-transfer-export:${guard.actor.id}`,
-    3,
-    60 * 60 * 1000,
-  );
-  if (limited) return limited;
-
   let body: ExportBody;
   try {
     body = (await request.json()) as ExportBody;
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await exportCustomerPackage(guard.actor, {
+  const options = normaliseExportOptions({
     customerIds: body.customerIds as string[],
     includeFiles: bool(body.includeFiles, true),
     includeDeleted: bool(body.includeDeleted, false),
@@ -65,6 +66,25 @@ export async function POST(request: NextRequest) {
     includeAudit: bool(body.includeAudit, true),
     includeSignatures: bool(body.includeSignatures, false),
   });
+
+  // Idempotens før telleren: et dobbeltklikk eller en automatisk retry skal
+  // returnere den nylige jobben uten å spise av rate-limit-budsjettet.
+  const reusable = await findReusableExport(guard.actor, options);
+  if (!reusable.ok) return transferFailureResponse(reusable);
+  if (reusable.data) {
+    return transferJson(reusable.data, { status: 200 });
+  }
+
+  const limited = await transferRateLimit(
+    exportRateLimitKey(guard.actor.id),
+    EXPORT_RATE_LIMIT.limit,
+    EXPORT_RATE_LIMIT.windowMs,
+  );
+  if (limited) return limited;
+
+  const result = await exportCustomerPackage(guard.actor, options);
   if (!result.ok) return transferFailureResponse(result);
-  return transferJson(result.data, { status: 201 });
+  return transferJson(result.data, {
+    status: result.data.reused ? 200 : 201,
+  });
 }

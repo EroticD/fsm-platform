@@ -27,7 +27,8 @@
         "resultTitle": "Das Paket ist bereit",
         "checksum": "SHA-256",
         "expires": "Verfügbar bis {date}",
-        "download": "ZIP herunterladen"
+        "download": "ZIP herunterladen",
+        "reused": "Der letzte Export mit denselben Kunden und Optionen wurde wiederverwendet."
       },
       "import": {
         "title": "Kunde importieren",
@@ -145,7 +146,9 @@
       "cycle": "Der Baum enthält einen Zyklus.",
       "externalFileNotFetched": "Eine externe Datei-URL wurde beim Export nicht abgerufen.",
       "symlink": "Symlinks im Archiv werden nicht unterstützt.",
-      "unknownEntry": "Eine unbekannte Datei auf oberster Ebene wurde mit einer Warnung ignoriert."
+      "unknownEntry": "Eine unbekannte Datei auf oberster Ebene wurde mit einer Warnung ignoriert.",
+      "rateLimitedRetry": "Zu viele Exportversuche. Versuchen Sie es in {minutes} Minuten erneut.",
+      "exportInProgress": "Der Export läuft noch. Versuchen Sie es gleich erneut."
     }
   },
   "auditActions": {

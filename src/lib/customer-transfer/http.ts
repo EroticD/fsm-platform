@@ -77,6 +77,7 @@ export async function transferRateLimit(
     {
       error: "customer_transfer.rate_limited",
       messageKey: "errors.customerTransfer.rateLimited",
+      retryAfterSeconds: result.retryAfterSeconds,
     },
     {
       status: 429,

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import prisma from "@/lib/prisma";
 import { createZip, readZip, sha256Hex } from "@/lib/zip";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
@@ -13,6 +13,9 @@ import {
   createTransferJob,
   writeStagedPackage,
 } from "@/lib/customer-transfer/jobs";
+import { exportRateLimitKey } from "@/lib/customer-transfer/export-request";
+import { POST as exportRoutePost } from "@/app/api/innstillinger/kunder/eksport/route";
+import { GET as downloadRouteGet } from "@/app/api/innstillinger/kunder/eksport/[jobId]/download/route";
 import {
   confirmImport,
   createImportJob,
@@ -23,6 +26,14 @@ import type { ServiceActor } from "@/server/actor";
 import { parseChecksumsFile } from "@/lib/customer-transfer/manifest";
 import { analysePackage } from "@/lib/customer-transfer/analyse";
 import { DEFAULT_POLICIES } from "@/lib/customer-transfer/constants";
+
+const sessionState = vi.hoisted(() => ({
+  user: null as Record<string, unknown> | null,
+}));
+
+vi.mock("@/lib/session", () => ({
+  getCurrentUser: async () => sessionState.user,
+}));
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
@@ -161,6 +172,7 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     ids.officeId = officeUser.id;
     ids.technicianId = technicianUser.id;
     admin = actorFrom(adminUser);
+    sessionState.user = adminUser;
 
     const template = await prisma.template.create({
       data: {
@@ -768,6 +780,10 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     await prisma.customerTransferJob.deleteMany({
       where: { actorId: { in: [ids.adminId, ids.officeId, ids.technicianId] } },
     });
+    await prisma.rateLimit.deleteMany({
+      where: { key: exportRateLimitKey(ids.adminId) },
+    });
+    sessionState.user = null;
     if (tempRoot) {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
@@ -836,6 +852,150 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     const customerJson = JSON.parse((byPath.get("data/customers.json") ?? Buffer.from("[]")).toString("utf8"));
     expect(customerJson).toHaveLength(1);
     expect(customerJson[0].name).toBe(sourceCustomerName);
+  });
+
+  it("eksporterer via ruten med filer og PDF, og gjenbruker samme jobb ved dobbeltklikk", async () => {
+    const body = {
+      customerIds: [ids.customerAId],
+      includeFiles: true,
+      includeDeleted: true,
+      includeLegalHold: true,
+      includeAudit: true,
+      includeSignatures: false,
+    };
+    const request = () =>
+      new Request("http://localhost/api/innstillinger/kunder/eksport", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost",
+        },
+        body: JSON.stringify(body),
+      });
+
+    const first = await exportRoutePost(request() as never);
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as {
+      id: string;
+      status: string;
+      downloadUrl: string;
+      fileName: string;
+      reused: boolean;
+    };
+    expect(firstBody.status).toBe("READY");
+    expect(firstBody.reused).toBe(false);
+    expect(firstBody.downloadUrl).toContain(`/eksport/${firstBody.id}/download`);
+
+    const stored = await prisma.customerTransferJob.findUniqueOrThrow({
+      where: { id: firstBody.id },
+    });
+    expect(stored.packageChecksum).toBeTruthy();
+
+    const download = await downloadRouteGet(
+      new Request(`http://localhost${firstBody.downloadUrl}`, {
+        headers: { Origin: "http://localhost" },
+      }),
+      { params: Promise.resolve({ jobId: firstBody.id }) },
+    );
+    expect(download.status).toBe(200);
+    expect(download.headers.get("Content-Type")).toBe("application/zip");
+    expect(download.headers.get("X-Package-Sha256")).toBe(
+      stored.packageChecksum,
+    );
+    const packageZip = Buffer.from(await download.arrayBuffer());
+    const entries = readZip(packageZip);
+    const fileEntries = entries.filter((entry) =>
+      entry.path.startsWith("files/"),
+    );
+    expect(fileEntries.length).toBeGreaterThan(0);
+    expect(
+      fileEntries.some((entry) =>
+        entry.data.subarray(0, 5).equals(Buffer.from("%PDF-")),
+      ),
+    ).toBe(true);
+
+    const duplicate = await exportRoutePost(request() as never);
+    expect(duplicate.status).toBe(200);
+    const duplicateBody = (await duplicate.json()) as {
+      id: string;
+      reused: boolean;
+    };
+    expect(duplicateBody.id).toBe(firstBody.id);
+    expect(duplicateBody.reused).toBe(true);
+
+    const counter = await prisma.rateLimit.findUnique({
+      where: { key: exportRateLimitKey(ids.adminId) },
+    });
+    expect(counter?.count).toBe(1);
+  });
+
+  it("teller distinkte eksporter, gir 429 med Retry-After og nullstiller utløpt vindu", async () => {
+    const key = exportRateLimitKey(ids.adminId);
+    await prisma.rateLimit.deleteMany({ where: { key } });
+    // Ti unike bestillinger med ukjente kunde-id-er når grensen uten å bygge
+    // store pakker. Den ellevte avvises før noen jobb opprettes.
+    for (let index = 0; index < 10; index += 1) {
+      const response = await exportRoutePost(
+        new Request("http://localhost/api/innstillinger/kunder/eksport", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "http://localhost",
+          },
+          body: JSON.stringify({
+            customerIds: [`finnes-ikke-${index}`],
+            includeFiles: false,
+            includeAudit: false,
+          }),
+        }) as never,
+      );
+      expect(response.status).toBe(404);
+    }
+
+    const limited = await exportRoutePost(
+      new Request("http://localhost/api/innstillinger/kunder/eksport", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost",
+        },
+        body: JSON.stringify({
+          customerIds: ["finnes-ikke-over-grensen"],
+          includeFiles: false,
+          includeAudit: false,
+        }),
+      }) as never,
+    );
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("Retry-After"))).toBeGreaterThan(0);
+    const limitedBody = (await limited.json()) as {
+      error: string;
+      retryAfterSeconds: number;
+    };
+    expect(limitedBody.error).toBe("customer_transfer.rate_limited");
+    expect(limitedBody.retryAfterSeconds).toBeGreaterThan(0);
+
+    await prisma.rateLimit.update({
+      where: { key },
+      data: { resetAt: new Date(Date.now() - 1_000) },
+    });
+    const afterReset = await exportRoutePost(
+      new Request("http://localhost/api/innstillinger/kunder/eksport", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost",
+        },
+        body: JSON.stringify({
+          customerIds: ["finnes-ikke-etter-nullstilling"],
+          includeFiles: false,
+          includeAudit: false,
+        }),
+      }) as never,
+    );
+    expect(afterReset.status).toBe(404);
+    const resetCounter = await prisma.rateLimit.findUnique({ where: { key } });
+    expect(resetCounter?.count).toBe(1);
   });
 
   it("dry-run gir handlinger uten å skrive kundedata", async () => {

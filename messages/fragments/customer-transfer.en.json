@@ -27,7 +27,8 @@
         "resultTitle": "The package is ready",
         "checksum": "SHA-256",
         "expires": "Available until {date}",
-        "download": "Download ZIP"
+        "download": "Download ZIP",
+        "reused": "Reused the recent export with the same customers and options."
       },
       "import": {
         "title": "Import customer",
@@ -145,7 +146,9 @@
       "cycle": "The tree contains a cycle.",
       "externalFileNotFetched": "An external file URL was not fetched during export.",
       "symlink": "Symlinks in the archive are not supported.",
-      "unknownEntry": "An unknown top-level file was ignored with a warning."
+      "unknownEntry": "An unknown top-level file was ignored with a warning.",
+      "rateLimitedRetry": "Too many export attempts. Try again in {minutes} minutes.",
+      "exportInProgress": "The export is still running. Try again shortly."
     }
   },
   "auditActions": {
