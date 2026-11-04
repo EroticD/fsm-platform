@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { uploadErrorMessage, uploadFailureText } from "@/lib/upload-error";
 import Icon from "@/components/icons";
 
 export type EquipmentDocument = {
@@ -47,7 +48,7 @@ export default function EquipmentDocuments({
 
     setBusy(true);
     setError("");
-    const failed: string[] = [];
+    const failed: Array<{ name: string; message: string }> = [];
 
     for (const file of files) {
       try {
@@ -58,15 +59,35 @@ export default function EquipmentDocuments({
           method: "POST",
           body,
         });
-        if (!response.ok) throw new Error("upload failed");
-      } catch {
-        failed.push(file.name);
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            uploadErrorMessage(
+              response,
+              json,
+              t,
+              t("assets.documents.uploadError"),
+            ),
+          );
+        }
+      } catch (error) {
+        failed.push({
+          name: file.name,
+          message: error instanceof Error ? error.message : "",
+        });
       }
     }
 
     setBusy(false);
     if (failed.length > 0) {
-      setError(t("assets.documents.uploadError"));
+      setError(
+        uploadFailureText(
+          failed,
+          (name) => `${t("assets.documents.uploadError")}: ${name}`,
+          (count, names) =>
+            `${t("assets.documents.uploadError")} (${count}): ${names}`,
+        ),
+      );
       return;
     }
     router.refresh();

@@ -5,20 +5,25 @@ export const DEFAULT_USER_QUOTA_BYTES = 2 * 1024 * 1024 * 1024;
 /** Standard total kvote per kunde (10 GiB), overstyrbar i miljøet. */
 export const DEFAULT_CUSTOMER_QUOTA_BYTES = 10 * 1024 * 1024 * 1024;
 
-function quotaFromEnv(name: string, fallback: number): number {
+/**
+ * Miljøvariabelen er i megabyte, mens kvotekontrollen regner i bytes.
+ * `fallback` er derfor allerede i bytes. Standardverdiene må ikke deles på
+ * 1024 × 1024 her: da ville de blitt tolket som noen få kilobyte, og nesten
+ * alle ekte opplastinger blitt avvist med 507.
+ */
+function quotaFromEnv(name: string, fallbackBytes: number): number {
   const value = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(value) && value > 0 ? value * 1024 * 1024 : fallback;
+  return Number.isFinite(value) && value > 0
+    ? value * 1024 * 1024
+    : fallbackBytes;
 }
 
 export function userQuotaBytes(): number {
-  return quotaFromEnv("UPLOAD_QUOTA_USER_MB", DEFAULT_USER_QUOTA_BYTES / 1024 / 1024);
+  return quotaFromEnv("UPLOAD_QUOTA_USER_MB", DEFAULT_USER_QUOTA_BYTES);
 }
 
 export function customerQuotaBytes(): number {
-  return quotaFromEnv(
-    "UPLOAD_QUOTA_CUSTOMER_MB",
-    DEFAULT_CUSTOMER_QUOTA_BYTES / 1024 / 1024,
-  );
+  return quotaFromEnv("UPLOAD_QUOTA_CUSTOMER_MB", DEFAULT_CUSTOMER_QUOTA_BYTES);
 }
 
 export type UploadQuotaResult =
