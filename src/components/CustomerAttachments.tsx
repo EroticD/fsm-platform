@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { uploadErrorMessage, uploadFailureText } from "@/lib/upload-error";
 import {
   addCustomerAttachment,
   removeCustomerAttachment,
@@ -58,7 +59,7 @@ export default function CustomerAttachments({
     setBusy(true);
     setProgress({ done: 0, total: files.length });
 
-    const failed: string[] = [];
+    const failed: Array<{ name: string; message: string }> = [];
 
     for (const [index, file] of files.entries()) {
       try {
@@ -70,7 +71,12 @@ export default function CustomerAttachments({
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.fileUrl) {
           throw new Error(
-            apiErrorMessage(json, t, t("customers.attachments.uploadFailed")),
+            uploadErrorMessage(
+              res,
+              json,
+              t,
+              t("customers.attachments.uploadFailed"),
+            ),
           );
         }
 
@@ -85,8 +91,11 @@ export default function CustomerAttachments({
             apiErrorMessage(result, t, t("customers.attachments.saveFailed")),
           );
         }
-      } catch {
-        failed.push(file.name);
+      } catch (error) {
+        failed.push({
+          name: file.name,
+          message: error instanceof Error ? error.message : "",
+        });
       }
       setProgress({ done: index + 1, total: files.length });
     }
@@ -96,12 +105,12 @@ export default function CustomerAttachments({
 
     if (failed.length > 0) {
       setError(
-        failed.length === 1
-          ? t("customers.attachments.uploadFailedOne", { name: failed[0] })
-          : t("customers.attachments.uploadFailedMany", {
-              count: failed.length,
-              names: failed.join(", "),
-            }),
+        uploadFailureText(
+          failed,
+          (name) => t("customers.attachments.uploadFailedOne", { name }),
+          (count, names) =>
+            t("customers.attachments.uploadFailedMany", { count, names }),
+        ),
       );
     }
 
