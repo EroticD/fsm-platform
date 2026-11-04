@@ -88,6 +88,8 @@ export const TRANSFER_ERROR = {
   rate_limited: "customer_transfer.rate_limited",
   job_expired: "customer_transfer.job_expired",
   import_failed: "customer_transfer.import_failed",
+  export_failed: "customer_transfer.export_failed",
+  export_in_progress: "customer_transfer.export_in_progress",
   cleanup_failed: "customer_transfer.cleanup_failed",
 } as const;
 

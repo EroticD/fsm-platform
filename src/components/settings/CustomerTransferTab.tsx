@@ -57,7 +57,23 @@ type Job = {
   expiresAt?: string | null;
   downloadUrl?: string;
   fileName?: string;
+  reused?: boolean;
 };
+
+type TransferUiError = {
+  code: string;
+  messageKey: string;
+  retryAfterSeconds?: number;
+};
+
+type ErrorBody = {
+  error?: unknown;
+  messageKey?: unknown;
+  retryAfterSeconds?: unknown;
+};
+
+const FALLBACK_ERROR = "errors.customerTransfer.importFailed";
+const EXPORT_FALLBACK_ERROR = "errors.customerTransfer.exportFailed";
 
 const FIELD = controlClassName("min-h-11 text-sm font-medium");
 const PRIMARY =
@@ -101,13 +117,30 @@ const DEFAULT_POLICIES: Record<PolicyKey, string> = {
 
 const UPDATE_ALLOWED = new Set<PolicyKey>(["customer", "equipment"]);
 
-async function readError(response: Response): Promise<string> {
+async function readTransferError(
+  response: Response,
+  fallbackMessageKey: string,
+): Promise<TransferUiError> {
+  let body: ErrorBody = {};
   try {
-    const body = (await response.json()) as { messageKey?: string };
-    return body.messageKey ?? "errors.customerTransfer.importFailed";
+    body = (await response.json()) as ErrorBody;
   } catch {
-    return "errors.customerTransfer.importFailed";
+    // Ikke-JSON-svar (proxy, 502 osv.) faller tilbake til en stabil kode.
   }
+  const headerRetry = Number(response.headers.get("Retry-After"));
+  const bodyRetry =
+    typeof body.retryAfterSeconds === "number" &&
+    Number.isFinite(body.retryAfterSeconds)
+      ? body.retryAfterSeconds
+      : undefined;
+  const retryAfterSeconds =
+    bodyRetry ?? (Number.isFinite(headerRetry) && headerRetry > 0 ? headerRetry : undefined);
+  return {
+    code: typeof body.error === "string" ? body.error : "http_error",
+    messageKey:
+      typeof body.messageKey === "string" ? body.messageKey : fallbackMessageKey,
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+  };
 }
 
 function groupActions(entities: Preview["entities"]) {
@@ -129,6 +162,7 @@ export default function CustomerTransferTab({
 }) {
   const t = useTranslations("common");
   const fileRef = useRef<HTMLInputElement>(null);
+  const exportingRef = useRef(false);
 
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -142,14 +176,14 @@ export default function CustomerTransferTab({
   const [piiConfirmed, setPiiConfirmed] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportJob, setExportJob] = useState<Job | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<TransferUiError | null>(null);
 
   const [importing, setImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importJob, setImportJob] = useState<Job | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<TransferUiError | null>(null);
+  const [importError, setImportError] = useState<TransferUiError | null>(null);
   const [importResult, setImportResult] = useState<Record<string, number> | null>(
     null,
   );
@@ -183,6 +217,8 @@ export default function CustomerTransferTab({
   }
 
   async function startExport() {
+    if (exportingRef.current) return;
+    exportingRef.current = true;
     setExporting(true);
     setExportError(null);
     setExportJob(null);
@@ -196,13 +232,19 @@ export default function CustomerTransferTab({
         }),
       });
       if (!response.ok) {
-        setExportError(await readError(response));
+        setExportError(
+          await readTransferError(response, EXPORT_FALLBACK_ERROR),
+        );
         return;
       }
       setExportJob((await response.json()) as Job);
     } catch {
-      setExportError("errors.customerTransfer.exportFailed");
+      setExportError({
+        code: "network_error",
+        messageKey: EXPORT_FALLBACK_ERROR,
+      });
     } finally {
+      exportingRef.current = false;
       setExporting(false);
     }
   }
@@ -224,14 +266,14 @@ export default function CustomerTransferTab({
         },
       );
       if (!response.ok) {
-        setImportError(await readError(response));
+        setImportError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
       const job = (await response.json()) as Job;
       setImportJob(job);
       await runDryRun(job.id);
     } catch {
-      setImportError("errors.customerTransfer.importFailed");
+      setImportError({ code: "network_error", messageKey: FALLBACK_ERROR });
     } finally {
       setImporting(false);
     }
@@ -253,14 +295,14 @@ export default function CustomerTransferTab({
         },
       );
       if (!response.ok) {
-        setPreviewError(await readError(response));
+        setPreviewError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
       const data = (await response.json()) as Preview;
       setPreview(data);
       setImportJob((current) => (current ? { ...current, status: "DRY_RUN" } : current));
     } catch {
-      setPreviewError("errors.customerTransfer.importFailed");
+      setPreviewError({ code: "network_error", messageKey: FALLBACK_ERROR });
     }
   }
 
@@ -283,14 +325,14 @@ export default function CustomerTransferTab({
         },
       );
       if (!response.ok) {
-        setImportError(await readError(response));
+        setImportError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
       const data = (await response.json()) as { counts: Record<string, number> };
       setImportResult(data.counts);
       setPreview(null);
     } catch {
-      setImportError("errors.customerTransfer.importFailed");
+      setImportError({ code: "network_error", messageKey: FALLBACK_ERROR });
     } finally {
       setImporting(false);
     }
@@ -322,6 +364,32 @@ export default function CustomerTransferTab({
     } catch {
       return issue.code;
     }
+  }
+
+  function transferErrorText(error: TransferUiError): string {
+    if (error.code === "customer_transfer.rate_limited") {
+      const minutes = Math.max(
+        1,
+        Math.ceil((error.retryAfterSeconds ?? 60 * 60) / 60),
+      );
+      return t("errors.customerTransfer.rateLimitedRetry", { minutes });
+    }
+    try {
+      return t(error.messageKey);
+    } catch {
+      return error.code;
+    }
+  }
+
+  function renderTransferError(error: TransferUiError) {
+    return (
+      <div role="alert" className="space-y-1 text-sm font-bold text-red-700">
+        <p>{transferErrorText(error)}</p>
+        <p className="font-mono text-xs font-normal" data-error-code={error.code}>
+          {error.code}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -445,15 +513,16 @@ export default function CustomerTransferTab({
             : t("settings.customerTransfer.export.start")}
         </button>
 
-        {exportError && (
-          <p role="alert" className="text-sm font-bold text-red-700">
-            {issueText({ code: exportError, path: "", messageKey: exportError })}
-          </p>
-        )}
+        {exportError && renderTransferError(exportError)}
 
         {exportJob && (
           <div className="rounded-xl border border-[var(--line,#dedcd1)] p-3 text-sm sm:p-4">
             <p className="font-bold">{t("settings.customerTransfer.export.resultTitle")}</p>
+            {exportJob.reused && (
+              <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+                {t("settings.customerTransfer.export.reused")}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
               {t("settings.customerTransfer.export.checksum")}: {exportJob.checksumPrefix}
             </p>
@@ -522,16 +591,8 @@ export default function CustomerTransferTab({
             {t("settings.customerTransfer.import.uploading")}
           </p>
         )}
-        {importError && (
-          <p role="alert" className="text-sm font-bold text-red-700">
-            {issueText({ code: importError, path: "", messageKey: importError })}
-          </p>
-        )}
-        {previewError && (
-          <p role="alert" className="text-sm font-bold text-red-700">
-            {issueText({ code: previewError, path: "", messageKey: previewError })}
-          </p>
-        )}
+        {importError && renderTransferError(importError)}
+        {previewError && renderTransferError(previewError)}
 
         {preview && (
           <div className="space-y-3">

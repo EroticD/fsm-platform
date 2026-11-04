@@ -18,9 +18,11 @@ import { analysePackage } from "@/lib/customer-transfer/analyse";
 import { applyImport } from "@/lib/customer-transfer/apply-import";
 import {
   abortJob,
+  claimExportJob,
   cleanupExpiredTransfers,
   createTransferJob,
   findJobForActor,
+  findReusableExportJob,
   isJobExpired,
   previewToken,
   previewTokenValid,
@@ -29,8 +31,13 @@ import {
   writeStagedPackage,
 } from "@/lib/customer-transfer/jobs";
 import { canUseCustomerTransfer } from "@/lib/customer-transfer/guard";
+import {
+  EXPORT_DEDUPE_WAIT_MS,
+  exportRequestFingerprint,
+  normaliseExportOptions,
+  type ExportRequestInput,
+} from "@/lib/customer-transfer/export-request";
 import type {
-  ExportOptions,
   ImportOptions,
   ImportPreview,
 } from "@/lib/customer-transfer/types";
@@ -116,25 +123,164 @@ export function exportFileName(checksum: string, now = new Date()): string {
   return `fsm-customer-export-${stamp}-${checksum.slice(0, 8)}.zip`;
 }
 
+export type ExportJobView = JobView & {
+  downloadUrl: string;
+  fileName: string;
+  reused: boolean;
+};
+
+function exportJobView(
+  job: Awaited<ReturnType<typeof findJobForActor>>,
+  reused: boolean,
+): ExportJobView | null {
+  const view = jobView(job);
+  if (!view || !job?.packageChecksum) return null;
+  return {
+    ...view,
+    downloadUrl: `/api/innstillinger/kunder/eksport/${job.id}/download`,
+    fileName: exportFileName(
+      job.packageChecksum,
+      job.completedAt ?? job.createdAt,
+    ),
+    reused,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * Starter en eksport. Selve pakkebyggingen er synkron i v1, men tilstanden
- * lagres i `CustomerTransferJob` slik at nedlasting og opprydding er varig.
+ * Venter kort på at en identisk eksport som allerede bygges blir klar. Selve
+ * byggingen er synkron i v1, men to parallelle HTTP-forespørsler kan treffe
+ * hverandre før den første har skrevet READY.
  */
-export async function exportCustomerPackage(
+async function waitForExportJob(
+  jobId: string,
+  actorId: string,
+  timeoutMs: number,
+) {
+  const deadline = Date.now() + timeoutMs;
+  let current = await findJobForActor(jobId, actorId);
+  while (
+    current?.status === TRANSFER_STATUS.pending &&
+    Date.now() < deadline
+  ) {
+    await sleep(200);
+    current = await findJobForActor(jobId, actorId);
+  }
+  return current;
+}
+
+async function resolveReusableExport(
   actor: ServiceActor,
-  input: {
-    customerIds: string[];
-    includeFiles?: boolean;
-    includeDeleted?: boolean;
-    includeLegalHold?: boolean;
-    includeAudit?: boolean;
-    includeSignatures?: boolean;
-  },
-): Promise<TransferResult<JobView & { downloadUrl: string; fileName: string }>> {
+  job: NonNullable<Awaited<ReturnType<typeof findJobForActor>>>,
+): Promise<TransferResult<ExportJobView>> {
+  let current = job;
+  if (current.status === TRANSFER_STATUS.pending) {
+    current =
+      (await waitForExportJob(
+        current.id,
+        actor.id,
+        EXPORT_DEDUPE_WAIT_MS,
+      )) ?? current;
+  }
+
+  if (current.status === TRANSFER_STATUS.ready) {
+    if (isJobExpired(current)) {
+      await failsafeJob(current.id, {
+        code: TRANSFER_ERROR.job_expired,
+        messageKey: "errors.customerTransfer.jobExpired",
+        stage: "reuse",
+      });
+      return failure(
+        410,
+        TRANSFER_ERROR.job_expired,
+        "errors.customerTransfer.jobExpired",
+      );
+    }
+    const view = exportJobView(current, true);
+    if (!view) {
+      return failure(
+        410,
+        TRANSFER_ERROR.job_expired,
+        "errors.customerTransfer.jobExpired",
+      );
+    }
+    return { ok: true, data: view };
+  }
+
+  if (current.status === TRANSFER_STATUS.failed) {
+    const stored = current.errorJson as
+      | { code?: unknown; messageKey?: unknown }
+      | null;
+    const code =
+      typeof stored?.code === "string"
+        ? stored.code
+        : TRANSFER_ERROR.export_failed;
+    const messageKey =
+      typeof stored?.messageKey === "string"
+        ? stored.messageKey
+        : "errors.customerTransfer.exportFailed";
+    return failure(500, code, messageKey);
+  }
+
+  if (
+    current.status === TRANSFER_STATUS.aborted ||
+    current.status === TRANSFER_STATUS.expired
+  ) {
+    return failure(
+      410,
+      TRANSFER_ERROR.job_expired,
+      "errors.customerTransfer.jobExpired",
+    );
+  }
+
+  return failure(
+    409,
+    TRANSFER_ERROR.export_in_progress,
+    "errors.customerTransfer.exportInProgress",
+  );
+}
+
+/**
+ * Slår opp en nylig eksport med samme bestilling. Rutene bruker dette før
+ * rate-limit-telleren, slik at et dobbeltklikk ikke koster et nytt forsøk.
+ */
+export async function findReusableExport(
+  actor: ServiceActor,
+  input: ExportRequestInput,
+): Promise<TransferResult<ExportJobView | null>> {
   const denied = assertAdmin(actor);
   if (denied) return denied;
 
-  const customerIds = [...new Set(input.customerIds.filter(Boolean))];
+  const options = normaliseExportOptions(input);
+  if (options.customerIds.length === 0) return { ok: true, data: null };
+
+  const reusable = await findReusableExportJob({
+    actorId: actor.id,
+    fingerprint: exportRequestFingerprint(options),
+  });
+  if (!reusable) return { ok: true, data: null };
+  return resolveReusableExport(actor, reusable);
+}
+
+/**
+ * Starter en eksport. Selve pakkebyggingen er synkron i v1, men tilstanden
+ * lagres i `CustomerTransferJob` slik at nedlasting og opprydding er varig.
+ *
+ * Samme aktør + samme kundesett/valg innenfor dedupe-vinduet gir samme jobb.
+ * Det gjør dobbeltklikk, nettleser-retries og React-gjentakelser idempotente.
+ */
+export async function exportCustomerPackage(
+  actor: ServiceActor,
+  input: ExportRequestInput,
+): Promise<TransferResult<ExportJobView>> {
+  const denied = assertAdmin(actor);
+  if (denied) return denied;
+
+  const options = normaliseExportOptions(input);
+  const customerIds = options.customerIds;
   if (customerIds.length === 0) {
     return failure(400, "validation_error", "errors.customerTransfer.noCustomers");
   }
@@ -142,31 +288,30 @@ export async function exportCustomerPackage(
     return failure(400, "validation_error", "errors.customerTransfer.tooManyCustomers");
   }
 
-  const options: ExportOptions = {
-    customerIds,
-    includeFiles: input.includeFiles ?? true,
-    includeDeleted: input.includeDeleted ?? false,
-    includeLegalHold: input.includeLegalHold ?? false,
-    includeAudit: input.includeAudit ?? true,
-    includeSignatures: input.includeSignatures ?? false,
-  };
-
   const exportedAt = new Date();
-  const job = await createTransferJob({
+  const { job, reused } = await claimExportJob({
     actorId: actor.id,
-    kind: TRANSFER_KIND.export,
-    status: TRANSFER_STATUS.pending,
+    fingerprint: exportRequestFingerprint(options),
     customerIds,
     expiresAt: new Date(exportedAt.getTime() + TRANSFER_LIMITS.exportTtlMs),
+    now: exportedAt,
   });
+  if (reused) return resolveReusableExport(actor, job);
 
+  let stage = "build";
   try {
     const built = await buildCustomerPackage(actor, options, exportedAt);
     if (built.customerIds.length === 0) {
-      await failsafeJob(job.id);
+      await failsafeJob(job.id, {
+        code: TRANSFER_ERROR.not_found,
+        messageKey: "errors.customerTransfer.customerNotFound",
+        stage: "build",
+      });
       return failure(404, "not_found", "errors.customerTransfer.customerNotFound");
     }
+    stage = "stage";
     const stagingPath = await writeStagedPackage(job.id, built.buffer);
+    stage = "persist";
     const expiresAt = new Date(Date.now() + TRANSFER_LIMITS.exportTtlMs);
     await prisma.customerTransferJob.update({
       where: { id: job.id },
@@ -177,6 +322,7 @@ export async function exportCustomerPackage(
         schemaVersion: built.manifest.schemaVersion,
         countsJson: built.counts,
         resultJson: {
+          requestFingerprint: exportRequestFingerprint(options),
           warnings: built.warnings.length,
           customerCount: built.customerIds.length,
           manifestChecksum: sha256Hex(Buffer.from(JSON.stringify(built.manifest), "utf8")),
@@ -191,23 +337,39 @@ export async function exportCustomerPackage(
     });
 
     const fresh = await findJobForActor(job.id, actor.id);
-    const view = jobView(fresh);
+    const view = exportJobView(fresh, false);
     if (!view) return notFound();
-    return {
-      ok: true,
-      data: {
-        ...view,
-        downloadUrl: `/api/innstillinger/kunder/eksport/${job.id}/download`,
-        fileName: exportFileName(built.checksum, exportedAt),
-      },
-    };
-  } catch {
-    await failsafeJob(job.id);
-    return failure(500, TRANSFER_ERROR.import_failed, "errors.customerTransfer.exportFailed");
+    return { ok: true, data: view };
+  } catch (error) {
+    // Den rå feilen logges uten kundedata, men med nok kontekst til at en
+    // operatør kan finne årsaken. API/UI får en stabil, oversatt feilkode.
+    console.error("[customer-transfer] eksport feilet", {
+      jobId: job.id,
+      actorId: actor.id,
+      stage,
+      name: error instanceof Error ? error.name : "UnknownError",
+      message:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : String(error).slice(0, 500),
+    });
+    await failsafeJob(job.id, {
+      code: TRANSFER_ERROR.export_failed,
+      messageKey: "errors.customerTransfer.exportFailed",
+      stage,
+    });
+    return failure(
+      500,
+      TRANSFER_ERROR.export_failed,
+      "errors.customerTransfer.exportFailed",
+    );
   }
 }
 
-async function failsafeJob(jobId: string) {
+async function failsafeJob(
+  jobId: string,
+  error?: { code: string; messageKey: string; stage: string },
+) {
   await removeJobStaging(jobId);
   await prisma.customerTransferJob
     .update({
@@ -216,6 +378,7 @@ async function failsafeJob(jobId: string) {
         status: TRANSFER_STATUS.failed,
         stagingPath: null,
         completedAt: new Date(),
+        ...(error ? { errorJson: error } : {}),
       },
     })
     .catch(() => undefined);

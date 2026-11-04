@@ -10,6 +10,10 @@ import {
   TRANSFER_LIMITS,
   TRANSFER_STATUS,
 } from "./constants";
+import {
+  EXPORT_DEDUPE_WINDOW_MS,
+  EXPORT_STALE_RUNNING_MS,
+} from "./export-request";
 
 export function transferRoot(): string {
   return path.join(uploadDir(), ".transfer");
@@ -93,6 +97,105 @@ export async function createTransferJob(input: {
 export async function findJobForActor(jobId: string, actorId: string) {
   return prisma.customerTransferJob.findFirst({
     where: { id: jobId, actorId },
+  });
+}
+
+export type CustomerTransferJobRecord = Awaited<
+  ReturnType<typeof findJobForActor>
+>;
+
+/** Leser idempotensfingeren som ligger i resultJson (ingen egen kolonne). */
+export function jobRequestFingerprint(job: {
+  resultJson: unknown;
+}): string | null {
+  const value = (job.resultJson as { requestFingerprint?: unknown } | null)
+    ?.requestFingerprint;
+  return typeof value === "string" ? value : null;
+}
+
+type ReusableJob = NonNullable<CustomerTransferJobRecord>;
+
+function reusableExportWhere(actorId: string, now: Date) {
+  return {
+    actorId,
+    kind: TRANSFER_KIND.export,
+    status: { in: [TRANSFER_STATUS.pending, TRANSFER_STATUS.ready] },
+    createdAt: {
+      gte: new Date(now.getTime() - EXPORT_DEDUPE_WINDOW_MS),
+    },
+    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+  };
+}
+
+function isReusable(
+  job: ReusableJob,
+  fingerprint: string,
+  now: Date,
+): boolean {
+  if (jobRequestFingerprint(job) !== fingerprint) return false;
+  // En READY-jobb kan gjenbrukes hele dedupe-vinduet. En PENDING-jobb som har
+  // stått urørt lenge, er sannsynligvis forlatt og skal ikke blokkere et nytt
+  // forsøk.
+  if (job.status === TRANSFER_STATUS.ready) return true;
+  return job.createdAt.getTime() >= now.getTime() - EXPORT_STALE_RUNNING_MS;
+}
+
+/** Finner en nylig, gjenbrukbar eksport uten å opprette eller telle noe. */
+export async function findReusableExportJob(input: {
+  actorId: string;
+  fingerprint: string;
+  now?: Date;
+}): Promise<ReusableJob | null> {
+  const now = input.now ?? new Date();
+  const jobs = await prisma.customerTransferJob.findMany({
+    where: reusableExportWhere(input.actorId, now),
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  return jobs.find((job) => isReusable(job, input.fingerprint, now)) ?? null;
+}
+
+/**
+ * Atomisk «finn eller opprett» for eksportjobber.
+ *
+ * Advisory-låsen serialiserer samtidige forespørsler for samme aktør og
+ * bestilling. Den første oppretter jobben; duplikater får samme rad tilbake.
+ * Låsen er transaksjonsbundet og slippes før den tunge pakkebyggingen starter.
+ */
+export async function claimExportJob(input: {
+  actorId: string;
+  fingerprint: string;
+  customerIds: string[];
+  expiresAt: Date;
+  now?: Date;
+}): Promise<{ job: ReusableJob; reused: boolean }> {
+  const now = input.now ?? new Date();
+  const lockKey = `customer-transfer-export:${input.actorId}:${input.fingerprint}`;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked`;
+
+    const jobs = await tx.customerTransferJob.findMany({
+      where: reusableExportWhere(input.actorId, now),
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    const existing = jobs.find((job) =>
+      isReusable(job, input.fingerprint, now),
+    );
+    if (existing) return { job: existing, reused: true };
+
+    const job = await tx.customerTransferJob.create({
+      data: {
+        actorId: input.actorId,
+        kind: TRANSFER_KIND.export,
+        status: TRANSFER_STATUS.pending,
+        customerIdsJson: input.customerIds,
+        resultJson: { requestFingerprint: input.fingerprint },
+        expiresAt: input.expiresAt,
+      },
+    });
+    return { job, reused: false };
   });
 }
 

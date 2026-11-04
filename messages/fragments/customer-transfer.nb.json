@@ -27,7 +27,8 @@
         "resultTitle": "Pakken er klar",
         "checksum": "SHA-256",
         "expires": "Tilgjengelig til {date}",
-        "download": "Last ned ZIP"
+        "download": "Last ned ZIP",
+        "reused": "Gjenbrukte den nylige eksporten med samme kunder og valg."
       },
       "import": {
         "title": "Importer kunde",
@@ -145,7 +146,9 @@
       "cycle": "Treet inneholder en syklus.",
       "externalFileNotFetched": "En ekstern fil-URL ble ikke hentet under eksport.",
       "symlink": "Symlinker i arkivet støttes ikke.",
-      "unknownEntry": "Ukjent toppnivåfil ble ignorert med en advarsel."
+      "unknownEntry": "Ukjent toppnivåfil ble ignorert med en advarsel.",
+      "rateLimitedRetry": "For mange eksportforsøk. Prøv igjen om {minutes} minutter.",
+      "exportInProgress": "Eksporten pågår fortsatt. Prøv igjen om litt."
     }
   },
   "auditActions": {
