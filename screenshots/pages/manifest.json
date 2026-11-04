@@ -1,7 +1,7 @@
 {
   "version": 1,
   "generatedAt": "2026-11-04T19:30:42.487Z",
-  "appVersion": "0.8.8",
+  "appVersion": "0.8.9",
   "baseUrl": "http://127.0.0.1:3100",
   "database": "fsm_screenshots_089 (isolert E2E-database)",
   "fixtures": {

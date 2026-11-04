@@ -3,9 +3,7 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
-## 0.8.8 — 2026-11-03
-
-## Unreleased (dev)
+## 0.8.9 — 2026-11-04
 
 ### Kundeadskillelse og enhetsflytting
 - Steds- og enhetsvelgere henter bare data for valgt kunde; all informasjon
@@ -36,6 +34,14 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
   Grensen er 10 starter/time med versjonert nøkkel.
 - Feltapp: navnet på featured-oppdraget og korttitlene åpner oppdraget.
 
+### Dokumentasjon og skjermbilder
+- README er forenklet med Docker quick start, Caddy, flytting av database og
+  datavolum, og oppdatering til ny versjon.
+- Brukermanualene (nb/en) er oppdatert med nye funksjoner og regenererte PDF-er.
+- Skjermbilder er regenerert for alle sider i desktop/mobil, nye sider er lagt
+  til, og utdaterte eksperimentmapper er fjernet.
+
+## 0.8.8 — 2026-11-03
 
 ### Toveis SMS og påminnelser
 - Innkommende SMS med leverandørsignatur, idempotens, leveringsstatus,
