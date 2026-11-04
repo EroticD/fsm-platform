@@ -759,6 +759,10 @@
       }
     },
     "orders": {
+      "sitePicker": {
+        "loading": "Ładowanie lokalizacji …",
+        "loadFailed": "Nie udało się załadować lokalizacji klienta. Wybierz klienta ponownie."
+      },
       "list": {
         "views": {
           "alle": {
@@ -2120,7 +2124,13 @@
         "delete": "Usuń lokalizację",
         "deleteConfirm": "Usunąć lokalizację „{name}”? Zlecenia i sprzęt wskazujące na nią utracą powiązanie.",
         "edit": "Edytuj lokalizację",
-        "save": "Zapisz lokalizację"
+        "save": "Zapisz lokalizację",
+        "searchLabel": "Filtruj lokalizacje",
+        "searchPlaceholder": "Szukaj według nazwy, adresu, kodu pocztowego lub miasta...",
+        "search": "Filtruj",
+        "resetSearch": "Resetuj",
+        "noMatches": "Brak lokalizacji pasujących do „{query}”.",
+        "showing": "Wyświetlono {shown} z {total} lokalizacji."
       }
     },
     "documents": {

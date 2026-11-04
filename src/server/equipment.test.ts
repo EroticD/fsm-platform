@@ -35,7 +35,7 @@ const mocks = vi.hoisted(() => ({
     },
     upload: { findMany: vi.fn() },
     customer: { findFirst: vi.fn(), findMany: vi.fn() },
-    customerSite: { findFirst: vi.fn() },
+    customerSite: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findMany: vi.fn() },
     workOrder: { findMany: vi.fn() },
     reportUnit: { findMany: vi.fn() },
@@ -43,11 +43,15 @@ const mocks = vi.hoisted(() => ({
   },
   audit: vi.fn(),
   notifyUser: vi.fn(),
+  searchNormalizedIds: vi.fn(async () => [] as Array<{ id: string; score: number; total: number }>),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
 vi.mock("@/server/notifications", () => ({ notifyUser: mocks.notifyUser }));
+vi.mock("@/lib/search-sql", () => ({
+  searchNormalizedIds: mocks.searchNormalizedIds,
+}));
 
 import {
   addEquipmentQrCode,
@@ -56,6 +60,8 @@ import {
   createEquipment,
   deleteEquipmentQrCode,
   equipmentScopeFor,
+  getCustomerEquipmentOptions,
+  getEquipmentFormOptions,
   listExpiringWarranties,
   resolveEquipmentQrToken,
   updateEquipment,
@@ -94,6 +100,89 @@ beforeEach(() => {
   mocks.prisma.equipmentQrCode.create.mockResolvedValue({ id: "qr-new" });
   mocks.prisma.equipmentQrCode.delete.mockResolvedValue({ id: "qr-new" });
   mocks.prisma.user.findMany.mockResolvedValue([{ id: "user-1" }]);
+  mocks.searchNormalizedIds.mockResolvedValue([]);
+});
+
+describe("utstyrsvalg per kunde", () => {
+  it("returnerer ikke steder eller enheter i de globale skjemavalgene", async () => {
+    mocks.prisma.customer.findMany.mockResolvedValue([
+      { id: "cust-1", name: "Kunde A" },
+    ]);
+    mocks.prisma.equipmentCategory.findMany.mockResolvedValue([]);
+
+    const result = await getEquipmentFormOptions(actor());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Object.keys(result.data).sort()).toEqual(["categories", "customers"]);
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.customerSite.findMany).not.toHaveBeenCalled();
+  });
+
+  it("avgrenser overordnede enheter til kunden", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+    mocks.prisma.product.findMany.mockResolvedValue([
+      { id: "p1", customerId: "cust-1", model: "Pumpe", serialNumber: null, location: null },
+    ]);
+
+    const result = await getCustomerEquipmentOptions(actor(), "cust-1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { customer: { deletedAt: null } },
+            { customerId: "cust-1" },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("søker bare i kundens enheter med normalisert søk", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+    mocks.prisma.product.findMany.mockResolvedValue([]);
+    mocks.searchNormalizedIds.mockResolvedValue([
+      { id: "p1", score: 1, total: 1 },
+    ]);
+
+    await getCustomerEquipmentOptions(actor(), "cust-1", {
+      query: "årlig service",
+      excludeId: "p9",
+    });
+
+    expect(mocks.searchNormalizedIds).toHaveBeenCalledWith(
+      "Product",
+      "årlig service",
+      200,
+      undefined,
+      false,
+      { customerId: "cust-1" },
+    );
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { customer: { deletedAt: null } },
+            { customerId: "cust-1" },
+            { id: { in: ["p1"] } },
+            { id: { not: "p9" } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("nekter enheter uten equipment.view", async () => {
+    const result = await getCustomerEquipmentOptions(
+      actor({ permissions: ["workorders.view"] }),
+      "cust-1",
+    );
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("utstyrstre", () => {

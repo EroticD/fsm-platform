@@ -378,7 +378,13 @@
       "delete": "Delete site",
       "deleteConfirm": "Delete the site “{name}”? Work orders and equipment pointing to it will lose the link.",
       "edit": "Edit site",
-      "save": "Save site"
+      "save": "Save site",
+      "searchLabel": "Filter sites",
+      "searchPlaceholder": "Search by name, address, postal code or city...",
+      "search": "Filter",
+      "resetSearch": "Reset",
+      "noMatches": "No sites match “{query}”.",
+      "showing": "Showing {shown} of {total} sites."
     }
   }
 }

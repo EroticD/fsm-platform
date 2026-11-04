@@ -1,5 +1,9 @@
 {
   "orders": {
+    "sitePicker": {
+      "loading": "Loading sites …",
+      "loadFailed": "Could not load sites for the customer. Select the customer again."
+    },
     "list": {
       "views": {
         "alle": {

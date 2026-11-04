@@ -1,4 +1,5 @@
 import Icon from "@/components/icons";
+import Link from "next/link";
 import NavigateLink from "@/components/NavigateLink";
 import CopyAddressButton from "@/components/CopyAddressButton";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
@@ -15,10 +16,12 @@ import {
   CUSTOMER_SIGNAL_BUTTON,
 } from "./customerStyles";
 
-type Site = CustomerDetailData["customer"]["sites"][number];
+type Site = CustomerDetailData["sites"][number];
 
 type SitesTabProps = {
   sites: Site[];
+  siteQuery: string;
+  siteTotal: number;
   office: boolean;
   createSite: (formData: FormData) => Promise<void>;
   updateSite: (formData: FormData) => Promise<void>;
@@ -29,6 +32,8 @@ type SitesTabProps = {
 /** Steder (anlegg) på kundekortet, med redigering, sletting og primærvalg. */
 export default async function CustomerSitesTab({
   sites,
+  siteQuery,
+  siteTotal,
   office,
   createSite,
   updateSite,
@@ -47,6 +52,40 @@ export default async function CustomerSitesTab({
       }
       description={t("customers.sites.description")}
     >
+      {/* Filtrering skjer på serveren, avgrenset til kundens egne steder. */}
+      <form method="GET" action="" className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="mer" />
+        <div className="relative min-w-[12rem] flex-1">
+          <Icon
+            name="search"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted,#62685f)]"
+          />
+          <input
+            type="search"
+            name="sted"
+            defaultValue={siteQuery}
+            maxLength={120}
+            aria-label={t("customers.sites.searchLabel")}
+            placeholder={t("customers.sites.searchPlaceholder")}
+            className={`${CUSTOMER_CONTROL} pl-9 text-sm`}
+          />
+        </div>
+        <button type="submit" className={CUSTOMER_INK_BUTTON}>
+          {t("customers.sites.search")}
+        </button>
+        {siteQuery && (
+          <Link href="?tab=mer" className={CUSTOMER_INK_BUTTON}>
+            {t("customers.sites.resetSearch")}
+          </Link>
+        )}
+        <span className={`text-xs font-bold ${CUSTOMER_MUTED}`}>
+          {t("customers.sites.showing", {
+            shown: sites.length,
+            total: siteTotal,
+          })}
+        </span>
+      </form>
+
       {office && (
         <form
           action={createSite}
@@ -117,7 +156,9 @@ export default async function CustomerSitesTab({
 
       {sites.length === 0 ? (
         <p className={`text-xs italic ${CUSTOMER_MUTED}`}>
-          {t("customers.sites.empty")}
+          {siteQuery
+            ? t("customers.sites.noMatches", { query: siteQuery })
+            : t("customers.sites.empty")}
         </p>
       ) : (
         <div className="space-y-2">

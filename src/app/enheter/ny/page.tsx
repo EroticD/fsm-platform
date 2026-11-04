@@ -10,6 +10,7 @@ import ErrorBanner from "@/components/ErrorBanner";
 import SubmitButton from "@/components/SubmitButton";
 import Icon from "@/components/icons";
 import { createEquipmentAction } from "../actions";
+import EquipmentCustomerFields from "./EquipmentCustomerFields";
 
 const CARD = "office-card min-w-0 p-4 sm:p-5";
 const LABEL =
@@ -78,33 +79,7 @@ export default async function NewEquipmentPage({
 
         <form action={createEquipmentAction} className={`${CARD} space-y-4`}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="customerId" className={LABEL}>
-                {t("assets.form.customer")} *
-              </label>
-              <select id="customerId" name="customerId" required className={CONTROL}>
-                <option value="">{t("assets.form.customer")}</option>
-                {result.data.customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="siteId" className={LABEL}>
-                {t("assets.form.site")}
-              </label>
-              <select id="siteId" name="siteId" className={CONTROL}>
-                <option value="">{t("assets.form.noSite")}</option>
-                {result.data.sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name} · {site.customer.name}
-                    {site.address ? ` — ${site.address}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <EquipmentCustomerFields customers={result.data.customers} />
             <div>
               <label htmlFor="model" className={LABEL}>
                 {t("assets.form.model")} *
@@ -151,21 +126,6 @@ export default async function NewEquipmentPage({
                 {result.data.categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="parentId" className={LABEL}>
-                {t("assets.form.parent")}
-              </label>
-              <select id="parentId" name="parentId" className={CONTROL}>
-                <option value="">{t("assets.detail.noParent")}</option>
-                {result.data.equipment.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.model}
-                    {asset.serialNumber ? ` (${asset.serialNumber})` : ""} ·{" "}
-                    {asset.customer.name}
                   </option>
                 ))}
               </select>

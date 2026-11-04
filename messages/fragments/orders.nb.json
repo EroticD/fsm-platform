@@ -1,5 +1,9 @@
 {
   "orders": {
+    "sitePicker": {
+      "loading": "Laster steder …",
+      "loadFailed": "Kunne ikke laste steder for kunden. Velg kunden på nytt."
+    },
     "list": {
       "views": {
         "alle": {

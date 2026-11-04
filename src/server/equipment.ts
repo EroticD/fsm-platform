@@ -15,6 +15,7 @@ import {
 } from "@/lib/dates";
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { searchNormalizedIds } from "@/lib/search-sql";
 import {
   isValidExternalQrValue,
   normalizeExternalQrValue,
@@ -1857,12 +1858,120 @@ export async function notifyWarrantyExpiring(
   return { checked: products.length, notified };
 }
 
-/** Valgene skjemaene på /enheter trenger. Alle listene er hardt avgrenset. */
+export type CustomerEquipmentOptionParams = {
+  /** Fritekstsøk i modell, serienummer og plassering. */
+  query?: string;
+  /** Utelates når en enhet ikke kan være sin egen overordnede enhet. */
+  excludeId?: string | null;
+  limit?: number;
+};
+
+export type CustomerEquipmentOption = {
+  id: string;
+  customerId: string;
+  model: string;
+  serialNumber: string | null;
+  location: string | null;
+};
+
+export const CUSTOMER_EQUIPMENT_OPTION_MAX = 500;
+
+/**
+ * Enheter for én kunde, brukt av overordnet-enhet-velgeren i utstyrsskjemaet.
+ *
+ * Alle rader er avgrenset til kunden både gjennom `equipmentScopeFor` og den
+ * eksplisitte `customerId`-en. Søket bruker den normaliserte PostgreSQL-indeksen
+ * og er derfor tolerant for æ/ø/å, aksenter og tegnsetting.
+ */
+export async function getCustomerEquipmentOptions(
+  actor: ServiceActor,
+  customerId: string,
+  params: CustomerEquipmentOptionParams = {},
+): Promise<
+  ServiceResult<{
+    equipment: CustomerEquipmentOption[];
+    total: number;
+    query: string;
+  }>
+> {
+  const denied = requirePermission(actor, "equipment.view");
+  if (denied) return denied;
+
+  const id = cleanId(customerId);
+  if (!id) return fail("invalid");
+
+  const customer = await prisma.customer.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!customer) return fail("not_found");
+
+  const query = cleanText(params.query, { maxLength: LIMITS.short });
+  const excludeId = cleanId(params.excludeId);
+  const limit = Math.min(
+    CUSTOMER_EQUIPMENT_OPTION_MAX,
+    Math.max(1, Math.floor(params.limit ?? 200)),
+  );
+
+  let ids: string[] | null = null;
+  let searchTotal = 0;
+  if (query) {
+    const hits = await searchNormalizedIds(
+      "Product",
+      query,
+      limit,
+      undefined,
+      false,
+      { customerId: id },
+    );
+    ids = hits.map((hit) => hit.id);
+    searchTotal = Number(hits[0]?.total ?? hits.length) || 0;
+    if (ids.length === 0) {
+      return ok({ equipment: [], total: 0, query });
+    }
+  }
+
+  const where: Prisma.ProductWhereInput = {
+    AND: [
+      equipmentScopeFor(actor),
+      { customerId: id },
+      ...(ids ? [{ id: { in: ids } }] : []),
+      ...(excludeId ? [{ id: { not: excludeId } }] : []),
+    ],
+  };
+
+  const equipment = await prisma.product.findMany({
+    where,
+    orderBy: [{ model: "asc" }, { id: "asc" }],
+    take: limit,
+    select: {
+      id: true,
+      customerId: true,
+      model: true,
+      serialNumber: true,
+      location: true,
+    },
+  });
+
+  return ok({
+    equipment,
+    total: query ? searchTotal : equipment.length,
+    query,
+  });
+}
+
+/**
+ * Felles, hardt avgrensede valg for utstyrsskjemaene.
+ *
+ * Steder og overordnede enheter er bevisst ikke en del av dette svaret. De
+ * lastes først når en kunde er valgt, via `getCustomerSiteOptions` og
+ * `getCustomerEquipmentOptions`, slik at siden aldri får andre kunders rader.
+ */
 export async function getEquipmentFormOptions(actor: ServiceActor) {
   const denied = requirePermission(actor, "equipment.view");
   if (denied) return denied;
 
-  const [customers, categories, equipment, sites] = await Promise.all([
+  const [customers, categories] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
@@ -1874,33 +1983,9 @@ export async function getEquipmentFormOptions(actor: ServiceActor) {
       take: 500,
       select: { id: true, name: true, parentId: true },
     }),
-    prisma.product.findMany({
-      where: equipmentScopeFor(actor),
-      orderBy: [{ model: "asc" }, { id: "asc" }],
-      take: 500,
-      select: {
-        id: true,
-        model: true,
-        serialNumber: true,
-        customerId: true,
-        customer: { select: { name: true } },
-      },
-    }),
-    prisma.customerSite.findMany({
-      where: { customer: { deletedAt: null } },
-      orderBy: [{ name: "asc" }, { id: "asc" }],
-      take: 1000,
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        customerId: true,
-        customer: { select: { name: true } },
-      },
-    }),
   ]);
 
-  return ok({ customers, categories, equipment, sites });
+  return ok({ customers, categories });
 }
 
 /** Brukes av API-et for å velge riktig HTTP-status uten å gjette. */
