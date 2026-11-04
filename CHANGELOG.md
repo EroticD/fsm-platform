@@ -3,7 +3,7 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
-## Unreleased (dev)
+## 0.8.10 — 2026-11-04
 
 ### Geokoding
 - Geokoding bruker nå en leverandørkjede: Nominatim → Kartverket → Photon.
