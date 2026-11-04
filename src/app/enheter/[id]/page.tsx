@@ -125,6 +125,9 @@ export default async function EquipmentDetailPage({
     ? optionsResult.data
     : { customers: [], categories: [], equipment: [], sites: [] };
   const canManage = hasPermission(user, "equipment.manage");
+  const canMoveToCustomer =
+    user.role === "ADMIN" ||
+    (canManage && hasPermission(user, "customers.manage"));
   const isAdmin = user.role === "ADMIN";
   const meldt = param(query.meldt);
   const feil = param(query.feil);
@@ -251,6 +254,15 @@ export default async function EquipmentDetailPage({
                 newTabLabel={t("fieldTools.newTab")}
                 className={INK_BUTTON}
               />
+              {canMoveToCustomer && (
+                <Link
+                  href={`/enheter/${equipment.id}/flytt`}
+                  className={INK_BUTTON}
+                >
+                  <Icon name="sync" className="h-4 w-4" />
+                  {t("assets.move.link")}
+                </Link>
+              )}
               <Link href={`/enheter/${equipment.id}/etikett`} className={SIGNAL_BUTTON}>
                 <Icon name="file" className="h-4 w-4" />
                 {t("assets.detail.printLabel")}

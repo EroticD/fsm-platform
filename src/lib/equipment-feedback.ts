@@ -40,6 +40,7 @@ export const EQUIPMENT_FEEDBACK_KEYS: Record<string, string> = {
   created: "assets.feedback.created",
   updated: "assets.feedback.updated",
   moved: "assets.feedback.moved",
+  flyttet: "assets.feedback.movedToCustomer",
   "qr-rotated": "assets.feedback.qrRotated",
   "qr-code-added": "assets.feedback.qrCodeAdded",
   "qr-code-deleted": "assets.feedback.qrCodeDeleted",
@@ -81,6 +82,17 @@ export const EQUIPMENT_ERROR_KEYS = new Set([
   "assets.errors.invalidTemplate",
   "assets.errors.planInUse",
   "assets.errors.alreadyGenerated",
+  "assets.errors.targetCustomerNotFound",
+  "assets.errors.targetCustomerDeleted",
+  "assets.errors.targetSiteMismatch",
+  "assets.errors.crossCustomerChild",
+  "assets.errors.contractBlocked",
+  "assets.errors.workOrderCustomerMismatch",
+  "assets.errors.workOrderNumberConflict",
+  "assets.errors.documentCustomerMismatch",
+  "assets.errors.targetDepartmentMissing",
+  "assets.errors.subtreeTooLarge",
+  "assets.errors.stalePreview",
 ]);
 
 export function equipmentFeedbackKey(value?: string | null): string | null {
