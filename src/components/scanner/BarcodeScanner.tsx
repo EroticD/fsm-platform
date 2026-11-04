@@ -6,15 +6,18 @@ import { useTranslations } from "next-intl";
 import Icon from "@/components/icons";
 import ScannerNotice from "@/components/scanner/ScannerNotice";
 import { isDuplicateScan, normalizeScannedCode } from "@/lib/scan-code";
-
-type ScannerState =
-  | "idle"
-  | "starting"
-  | "scanning"
-  | "unsupported"
-  | "denied"
-  | "unavailable"
-  | "error";
+import {
+  chooseScannerEngine,
+  classifyCameraError,
+  hasBarcodeDetector,
+  isTransientDecodeError,
+  loadZxingReader,
+  scannerContextIssue,
+  scannerNoticeKey,
+  scannerNoticeKind,
+  type ScannerState,
+  type ZxingControls,
+} from "@/lib/scanner-capability";
 
 type DetectedBarcode = { rawValue?: string };
 type BarcodeDetectorLike = {
@@ -24,41 +27,34 @@ type BarcodeDetectorConstructor = new (options?: {
   formats?: string[];
 }) => BarcodeDetectorLike;
 
+const NATIVE_FORMATS = [
+  "qr_code",
+  "code_128",
+  "code_39",
+  "ean_13",
+  "ean_8",
+  "data_matrix",
+  "pdf417",
+];
+
 function barcodeDetector(): BarcodeDetectorConstructor | null {
+  if (typeof window === "undefined") return null;
   const ctor = (
     window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }
   ).BarcodeDetector;
   return typeof ctor === "function" ? ctor : null;
 }
 
-function noticeForCameraError(error: unknown): {
-  state: ScannerState;
-  key: "scanner.denied" | "scanner.unavailable" | "scanner.error";
-} {
-  const name =
-    error && typeof error === "object" && "name" in error
-      ? String((error as { name?: unknown }).name)
-      : "";
-  if (name === "NotAllowedError" || name === "SecurityError") {
-    return { state: "denied", key: "scanner.denied" };
-  }
-  if (
-    name === "NotFoundError" ||
-    name === "DevicesNotFoundError" ||
-    name === "OverconstrainedError"
-  ) {
-    return { state: "unavailable", key: "scanner.unavailable" };
-  }
-  return { state: "error", key: "scanner.error" };
-}
-
 /**
- * Kameraskanner med BarcodeDetector og manuell inntasting som reserve.
+ * Kameraskanner med BarcodeDetector der den finnes, ZXing som reserve, og
+ * manuell inntasting som siste utvei.
  *
- * Kameraet startes bare etter et klikk, og alle feil (manglende støtte,
- * nektet tilgang, manglende kamera) gir en lesbar melding og et manuelt felt.
- * Den skannede koden sendes som en URL-parameter til serveren, som avgjør om
- * brukeren faktisk har tilgang til enheten eller oppdraget.
+ * Kameraet startes bare etter et klikk. BarcodeDetector mangler i iOS Safari og
+ * i flere Android-nettlesere, så reserven lastes dynamisk først når den trengs.
+ * Alle feil (usikker kontekst, nektet tilgang, manglende kamera, opptatt
+ * kamera) gir en egen lesbar melding og et manuelt felt. Den skannede koden
+ * sendes som en URL-parameter til serveren, som avgjør om brukeren faktisk har
+ * tilgang til enheten eller oppdraget.
  */
 export default function BarcodeScanner({
   onDetected,
@@ -80,17 +76,29 @@ export default function BarcodeScanner({
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const controlsRef = useRef<ZxingControls | null>(null);
   const timerRef = useRef<number | null>(null);
   const runningRef = useRef(false);
+  // Øker hver gang kameraet startes eller stoppes, slik at et sent svar fra
+  // getUserMedia/dynamisk import ikke får starte et kamera brukeren har lukket.
+  const runRef = useRef(0);
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const mountedRef = useRef(true);
   const autoStartedRef = useRef(false);
 
   const releaseCamera = useCallback(() => {
     runningRef.current = false;
+    runRef.current += 1;
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
+    }
+    const controls = controlsRef.current;
+    controlsRef.current = null;
+    try {
+      controls?.stop();
+    } catch {
+      // ZXing kan allerede ha stoppet etter en dekodefeil.
     }
     const stream = streamRef.current;
     streamRef.current = null;
@@ -132,44 +140,63 @@ export default function BarcodeScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
+  async function openCameraStream(): Promise<MediaStream> {
+    const media = navigator.mediaDevices;
+    try {
+      // `ideal` gir bakhjulskamera der det finnes, men tvinger ikke frem en
+      // feil på enheter som bare har frontkamera.
+      return await media.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+    } catch (error) {
+      if (classifyCameraError(error) !== "overconstrained") throw error;
+      // Eldre nettlesere kan avvise facingMode selv om et kamera finnes.
+      return media.getUserMedia({ video: true, audio: false });
+    }
+  }
+
   async function startCamera() {
     setNotice("");
     setState("starting");
+    const run = ++runRef.current;
 
-    const Detector = barcodeDetector();
-    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
-      setState("unsupported");
-      setNotice(t("scanner.unsupported"));
+    const issue = scannerContextIssue({
+      isSecureContext: window.isSecureContext,
+      hasGetUserMedia:
+        typeof navigator.mediaDevices?.getUserMedia === "function",
+    });
+    if (issue) {
+      setState(issue);
+      setNotice(t(scannerNoticeKey(issue) ?? "scanner.error"));
       return;
     }
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      });
+      stream = await openCameraStream();
     } catch (error) {
-      const result = noticeForCameraError(error);
-      setState(result.state);
-      setNotice(t(result.key));
+      if (run !== runRef.current) return;
+      const next = classifyCameraError(error);
+      setState(next);
+      setNotice(t(scannerNoticeKey(next) ?? "scanner.error"));
       return;
     }
 
-    if (!mountedRef.current) {
+    if (!mountedRef.current || run !== runRef.current) {
       stream.getTracks().forEach((track) => track.stop());
       return;
     }
 
-    streamRef.current = stream;
     const video = videoRef.current;
     if (!video) {
-      releaseCamera();
+      stream.getTracks().forEach((track) => track.stop());
       setState("error");
       setNotice(t("scanner.error"));
       return;
     }
 
+    streamRef.current = stream;
     video.srcObject = stream;
     try {
       await video.play();
@@ -177,31 +204,54 @@ export default function BarcodeScanner({
       // Autoplay kan nektes selv etter et klikk. Brukeren ser da et stille
       // bilde, men manuell inntasting virker fortsatt.
     }
+
+    if (run !== runRef.current) return;
     setState("scanning");
     runningRef.current = true;
 
+    const Detector = barcodeDetector();
+    const engine = chooseScannerEngine(
+      hasBarcodeDetector(window as unknown as { BarcodeDetector?: unknown }),
+    );
+
+    if (engine === "barcode-detector" && Detector) {
+      const started = startNativeDetector(Detector, video, run);
+      if (started) return;
+      // Konstruksjonen feilet. Prøv ZXing i stedet for å erklære manglende støtte.
+    }
+    await startZxing(video, run);
+  }
+
+  /**
+   * Starter BarcodeDetector. Returnerer false når konstruksjonen feiler, slik
+   * at kalleren kan falle tilbake til ZXing. Feiler `detect` gjentatte ganger,
+   * byttes det også automatisk til ZXing.
+   */
+  function startNativeDetector(
+    Detector: BarcodeDetectorConstructor,
+    video: HTMLVideoElement,
+    run: number,
+  ): boolean {
     let detector: BarcodeDetectorLike;
     try {
-      detector = new Detector({
-        formats: [
-          "qr_code",
-          "code_128",
-          "code_39",
-          "ean_13",
-          "ean_8",
-          "data_matrix",
-          "pdf417",
-        ],
-      });
+      detector = new Detector({ formats: NATIVE_FORMATS });
     } catch {
-      // Eldre implementasjoner godtar ikke formatlisten.
-      detector = new Detector();
+      try {
+        // Eldre implementasjoner godtar ikke formatlisten.
+        detector = new Detector();
+      } catch {
+        return false;
+      }
     }
 
+    let failures = 0;
     const tick = async () => {
-      if (!runningRef.current || !videoRef.current) return;
+      if (!runningRef.current || run !== runRef.current || !videoRef.current) {
+        return;
+      }
       try {
         const results = await detector.detect(videoRef.current);
+        failures = 0;
         const raw = results.find((result) => result.rawValue)?.rawValue;
         const code = raw ? normalizeScannedCode(raw) : "";
         if (code) {
@@ -214,13 +264,78 @@ export default function BarcodeScanner({
           }
         }
       } catch {
-        // Enkelte bilder kan ikke dekodes. Fortsett å se etter neste bilde i
-        // stedet for å stoppe kameraet.
-        setNotice(t("scanner.error"));
+        failures += 1;
+        if (failures >= 3) {
+          // BarcodeDetector finnes, men virker ikke i denne nettleseren.
+          // Behold strømmen og fortsett med ZXing.
+          runningRef.current = false;
+          if (timerRef.current !== null) {
+            window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+          }
+          runningRef.current = true;
+          setState("scanning");
+          void startZxing(videoRef.current, run);
+          return;
+        }
       }
       timerRef.current = window.setTimeout(tick, 350);
     };
     timerRef.current = window.setTimeout(tick, 250);
+    return true;
+  }
+
+  /** Laster ZXing dynamisk og dekoder fra den allerede åpne kamera­strømmen. */
+  async function startZxing(video: HTMLVideoElement, run: number) {
+    let controls: ZxingControls;
+    try {
+      const reader = await loadZxingReader();
+      if (!runningRef.current || run !== runRef.current) return;
+      let decodeFailures = 0;
+      controls = await reader.decodeFromVideoElement(
+        video,
+        (result, error) => {
+          if (!runningRef.current || run !== runRef.current) return;
+          if (result) {
+            const code = normalizeScannedCode(result.getText());
+            if (code) {
+              if (isDuplicateScan(lastScanRef.current, code)) {
+                setNotice(t("scanner.duplicate"));
+              } else {
+                lastScanRef.current = { code, at: Date.now() };
+                handleCode(code);
+              }
+            }
+            return;
+          }
+          if (error && !isTransientDecodeError(error)) {
+            decodeFailures += 1;
+            if (decodeFailures === 5) {
+              // Kameraet virker, men bildet kan ikke dekodes. Fortsett likevel;
+              // brukeren kan flytte seg eller bruke det manuelle feltet.
+              setNotice(t("scanner.decode"));
+            }
+          }
+        },
+      );
+    } catch {
+      if (run !== runRef.current) return;
+      releaseCamera();
+      setState("loader-error");
+      setNotice(t("scanner.loaderError"));
+      return;
+    }
+
+    if (!runningRef.current || run !== runRef.current) {
+      try {
+        controls.stop();
+      } catch {
+        // Allerede stoppet.
+      }
+      return;
+    }
+    controlsRef.current = controls;
+    setState("scanning");
   }
 
   function submitManual(event: React.FormEvent<HTMLFormElement>) {
@@ -240,17 +355,7 @@ export default function BarcodeScanner({
 
   return (
     <div className="space-y-4">
-      <ScannerNotice
-        kind={
-          state === "starting" || state === "scanning"
-            ? "info"
-            : state === "idle"
-              ? "info"
-              : state
-        }
-      >
-        {notice}
-      </ScannerNotice>
+      <ScannerNotice kind={scannerNoticeKind(state)}>{notice}</ScannerNotice>
 
       <div
         className={`relative overflow-hidden rounded-2xl border-2 border-[#2a3328] bg-black ${

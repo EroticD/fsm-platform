@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
+import {
+  isScannerAlert,
+  type ScannerNoticeKind,
+} from "@/lib/scanner-capability";
 
-export type ScannerNoticeKind =
-  | "unsupported"
-  | "denied"
-  | "unavailable"
-  | "error"
-  | "duplicate"
-  | "info";
+export type { ScannerNoticeKind };
 
 /**
  * Presentasjonskomponent for skannerens tilstander. Den er bevisst uten
@@ -20,11 +18,7 @@ export default function ScannerNotice({
   children?: ReactNode;
 }) {
   if (!children) return null;
-  const isAlert =
-    kind === "denied" ||
-    kind === "unavailable" ||
-    kind === "error" ||
-    kind === "unsupported";
+  const isAlert = isScannerAlert(kind);
   return (
     <div
       role={isAlert ? "alert" : "status"}

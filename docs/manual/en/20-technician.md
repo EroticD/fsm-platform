@@ -46,6 +46,22 @@ The field app is installable. It opens in its own window, starts at `/mine-oppdr
 
 There is no separate “Install” button inside the app. Installation uses the manifest and requires HTTPS. The service worker is registered in production builds only.
 
+### Scan QR and barcode
+
+1. Select **Scan** on **Today**, in the top bar or in the menu.
+2. Select **Start camera** and allow camera access the first time.
+3. Hold the QR code on the equipment label steady inside the frame. The app opens the unit or work order if you have access.
+4. If the camera does not work, enter the code in **Code or reference** and select **Look up**. You can paste the full link from the label.
+
+The camera requires the app to be opened over **HTTPS** (a secure address). On a plain `http://` address, such as a LAN address during development, the browser blocks the camera and the app shows a separate HTTPS message. Use the installed app or the `https://` address in production.
+
+- **iPhone/iPad (Safari):** Allow camera access when Safari asks. If you declined, go to **Settings → Safari → Camera** (or **Settings → the app**) and choose **Ask** or **Allow**. Camera scanning works in iOS Safari even without the browser's built-in barcode API; the app then uses a fallback scanner.
+- **Android (Chrome):** Select **Allow** on the camera prompt. If you declined, open the lock icon by the address → **Permissions** → **Camera**, or **Settings → Apps → Chrome → Permissions → Camera**.
+- **Camera is busy:** Close other apps that use the camera and select **Start camera** again.
+- **The code is not read:** Hold the label steadier, avoid backlight and make sure there is enough light. The app keeps looking and shows a separate message if the image cannot be decoded.
+
+If the browser has no camera support at all, a message says so – but on iPhone and Android the fallback scanner should be available as long as the app runs over HTTPS and you have granted camera access.
+
 ### Before you lose the network
 
 1. Open **Today** and every work order you will perform.
