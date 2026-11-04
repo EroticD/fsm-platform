@@ -2,7 +2,7 @@
 
 This chapter is for office staff: you receive enquiries, create and plan work
 orders, assign technicians, follow up reports and keep customer, equipment and
-agreement data up to date. It applies to FSM Platform 0.8.5 (31 October 2026).
+agreement data up to date. It applies to FSM Platform 0.8.9 (4 November 2026).
 
 Work orders and service agreements belong to a department: you normally see only
 your own department, while an administrator sees everything. Customers,
@@ -144,8 +144,10 @@ physical label, and is recorded in the audit log.
 ### Attachments, comments and completion
 
 **Attachments** accepts images and PDFs, up to 15 MB per image and 50 MB per PDF, and is internal.
-**Comments** are the dialogue between office and technician; write in the field
-and press **Add comment**.
+A rolling 24-hour quota of 2 GiB per user and 10 GiB total storage per customer
+also applies; adjust it with `UPLOAD_QUOTA_USER_MB` and
+`UPLOAD_QUOTA_CUSTOMER_MB`. **Comments** are the dialogue between office and
+technician; write in the field and press **Add comment**.
 
 **Complete** sets the status to **Completed** after the confirmation **Complete
 this work order? The work order and report are locked for editing.** **Cancel
@@ -247,6 +249,52 @@ same applies to **New work order** and **Edit work order**.
 The statuses are **Active**, **Out of service** and **Retired**; criticality is
 **Critical**, **Normal** or **Low**. **Parent asset** builds a hierarchy, and
 **Move in hierarchy** changes placement.
+
+### Move a unit to another customer
+
+When equipment changes owner or customer, the whole unit can be moved with its
+service history. The move requires **Manage equipment** and **Manage
+customers**, or an administrator.
+
+1. Open the unit at `/enheter/<id>` and select **Move to another customer**.
+2. Search for the target customer and optionally choose a target site. If you
+   choose no site, the unit stays without a site at the new customer.
+3. Review **What moves** and the preview. It shows the number of work orders,
+   visits, reports, revisions, readings, plans, documents, attachments and QR
+   codes that will follow.
+4. Type the target customer's name to confirm, or tick the confirmation, and
+   select **Move the unit**.
+
+**This moves:** the unit and any child units (up to 1000), the hierarchy between
+them, work orders and visits, reports with revisions, report units and PDFs,
+readings, maintenance plans and occurrences, documents with versions,
+attachments/uploads, registered QR codes and comments. The root unit receives
+the target site. Child units lose the old site because it belonged to the
+previous customer and must be placed again after the move. The root unit is no
+longer linked to any former parent unit.
+
+**This blocks the move:**
+
+- **Contract lines belonging to another customer's agreement** that point to
+  the unit or a child unit. A move cannot silently change who a financial
+  obligation points to. Clear or end the contract lines first.
+- Child units that already belong to another customer.
+- Order numbers that collide with a number in the target customer's department.
+- A missing or deleted target customer, or a target site that does not belong to
+  the customer.
+- More than 1000 units in the subtree.
+
+**This does not move:** contract lines, the old customer's portal users, global
+documents without a customer or unit link, or the audit log itself. Contacts
+from the old customer are cleared on the work orders, and work orders that point
+to another customer's agreement lose the contract link. The preview warns you
+in advance. The target customer's department is used when it exists; otherwise
+your own department is used, and you are told.
+
+The move is idempotent: repeating it after the unit is at the target customer
+reports that nothing changed. All validation runs before the first write, so a
+rejected move leaves no half-finished changes. The action is audit-logged. To
+undo it, move the unit back manually.
 
 ### Readings
 
@@ -350,7 +398,7 @@ Dispatch**. There you choose a **Mode**, adjust the **Weights** for **Skills**,
 **Distance**, **Travel time**, **Free time**, **SLA** and **Load**, and add
 territories with **Postal prefixes**, **Municipality codes** and **Radius (km)**.
 **Capacity plans** are shown in the capacity view but are not edited in
-**Settings** in 0.8.5. The same applies to skills, absence and working hours:
+**Settings** in 0.8.9. The same applies to skills, absence and working hours:
 dispatch and booking use them, but they have no separate form in **Settings**.
 
 ## Agreements, SLA and price lists
@@ -466,7 +514,7 @@ contains at least one deviation, the system automatically creates **one undated
 remediation work order** titled “Utbedring av avvik – …”. It inherits customer,
 department and contact, gets the submitter as technician, and describes the
 units and checkpoints. The generated title is Norwegian (“Utbedring av avvik –
-…”) in 0.8.5, even when the interface is English.
+…”) in 0.8.9, even when the interface is English.
 
 > **Note:** If a photo or signature is missing from the finished PDF, the PDF
 > shows a warning with the number of images that could not be loaded. The usual
@@ -551,6 +599,13 @@ conversation** from a work order. **Quick messages** sends
 **Send booking confirmation**, **Send reminder**, **Send on my way**,
 **Send completed** or **Request review**. **Consent and opt-out** shows
 **Consent registered** or **Not registered**; without consent no SMS is sent.
+Each outgoing message shows **Status** (Queued, Sent, Delivered or Failed).
+Threads are scoped to your department; portal users see only their own.
+
+An administrator can configure **Automatic reminders** under **Settings → SMS**.
+Rules send SMS, email or both a chosen number of hours before the visit, with
+quiet hours and a maximum per visit. **Recent reminders** shows what is planned,
+sent or skipped — without the message text.
 
 ## Customer portal from the office
 
@@ -605,6 +660,60 @@ users who have left, and review equipment without readings or with expired
 warranty. SLA policies, business hours, holidays and price lists are managed by
 an administrator; ask for changes when needed.
 
+## Customer transfer (administrator only)
+
+The **Customer transfer** tab is under **Settings** and is shown only to an
+active administrator who also has **Manage settings**. Office staff,
+technicians and portal users get `403` even if they call the route directly. The
+tab moves one or more customers between installations; it is not a backup.
+
+**Export**
+
+1. Open **Settings → Customer transfer**, search for the customer and tick it.
+2. Choose whether files, revision snapshots, deleted rows and legal hold should
+   be included. Signature images are off by default and require a documented
+   assessment.
+3. Read the personal-data notice and tick the confirmation.
+4. Select **Start export**. You get a ZIP with `manifest.json`,
+   `checksums.sha256`, data files and files. The package is available for 24
+   hours and can only be downloaded by you.
+5. Optionally verify manually with `sha256sum -c checksums.sha256`. The
+   checksums detect corruption but do not prove who created the package.
+
+The package never contains passwords, password hashes, 2FA secrets, sessions or
+API keys. Portal users follow as metadata and are imported deactivated without
+a password.
+
+**Import**
+
+1. Upload the ZIP. The server validates structure, checksums, file types and
+   references, and shows a preview. Nothing is written yet.
+2. Review counts, warnings and errors. Errors block the import. For conflicts,
+   choose **skip** (default), **create new** or — for customer and equipment —
+   **update**. Reports are never updated.
+3. Tick the confirmation and select **Import the package**. All rows and files
+   are written in one transaction; if anything fails, the database is unchanged
+   and temporary files are cleaned up.
+4. After import, each portal user has a new id, is deactivated and has no
+   password. Send a normal invitation or reset the password before sign-in.
+   Employees and templates are never created automatically.
+
+**Repeated attempts and errors:** export is idempotent. The same administrator,
+the same customer selection and the same choices within ten minutes reuse the
+same job instead of starting a new one, so a double click does not consume
+another attempt. There are at most 10 export starts per hour; exceeding the
+limit gives a clear message to wait. Errors are stored on the job and shown in
+the interface, so you can correct the cause and try again without guessing. The
+preview is valid for 30 minutes; if the package or selection changed since it
+was shown, upload and preview again. Import errors block writing, and an
+aborted import rolls back the whole transaction and cleans up temporary files.
+
+**Limits:** the package is limited to 500 MiB and 50 MiB per file, and the
+export runs synchronously. Global documents without a customer or unit owner
+are not included. Signatures, SLA clocks, bookings, notifications, SMS,
+tracking and report drafts are deliberately excluded. See
+`docs/backlog-customer-export-import.md` for the full list.
+
 ## Interface with the technician and administrator parts
 
 | The office does | The technician does | Where it is described |
@@ -635,3 +744,6 @@ restoration. See the administrator part (Part 3).
 | SLA is not shown | No active policy | Link a policy to the agreement or department |
 | Price list does not invoice | Reference data | Invoice outside the platform |
 | Attachment is not in the portal | Work order attachments are internal | Add the file to the customer card → **More** → **Attachments** |
+| Unit cannot be moved | Active contract lines, number conflict, cross-customer reference or invalid target | Read the blocker in the preview, clear the contract line, or choose the right customer/site |
+| Upload is rejected | File too large, user/customer quota reached, or proxy limit | Check file size, `UPLOAD_QUOTA_*`, disk and the proxy body limit |
+| Customer transfer does not start | 10 starts per hour used up, an existing job is reused, or the preview expired | Wait, follow the existing job, or upload and preview the package again |

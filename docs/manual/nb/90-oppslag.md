@@ -1,6 +1,6 @@
 # Oppslag, begreper og feilsøking
 
-*Gjelder FSM-plattformen versjon 0.8.5, 31. oktober 2026.*
+*Gjelder FSM-plattformen versjon 0.8.9, 4. november 2026.*
 
 Dette kapitlet forklarer rettigheter, statuser og begreper på tvers av rollene, viser hvordan funksjonene henger sammen, og hjelper deg å finne hvor du skal lete når noe mangler.
 
@@ -166,12 +166,16 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 | **Offline-kladden synkroniseres ikke** | Er du på samme enhet, i samme nettleser og som samme bruker? Er appen åpnet på nytt med nett? Ligger kladden i utboksen? Er den eldre enn sju dager, for stor, eller avvist fordi rapporten er låst? | Feltflaten → offline-banner og kladdeliste; nettleserens lagring |
 | **Montøren ser ikke oppdraget** | Er oppdraget i montørens avdeling? Er det tildelt, eller står det som ledig? Er det fullført eller kansellert? Er datoen riktig? Har montøren «Ta oppdraget»-tilgang? | «I dag»; «Oppdrag»; «Kalender» |
 | **En handling er avvist med «ikke tilgang»** | Har brukeren riktig rolle og rettighet? Er brukeren i riktig avdeling? Er kontoen aktiv? Er oppdraget låst eller under bevaringsplikt? | «Innstillinger» → «Ansatte & Roller»; oppdragets aktivitetslogg |
+| **Steder eller enheter fra feil kunde vises** | Feil kunde er valgt, eller siden ble ikke lastet på nytt etter kundebytte | Bytt kunde på nytt, last siden på nytt, og kontroller at valget er lagret |
+| **Enhet kan ikke flyttes** | Aktive kontraktslinjer, nummerkonflikt, krysskundereferanse eller ugyldig målkunde | Les blokkeringen i forhåndsvisningen, rydd avtalelinjen eller velg riktig kunde/sted |
+| **Opplasting avvises** | For stor fil, bruker-/kundekvote nådd, eller proxygrense | Sjekk filstørrelse, `UPLOAD_QUOTA_*`, disk og proxyens body-grense |
+| **Kundeoverføring starter ikke** | 10 starter per time er brukt opp, en pågående jobb gjenbrukes, eller forhåndsvisningen er utløpt | Vent, følg den eksisterende jobben, eller last opp og forhåndsvis pakken på nytt |
 
 ### Kundeportal: tilgang er mer enn innlogging
 
 En portalbruker er alltid koblet til en kontaktperson hos en kunde. Kontakten kan ha en delegasjon med egne valg for bestilling, dokumenter, avtaler og utstyr. En inaktiv delegasjon stenger portalen helt. En kontakt uten delegasjonsrad har full portaltilgang for bakoverkompatibilitet. Kontroller at brukeren er aktiv og har riktig kunde, at kontakten tilhører samme kunde, at delegasjonen er aktiv, og at deltilgangen for området som mangler, er slått på.
 
-> **Merk:** I 0.8.5 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
+> **Merk:** I 0.8.9 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
 
 ### Kalender, rapporter og avtaler
 
@@ -228,12 +232,16 @@ Feltflaten lagrer kladder lokalt når nettet forsvinner. Kladden sendes når app
 | Omtale | Review | Intern kundetilbakemelding etter besøk |
 | Kundeportal | Customer portal | Kundens egen flate |
 | Kladd | Draft | Lokalt lagret, ikke innsendt skjema |
+| Kundeadskillelse | Customer scoping | Steds- og enhetsvalg er begrenset til valgt kunde |
+| Enhetsflytting | Equipment move | Flytting av enhet med servicehistorikk til ny kunde |
+| Kundeoverføring | Customer transfer | Administratorens eksport/import av kundepakke |
+| Kontorinnboks | Office inbox | Samlede SMS-samtaler for kontoret |
 
 ## Informasjon til support
 
 Når du melder en feil, hjelper det å samle informasjonen under. Skriv kort hva du gjorde, hva du forventet, og hva som faktisk skjedde.
 
-- **Versjon:** FSM-plattformen 0.8.5, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
+- **Versjon:** FSM-plattformen 0.8.9, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
 - **Tidspunkt:** Dato og klokkeslett med tidssone, helst Europe/Oslo.
 - **Bruker:** E-post, rolle, avdeling og eventuell kunde. Oppgi aldri passord eller engangskoder.
 - **Sak:** Oppdragsnummer eller -ID, tittel, kunde og dato. For rapport: rapportnummer eller -ID. For booking: referanse. For avtale: avtalenummer.

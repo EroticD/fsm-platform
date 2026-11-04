@@ -1,6 +1,6 @@
 # Introduction and system overview
 
-*Applies to FSM Platform version 0.8.5, 31 October 2026.*
+*Applies to FSM Platform version 0.8.9, 4 November 2026.*
 
 ## What FSM Platform is
 
@@ -20,6 +20,39 @@ This manual uses four standard roles. An administrator can create custom roles a
 | **Customer portal user** | Customer or contact | Books service, follows visits, reads reports and views their own equipment | Their own customer, with the portal access granted |
 
 > **Note:** "Office" is a role, not a physical place. A service manager can work from a phone and still have the office role.
+
+## What's new in 0.8.9
+
+- **Two-way SMS, office inbox and reminders.** Incoming SMS lands in the same
+  conversation as outgoing messages, with delivery status and STOP/START
+  consent. The office reads and replies under **Messages**, and an administrator
+  can configure automatic SMS/email reminders with quiet hours and a per-visit
+  cap. See the [office chapter](10-office.md) and the
+  [administrator chapter](30-administrator.md).
+- **SSO and SCIM.** OIDC sign-in with Microsoft Entra ID, Keycloak, Authentik or
+  Zitadel, plus SCIM 2.0 user provisioning. Password sign-in remains the
+  break-glass path. See the [administrator chapter](30-administrator.md).
+- **Field app camera and QR.** Scanning works on iOS and Android over HTTPS,
+  using the browser barcode API where available and a fallback elsewhere. Manual
+  codes, navigation and existing QR labels from other systems are supported. See
+  the [technician chapter](20-technician.md).
+- **PDF in the app or as a download.** Reports and revisions can be shown safely
+  in the app's PDF viewer after sanitisation. Direct links and **Download PDF**
+  still produce a file. See the [office chapter](10-office.md).
+- **Customer transfer.** An administrator can export and import customer
+  packages as ZIP, with preview, checksums and a single import transaction. See
+  the [office chapter](10-office.md).
+- **Route planning and live ETA.** The route planner suggests driving order,
+  drive time, distance and waiting time, with optional OSRM and a local fallback.
+  The tracking page states how fresh the position is. See the
+  [office chapter](10-office.md) and the [administrator chapter](30-administrator.md).
+- **Customer scoping and equipment moves.** Site and unit pickers load data only
+  for the selected customer. A unit can be moved to another customer with its
+  service history, after a preview and contract checks. See the
+  [office chapter](10-office.md).
+- **Upload limits and quotas.** 15 MB per image, 50 MB per PDF, 2 GiB per user
+  per day and 10 GiB per customer. The limits can be adjusted in the
+  environment. See the [administrator chapter](30-administrator.md).
 
 ## How the system is put together
 
@@ -111,7 +144,7 @@ The role chapters describe each step in detail. Here you can see how the roles a
 1. **The administrator** enables live tracking for the department. It is off by default and applies only to visits in that department.
 2. **The technician** sets the visit to "On the way" and can share position. The customer opens the tracking link from "Visits" or receives it separately.
 3. **The customer portal user** sees the first name, status and estimated arrival. The position is never shown as a map or coordinates, and the link expires when the visit is finished or after two hours.
-4. **The customer** can leave an internal review after the visit is completed. Reviews are internal and never published; they are not shown as a separate dashboard in 0.8.5.
+4. **The customer** can leave an internal review after the visit is completed. Reviews are internal and never published; they are not shown as a separate dashboard in 0.8.9.
 
 ### 5. Permissions, notifications and audit across all flows
 
@@ -170,7 +203,7 @@ The manual has an introduction, three role chapters and a reference section. You
 - **Note** explains something that is easy to misunderstand. **Tip** is a shortcut or good practice. **Warning** means the action can lead to data loss or errors.
 - Dates and times are shown in Europe/Oslo with a 24-hour clock. "Today" means the day in that time zone.
 - When a time or date is missing, the system shows "Time not set" or "No date". That does not mean the value is midnight or that the job has been forgotten.
-- Service report PDFs use Norwegian labels in 0.8.5, even when the interface is in English. Contract PDFs can be generated in the selected language.
+- Service report PDFs use Norwegian labels in 0.8.9, even when the interface is in English. Contract PDFs can be generated in the selected language.
 
 > **Warning:** A submitted and locked report should not be changed without a good reason. Unlocking requires an administrator and a reason, and every change is recorded in the audit log.
 

@@ -1,6 +1,6 @@
 # Administrator
 
-Gjelder FSM-plattformen **0.8.5** (2026-10-31). Målgruppen er systemadministratorer som konfigurerer plattformen, administrerer brukere og tilganger, setter opp integrasjoner og har ansvar for data, sikkerhet og drift. Kapitlet beskriver konfigurasjon og governance. Daglige arbeidsflyter for kontor, tekniker og kundeportal står i egne kapitler.
+Gjelder FSM-plattformen **0.8.9** (2026-11-04). Målgruppen er systemadministratorer som konfigurerer plattformen, administrerer brukere og tilganger, setter opp integrasjoner og har ansvar for data, sikkerhet og drift. Kapitlet beskriver konfigurasjon og governance. Daglige arbeidsflyter for kontor, tekniker og kundeportal står i egne kapitler.
 
 ## 1. Administratorrollen og delegering
 
@@ -58,12 +58,27 @@ Brukeren opprettes inaktiv. Du får en bekreftelse på at invitasjonen er sendt,
 
 ### Endre passord, 2FA og gjenopprettingskoder
 
-1. For å bytte passord, logg ut og bruk **Glemt passord** på innloggingssiden. 0.8.5 har ingen egen «endre passord»-side. Lenken er gyldig i én time, og alle andre økter avvises når passordet er satt.
+1. For å bytte passord, logg ut og bruk **Glemt passord** på innloggingssiden. 0.8.9 har ingen egen «endre passord»-side. Lenken er gyldig i én time, og alle andre økter avvises når passordet er satt.
 2. Gå til **Innstillinger → Sikkerhet** for å slå på **To-trinns verifisering**. Skann QR-koden med autentiseringsappen og skriv den 6-sifrede koden.
 3. Lagre **Gjenopprettingskodene** på et sikkert sted. De vises bare én gang, og hver kode kan brukes én gang. **Lag nye koder** gjør de gamle ugyldige.
 4. Bruk **Logg ut** på delte enheter. Ved mistanke om misbruk: bytt passord via **Glemt passord** og tilbakestill 2FA.
 
 Administrator kan tilbakestille 2FA for en bruker, men ikke se passordet. En tilbakestilling sletter gjenopprettingskodene og logger ut alle økter.
+
+### SSO og SCIM
+
+SSO konfigureres med `SSO_PROVIDERS` og `SSO_<SLUG>_*`-variablene, ikke i
+grensesnittet. Entra ID, Keycloak, Authentik og Zitadel støttes med OIDC,
+PKCE, state/nonce og verifisert e-post. Redirect-URL-en er
+`https://<NEXTAUTH_URL>/api/auth/callback/sso-<slug>`. Etter restart viser
+**Innstillinger → SSO og SCIM** leverandørens status, issuer, standardrolle og
+tillatte domener. Passordinnlogging blir alltid stående som break-glass.
+
+SCIM 2.0 ligger på `/api/scim/v2` og bruker et eget Bearer-token som opprettes,
+roteres og tilbakekalles i samme fane. `DELETE` deaktiverer brukeren uten å
+slette den, og `ADMIN` krever både eksplisitt gruppemapping og
+`SCIM_ALLOW_ADMIN=true`. Full oppskrift, feltmapping og feilsøking står i
+[SSO og SCIM](31-sso-scim.md).
 
 ## 4. Roller og rettigheter
 
@@ -116,7 +131,7 @@ Portalbrukere ser aldri andre kunder, interne notater, interne rettigheter, klad
 
 **Sikkerhet:** Bruk egne kontoer per person. **Deaktiver** når noen slutter; det logger ut, sletter kalenderabonnementet og tilbakekaller portaltilgangen. Sletter du kunden, deaktiveres alle portalbrukere, øktene ugyldiggjøres og booking stenges. Ved gjenoppretting må hver portalbruker aktiveres bevisst på nytt. En portalbruker må alltid ha gyldig kontakt på samme kunde.
 
-**Delegasjon:** Portalen har serverhåndhevede kapabiliteter for booking, dokumenter, avtaler og utstyr, men 0.8.5 har ikke eget skjema for å redigere dem. En kontakt uten delegasjonsrad får full portaltilgang. Begrenset portal må settes opp og testes med den aktuelle kontoen.
+**Delegasjon:** Portalen har serverhåndhevede kapabiliteter for booking, dokumenter, avtaler og utstyr, men 0.8.9 har ikke eget skjema for å redigere dem. En kontakt uten delegasjonsrad får full portaltilgang. Begrenset portal må settes opp og testes med den aktuelle kontoen.
 
 ## 6. Sjekklister og maler
 
@@ -172,7 +187,7 @@ kategori **HMS-skjema**.
 
 **Rapportnummer:** HMS-rapporter får automatisk `abc1234` (tre små bokstaver og fire tall) ved første innsending. Nummeret beholdes ved revisjoner. Vanlige servicerapporter har ikke automatisk nummer.
 
-**PDF og merkevare:** PDF-en bruker firmanavn, logo og primærfarge fra **Merkevare**, lagres som `WORK_ORDER`-opplasting og krever `reports.view`. Svaret er `no-store`. Merkevaren inngår i PDF-hashen, så endringer slår inn neste gang PDF-en genereres. Rapport-PDF-etikettene er norske i 0.8.5; avtale-PDF har etiketter for alle fire språk. Tittelen på automatiske utbedringsoppdrag er også norsk («Utbedring av avvik – …»).
+**PDF og merkevare:** PDF-en bruker firmanavn, logo og primærfarge fra **Merkevare**, lagres som `WORK_ORDER`-opplasting og krever `reports.view`. Svaret er `no-store`. Merkevaren inngår i PDF-hashen, så endringer slår inn neste gang PDF-en genereres. Rapport-PDF-etikettene er norske i 0.8.9; avtale-PDF har etiketter for alle fire språk. Tittelen på automatiske utbedringsoppdrag er også norsk («Utbedring av avvik – …»).
 
 **Bevaringsplikt og retensjon:** Bevaringsplikt hindrer hard sletting og fryser rapporten. På oppdrag arver alle rapporter flagget. Å slå av krever grunn og frigjør ikke rapportenes egne flagg; **Rapport-hold** oppheves per rapport med egen grunn. Mykt slettede oppdrag kan hard-slettes etter `RETENTION_DAYS` (standard 365) bare når de ikke har rapporter. Oppdrag med rapporter beholdes på ubestemt tid. **Papirkurv** og **Gjenopprett** er bare for administrator.
 
@@ -202,17 +217,17 @@ SMS sendes bare når mottakeren har `optedIn = true` og `optedOut = false`; STOP
 
 **Sporing:** Av som standard per avdeling. Slå på i **Avdelinger → Rediger avdeling → Aktiver live-sporing** etter en DPIA, fordi montørens posisjon er en personopplysning. Tildelt montør kan dele posisjon mens visitten er `EN_ROUTE`. Offentlig lenke viser bare fornavn, status, ETA, planlagt tid og sist oppdatert – aldri koordinater, kart eller historikk. Ping lagres i maks 24 timer og slettes ved `DONE`/`CANCELLED`. Lenken lever til visittens slutt pluss to timer, gir 404 etter utløp. Det er én aktiv lenke per visitt. `TRACKING_AVERAGE_SPEED_KMH` (standard 50) styrer reserveberegningen. Med `OSRM_BASE_URL` brukes ekstern ruteleverandør for ETA; uten den beregnes ETA lokalt. Et ping eldre enn ti minutter vises som **sist kjente posisjon**, ikke som live. Den offentlige ETA-ruten polles hvert 30. sekund og har egen rate limit per token.
 
-**Omtaler:** Interne, publiseres ikke. Kunden kan be om omtale i portalen etter fullført visitt, eller kontoret kan sende SMS med «Be om vurdering». Omtalen krever fullført visitt, kan sendes én gang og lagres med hashet token. Omtalene er ikke vist som eget dashboard i 0.8.5.
+**Omtaler:** Interne, publiseres ikke. Kunden kan be om omtale i portalen etter fullført visitt, eller kontoret kan sende SMS med «Be om vurdering». Omtalen krever fullført visitt, kan sendes én gang og lagres med hashet token. Omtalene er ikke vist som eget dashboard i 0.8.9.
 
 ## 10. Merkevare, kart, språk og varsler
 
-**Dispatch og arbeidsstyrke:** Under **Innstillinger → Dispatch** settes **Fordelingsregler** (vekter for kompetanse, avstand, reisetid, ledighet, SLA og belastning) og **Territorier**. Vektene er relative. **Kapasitetsplaner** vises i **Kalender → Kapasitet**, men redigeres ikke i **Innstillinger** i 0.8.5. Kompetanse, fravær og arbeidstid brukes av forslagene, men har heller ikke eget skjema i **Innstillinger**; hold dataene oppdatert utenfor grensesnittet.
+**Dispatch og arbeidsstyrke:** Under **Innstillinger → Dispatch** settes **Fordelingsregler** (vekter for kompetanse, avstand, reisetid, ledighet, SLA og belastning) og **Territorier**. Vektene er relative. **Kapasitetsplaner** vises i **Kalender → Kapasitet**, men redigeres ikke i **Innstillinger** i 0.8.9. Kompetanse, fravær og arbeidstid brukes av forslagene, men har heller ikke eget skjema i **Innstillinger**; hold dataene oppdatert utenfor grensesnittet.
 
 **Merkevare:** Under **Innstillinger → Merkevare** setter du **Firmanavn**, **Hovedfarge (Hex-kode)** og **Firmalogo (valgfritt)**. Logoen må lastes opp gjennom appen; eksterne URL-er avvises. Den brukes i rapporter, e-post og dashbordheader, og gjelder kontor og kundeportal, ikke feltappens mørke flate. Kunder kan ha egen farge og logo i portalen.
 
 **Kart og geokoding:** Under **Innstillinger → Kart** velger du **Kartleverandør**. **OpenStreetMap (ingen nøkkel)** er standard; **MapTiler** og **Mapbox** krever **API-nøkkel**. Nøkkelen lagres på serveren og sendes bare til kartet i nettleseren; bruk en domenebegrenset nøkkel. Du kan sette **Standardkartlag**, **Standard zoom (2–19)**, **Senter** og **Aktiver zoom med scrollhjulet**. Geokoding er på som standard (`GEOCODE_ENABLED=true`) via OpenStreetMap/Nominatim; sett `GEOCODE_USER_AGENT`, eller slå av med `GEOCODE_ENABLED=false`.
 
-**Språk:** Norsk, engelsk, polsk og tysk har komplette kataloger. Språkvelgeren i topplinjen lagrer `NEXT_LOCALE`-cookien og bruker `router.refresh()`, uten URL-prefiks. Datoer og tall følger `nb-NO`, `en-GB`, `pl-PL` og `de-DE`. SMS bruker mottakerens kontakt-`locale`; e-postvarsler bruker brukerens `locale`. Rapporter har norske PDF-etiketter i 0.8.5; oversettelser redigeres i `messages/` og kontrolleres med `npm run check:i18n`.
+**Språk:** Norsk, engelsk, polsk og tysk har komplette kataloger. Språkvelgeren i topplinjen lagrer `NEXT_LOCALE`-cookien og bruker `router.refresh()`, uten URL-prefiks. Datoer og tall følger `nb-NO`, `en-GB`, `pl-PL` og `de-DE`. SMS bruker mottakerens kontakt-`locale`; e-postvarsler bruker brukerens `locale`. Rapporter har norske PDF-etiketter i 0.8.9; oversettelser redigeres i `messages/` og kontrolleres med `npm run check:i18n`.
 
 **Varsler:** In-app og e-post. Hver bruker velger hendelser og kanaler under **Varsler → Innstillinger**; det finnes ingen global standard. Sørg for at SMTP er konfigurert. E-postkoen ligger i `Notification`, prøver fem ganger med backoff, hopper over deaktiverte brukere og bruker en lease (en tidsbegrenset lås) mot dobbeltsending. Varseltyper inkluderer tildeling, datoendring, kansellering, rapport klar, booking, avtale, forfalt, kontaktoppdatering, SLA og garanti.
 
@@ -242,7 +257,7 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 
 ## 12. Aktivitetslogg, personvern og data
 
-**Aktivitetslogg:** **Innstillinger → Aktivitetslogg** viser systemhendelser, sikkerhetshendelser som feilede 2FA-forsøk og brukeraktivitet med søk, **Fra dato** og **Til dato**, 50 rader per side. Oppdrag og kunder har egne aktivitetsfaner; rapporter har revisjoner. Loggen skrives i samme transaksjon som mutasjonen, kan ikke redigeres eller slettes i grensesnittet, og er ikke hash-kjedet i 0.8.5.
+**Aktivitetslogg:** **Innstillinger → Aktivitetslogg** viser systemhendelser, sikkerhetshendelser som feilede 2FA-forsøk og brukeraktivitet med søk, **Fra dato** og **Til dato**, 50 rader per side. Oppdrag og kunder har egne aktivitetsfaner; rapporter har revisjoner. Loggen skrives i samme transaksjon som mutasjonen, kan ikke redigeres eller slettes i grensesnittet, og er ikke hash-kjedet i 0.8.9.
 
 **Personvern:** Samle bare nødvendige data, bruk avdelings- og kundeomfang, og gi `reports.viewAllDepartments` bare ved behov. Bruk egne portalbrukere og deaktiver ved avslutning. Vurder DPIA før sporing i en ny avdeling; sporing er opt-in, begrenset til `EN_ROUTE`, viser ikke rute eller koordinater og sletter ping etter 24 timer. Innhent SMS-samtykke, og hold omtaler interne. Kundesletting deaktiverer portalbrukere og stenger booking; gjenoppretting krever manuell reaktivering.
 
@@ -260,9 +275,9 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 
 **Jobber:** `RECURRING_SCHEDULER=true` kjører serviceavtaler og vedlikeholdsplaner hver sjette time og ved oppstart. `POST /api/cron/recurring` og `/api/cron/cleanup` krever `Authorization: Bearer <CRON_SECRET>`. `PDF_JOB_WORKER` styrer OCR/dokumentjobber med maks to samtidige per instans; rapport-PDF-er rendres i prosessen med en egen samtidighetsgrense. `SMS_WORKER` er uavhengig.
 
-**Opplasting og OCR:** Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`). `/uploads/...` krever innlogging og sjekker `Upload`-raden. Grensene er 15 MB for bilder og 50 MB for PDF. Det finnes ingen per-bruker- eller per-kunde-kvote. OCR bruker `TESSDATA_DIR` og `/tmp`; store PDF-er kan fylle `/tmp`, og da feiler jobben uten å fylle rotfilsystemet. Sjekk `DocumentJob`, `PDF_JOB_WORKER` og disk.
+**Opplasting og OCR:** Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`). `/uploads/...` krever innlogging og sjekker `Upload`-raden. Grensene er 15 MB for bilder og 50 MB for PDF. I tillegg gjelder en rullerende døgnkvote på 2 GiB per bruker og 10 GiB samlet lagring per kunde. Juster med `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt ha egen body-grense (55 MB i Caddy-eksempelet). Over kvoten får brukeren en tydelig feil, og opplastingen skrives ikke. OCR bruker `TESSDATA_DIR` og `/tmp`; store PDF-er kan fylle `/tmp`, og da feiler jobben uten å fylle rotfilsystemet. Sjekk `DocumentJob`, `PDF_JOB_WORKER` og disk.
 
-**Miljøvariabler:** De viktigste er `DATABASE_URL`, `NEXTAUTH_URL`, `APP_URL`, `NEXTAUTH_SECRET`, `SMTP_*`, `SMS_*`, `PDF_JOB_WORKER`, `RECURRING_SCHEDULER`, `CRON_SECRET`, `READY_SECRET`, `RETENTION_DAYS`, `UPLOAD_*`, `TESSDATA_DIR`, `GEOCODE_*`, `TRACKING_AVERAGE_SPEED_KMH`, `TRUST_PROXY` og `BACKUP_*`. `.env` skal ha `chmod 600`, aldri committes eller deles. Endringer krever ny deploy eller restart.
+**Miljøvariabler:** De viktigste er `DATABASE_URL`, `NEXTAUTH_URL`, `APP_URL`, `NEXTAUTH_SECRET`, `SMTP_*`, `SMS_*`, `SSO_*`, `SCIM_*`, `PDF_JOB_WORKER`, `RECURRING_SCHEDULER`, `CRON_SECRET`, `READY_SECRET`, `RETENTION_DAYS`, `UPLOAD_*`, `TESSDATA_DIR`, `GEOCODE_*`, `ROUTING_*`, `TRACKING_AVERAGE_SPEED_KMH`, `TRUST_PROXY` og `BACKUP_*`. `.env` skal ha `chmod 600`, aldri committes eller deles. Endringer krever ny deploy eller restart.
 
 **Sjekk før eskalering:** Er `/api/health` 200 og `/api/ready` 200/503? Er `app` `healthy`, og øker `RestartCount`? Hva sier loggen? Svarer Postgres? Er det ledig disk og skrivbart opplastingsvolum? Står `DocumentJob`, `Notification` eller `SmsMessage` fast? Stoppet appen på `REQUIRE_BACKUP_BEFORE_MIGRATE`? Ta med `requestId`, tidspunkt og feilmelding – aldri hemmeligheter eller persondata.
 
@@ -292,6 +307,8 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 | Rapport kan ikke låses opp | Bevaringsplikt eller manglende administrator. | Opphev hold med grunn, eller bruk administrator. |
 | SMS sendes ikke | `console`, manglende samtykke, allowlist eller grense. | Sett leverandør, registrer samtykke, kontroller grensen. |
 | SMS-webhook avviser | `SMS_WEBHOOK_SECRET` mangler eller signatur er feil. | Sett hemmeligheten og kontroller signaturen. |
+| Opplasting avvises med kvote | Bruker- eller kundekvoten er nådd, eller proxyen avviser body. | Sjekk `UPLOAD_QUOTA_*`, disk og proxyens body-grense; rydd ubrukte vedlegg. |
+| Enhet kan ikke flyttes | Aktive kontraktslinjer, nummerkonflikt eller krysskundereferanse. | Rydd avtalelinjene, velg annet oppdragsnummer eller kontroller forhåndsvisningen. |
 | SLA har feil frist | Feil policy, åpningstider eller helligdag. | Kontroller policy, avdeling og kalender. |
 | API gir `401`/`403`/`429` | Utløpt nøkkel, manglende rettighet eller rate limit. | Lag ny nøkkel, gi rettighet, eller vent på `Retry-After`. |
 | `/api/ready` gir 503 | Database, opplastingsvolum eller jobbkø. | Sjekk Postgres, `UPLOAD_DIR`, disk og kø. |

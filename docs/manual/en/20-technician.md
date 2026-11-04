@@ -1,6 +1,6 @@
 # Technician
 
-The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.8.5 (2026-10-31).
+The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.8.9 (2026-11-04).
 
 The bottom bar has **Today** (`/mine-oppdrag`), **Work orders**, **Notifications** and **More**. **More** opens the same menu as the hamburger button at the top. Language, notification sound, reports, customers/equipment and settings are in that menu.
 
@@ -34,7 +34,7 @@ You cannot change your password in the field app. Sign out and use **Forgot pass
 2. Scroll to the bottom. **Change language** is there.
 3. Choose **Norsk**, **English**, **Polski** or **Deutsch**.
 
-The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.8.5.
+The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.8.9.
 
 ### Install the field app (PWA)
 
@@ -61,6 +61,18 @@ The camera requires the app to be opened over **HTTPS** (a secure address). On a
 - **The code is not read:** Hold the label steadier, avoid backlight and make sure there is enough light. The app keeps looking and shows a separate message if the image cannot be decoded.
 
 If the browser has no camera support at all, a message says so – but on iPhone and Android the fallback scanner should be available as long as the app runs over HTTPS and you have granted camera access.
+
+The app accepts unit QR codes, unit IDs, work order references (for example
+`O-261103-ABCD1234`) and order numbers. An unknown code, missing access and
+repeated scans give an explanation instead of opening the wrong page. Access
+is checked again on the server; a scan never grants more access than you
+already have.
+
+If the customer already has QR labels from another system, they work too: the
+office registers the existing value under **Existing QR codes** on the unit.
+You scan the label the same way as our own, and the app opens the unit if you
+have access. The value is an opaque string – the app never follows a link or
+fetches content from the internet.
 
 ### Before you lose the network
 
@@ -125,9 +137,9 @@ Open a card to reach `/mine-oppdrag/<work-order-id>`. At the top is a dark job p
 
 ### Customer, contact, address and map
 
-**Quick actions** give you **Call contact**, **Map**, **Customer**, **Equipment** and **Documents**. **Call contact** uses the work order contact first, then the customer contact or main phone. **Map** opens the address in Google Maps in a new tab and is hidden when no address exists.
+**Quick actions** give you **Call contact**, **Map**, **Customer**, **Equipment** and **Documents**. **Call contact** uses the work order contact first, then the customer contact or main phone. **Map** opens the device's map app: Apple Maps on iPhone/iPad, Google Maps or the chosen map app on Android, and Google Maps in the browser on a desktop. It uses coordinates when available, otherwise a URL-encoded address, and is hidden when both are missing.
 
-**Location and contact** shows the full address, company phone, the work order contact and the customer's other contacts with phone and email. If data is missing, it says **Not provided** or **No specific contact person is registered on this work order or customer.**
+**Copy address** puts the full address on the clipboard. **Location and contact** shows the full address, company phone, the work order contact and the customer's other contacts with phone and email. If data is missing, it says **Not provided** or **No specific contact person is registered on this work order or customer.**
 
 ### Visit: start driving, on site, complete
 
@@ -259,6 +271,23 @@ The report is locked, local draft and outbox entries are cleared, and the form p
 
 If **Mark the work order as completed** is checked, the work order is set to **Completed** in the same transaction. Correction requires an administrator to unlock the report with a reason. A new submission creates a revision and resets any customer acknowledgement.
 
+### PDF in the app or as a download
+
+**View report (PDF)** opens the report in the app's own PDF viewer. There you can
+scroll, zoom and close without leaving the work order. **Download PDF** creates a
+file you can send or save. A direct link to the PDF route always downloads,
+because only the app's own viewer asks for inline display.
+
+The PDF is sanitised before it is shown. If it contains active content that
+cannot be removed safely, the viewer shows an error with **Try again** and
+download instead of opening anything unsafe. The report data and the lock are
+unchanged. If an image or signature is missing, the PDF shows a warning with the
+number of images that could not be loaded; re-upload the image from the report
+and generate the PDF again.
+
+Open any PDFs you need while online. PDF viewing requires a connection, and a
+direct download should be made before you lose coverage.
+
 ## Offline, drafts and the outbox
 
 ### Autosave
@@ -324,7 +353,8 @@ A 401/403 means the session or access is gone, not that the draft is broken. The
 | **Cannot complete with swipe** | No name, deviation, or missing required field | Fill in the field, upload the photo, or use **Deviation found** |
 | **2FA code fails** | Wrong code, clock drift, used code | Wait for a new code, check the clock, use an unused recovery code, or ask for a reset |
 | **Visit buttons missing / status locked** | Visit or work order closed, or no permission | Contact the office; only open visits and work orders can be changed |
-| **PDF or offline page missing** | No network, report, access, or cache | Get online, open **View report (PDF)**, reopen the job online |
+| **PDF or offline page missing** | No network, report, access, cache, or active content that cannot be sanitised | Get online, open **View report (PDF)**, download the file, reopen the job online |
+| **Image missing from the PDF** | File deleted, missing metadata, or owned by another work order | Re-upload the image from the report and generate the PDF again |
 
 ## How technician work connects to the rest
 
