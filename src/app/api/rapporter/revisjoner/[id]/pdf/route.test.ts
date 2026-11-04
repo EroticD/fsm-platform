@@ -19,8 +19,8 @@ vi.mock("@/lib/report-pdf", () => ({
 
 import { GET } from "./route";
 
-function call() {
-  return GET(new Request("http://localhost/api/rapporter/revisjoner/rev1/pdf"), {
+function call(path = "/api/rapporter/revisjoner/rev1/pdf") {
+  return GET(new Request(`http://localhost${path}`), {
     params: Promise.resolve({ id: "rev1" }),
   });
 }
@@ -51,12 +51,49 @@ beforeEach(() => {
 });
 
 describe("GET /api/rapporter/revisjoner/[id]/pdf", () => {
-  it("leverer revisjons-PDF som vedlegg", async () => {
+  it("leverer revisjons-PDF som vedlegg som standard", async () => {
     const response = await call();
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-disposition")).toMatch(/^attachment;/);
     expect(response.headers.get("content-disposition")).not.toContain("inline");
+  });
+
+  it("leverer revisjons-PDF inline når viseren ber om det", async () => {
+    const response = await call(
+      "/api/rapporter/revisjoner/rev1/pdf?inline=1",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toMatch(/^inline;/);
+    expect(response.headers.get("content-disposition")).not.toContain(
+      "attachment",
+    );
+  });
+
+  it("avviser revisjons-PDF uten gyldig økt", async () => {
+    mocks.getCurrentUser.mockResolvedValue(null);
+
+    const response = await call();
+
+    expect(response.status).toBe(403);
+  });
+
+  it("avviser aktivt innhold også for inline-visning", async () => {
+    process.env.QPDF_PATH = "qpdf-finnes-ikke";
+    mocks.renderReportRevisionPdf.mockResolvedValue({
+      buffer: Buffer.from(
+        "%PDF-1.7\n1 0 obj << /OpenAction << /S /JavaScript /JS (x) >> >>\n%%EOF\n",
+      ),
+      fileName: "Revisjon 1",
+    });
+
+    const response = await call(
+      "/api/rapporter/revisjoner/rev1/pdf?inline=1",
+    );
+
+    expect(response.status).toBe(422);
+    expect(response.headers.get("content-disposition")).toBeNull();
   });
 
   it("avviser aktivt innhold når qpdf mangler", async () => {

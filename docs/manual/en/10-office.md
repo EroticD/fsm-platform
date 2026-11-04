@@ -442,7 +442,12 @@ correction** or **Unsigned**, and **Report no.** when numbered.
 
 **Open form** opens the report with **Main result**, **Signed by**, **Units that
 were checked**, **Answers to checkpoints** and **General notes from the
-technician**. **Download PDF** creates the PDF; **Close PDF** goes back.
+technician**. The PDF is shown in the app's own PDF viewer. **Open in new tab**
+shows the same PDF in the browser, **Download PDF** creates an attachment, and
+**Close PDF** goes back. If the PDF cannot be shown, for example because it
+contains active content that cannot be removed, the viewer shows an error with
+**Try again** and download. Revisions are opened the same way from
+**Revisions** using **Open revision (PDF)**.
 
 A report can have a **Technician** and a **Customer** signature. Photos are added
 per checkpoint or unit. Deviations appear as **Deviation found**. When a report
@@ -466,7 +471,8 @@ unlocking** and is an administrator action.
 
 ### Customer portal and equipment history
 
-Only submitted, locked reports can be opened as PDF; an unlocked report is
+Only submitted, locked reports can be opened. **View report** opens the PDF in
+the app, and **Download PDF** creates an attachment. An unlocked report is
 unavailable until it is locked again. The customer can **Acknowledge receipt**
 and **Request a contact information update**; the latter does not update the
 customer card automatically.

@@ -1648,6 +1648,9 @@
         "snapshotTitle": "Inhalt der Revision {revision}",
         "snapshotMissing": "Der Inhalt dieser Revision konnte nicht gefunden werden.",
         "downloadPdf": "Revision herunterladen (PDF)",
+        "openPdf": "Revision öffnen (PDF)",
+        "backToRevisions": "Zurück zu den Revisionen",
+        "viewerTitle": "Revision {revision}: {name}",
         "unitSummary": "{count, plural, one {# Gerät} other {# Geräte}} · {deviations} Abweichungen",
         "noUnits": "Der Bericht verwendet keine Geräte",
         "noUnitLabel": "Unbenannt",
@@ -1665,8 +1668,24 @@
         "reportFor": "Bericht für: {title}",
         "reportName": "Bericht: {name}",
         "singleReportFallback": "Bericht",
+        "download": "PDF herunterladen"
+      },
+      "pdfViewer": {
+        "loading": "PDF wird geladen …",
+        "openInNewTab": "In neuem Tab öffnen",
         "download": "PDF herunterladen",
-        "iframeTitle": "Servicebericht – {title}"
+        "retry": "Erneut versuchen",
+        "previewHint": "PDF wird nicht angezeigt? Öffnen Sie sie in einem neuen Tab oder laden Sie sie herunter.",
+        "iframeTitle": "PDF: {title}",
+        "errors": {
+          "forbidden": "Sie haben keinen Zugriff auf dieses PDF.",
+          "notFound": "Das PDF wurde nicht gefunden. Der Bericht wurde möglicherweise gelöscht oder verschoben.",
+          "activeContent": "Das PDF enthält aktiven Inhalt und kann nicht angezeigt werden.",
+          "activeContentHint": "Versuchen Sie es später erneut oder laden Sie das PDF herunter. Aus Sicherheitsgründen wird es nicht unsaniert angezeigt.",
+          "rateLimited": "Zu viele PDF-Anfragen. Warten Sie {seconds} Sekunden und versuchen Sie es erneut.",
+          "rateLimitedUnknown": "Zu viele PDF-Anfragen. Warten Sie einen Moment und versuchen Sie es erneut.",
+          "unavailable": "Das PDF konnte nicht geladen werden. Versuchen Sie es erneut."
+        }
       }
     },
     "customers": {
@@ -3422,6 +3441,7 @@
         "pageOf": "Seite {page} von {pages}",
         "performed": "Abgeschlossen am {date}",
         "signed": "signiert",
+        "view": "Bericht anzeigen",
         "download": "PDF herunterladen",
         "acknowledged": "✓ Bestätigt am {date}",
         "commentPlaceholder": "Kommentar (optional)",

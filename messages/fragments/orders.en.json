@@ -874,6 +874,9 @@
       "snapshotTitle": "Content of revision {revision}",
       "snapshotMissing": "The content of this revision could not be found.",
       "downloadPdf": "Download revision (PDF)",
+      "openPdf": "Open revision (PDF)",
+      "backToRevisions": "Back to revisions",
+      "viewerTitle": "Revision {revision}: {name}",
       "unitSummary": "{count, plural, one {# unit} other {# units}} · {deviations} deviations",
       "noUnits": "The report does not use units",
       "noUnitLabel": "Unnamed",
@@ -891,8 +894,24 @@
       "reportFor": "Report for: {title}",
       "reportName": "Report: {name}",
       "singleReportFallback": "Report",
+      "download": "Download PDF"
+    },
+    "pdfViewer": {
+      "loading": "Loading PDF…",
+      "openInNewTab": "Open in new tab",
       "download": "Download PDF",
-      "iframeTitle": "Service report – {title}"
+      "retry": "Try again",
+      "previewHint": "Not seeing the PDF? Open it in a new tab or download it.",
+      "iframeTitle": "PDF: {title}",
+      "errors": {
+        "forbidden": "You do not have access to this PDF.",
+        "notFound": "The PDF could not be found. The report may have been deleted or moved.",
+        "activeContent": "The PDF contains active content and cannot be displayed.",
+        "activeContentHint": "Try again later, or download the PDF. For security reasons it is not shown unsanitized.",
+        "rateLimited": "Too many PDF requests. Wait {seconds} seconds and try again.",
+        "rateLimitedUnknown": "Too many PDF requests. Wait a moment and try again.",
+        "unavailable": "The PDF could not be loaded. Try again."
+      }
     }
   },
   "auditActions": {

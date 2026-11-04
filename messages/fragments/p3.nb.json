@@ -105,6 +105,7 @@
       "pageOf": "Side {page} av {pages}",
       "performed": "Utført {date}",
       "signed": "signert",
+      "view": "Vis rapport",
       "download": "Last ned PDF",
       "acknowledged": "✓ Kvittert {date}",
       "commentPlaceholder": "Kommentar (valgfritt)",

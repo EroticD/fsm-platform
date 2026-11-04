@@ -1648,6 +1648,9 @@
         "snapshotTitle": "Treść wersji {revision}",
         "snapshotMissing": "Nie udało się znaleźć treści tej wersji.",
         "downloadPdf": "Pobierz wersję (PDF)",
+        "openPdf": "Otwórz wersję (PDF)",
+        "backToRevisions": "Wróć do wersji",
+        "viewerTitle": "Wersja {revision}: {name}",
         "unitSummary": "{count, plural, one {# urządzenie} few {# urządzenia} many {# urządzeń} other {# urządzenia}} · odchylenia: {deviations}",
         "noUnits": "Raport nie używa urządzeń",
         "noUnitLabel": "Bez nazwy",
@@ -1665,8 +1668,24 @@
         "reportFor": "Raport dla: {title}",
         "reportName": "Raport: {name}",
         "singleReportFallback": "Raport",
+        "download": "Pobierz PDF"
+      },
+      "pdfViewer": {
+        "loading": "Ładowanie PDF…",
+        "openInNewTab": "Otwórz w nowej karcie",
         "download": "Pobierz PDF",
-        "iframeTitle": "Raport serwisowy – {title}"
+        "retry": "Spróbuj ponownie",
+        "previewHint": "PDF się nie wyświetla? Otwórz go w nowej karcie lub pobierz.",
+        "iframeTitle": "PDF: {title}",
+        "errors": {
+          "forbidden": "Nie masz dostępu do tego PDF.",
+          "notFound": "Nie znaleziono PDF. Raport mógł zostać usunięty lub przeniesiony.",
+          "activeContent": "PDF zawiera aktywną treść i nie może zostać wyświetlony.",
+          "activeContentHint": "Spróbuj ponownie później lub pobierz PDF. Ze względów bezpieczeństwa nie jest wyświetlany bez oczyszczenia.",
+          "rateLimited": "Zbyt wiele żądań PDF. Odczekaj {seconds} sekund i spróbuj ponownie.",
+          "rateLimitedUnknown": "Zbyt wiele żądań PDF. Odczekaj chwilę i spróbuj ponownie.",
+          "unavailable": "Nie udało się załadować PDF. Spróbuj ponownie."
+        }
       }
     },
     "customers": {
@@ -3422,6 +3441,7 @@
         "pageOf": "Strona {page} z {pages}",
         "performed": "Zakończono {date}",
         "signed": "podpisany",
+        "view": "Wyświetl raport",
         "download": "Pobierz PDF",
         "acknowledged": "✓ Potwierdzono {date}",
         "commentPlaceholder": "Komentarz (opcjonalnie)",
