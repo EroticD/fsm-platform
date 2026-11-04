@@ -5,6 +5,21 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## 0.8.8 — 2026-11-03
 
+## Unreleased (dev)
+
+### Rettelser
+- Opplasting: standardkvotene ble feilaktig regnet i byte i stedet for MB, så
+  reelle bilder/PDF-er fikk 507. Standard er nå 2 GiB per bruker og 10 GiB per
+  kunde, med tydelige proxy-/serverfeil i klienten.
+- PDF: rapporter og revisjoner kan vises trygt i appen (`?inline=1`) etter
+  sanitering, med nedlasting som eget valg. Direkte nedlasting er fortsatt
+  standard for ukjente klienter.
+- Kundeoverføring: eksport dedupliseres per kundeutvalg/valg, feil lagres på
+  jobben og vises i UI, og første forsøk blokkeres ikke av gamle tellere.
+  Grensen er 10 starter/time med versjonert nøkkel.
+- Feltapp: navnet på featured-oppdraget og korttitlene åpner oppdraget.
+
+
 ### Toveis SMS og påminnelser
 - Innkommende SMS med leverandørsignatur, idempotens, leveringsstatus,
   STOP/START-samtykke og kobling mot kunde/kontakt/tråd.
