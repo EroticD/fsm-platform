@@ -623,6 +623,15 @@ function buildRoutes(fixtures) {
       expectTexts: ["Planlagt kapasitet"],
     },
     {
+      slug: "kalender-rute",
+      route: "/kalender/rute",
+      role: "admin",
+      title: "Kalender – rute",
+      heading: "Kalender",
+      activeNav: "Rute",
+      expectTexts: ["Foreslått kjøreorden"],
+    },
+    {
       slug: "kart",
       route: "/kart",
       role: "admin",
@@ -746,6 +755,14 @@ function buildRoutes(fixtures) {
       expectTexts: ["Utstyrsmerking"],
     },
     {
+      slug: "enhet-flytt",
+      route: `/enheter/${productId}/flytt`,
+      role: "admin",
+      title: "Flytt enhet til annen kunde",
+      heading: "Flytt enhet til annen kunde",
+      expectTexts: [productName, "Ny kunde"],
+    },
+    {
       slug: "dokumenter",
       route: "/dokumenter",
       role: "admin",
@@ -777,6 +794,14 @@ function buildRoutes(fixtures) {
       title: "Servicerapporter",
       heading: "Servicerapporter",
       legacy: { desktop: "09-rapporter.png" },
+    },
+    {
+      slug: "kundeomtaler",
+      route: "/anmeldelser",
+      role: "admin",
+      title: "Kundeomtaler",
+      heading: "Kundeomtaler",
+      expectTexts: ["Kundeomtaler"],
     },
     {
       slug: "rapport-visning",
@@ -922,6 +947,14 @@ function buildRoutes(fixtures) {
       heading: "Kunde- og utstyrsarkiv",
       expectTexts: ["Nordvik Testindustri AS"],
     },
+    {
+      slug: "skann",
+      route: "/skann",
+      role: "technician",
+      title: "Skann",
+      heading: "Skann",
+      expectTexts: ["QR"],
+    },
 
     // --- Kundeportal -------------------------------------------------------
     {
@@ -962,6 +995,14 @@ const SKIPPED_ROUTES = [
       "Redirecter til /logg-inn når det ikke finnes en ventende 2FA-cookie. " +
       "Redirecten verifiseres av skriptet; selve 2FA-skjermen krever en " +
       "påbegynt innlogging med to-trinns verifisering.",
+  },
+  {
+    route: "/logg-inn/2fa/oppsett",
+    role: "public",
+    reason:
+      "Obligatorisk 2FA-oppsett krever en ventende innlogging med " +
+      "REQUIRE_2FA_ROLES. Uten en slik økt redirecter siden til /logg-inn; " +
+      "oppsettflyten dekkes av integrasjonstestene.",
   },
   {
     route: "/kalender/maned",
@@ -1025,6 +1066,15 @@ const SKIPPED_ROUTES = [
     reason:
       "Kundeportalens trådvisning krever en eksisterende meldingstråd. " +
       "Portalens meldingsliste /kundeportal/meldinger er fanget.",
+  },
+  {
+    route: "/rapporter/[id]/revisjoner/[revisjonId]",
+    role: "admin",
+    reason:
+      "Revisjons-PDF-viseren krever en eksisterende rapportrevisjon. " +
+      "E2E-seeden lager ingen revisjoner, så viseren ville bare vist " +
+      "feil-/ikke-funnet-tilstanden. Revisjonslisten og PDF-flyten dekkes av " +
+      "integrasjonstestene.",
   },
 ];
 
@@ -1507,6 +1557,13 @@ async function main() {
   }
 
   const finishedAt = new Date().toISOString();
+  const databaseName = (() => {
+    try {
+      return new URL(DATABASE_URL).pathname.replace(/^\//, "") || "ukjent";
+    } catch {
+      return "ukjent";
+    }
+  })();
   const captureCount = results.reduce(
     (total, entry) =>
       total +
@@ -1527,7 +1584,7 @@ async function main() {
     generatedAt: finishedAt,
     appVersion: packageJson.version,
     baseUrl: BASE_URL,
-    database: "fsm_ui_e2e (isolert E2E-database)",
+    database: `${databaseName} (isolert E2E-database)`,
     fixtures: {
       customerId: fixtures.customerId,
       workOrderId: fixtures.detailOrderId,
