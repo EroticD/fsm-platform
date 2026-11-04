@@ -466,8 +466,12 @@ signert**, og **Rapportnr.** når rapporten har nummer.
 
 **Åpne skjema** åpner rapportvisningen med **Hovedresultat**, **Signert av**,
 **Enheter som ble kontrollert**, **Svar på sjekkpunkter** og **Generelle notater
-fra montør**, med bilder og vedlegg. **Last ned PDF** lager PDF-en; **Lukk PDF**
-går tilbake.
+fra montør**, med bilder og vedlegg. PDF-en vises i appens eget PDF-vindu.
+**Åpne i ny fane** viser samme PDF i nettleseren, **Last ned PDF** lager et
+vedlegg, og **Lukk PDF** går tilbake. Hvis PDF-en ikke kan vises, for eksempel
+fordi den inneholder aktivt innhold som ikke kan fjernes, viser viseren en
+feilmelding med **Prøv igjen** og nedlasting. Revisjoner åpnes på samme måte fra
+**Revisjoner** med **Åpne revisjonen (PDF)**.
 
 En rapport kan ha **Montør / tekniker**- og **Kunde**-signatur, tegnet på
 skjermen. Bilder lastes opp per sjekkpunkt eller enhet. Avvik vises som **Avvik
@@ -494,10 +498,11 @@ og er en administratorhandling. Etter retting låses rapporten igjen.
 
 ### Kundeportalen og utstyrshistorikk
 
-Kunden ser **Rapporter** i portalen. Bare innsendte, låste rapporter kan åpnes
-som PDF; en opplåst rapport er utilgjengelig til den låses igjen. Kunden kan
-**Kvitter mottatt** med kommentar og **Be om oppdatering av
-kontaktinformasjon**; det siste oppdaterer ikke kundekortet automatisk.
+Kunden ser **Rapporter** i portalen. Bare innsendte, låste rapporter kan åpnes;
+**Vis rapport** åpner PDF-en i appen, og **Last ned PDF** lager et vedlegg. En
+opplåst rapport er utilgjengelig til den låses igjen. Kunden kan **Kvitter
+mottatt** med kommentar og **Be om oppdatering av kontaktinformasjon**; det
+siste oppdaterer ikke kundekortet automatisk.
 
 Rapportens enheter er koblet til kundens utstyr. **Servicehistorikk** på enheten
 viser alle kontroller med dato, resultat, kommentarer, sjekkpunkter og bilder.

@@ -7,10 +7,12 @@ import { hasPermission } from "@/lib/permissions";
 import { canAccessReportWorkOrder } from "@/lib/report-scope";
 import { formatDateLocalized } from "@/lib/dates";
 import Icon from "@/components/icons";
+import PdfViewer from "@/components/PdfViewer";
 import {
   reportAcknowledgement,
   reportUnitSummary,
 } from "@/lib/report-display";
+import { pdfViewerUrls } from "@/lib/pdf-viewer";
 
 const CARD = "office-card";
 const SIGNAL_BUTTON =
@@ -183,18 +185,21 @@ export default async function ReportViewerPage({
       ? t("orders.reportViewer.backToReports")
       : returnTo?.startsWith("/kunder")
         ? t("customers.reports.backToCustomer")
-        : viewer?.role === "CUSTOMER"
+        : returnTo?.startsWith("/kundeportal") || viewer?.role === "CUSTOMER"
           ? t("orders.reportViewer.backToPortal")
           : t("orders.reportViewer.closePdf");
 
-  // PDF-en genereres på serveren og vises i en <iframe>. Da virker den i alle
-  // nettlesere (også på mobil), og den kan lastes ned eller deles som en vanlig
-  // lenke: /api/rapporter/<oppdragsId>/pdf[?rapport=<rapportId>]
+  // PDF-en genereres på serveren og vises i appens PDF-vindu. Viseren ber
+  // eksplisitt om inline, mens direkte lenker og nedlastingsknappen beholder
+  // attachment: /api/rapporter/<oppdragsId>/pdf[?rapport=<rapportId>]
   const pdfQuery = selectedReport
     ? `?rapport=${encodeURIComponent(selectedReport.id)}`
     : "";
-  const pdfUrl = `/api/rapporter/${resolvedParams.id}/pdf${pdfQuery}`;
-  const downloadUrl = `${pdfUrl}${pdfQuery ? "&" : "?"}download=1`;
+  const pdfUrls = pdfViewerUrls(
+    `/api/rapporter/${resolvedParams.id}/pdf${pdfQuery}`,
+  );
+  const pdfUrl = pdfUrls.inline;
+  const downloadUrl = pdfUrls.download;
   const reportName =
     selectedReport?.name ||
     selectedReport?.templateTitle ||
@@ -373,20 +378,27 @@ export default async function ReportViewerPage({
               </div>
             )}
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            {viewer?.role !== "CUSTOMER" && (
-              <a
-                href={downloadUrl}
-                download
-                className={`${SIGNAL_BUTTON} flex-1 whitespace-nowrap sm:flex-none`}
-              >
-                <Icon
-                  name="arrowRight"
-                  className="h-4 w-4 shrink-0 rotate-90"
-                />
-                {t("orders.reportViewer.download")}
-              </a>
-            )}
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${INK_BUTTON} flex-1 whitespace-nowrap sm:flex-none`}
+            >
+              <Icon name="file" className="h-4 w-4 shrink-0" />
+              {t("orders.pdfViewer.openInNewTab")}
+            </a>
+            <a
+              href={downloadUrl}
+              download
+              className={`${SIGNAL_BUTTON} flex-1 whitespace-nowrap sm:flex-none`}
+            >
+              <Icon
+                name="arrowRight"
+                className="h-4 w-4 shrink-0 rotate-90"
+              />
+              {t("orders.reportViewer.download")}
+            </a>
             <Link
               href={backHref}
               className={`${INK_BUTTON} flex-1 whitespace-nowrap sm:flex-none`}
@@ -401,11 +413,12 @@ export default async function ReportViewerPage({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 p-1.5 sm:p-3">
-        <iframe
+      <div className="flex min-h-0 flex-1 flex-col p-1.5 sm:p-3">
+        <PdfViewer
           src={pdfUrl}
-          title={t("orders.reportViewer.iframeTitle", { title: iframeTitle })}
-          className="h-full w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white shadow-[0_10px_30px_-24px_rgba(16,19,16,0.5)]"
+          title={iframeTitle}
+          downloadHref={downloadUrl}
+          openHref={pdfUrl}
         />
       </div>
     </div>

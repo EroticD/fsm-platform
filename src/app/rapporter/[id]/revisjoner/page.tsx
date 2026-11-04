@@ -147,13 +147,22 @@ async function RevisionSnapshot({
             </p>
           </div>
         </div>
-        <a
-          href={`/api/rapporter/revisjoner/${revision.id}/pdf?download=1`}
-          className={`${SIGNAL_BUTTON} shrink-0`}
-        >
-          <Icon name="arrowRight" className="h-4 w-4 shrink-0 rotate-90" />
-          {t("orders.revisions.downloadPdf")}
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/rapporter/${revision.workOrder.id}/revisjoner/${revision.id}`}
+            className={`${INK_BUTTON} shrink-0`}
+          >
+            <Icon name="file" className="h-4 w-4 shrink-0" />
+            {t("orders.revisions.openPdf")}
+          </Link>
+          <a
+            href={`/api/rapporter/revisjoner/${revision.id}/pdf?download=1`}
+            className={`${SIGNAL_BUTTON} shrink-0`}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 shrink-0 rotate-90" />
+            {t("orders.revisions.downloadPdf")}
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

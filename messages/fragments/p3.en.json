@@ -105,6 +105,7 @@
       "pageOf": "Page {page} of {pages}",
       "performed": "Completed {date}",
       "signed": "signed",
+      "view": "View report",
       "download": "Download PDF",
       "acknowledged": "✓ Acknowledged {date}",
       "commentPlaceholder": "Comment (optional)",

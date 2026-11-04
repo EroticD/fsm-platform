@@ -1048,6 +1048,7 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | Appen restarter i loop | `docker compose logs app`, migrasjonssperre (`REQUIRE_BACKUP_BEFORE_MIGRATE`), OOM (`dmesg`) |
 | Innlogging logger ut alle | `sessionVersion` er økt (passord/rolle/2FA-endring) |
 | PDF vises ikke | `APP_URL`/`NEXTAUTH_URL`, `Upload`-rad for filen |
+| PDF vises ikke i appen, men kan lastes ned | nettleserens PDF-støtte, CSP `frame-src 'self' blob:`/`object-src 'none'`, prøv **Åpne i ny fane** |
 | PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
@@ -1060,6 +1061,14 @@ bygges inn, skrives en advarsel i PDF-en og `report_pdf_images_missing` logges
 med antall (uten filnavn eller personopplysninger). PDF-cachen har en egen
 `rendererVersion`; den må økes når bildeinnbygging endres, slik at gamle PDF-er
 uten bilder ikke gjenbrukes.
+
+Rapport- og revisjons-PDF-er leveres som vedlegg som standard. Den innebygde
+viseren ber eksplisitt om `?inline=1`, og ruten svarer først
+`Content-Disposition: inline` etter at `sanitizePdfActiveContent` har godkjent
+filen. Feiler saneringen, svarer ruten 422 og viser en feilmelding i appen; den
+usanerte filen sendes aldri. Begge variantene har `Cache-Control: no-store` og
+`X-Content-Type-Options: nosniff`. CSP-en tillater `frame-src 'self' blob:` for
+viseren og beholder `object-src 'none'`.
 
 ### 502-sjekkliste
 

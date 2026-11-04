@@ -875,6 +875,9 @@
       "snapshotTitle": "Innhold i revisjon {revision}",
       "snapshotMissing": "Fant ikke innholdet i denne revisjonen.",
       "downloadPdf": "Last ned revisjonen (PDF)",
+      "openPdf": "Åpne revisjonen (PDF)",
+      "backToRevisions": "Tilbake til revisjonene",
+      "viewerTitle": "Revisjon {revision}: {name}",
       "unitSummary": "{count, plural, one {# enhet} other {# enheter}} · {deviations} avvik",
       "noUnits": "Rapporten bruker ikke enheter",
       "noUnitLabel": "Uten navn",
@@ -892,8 +895,24 @@
       "reportFor": "Rapport for: {title}",
       "reportName": "Rapport: {name}",
       "singleReportFallback": "Rapport",
+      "download": "Last ned PDF"
+    },
+    "pdfViewer": {
+      "loading": "Laster PDF …",
+      "openInNewTab": "Åpne i ny fane",
       "download": "Last ned PDF",
-      "iframeTitle": "Servicerapport – {title}"
+      "retry": "Prøv igjen",
+      "previewHint": "Vises ikke PDF-en? Åpne den i ny fane eller last den ned.",
+      "iframeTitle": "PDF: {title}",
+      "errors": {
+        "forbidden": "Du har ikke tilgang til denne PDF-en.",
+        "notFound": "Fant ikke PDF-en. Rapporten kan være slettet eller flyttet.",
+        "activeContent": "PDF-en inneholder aktivt innhold og kan ikke vises.",
+        "activeContentHint": "Prøv igjen senere, eller last ned PDF-en. Av sikkerhetsgrunner vises den ikke usanert.",
+        "rateLimited": "For mange PDF-forespørsler. Vent {seconds} sekunder og prøv igjen.",
+        "rateLimitedUnknown": "For mange PDF-forespørsler. Vent litt og prøv igjen.",
+        "unavailable": "PDF-en kunne ikke lastes. Prøv igjen."
+      }
     }
   },
   "auditActions": {

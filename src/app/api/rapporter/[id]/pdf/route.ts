@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
-import { attachmentDisposition } from "@/lib/http";
+import { attachmentDisposition, inlineDisposition } from "@/lib/http";
 import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { getReportPdfForViewer } from "@/server/reports";
 
@@ -23,6 +23,12 @@ export async function GET(
   const { id } = await params;
   const url = new URL(request.url);
   const reportId = url.searchParams.get("rapport")?.trim() || undefined;
+
+  // Standard er et trygt vedlegg. Bare den innebygde viseren ber eksplisitt om
+  // inline, og aldri dersom samme forespørsel også ber om nedlasting.
+  const wantsInline =
+    url.searchParams.get("inline") === "1" &&
+    url.searchParams.get("download") !== "1";
 
   // Rapport-id-en brukes direkte i oppslaget og må derfor være en trygg id.
   if (reportId && !/^[A-Za-z0-9_-]{1,64}$/.test(reportId)) {
@@ -60,10 +66,11 @@ export async function GET(
   return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      // Rapporter leveres alltid som vedlegg. Da kjører de ikke i
-      // nettleserens PDF-viser på appens domene, selv om en PDF skulle ha
-      // aktivt innhold som vi ikke kjenner igjen.
-      "Content-Disposition": attachmentDisposition(fileName),
+      // Direkte lenker er alltid vedlegg. Kun den innebygde viseren får inline,
+      // og først etter at aktivt innhold er sanert eller fjernet ovenfor.
+      "Content-Disposition": wantsInline
+        ? inlineDisposition(fileName)
+        : attachmentDisposition(fileName),
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     },
