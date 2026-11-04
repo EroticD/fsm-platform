@@ -124,6 +124,13 @@ bare bevisst, og dokumenter hvorfor.
   timer, og alle ping for en visitt slettes når visitten blir `DONE`/
   `CANCELLED`. `Permissions-Policy` tillater geolocation bare for appens eget
   opphav (`geolocation=(self)`).
+- **Kamera og mikrofon:** `Permissions-Policy` tillater kamera bare for appens
+  eget opphav (`camera=(self)`), slik at QR-skanneren i feltappen virker i
+  iOS Safari og Android-nettlesere. Mikrofonen er fortsatt av for alle
+  (`microphone=()`). Kameraet åpnes bare etter et eksplisitt klikk fra
+  brukeren, og alle spor stoppes når skanneren lukkes, komponenten fjernes
+  eller brukeren navigerer bort. Kameraskanning krever HTTPS (sikker kontekst);
+  appen viser en egen melding og lar brukeren skrive koden manuelt ellers.
 - **DPIA (personvernkonsekvensvurdering):** live sporing behandler montørens
   posisjon som personopplysning. Behandlingen er begrenset til frivillig,
   eksplisitt deling mens visitten er `EN_ROUTE`, med formålsbegrensning (ETA til

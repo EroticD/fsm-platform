@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { securityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -55,27 +56,12 @@ const nextConfig: NextConfig = {
   // Enkle sikkerhetsheadere. En fullverdig CSP krever testing av alle sidene
   // (inline-stiler fra Tailwind/FullCalendar), så her settes bare de direktivene
   // som ikke kan bryte renderingen. TLS termineres i en reverse proxy foran appen.
+  // Selve listen ligger i src/lib/security-headers.ts, slik at den kan testes.
   async headers() {
     return [
       {
         source: "/(.*)",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            // Geolocation er bare tillatt for appens eget opphav. Montøren
-            // deler posisjon eksplisitt fra feltsiden; tredjeparts innhold
-            // (kartfliser, logoer) får aldri tilgang. Se docs/DECISIONS.md.
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(self)",
-          },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains",
-          },
-          // CSP settes per forespørsel i proxy.ts (nonce), ikke her.
-        ],
+        headers: securityHeaders(),
       },
     ];
   },

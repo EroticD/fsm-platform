@@ -40,6 +40,35 @@ POSTGRES_IMAGE=postgres:15.13
   oppdateres bevisst og pinnes i release-grenen. Det er ikke gjort automatisk
   her, fordi et digest-bytte må følges av et fullt bygg og ny skanning.
 
+## Sikkerhetsheadere og kamera
+
+Next setter disse headerne for alle ruter (se `src/lib/security-headers.ts` og
+`next.config.ts`):
+
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(self), microphone=(), geolocation=(self)
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+`camera=(self)` er nødvendig for QR-skanneren i feltappen. Uten den blokkerer
+nettleseren `getUserMedia` før brukeren får spurt om tillatelse. Kameraet er
+bare tilgjengelig for appens eget opphav; innebygd tredjepartsinnhold og
+iframe-er får ikke tilgang. Mikrofonen er fortsatt av. Endres headeren, må
+`src/lib/security-headers.test.ts` oppdateres, og kamera/HTTPS-oppførselen
+testes på iPhone (Safari) og Android (Chrome).
+
+Kameraskanning krever **HTTPS** i produksjon. `localhost` regnes som sikker
+kontekst av nettleseren, men en LAN-adresse over `http://` gjør det ikke – da
+vises en egen HTTPS-melding i skanneren. Sjekk headeren etter deploy:
+
+```bash
+curl -sI https://<vert>/skann | grep -i permissions-policy
+# forventet: permissions-policy: camera=(self), microphone=(), geolocation=(self)
+```
+
 ## Miljøfiler og hemmeligheter
 
 Alle `.env*`-filer er ignorert av git, bortsett fra malene `.env.example` og
