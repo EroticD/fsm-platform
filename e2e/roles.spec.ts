@@ -213,6 +213,30 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
   ).toHaveCount(0);
 });
 
+test("technician: klikk på navnet i neste jobb åpner oppdraget", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  test.skip(!roleCredentials("technician"), TECHNICIAN_CREDENTIALS_MISSING);
+  expect(await loginAsRole(page, "technician")).toBe(true);
+
+  await page.goto("/mine-oppdrag");
+  const titleLink = page
+    .locator('section.field-hero h2 a[href^="/mine-oppdrag/"]')
+    .first();
+  if ((await titleLink.count()) === 0) {
+    test.skip(true, "Ingen neste jobb i helten");
+    return;
+  }
+
+  const href = await titleLink.getAttribute("href");
+  expect(href).toMatch(/^\/mine-oppdrag\/[^/]+(?:\/skjema\/[^/]+)?$/);
+  await titleLink.click();
+  await expect(page).toHaveURL(
+    (url) => `${url.pathname}${url.search}` === href,
+  );
+});
+
 test("technician: brukeradministrasjon er sperret, men egne innstillinger er tilgjengelig", async ({
   page,
 }) => {

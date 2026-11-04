@@ -403,7 +403,6 @@
       "timeNotSet": "Time not set",
       "allDay": "All day",
       "openWorkOrder": "Open work order",
-      "openWorkOrderAria": "Open work order {title}",
       "overdueEmpty": "No overdue work orders.",
       "availableEmpty": "No available work orders right now.",
       "laterEmpty": "No upcoming work orders.",

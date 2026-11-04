@@ -683,23 +683,22 @@ export default async function TechnicianDashboard({
     return (
       <article
         key={wo.id}
-        className={`relative rounded-2xl border-2 p-3 shadow-sm transition focus-within:ring-2 focus-within:ring-offset-2 ${focusOffset} ${cardTone}`}
+        className={`relative isolate rounded-2xl border-2 p-3 shadow-sm transition focus-within:ring-2 focus-within:ring-offset-2 ${focusOffset} ${cardTone}`}
       >
-        {/* Hele kortet er én lenke. Interaktive snarveier ligger over med
-            pointer-events, slik at vi slipper lenker inne i lenker. */}
-        <Link
-          href={detailHref}
-          aria-label={t("orders.fieldList.openWorkOrderAria", {
-            title: wo.title,
-          })}
-          className="absolute inset-0 z-0 rounded-2xl"
-        />
-        <div className="pointer-events-none relative z-10 flex flex-col gap-1.5">
+        {/* Tittelen er kortets ekte lenke. En usynlig pseudo-flate strekker
+            treffområdet over hele kortet, mens knappene ligger over i eget
+            lag – slik blir navnet klikkbart uten lenker inne i lenker. */}
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-2">
             <h3
-              className={`line-clamp-2 min-w-0 flex-1 text-[15px] font-black leading-snug ${titleClass}`}
+              className={`min-w-0 flex-1 text-[15px] font-black leading-snug ${titleClass}`}
             >
-              {wo.title}
+              <Link
+                href={detailHref}
+                className="block after:absolute after:inset-0 after:z-[1] after:rounded-2xl after:content-['']"
+              >
+                <span className="line-clamp-2">{wo.title}</span>
+              </Link>
             </h3>
             <span className="shrink-0 self-start">
               <StatusBadge status={wo.status} />
@@ -1020,7 +1019,12 @@ export default async function TechnicianDashboard({
               </div>
 
               <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight text-paper sm:text-3xl">
-                {hero.title}
+                <Link
+                  href={heroHref}
+                  className="inline-flex min-h-11 items-center rounded-lg underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-field"
+                >
+                  {hero.title}
+                </Link>
               </h2>
               <p className="mt-2 flex items-start gap-2 text-sm font-bold text-paper/90">
                 <Icon
