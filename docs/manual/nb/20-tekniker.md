@@ -1,6 +1,6 @@
 # Tekniker
 
-Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.6 (2026-11-03).
+Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.9 (2026-11-04).
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
 
@@ -34,7 +34,7 @@ Du kan ikke bytte passord i feltappen. Logg ut og bruk **Glemt passord** på inn
 2. Rull til bunnen. Der ligger **Endre språk**.
 3. Velg **Norsk**, **English**, **Polski** eller **Deutsch**.
 
-Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.5.
+Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.9.
 
 ### Installer feltappen (PWA)
 
@@ -283,6 +283,22 @@ Samtidig låses rapporten med låsetidspunkt og låser, lokal kladd og outbox fo
 
 Er **Marker oppdraget som fullført** krysset av, settes oppdraget til **Fullført** i samme transaksjon. Rapporten er låst; retting krever administratoropplåsing med årsak. Ny innsending lager revisjon og nullstiller kundens kvittering.
 
+### PDF i appen eller som nedlasting
+
+**Se rapport (PDF)** åpner rapporten i appens eget PDF-vindu. Der kan du bla,
+zoome og lukke uten å forlate oppdraget. **Last ned PDF** lager en fil du kan
+sende eller lagre. En direkte lenke til PDF-ruten gir alltid nedlasting, fordi
+bare appens eget vindu ber om inline-visning.
+
+PDF-en saniteres før den vises. Inneholder den aktivt innhold som ikke kan
+fjernes trygt, viser viseren en feilmelding med **Prøv igjen** og nedlasting i
+stedet for å åpne noe usikkert. Rapportdataene og låsen er uendret. Mangler et
+bilde eller en signatur, viser PDF-en en advarsel med antall bilder som ikke
+kunne hentes; last opp bildet på nytt fra rapporten og generer PDF-en igjen.
+
+Åpne PDF-er du trenger mens du er på nett. PDF-visning krever nett, og en
+direkte nedlasting bør gjøres før du mister dekningen.
+
 ## Offline, kladder og outbox
 
 ### Autolagring
@@ -350,7 +366,8 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Kan ikke fullføre med sveip** | Enheten mangler navn, har avvik, eller et påkrevd felt mangler | Fyll ut feltet, last opp bildet, eller bruk **Avvik funnet** bevisst |
 | **2FA-koden virker ikke** | Feil kode, klokkeavvik, brukt gjenopprettingskode | Vent på ny kode, sjekk klokken, bruk en ubrukt gjenopprettingskode, eller be administrator nullstille 2FA |
 | **Visittknappene mangler / status låst** | Visitten eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne visiter og oppdrag kan endres |
-| **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, eller manglende tilgang | Kom på nett, åpne via **Se rapport (PDF)**, og meld fra hvis tilgang mangler |
+| **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, manglende tilgang eller aktivt innhold som ikke kan saniteres | Kom på nett, åpne via **Se rapport (PDF)**, last ned filen, og meld fra hvis tilgang mangler |
+| **Bilde mangler i PDF** | Filen er slettet, mangler metadata eller tilhører et annet oppdrag | Last opp bildet på nytt fra rapporten, og generer PDF-en igjen |
 | **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn åtte timer | Åpne jobben på nytt mens du er på nett, og hold appen installert |
 
 ## Slik henger teknikerarbeidet sammen med resten

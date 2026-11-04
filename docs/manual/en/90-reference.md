@@ -1,6 +1,6 @@
 # Reference, glossary and troubleshooting
 
-*Applies to FSM Platform version 0.8.5, 31 October 2026.*
+*Applies to FSM Platform version 0.8.9, 4 November 2026.*
 
 This chapter is the reference section. It explains permissions, statuses and terms across roles, shows how features connect, and helps you find where to look when something is missing.
 
@@ -171,6 +171,10 @@ The audit log is a permanent, non-editable history of actions: who created, chan
 | **The offline draft is not syncing** | Are you on the same device, in the same browser and signed in as the same user? Has the app been reopened with a connection? Is the draft in the outbox? Is it older than seven days, too large, or rejected because the report is locked? | Field surface → offline banner and draft list; browser storage |
 | **The technician cannot see the work order** | Is the work order in the technician's department? Is it assigned, or available? Is it completed or cancelled? Is the date correct? Does the technician have "Take work order" access? | "Today"; "Work orders"; "Calendar" |
 | **An action is rejected with "no access"** | Does the user have the right role and permission? Is the user in the right department? Is the account active? Is the work order locked or under legal hold? | "Settings" → "Employees & Roles"; the work order's audit log |
+| **Sites or units from the wrong customer appear** | Wrong customer selected, or the page was not reloaded after switching customer | Switch customer again, reload the page and check the saved selection |
+| **A unit cannot be moved** | Active contract lines, number conflict, cross-customer reference or invalid target | Read the blocker in the preview, clear the contract line, or choose the right customer/site |
+| **An upload is rejected** | File too large, user/customer quota reached, or proxy limit | Check file size, `UPLOAD_QUOTA_*`, disk and the proxy body limit |
+| **Customer transfer does not start** | 10 starts per hour used up, an existing job is reused, or the preview expired | Wait, follow the existing job, or upload and preview the package again |
 
 ### Customer portal: access is more than signing in
 
@@ -178,7 +182,7 @@ A portal user is always linked to a contact at a customer. The contact can have 
 
 Check therefore that the user is active and belongs to the right customer, that the contact belongs to the same customer, that the delegation is active, and that the sub-permission for the missing area is enabled.
 
-> **Note:** In 0.8.5 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
+> **Note:** In 0.8.9 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
 
 ### Calendar: date, visit and window
 
@@ -241,12 +245,16 @@ The field surface saves drafts locally when the connection disappears. The draft
 | Omtale | Review | Internal customer feedback after a visit |
 | Kundeportal | Customer portal | The customer's own surface |
 | Kladd | Draft | Locally saved, unsubmitted form |
+| Kundeadskillelse | Customer scoping | Site and unit choices are limited to the selected customer |
+| Enhetsflytting | Equipment move | Moving a unit with its service history to a new customer |
+| Kundeoverføring | Customer transfer | The administrator's export/import of a customer package |
+| Kontorinnboks | Office inbox | Collected SMS conversations for the office |
 
 ## Support information to collect
 
 When you report a problem, it helps to collect the information below. Write briefly what you did, what you expected, and what actually happened.
 
-- **Version:** FSM Platform 0.8.5, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
+- **Version:** FSM Platform 0.8.9, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
 - **Time:** Date and time with time zone, preferably Europe/Oslo.
 - **User:** Email, role, department and any customer. Never provide passwords or one-time codes.
 - **Case:** Work order number or ID, title, customer and date. For a report: report number or ID. For a booking: reference. For a contract: contract number.

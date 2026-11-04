@@ -18,7 +18,7 @@ npm run manual:build
 Dette lager:
 
 - `docs/manual/FSM-brukermanual-nb.pdf`
-- `docs/manual/FSM-brukermanual-en.pdf`
+- `docs/manual/FSM-user-manual-en.pdf`
 
 Bygget krever `md2html` (Discount), `pdfunite` (poppler-utils) og
 Chromium/Playwright. PDF-ene skal regenereres når markdownfilene endres.

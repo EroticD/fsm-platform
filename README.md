@@ -1,34 +1,33 @@
 # FSM-plattformen
 
 Et feltvennlig service- og vedlikeholdssystem (FSM) bygget med Next.js, Prisma og
-PostgreSQL. Plattformen dekker hele flyten fra oppdraget planlegges til den
-signerte servicerapporten kan lastes ned som PDF.
+PostgreSQL. Plattformen dekker flyten fra oppdraget planlegges til den signerte
+servicerapporten kan vises eller lastes ned som PDF.
 
 ## Hva systemet gjør
 
-- **Oppdrag og kalender** – planlegg, fordel og følg opp serviceoppdrag i måneds-,
-  ukes- og dispatcher-visning, med avdelingssperre og tildeling av montører.
-- **Servicerapporter** – sjekklister per enhet, kommentarer per sjekkpunkt,
-  bilder og signaturer tegnet på skjermen, og ferdig PDF med firmaets logo.
-- **Enheter og servicehistorikk** – hver kunde har oversikt over utstyret sitt,
-  og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
-- **Kunder og kundeportal** – kundekort med kontakter, kundeverlegg, avtaler og
-  egne portalbrukere som bare ser sin egen bedrift. Kunder kan knyttes til en
-  avdeling og en ansvarlig montør, og nye bestillinger varsler kontoret.
+- **Oppdrag og kalender** – planlegg, fordel og følg opp serviceoppdrag i liste,
+  tavle, kalender, dispatch og ruteplan, med avdelingssperre og montørtildeling.
+- **Servicerapporter** – sjekklister per enhet, kommentarer, bilder og signaturer,
+  og ferdig PDF som kan vises i appen eller lastes ned.
+- **Enheter og servicehistorikk** – hver kunde har oversikt over utstyret sitt, og
+  hver enhet viser tidligere servicer med resultat, kommentarer og bilder.
+  Enheter kan flyttes til en annen kunde med hele servicehistorikken.
+- **Kunder og kundeportal** – kundekort med kontakter, avtaler, steder og egne
+  portalbrukere som bare ser sin egen bedrift.
 - **Avdelinger, roller og rettigheter** – oppdrag og serviceavtaler tilhører en
-  avdeling, ansatte ser bare egen avdeling, og administrator kan opprette roller
-  og tilpasse rettigheter per bruker.
-- **Gjentagende serviceavtaler** – avtaler med intervall på 3, 6, 12 eller 24
-  måneder; neste oppdrag opprettes automatisk med kundedata, ny sjekkliste og
-  forrige rapport som vedlegg.
-- **Dokumentbibliotek, OCR, tags og globalt søk** – PDF-er med mapper, tags og
-  versjonering; innholdet indekseres (OCR for skannede filer), og fuzzy-søket
-  lenker direkte til riktig side i PDF-en.
-- **PWA, nativeskall, 2FA og Markdown** – installerbar feltapp med offline-side,
-  hurtigvalg for «Mine oppdrag», «Skann» og «I dag», QR-/strekkodeskanner med
-  manuell reserve, og et tynt Capacitor-skall for Android/iOS. To-trinns
-  verifisering (TOTP) for alle innloggede, og Markdown i fritekst som vises likt
-  på nettsiden og i PDF-en. Se [`docs/NATIVE.md`](docs/NATIVE.md).
+  avdeling, og administrator kan opprette egne roller og tilpasse rettigheter.
+- **Serviceavtaler, SLA og bookinger** – gjentagende service, frister og
+  bookingkø med bekreftelse og varsling.
+- **SMS, kontorinnboks og påminnelser** – toveis SMS med samtykke, samtaler i
+  kontorinnboksen og automatiske SMS-/e-postpåminnelser før besøk.
+- **Dokumentbibliotek, OCR, tags og globalt søk** – PDF-er med mapper, tags,
+  versjonering og fulltekstsøk.
+- **SSO, SCIM og sikkerhet** – OIDC mot Entra ID, Keycloak, Authentik og Zitadel,
+  SCIM-brukerprovisjonering, 2FA og revisjonslogg.
+- **PWA og feltapp** – installerbar feltapp med offline-kladder, kamera/QR,
+  strekkodeskanning, navigasjon og manuell kode når kameraet ikke er tilgjengelig.
+- **REST-API** – egne Bearer-nøkler og samme rettighetskontroll som i appen.
 
 ## Skjermbilder
 
@@ -62,117 +61,276 @@ Alle sidevisninger er også fanget i desktop- og mobilformat under
 `manifest.json`. `npm run screenshots:verify` kontrollerer at hver `page.tsx`
 er dekket.
 
+## Hurtigstart med Docker
+
+Dette er anbefalt måte å kjøre produksjon på. Du trenger Docker med Compose v2,
+et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterpå – se
+[Caddy](#caddy-reverse-proxy).
+
+1. Hent koden og lag miljøfilen:
+
+   ```bash
+   git clone <repo-url> fsm-platform
+   cd fsm-platform
+   cp .env.example .env
+   chmod 600 .env
+   ```
+
+2. Fyll inn de påkrevde verdiene i `.env`:
+
+   ```dotenv
+   POSTGRES_PASSWORD=<langt-tilfeldig-passord>
+   NEXTAUTH_SECRET=<openssl rand -base64 32>
+   NEXTAUTH_URL=https://fsm.example.com
+   APP_URL=https://fsm.example.com
+
+   # Pinn til en publisert versjon, ikke latest.
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   POSTGRES_IMAGE=postgres:15.13
+   ```
+
+   `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL` og `APP_URL` er
+   påkrevd i produksjons-Compose. `NEXTAUTH_URL` og `APP_URL` må være `https://`.
+   Alle variabler er dokumentert i [`.env.example`](.env.example).
+
+3. Hent imaget og start tjenestene:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml pull
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+
+   Compose starter Postgres først, venter til databasen er frisk, og appen kjører
+   `prisma migrate deploy` ved oppstart. Første gang kan du opprette administrator
+   med `SEED_DATABASE=true` og `SEED_ADMIN_*` mot en tom database. Slå
+   `SEED_DATABASE` av igjen etterpå.
+
+4. Kontroller at tjenesten er klar:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml ps
+   curl -fsS http://127.0.0.1:3000/api/health
+   curl -fsS http://127.0.0.1:3000/api/ready
+   docker compose -f docker-compose.prod.yml logs -f app
+   ```
+
+   `/api/health` er liveness, og `/api/ready` sjekker database. Med
+   `READY_SECRET` eller `CRON_SECRET` sjekker den også opplastingsvolum og
+   jobbkø. Produksjons-Compose bruker readiness som healthcheck uten å
+   restart-loope ved databaseutfall. Appen lytter bare på `127.0.0.1:3000`.
+
+## Caddy reverse proxy
+
+Appen skal ikke eksponeres direkte. Caddy gir HTTPS automatisk, begrenser
+request-body og overskriver videresendingsheadere slik at en klient ikke kan
+spoofe IP eller protokoll. Fullt eksempel ligger i
+[`deploy/proxy/Caddyfile`](deploy/proxy/Caddyfile).
+
+```caddyfile
+fsm.example.com {
+	encode zstd gzip
+
+	# Litt over appens egen grense (50 MB PDF), slik at appen kan svare 413.
+	request_body {
+		max_size 55MB
+	}
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 300s
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
+```
+
+Sett disse i `.env` når appen står bak én proxy:
+
+```dotenv
+TRUST_PROXY=true
+TRUST_PROXY_HOPS=1
+```
+
+`TRUST_PROXY_HOPS` er antallet betrodde proxyer, ikke antallet
+`X-Forwarded-For`-oppføringer. Ved flere hopp må bare kantsonen overskrive
+headeren. Uten `TRUST_PROXY` ignoreres `X-Forwarded-For`, og IP-baserte
+rate limits er inaktive. Sjekk gjerne at en klientstyrt header ikke endrer
+nøkkelen:
+
+```bash
+curl -sS -H 'X-Forwarded-For: 6.6.6.6' https://fsm.example.com/api/health
+```
+
+nginx-eksempel, feilsøking av 502 og flere proxy-detaljer står i
+[`deploy/proxy/README.md`](deploy/proxy/README.md) og
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+
+## Flytte database og data
+
+Produksjons-Compose bruker to navngitte volumer:
+
+| Volum | Innhold | Må sikkerhetskopieres |
+| --- | --- | --- |
+| `fsm_postgres_data` | Selve databasen | Ja, med `pg_dump` eller volumkopi |
+| `fsm_uploads` | Opplastede bilder, PDF-er og vedlegg | Ja, med arkivkopi |
+
+`.next`-cachen er **ikke** et volum. Den ligger i en `tmpfs` i containeren og kan
+trygt forkastes ved nytt image eller ny container. Det samme gjelder
+mellomlagrede PDF-jobber under `/tmp`.
+
+Flytt alltid database og opplastinger fra **samme tidspunkt**. En databasekopi
+uten filene gir vedlegg som peker på filer som mangler.
+
+1. **Ta backup først.** Bruk skriptene når du kan:
+
+   ```bash
+   NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
+   ./scripts/backup-freshness.sh
+   ```
+
+   Manuelt kan du bruke `pg_dump` og en arkivkopi av volumet:
+
+   ```bash
+   COMPOSE="docker compose -f docker-compose.prod.yml"
+   mkdir -p backups
+   $COMPOSE stop app
+
+   $COMPOSE exec -T postgres pg_dump -U admin -d fsm_db -Fc \
+     > backups/fsm-$(date +%Y%m%d-%H%M%S).dump
+
+   VOLUME="$(docker volume ls --format '{{.Name}}' | grep -E '_fsm_uploads$' | head -n 1)"
+   docker run --rm -v "$VOLUME:/data:ro" -v "$PWD/backups:/backup" postgres:15 \
+     tar czf "/backup/uploads-$(date +%Y%m%d-%H%M%S).tar.gz" -C /data .
+   ```
+
+2. **Flytt til ny maskin.** Opprett volumene og gjenopprett i riktig rekkefølge:
+
+   ```bash
+   COMPOSE="docker compose -f docker-compose.prod.yml"
+   $COMPOSE up -d postgres
+
+   $COMPOSE exec -T postgres pg_restore -U admin -d fsm_db --clean --if-exists \
+     < backups/fsm-YYYYMMDD-HHMMSS.dump
+
+   VOLUME="$(docker volume ls --format '{{.Name}}' | grep -E '_fsm_uploads$' | head -n 1)"
+   docker run --rm -v "$VOLUME:/data" -v "$PWD/backups:/backup:ro" postgres:15 \
+     sh -c 'cd /data && tar xzf /backup/uploads-YYYYMMDD-HHMMSS.tar.gz'
+   ```
+
+   Behold eierskap og rettigheter fra arkivet. Postgres-volumet må eies av
+   postgres-brukeren i imaget, og opplastingsvolumet må være skrivbart for
+   appbrukeren. Ikke bruk `chmod 777`; sammenlign eierskap med en fersk
+   installasjon hvis du er usikker.
+
+3. **Verifiser før du kutter over:** start appen, sjekk `/api/ready`, åpne en
+   kunde, en rapport-PDF og et vedlegg. Kontroller at antall rader og filer
+   stemmer med kilden.
+
+4. **Rull tilbake** ved feil: stopp appen, bytt tilbake til de gamle volumene
+   eller gjenopprett dumpen og opplastingsarkivet fra samme tidspunkt. Behold
+   den gamle kopien til den nye er verifisert.
+
+> **Advarsel:** Kjør aldri `docker system prune --volumes` på en
+> produksjonsmaskin. Det sletter `fsm_postgres_data` og `fsm_uploads`.
+
+Backup, kryptering, restore-test og rollback er beskrevet i
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md#backup-og-restore).
+
+## Oppdatere til ny versjon
+
+1. Les [endringsloggen](CHANGELOG.md) og ta en fersk backup. I produksjon kan du
+   kreve backup før migrering med `REQUIRE_BACKUP_BEFORE_MIGRATE=true` og
+   `BACKUP_CONFIRMED=true`.
+2. Bytt `APP_IMAGE` til den nye, pinnede taggen i `.env`:
+
+   ```dotenv
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   ```
+
+3. Kontroller hvilke images som faktisk brukes, hent og recreate:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml config --images
+   docker compose -f docker-compose.prod.yml pull app
+   docker compose -f docker-compose.prod.yml up -d --force-recreate app
+   ```
+
+   Migrasjonene kjøres ved oppstart med `prisma migrate deploy`. De er additive
+   med mindre annet er dokumentert; sjekk endringsloggen ved store hopp.
+
+4. Verifiser:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml ps
+   curl -fsS https://fsm.example.com/api/health
+   curl -fsS https://fsm.example.com/api/ready
+   docker compose -f docker-compose.prod.yml logs --tail=100 app
+   ```
+
+   Gjør en røyktest: logg inn, åpne en kunde, last opp en fil og åpne en
+   rapport-PDF.
+
+5. **Rull tilbake** ved feil: sett `APP_IMAGE` tilbake til forrige kjente gode
+   tag eller digest, kjør `pull app` og `up -d app`, og verifiser igjen. Er
+   databasen migrert destruktivt, må du også gjenopprette database og
+   opplastinger fra backup.
+
+Rydd gamle images bevisst med `docker image prune`, men behold minst forrige
+kjente gode image. Volumer skal ikke ryddes automatisk. Se
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md#rollback) for full rollback og
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md#produksjonssett-image-pinning) for
+pinning til digest.
+
+## Lokal utvikling
+
+Forutsetninger: Node.js 22+, Docker og npm.
+
+```bash
+npm ci
+cp .env.example .env      # sett DATABASE_URL og NEXTAUTH_SECRET
+docker compose up -d postgres
+npm run db:migrate
+npm run seed              # valgfritt: oppretter administrator
+npm run dev
+```
+
+Appen er da på <http://localhost:3000>. For OCR av skannede PDF-er trengs
+`poppler-utils` lokalt (`pdftotext`/`pdftoppm`); i Docker-imaget er det
+installert med norsk og engelsk språkdata. E2E, skjermbilder og
+utviklingsdetaljer står i [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Brukermanual
 
 - [Norsk brukermanual (PDF)](docs/manual/FSM-brukermanual-nb.pdf)
 - [English user manual (PDF)](docs/manual/FSM-user-manual-en.pdf)
 - [Markdown-kilder og byggeinstruksjoner](docs/manual/README.md)
 
-Manualen er delt i kontor, tekniker og administrator, med en egen
-introduksjon og oppslagsdel.
+Manualen er delt i kontor, tekniker og administrator, med egen introduksjon,
+SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt.
 
-## Designsystem
+## Dokumentasjon
 
-Visuell retning, fargepalett, typografi, UX-prinsipper og komponentregler er
-dokumentert i [`docs/DESIGN.md`](docs/DESIGN.md). Merkegeometrien ligger i
-`src/lib/brand.ts`; `npm run brand:assets` regenererer favicon og PWA-ikoner.
-
-## Kom i gang lokalt
-
-Forutsetninger: Node.js 22+, Docker og npm.
-
-For OCR av skannede PDF-er trengs `poppler-utils` lokalt (`pdftotext`/`pdftoppm`);
-i Docker-imaget er det allerede installert med norsk og engelsk språkdata.
-
-```bash
-git clone <repo-url> fsm-platform
-cd fsm-platform
-npm install
-cp .env.example .env      # fyll inn DATABASE_URL og NEXTAUTH_SECRET
-docker compose up -d postgres
-npm run db:migrate        # oppretter tabellene
-npm run seed              # valgfritt: oppretter en administrator
-npm run dev
-```
-
-Appen er da tilgjengelig på <http://localhost:3000>. Alle miljøvariabler er
-dokumentert i [`.env.example`](.env.example).
-
-## Kjøre med Docker
-
-`docker-compose.yml` setter opp appen og databasen, og appen kjører
-migrasjonene ved oppstart.
-
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-- Appen svarer på <http://localhost:3000> og har helsesjekk på `/api/health`.
-- Opplastede filer ligger på et eget volum og overlever nytt bygg.
-- Databasen eksponeres bare på `127.0.0.1`.
-- I produksjon bør appen stå bak en reverse proxy med TLS; se
-  [SECURITY.md](SECURITY.md).
-
-## E2E og skjermbilder
-
-E2E-testene og skjermbildene kjører mot en egen, isolert database
-(`fsm_ui_e2e`) med fire fiktive demo-kontoer. All data der er syntetisk, og
-seed-skriptet rører aldri utviklings- eller produksjonsdatabasen.
-
-```bash
-# 1. Opprett den isolerte databasen og kjør migrasjonene mot den.
-createdb fsm_ui_e2e
-DATABASE_URL=postgresql://admin:bytt-meg@localhost:5432/fsm_ui_e2e?schema=public \
-  npx prisma migrate deploy
-
-# 2. Last E2E-variablene og opprett de fiktive kontoene og demodataene.
-cp .env.e2e.example .env.e2e.local   # fyll inn riktig DATABASE_URL
-set -a && . ./.env.e2e.local && set +a
-npm run seed:e2e
-
-# 3. Start appen på port 3100.
-npm run dev -- -p 3100
-
-# 4. I en ny terminal: kjør Playwright med rollekontoene.
-set -a && . ./.env.e2e.local && set +a
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
-
-# 5. Med appen kjørende: ta alle skjermbildene til screenshots/.
-#    (15 README-bilder + desktop/mobile for hver side i screenshots/pages/.)
-npm run screenshots:all
-
-# 6. Verifiser at alle page.tsx-ruter er dekket og at bildene er gyldige.
-npm run screenshots:verify
-```
-
-Rolle-testene bruker `E2E_ADMIN_*`, `E2E_OFFICE_*`, `E2E_TECHNICIAN_*` og
-`E2E_CUSTOMER_*`. Uten dem hoppes de over; med `.env.e2e.local` lastet kjører
-hele matrisen. Kontoene er `admin@example.test`, `kontor@example.test`,
-`montor@example.test` og `kunde@example.test` – alle med passord som står i
-[`.env.e2e.example`](.env.e2e.example).
-
-## Teknisk oppbygning
-
-- **Next.js 16** (App Router, React 19) med server components.
-- **Prisma 7** mot PostgreSQL via `@prisma/adapter-pg`; skjemaet ligger i
-  `prisma/schema.prisma` og migrasjonene i `prisma/migrations/`.
-- **NextAuth** med kodeord, invitasjonslenker og to-trinns verifisering.
-- **@react-pdf/renderer** for servicerapporter og **Tailwind CSS 4** for
-  grensesnittet.
-- **Markdown** (Obsidian + GFM) med felles visning på nett og i PDF; all input
-  renses i `src/lib/sanitize.ts`.
-
-## REST API
-
-FSM-plattformen har et eget REST-API for oppdrag, kunder, rapporter og
-dokumenter. API-et bruker Bearer-nøkler (`fsm_...`) og er helt atskilt fra
-nettleserøkten. Administrator oppretter og tilbakekaller nøkler under
-**Innstillinger → API-nøkler**; nøkkelen vises bare én gang.
-
-- Full dokumentasjon med eksempler: [docs/API.md](docs/API.md)
-- Maskinlesbar OpenAPI 3.1-kontrakt: `/api/v1/openapi.json`
-- Grense: 120 forespørsler per minutt per nøkkel
+| Dokument | Innhold |
+| --- | --- |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
+| [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
+| [`docs/NATIVE.md`](docs/NATIVE.md) | Capacitor-skallet for Android/iOS |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |
+| [`SECURITY.md`](SECURITY.md) | Sikkerhetsmodell og rapportering |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Oppsett, tester og pull requests |
 
 ## Sikkerhet
 
@@ -180,30 +338,12 @@ nettleserøkten. Administrator oppretter og tilbakekaller nøkler under
   hastighetsbegrensning.
 - All autorisasjon sjekkes på serveren; oppdrag er avdelingssperret, og
   kundeportalbrukere ser bare egen kundedata.
-- Opplastede filer har tilgangskontroll per fil (oppdrag, kunde, dokument eller
-  privat), og økter ugyldiggjøres når passord, rolle, rettigheter eller 2FA
-  endres.
-- To-trinns verifisering (TOTP) kan slås på per bruker, og signerte rapporter
-  fryses med et øyeblikksbilde av malen slik at de ikke kan endres i ettertid.
+- Opplastede filer har tilgangskontroll per fil, og økter ugyldiggjøres når
+  passord, rolle, rettigheter eller 2FA endres.
+- 2FA (TOTP) kan kreves for utvalgte roller. Signerte rapporter fryses med et
+  øyeblikksbilde, og PDF-er saneres før de vises i appen.
 - Skjemafelt renses på serveren, og responsene får sikkerhetsheadere. Se
-  [SECURITY.md](SECURITY.md) for rapportering.
-
-## Drift
-
-- `/api/health` er liveness, og `/api/ready` sjekker database, opplastingsvolum
-  og jobbkø. Produksjons-Compose bruker readiness som healthcheck uten å
-  restart-loope ved databaseutfall.
-- Produksjon bruker `docker-compose.prod.yml` med `APP_IMAGE` pinnet til en
-  publisert versjon (ikke `latest`) og Postgres pinnet til en 15.x-minor.
-- Migrasjoner kjøres ved oppstart med `prisma migrate deploy`.
-- `SEED_DATABASE` er av som standard; seed bare en tom database eksplisitt.
-- Backup, restore-test, logging og skalering er dokumentert i
-  [docs/OPERATIONS.md](docs/OPERATIONS.md).
-
-## Bidra
-
-Se [CONTRIBUTING.md](CONTRIBUTING.md) for oppsett, retningslinjer og hva som må
-være grønt før en pull request.
+  [`SECURITY.md`](SECURITY.md) for rapportering.
 
 ## Lisens
 
