@@ -7,6 +7,23 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Kundeadskillelse og enhetsflytting
+- Steds- og enhetsvelgere henter bare data for valgt kunde; all informasjon
+  lastes server-side og valideres på nytt ved lagring. Ingen andre kunders
+  steder eller enheter sendes til nettleseren.
+- Kundekortet har søkbare lister for steder og enheter.
+- Ny flytteflyt for enhet: hele enheten (og eventuell underenhet) flyttes med
+  oppdrag, rapporter/revisjoner/PDF, målinger, vedlikeholdsplaner, dokumenter,
+  vedlegg og QR-koder. Aktive kontraktslinjer blokkerer flytting, og alle
+  handlinger revideres.
+
+### Kamera og QR
+- Kamera blokkeres ikke lenger av `Permissions-Policy`; iOS/Android får
+  kameraforhåndsspørsel på `/skann`.
+- BarcodeDetector brukes når den finnes, med ZXing som fallback på Safari og
+  andre nettlesere som mangler API-et. Tydelige feil for HTTPS, nekting,
+  manglende kamera og dekodingsfeil.
+
 ### Rettelser
 - Opplasting: standardkvotene ble feilaktig regnet i byte i stedet for MB, så
   reelle bilder/PDF-er fikk 507. Standard er nå 2 GiB per bruker og 10 GiB per
