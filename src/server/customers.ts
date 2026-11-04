@@ -27,6 +27,7 @@ import {
   cleanUrl,
 } from "@/lib/sanitize";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { searchNormalizedIds } from "@/lib/search-sql";
 import { claimUpload } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
 import {
@@ -190,6 +191,8 @@ export type CustomerDetailParams = {
   orderPage: number;
   /** Fritekstsøk i Utstyr-fanen (modell, serienummer eller plassering). */
   unitQuery?: string;
+  /** Fritekstsøk i Steder-fanen (navn, adresse, postnummer eller sted). */
+  siteQuery?: string;
 };
 
 /** Grunndataene og de avgrensede listene kundekortet trenger. */
@@ -210,6 +213,7 @@ export async function getCustomerDetail(
   const { tab: currentTab } = resolveCustomerTab(params.tab);
   const orderPage = Math.max(1, params.orderPage);
   const unitQuery = cleanText(params.unitQuery, { maxLength: LIMITS.short });
+  const siteQuery = cleanText(params.siteQuery, { maxLength: LIMITS.short });
   const loadMerTab = currentTab === "mer";
 
   // Rapportsvarene på enhetene er bare synlige med reports.view. Uten den
@@ -235,10 +239,6 @@ export async function getCustomerDetail(
         orderBy: { name: "asc" },
         take: 100,
         include: { portalDelegation: true },
-      },
-      sites: {
-        orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
-        take: 200,
       },
       contracts: {
         // C-05: Avtaler er avdelingssperret. Uten dette filteret kunne
@@ -299,6 +299,54 @@ export async function getCustomerDetail(
     },
   });
   if (!customer) return fail("not_found");
+
+  // Steder hører til kunden og lastes bare på «Mer»-fanen. Søket går mot den
+  // normaliserte indeksen og er avgrenset til samme `customerId` som resten av
+  // kundekortet, så en annen kundes steder verken telles eller returneres.
+  let sites: Array<{
+    id: string;
+    name: string;
+    address: string | null;
+    postalCode: string | null;
+    city: string | null;
+    isPrimary: boolean;
+    latitude: number | null;
+    longitude: number | null;
+  }> = [];
+  let siteTotal = 0;
+  if (loadMerTab) {
+    const siteHits = siteQuery
+      ? await searchNormalizedIds(
+          "CustomerSite",
+          siteQuery,
+          200,
+          undefined,
+          false,
+          { customerId },
+        )
+      : null;
+    const siteIds = siteHits?.map((hit) => hit.id) ?? null;
+    if (!siteHits || (siteIds && siteIds.length > 0)) {
+      sites = await prisma.customerSite.findMany({
+        where: { customerId, ...(siteIds ? { id: { in: siteIds } } : {}) },
+        orderBy: [{ isPrimary: "desc" }, { name: "asc" }, { id: "asc" }],
+        take: 200,
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+          isPrimary: true,
+          latitude: true,
+          longitude: true,
+        },
+      });
+    }
+    siteTotal = siteHits
+      ? Number(siteHits[0]?.total ?? 0) || 0
+      : await prisma.customerSite.count({ where: { customerId } });
+  }
 
   const templates = office
     ? await prisma.template.findMany({ orderBy: { title: "asc" } })
@@ -513,20 +561,31 @@ export async function getCustomerDetail(
   // begrenset til de 25 nyeste kontrollene; totalen kommer fra _count.
   // Enheter og servicehistorikk krever equipment.view. Historikken er i
   // tillegg begrenset til oppdrag aktøren kan se, og til reports.view.
-  const unitSearch: Prisma.ProductWhereInput = unitQuery
-    ? {
-        OR: [
-          { model: { contains: unitQuery, mode: "insensitive" } },
-          { serialNumber: { contains: unitQuery, mode: "insensitive" } },
-          { location: { contains: unitQuery, mode: "insensitive" } },
-        ],
-      }
-    : {};
+  //
+  // Søket bruker den normaliserte indeksen og er avgrenset til kundens egne
+  // enheter. Da er «å»/«a», aksenter og tegnsetting likegyldig, og en annen
+  // kundes enheter kan verken telle med eller dukke opp i trefflista.
+  let unitIds: string[] | null = null;
+  let unitTotal = customer._count.products;
+  if (currentTab === "utstyr" && canViewEquipment && unitQuery) {
+    const hits = await searchNormalizedIds(
+      "Product",
+      unitQuery,
+      100,
+      undefined,
+      false,
+      { customerId },
+    );
+    unitIds = hits.map((hit) => hit.id);
+    unitTotal = Number(hits[0]?.total ?? hits.length) || 0;
+  }
 
   const products =
-    currentTab === "utstyr" && canViewEquipment
+    currentTab === "utstyr" &&
+    canViewEquipment &&
+    (!unitQuery || (unitIds?.length ?? 0) > 0)
       ? await prisma.product.findMany({
-          where: { customerId, ...unitSearch },
+          where: { customerId, ...(unitIds ? { id: { in: unitIds } } : {}) },
           orderBy: { model: "asc" },
           take: 100,
           include: {
@@ -625,6 +684,11 @@ export async function getCustomerDetail(
     contractProducts,
     canManageContracts,
     products,
+    unitTotal,
+    unitQuery,
+    sites,
+    siteTotal,
+    siteQuery,
     totalOrders,
     activeOrders,
     completedOrders,

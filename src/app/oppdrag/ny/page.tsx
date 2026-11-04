@@ -21,6 +21,7 @@ import {
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
 import { createWorkOrder } from "./actions";
+import { getCustomerSiteOptions } from "@/server/customer-sites";
 import { todayInOslo } from "@/lib/dates";
 
 const CARD = "office-card min-w-0 p-4 sm:p-5";
@@ -93,18 +94,12 @@ export default async function AdminCreateWorkOrderPage({
         ...customers.filter((customer) => customer.id !== selectedCustomer.id),
       ]
     : customers;
-  const sites = await prisma.customerSite.findMany({
-    where: { customer: { deletedAt: null } },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    take: 1000,
-    select: {
-      id: true,
-      name: true,
-      address: true,
-      customerId: true,
-      customer: { select: { name: true } },
-    },
-  });
+  // Steder lastes bare for den valgte kunden. Når kunden endres i skjemaet,
+  // henter klienten den nye kundens steder fra et serveravgrenset endepunkt.
+  const siteOptionsResult = selectedCustomer
+    ? await getCustomerSiteOptions(user, selectedCustomer.id, { limit: 200 })
+    : null;
+  const sites = siteOptionsResult?.ok ? siteOptionsResult.data.sites : [];
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const { service: serviceTemplates, hms: hmsTemplates } =
     splitTemplatesByCategory(templates);
@@ -272,31 +267,15 @@ export default async function AdminCreateWorkOrderPage({
                 optional={true}
                 persistenceKey="fsm:office-create-work-order"
                 restoreSelection={Boolean(error)}
+                siteSelector={{
+                  initialCustomerId: selectedCustomer?.id ?? null,
+                  initialSites: sites,
+                  id: "office-new-site",
+                  label: t("orders.new.siteLabel"),
+                  noSiteLabel: t("orders.new.noSite"),
+                  hint: t("orders.new.siteHint"),
+                }}
               />
-
-              <div>
-                <label htmlFor="office-new-site" className={LABEL}>
-                  {t("orders.new.siteLabel")}
-                </label>
-                <select
-                  id="office-new-site"
-                  name="siteId"
-                  defaultValue=""
-                  aria-describedby="office-new-site-hint"
-                  className={controlClassName("min-h-11")}
-                >
-                  <option value="">{t("orders.new.noSite")}</option>
-                  {sites.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.name} · {site.customer.name}
-                      {site.address ? ` — ${site.address}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <p id="office-new-site-hint" className={HINT}>
-                  {t("orders.new.siteHint")}
-                </p>
-              </div>
 
               <div
                 className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"

@@ -97,6 +97,13 @@ const NORMALIZED_SEARCH_TABLES = {
     table: '"Product"',
     columns: ["model", "serialNumber", "location"],
     hasDeletedAt: false,
+    customerScoped: true,
+  },
+  CustomerSite: {
+    table: '"CustomerSite"',
+    columns: ["name", "address", "postalCode", "city"],
+    hasDeletedAt: false,
+    customerScoped: true,
   },
   Contact: {
     table: '"Contact"',
@@ -158,16 +165,30 @@ function normalizedColumnExpression(
  * som skal vise slettede rader (f.eks. kundelisten); standard er at mykt
  * slettede rader aldri kommer med.
  */
+export type NormalizedSearchOptions = {
+  /**
+   * Begrens søket til én kunde. Bare tabeller som er merket `customerScoped`
+   * i allowlisten kan bruke dette, slik at et kall aldri kan peke på en
+   * tilfeldig kolonne.
+   */
+  customerId?: string;
+};
+
 export async function searchNormalizedIds(
   table: NormalizedSearchTable,
   query: string,
   limit: number,
   columns?: string[],
   includeDeleted = false,
+  options: NormalizedSearchOptions = {},
 ): Promise<NormalizedSearchRow[]> {
   const config = normalizedTableConfig(table);
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
+
+  if (options.customerId && !("customerScoped" in config)) {
+    throw new Error(`Ugyldig kundefilter for tabellen ${table}`);
+  }
   // Kompakt form uten separatorer. For søk som allerede er uten separatorer
   // er den identisk med `normalizedQuery`, og da er det bare én ekstra,
   // billig strpos per kolonne.
@@ -241,6 +262,9 @@ export async function searchNormalizedIds(
     config.hasDeletedAt && !showDeleted
       ? Prisma.sql`AND ${Prisma.raw(config.table)}."deletedAt" IS NULL`
       : Prisma.empty;
+  const customerFilter = options.customerId
+    ? Prisma.sql`AND ${Prisma.raw(config.table)}."customerId" = ${options.customerId}`
+    : Prisma.empty;
 
   const where = matchContacts
     ? Prisma.sql`((${Prisma.join(contains, " OR ")}) OR ${contactMatch})`
@@ -257,6 +281,7 @@ export async function searchNormalizedIds(
       COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(config.table)}
     WHERE ${where}
+      ${customerFilter}
       ${deletedFilter}
     ORDER BY "score" DESC, "id" ASC
     LIMIT ${take}

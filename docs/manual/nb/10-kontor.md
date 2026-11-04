@@ -224,6 +224,11 @@ brukeren.
 dokumenter, avtaler og bilder som hører til kunden. **Avtaler** viser
 serviceavtaler, dekningslinjer, neste service, SLA og prislister.
 
+**Steder** og **Utstyr** på kundekortet har egne søkefelt. Søket kjøres på
+serveren og er avgrenset til den åpne kunden, så du kan søke på navn, adresse,
+postnummer, sted, modell eller serienummer uten at andre kunders rader dukker
+opp. **Nullstill** fjerner søket, og telleren viser hvor mange treff kunden har.
+
 ## Utstyr og enheter
 
 Utstyrsregisteret ligger på `/enheter`. Søk på modell, serienummer, plassering
@@ -238,6 +243,11 @@ eller kunde, filtrer på status og kategori, eller slå på **Vis hierarki**.
 4. Sett **Installasjonsdato**, **Garanti til** og **Måleenhet** hvis det er
    relevant.
 5. Trykk **Registrer enhet**.
+
+Når du har valgt **Kunde**, lastes bare den kundens **Steder** og
+**Overordnet enhet** fra serveren. Bytter du kunde, tømmes og lastes listene på
+nytt, så du kan ikke velge et sted eller en enhet som hører til en annen kunde.
+Det samme gjelder **Nytt oppdrag** og **Rediger oppdrag**.
 
 **Rediger enhet** endrer de samme feltene.
 

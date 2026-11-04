@@ -759,6 +759,10 @@
       }
     },
     "orders": {
+      "sitePicker": {
+        "loading": "Standorte werden geladen …",
+        "loadFailed": "Die Standorte des Kunden konnten nicht geladen werden. Wählen Sie den Kunden erneut."
+      },
       "list": {
         "views": {
           "alle": {
@@ -2120,7 +2124,13 @@
         "delete": "Standort löschen",
         "deleteConfirm": "Standort „{name}“ löschen? Aufträge und Geräte verlieren die Verknüpfung.",
         "edit": "Standort bearbeiten",
-        "save": "Standort speichern"
+        "save": "Standort speichern",
+        "searchLabel": "Standorte filtern",
+        "searchPlaceholder": "Nach Name, Adresse, Postleitzahl oder Ort suchen...",
+        "search": "Filtern",
+        "resetSearch": "Zurücksetzen",
+        "noMatches": "Keine Standorte entsprechen \"{query}\".",
+        "showing": "{shown} von {total} Standorten werden angezeigt."
       }
     },
     "documents": {

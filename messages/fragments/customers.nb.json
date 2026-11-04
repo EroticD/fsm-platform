@@ -378,7 +378,13 @@
       "delete": "Slett sted",
       "deleteConfirm": "Slette stedet «{name}»? Oppdrag og utstyr som peker på stedet mister koblingen.",
       "edit": "Endre sted",
-      "save": "Lagre sted"
+      "save": "Lagre sted",
+      "searchLabel": "Filtrer steder",
+      "searchPlaceholder": "Søk på navn, adresse, postnummer eller sted...",
+      "search": "Filtrer",
+      "resetSearch": "Nullstill",
+      "noMatches": "Ingen steder matcher «{query}».",
+      "showing": "Viser {shown} av {total} steder."
     }
   }
 }

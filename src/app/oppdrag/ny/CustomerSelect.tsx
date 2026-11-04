@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import CustomerSiteSelect, {
+  type CustomerSiteOption,
+} from "@/components/CustomerSiteSelect";
 import { controlClassName } from "@/components/ui/controlStyles";
 
 export type CustomerOption = {
@@ -21,6 +24,18 @@ export type ContactOption = {
 type CustomersResponse = { customers?: CustomerOption[]; error?: string };
 type ContactsResponse = { contacts?: ContactOption[]; error?: string };
 
+export type CustomerSelectSiteConfig = {
+  /** Kunden stedene på serveren ble lastet for. */
+  initialCustomerId?: string | null;
+  /** Steder for den valgte kunden, allerede avgrenset på serveren. */
+  initialSites?: CustomerSiteOption[];
+  initialSiteId?: string | null;
+  id: string;
+  label: string;
+  noSiteLabel: string;
+  hint?: string;
+};
+
 /**
  * Søkbart kundevalg med ARIA-combobox og tastaturnavigasjon.
  *
@@ -37,6 +52,7 @@ export default function CustomerSelect({
   hideLabel = false,
   persistenceKey,
   restoreSelection = true,
+  siteSelector,
 }: {
   /** Et lite startutvalg, slik at listen har innhold før man søker. */
   customers?: CustomerOption[];
@@ -54,6 +70,11 @@ export default function CustomerSelect({
   persistenceKey?: string;
   /** Bare gjenopprett et lagret valg når skjemaet vises etter en feil. */
   restoreSelection?: boolean;
+  /**
+   * Stedsvelger for valgt kunde. Stedene hentes på nytt fra serveren når
+   * kunden endres, og lista er tom til en kunde er valgt.
+   */
+  siteSelector?: CustomerSelectSiteConfig;
 }) {
   const t = useTranslations("common");
   const listboxId = useId();
@@ -302,6 +323,30 @@ export default function CustomerSelect({
           >
             {t("orders.customerSelect.change")}
           </button>
+        </div>
+      )}
+
+      {siteSelector && (
+        <div className="mb-3">
+          <CustomerSiteSelect
+            key={selected?.id ?? "no-customer"}
+            customerId={selected?.id ?? ""}
+            initialSites={
+              selected?.id === siteSelector.initialCustomerId
+                ? (siteSelector.initialSites ?? [])
+                : []
+            }
+            initialSiteId={
+              selected?.id === siteSelector.initialCustomerId
+                ? (siteSelector.initialSiteId ?? null)
+                : null
+            }
+            id={siteSelector.id}
+            label={siteSelector.label}
+            noSiteLabel={siteSelector.noSiteLabel}
+            hint={siteSelector.hint}
+            className={controlClassName("min-h-11")}
+          />
         </div>
       )}
 

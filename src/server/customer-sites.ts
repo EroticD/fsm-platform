@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { searchNormalizedIds } from "@/lib/search-sql";
 import {
   can,
   fail,
@@ -43,6 +44,26 @@ export type CustomerSiteInput = {
   isPrimary?: unknown;
 };
 
+/** Feltene en avgrenset stedsvelger trenger – aldri kundenavn eller andre kunders rader. */
+export type CustomerSiteOption = {
+  id: string;
+  customerId: string;
+  name: string;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  isPrimary: boolean;
+};
+
+export type CustomerSiteOptionParams = {
+  /** Fritekstsøk i navn, adresse, postnummer og sted. */
+  query?: string;
+  limit?: number;
+};
+
+export const CUSTOMER_SITE_OPTION_PAGE_SIZE = 100;
+export const CUSTOMER_SITE_OPTION_MAX = 200;
+
 const SITE_SELECT = {
   id: true,
   name: true,
@@ -71,6 +92,83 @@ async function customerExists(customerId: string): Promise<boolean> {
     select: { id: true },
   });
   return Boolean(customer);
+}
+
+function canReadSiteOptions(actor: ServiceActor): boolean {
+  return (
+    Boolean(actor?.isActive) &&
+    (can(actor, "customers.view") ||
+      can(actor, "equipment.view") ||
+      can(actor, "workorders.create") ||
+      can(actor, "workorders.edit"))
+  );
+}
+
+/**
+ * Steder for én kunde, brukt av stedsvelgerne i oppdrags- og utstyrsskjemaene.
+ *
+ * Lista er alltid avgrenset til `customerId` både i søket og i selve
+ * spørringen. Søket går mot den normaliserte PostgreSQL-indeksen, så æ/ø/å,
+ * aksenter og tegnsetting ikke avgjør om et sted blir funnet. Returverdien
+ * inneholder bare feltene velgeren viser – aldri andre kunders rader.
+ */
+export async function getCustomerSiteOptions(
+  actor: ServiceActor,
+  customerId: string,
+  params: CustomerSiteOptionParams = {},
+): Promise<
+  ServiceResult<{ sites: CustomerSiteOption[]; total: number; query: string }>
+> {
+  if (!canReadSiteOptions(actor)) return fail("forbidden");
+
+  const id = cleanText(customerId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+  if (!(await customerExists(id))) return fail("not_found");
+
+  const query = cleanText(params.query, { maxLength: LIMITS.short });
+  const limit = Math.min(
+    CUSTOMER_SITE_OPTION_MAX,
+    Math.max(1, Math.floor(params.limit ?? CUSTOMER_SITE_OPTION_PAGE_SIZE)),
+  );
+
+  let ids: string[] | null = null;
+  let searchTotal = 0;
+  if (query) {
+    const hits = await searchNormalizedIds(
+      "CustomerSite",
+      query,
+      limit,
+      undefined,
+      false,
+      { customerId: id },
+    );
+    ids = hits.map((hit) => hit.id);
+    searchTotal = Number(hits[0]?.total ?? hits.length) || 0;
+    if (ids.length === 0) {
+      return ok({ sites: [], total: 0, query });
+    }
+  }
+
+  const sites = await prisma.customerSite.findMany({
+    where: { customerId: id, ...(ids ? { id: { in: ids } } : {}) },
+    orderBy: [{ isPrimary: "desc" }, { name: "asc" }, { id: "asc" }],
+    take: limit,
+    select: {
+      id: true,
+      customerId: true,
+      name: true,
+      address: true,
+      postalCode: true,
+      city: true,
+      isPrimary: true,
+    },
+  });
+
+  return ok({
+    sites,
+    total: query ? searchTotal : sites.length,
+    query,
+  });
 }
 
 async function setPrimaryInTx(

@@ -86,13 +86,15 @@ export default async function CustomerDetailPage({
     vis?: string;
     side?: string;
     enhet?: string;
+    sted?: string;
   }>;
 }) {
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
-  const { error, status, tab, vis, side, enhet } = await searchParams;
+  const { error, status, tab, vis, side, enhet, sted } = await searchParams;
   const orderPage = parsePage(side);
   const unitQuery = enhet?.trim().slice(0, 120) ?? "";
+  const siteQuery = sted?.trim().slice(0, 120) ?? "";
   const t = await getTranslations("common");
 
   const user = await getCurrentUser();
@@ -147,6 +149,7 @@ export default async function CustomerDetailPage({
     tab: currentTab,
     orderPage,
     unitQuery,
+    siteQuery,
   });
 
   if (!result.ok) {
@@ -278,6 +281,9 @@ export default async function CustomerDetailPage({
     }
     if (key === "utstyr" && unitQuery) {
       params.set("enhet", unitQuery);
+    }
+    if (key === "mer" && siteQuery) {
+      params.set("sted", siteQuery);
     }
     return `?${params.toString()}`;
   };
@@ -460,7 +466,7 @@ export default async function CustomerDetailPage({
             customerId={customerId}
             products={data.products}
             unitQuery={unitQuery}
-            unitTotal={customer._count.products}
+            unitTotal={data.unitTotal}
             canManageEquipment={canManageEquipment}
             canViewReports={canViewReports}
             isAdmin={isAdmin}
@@ -487,7 +493,9 @@ export default async function CustomerDetailPage({
             {office && (
               <div id="steder" className="scroll-mt-24">
                 <CustomerSitesTab
-                  sites={customer.sites}
+                  sites={data.sites}
+                  siteQuery={siteQuery}
+                  siteTotal={data.siteTotal}
                   office={office}
                   createSite={createSite}
                   updateSite={updateSite}

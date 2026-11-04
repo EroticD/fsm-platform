@@ -235,6 +235,38 @@ describe("searchNormalizedIds", () => {
     expect(sql.values).toContain("sn 123");
   });
 
+  it("søker i kundens steder med navn, adresse, postnummer og sted", async () => {
+    await searchNormalizedIds("CustomerSite", "lager sør", 10, undefined, false, {
+      customerId: "cust-1",
+    });
+    const sql = lastSql();
+
+    expect(sql.text).toContain('"CustomerSite"."name"');
+    expect(sql.text).toContain('"CustomerSite"."address"');
+    expect(sql.text).toContain('"CustomerSite"."postalCode"');
+    expect(sql.text).toContain('"CustomerSite"."city"');
+    expect(sql.text).toContain('"CustomerSite"."customerId" =');
+    expect(sql.values).toContain("cust-1");
+  });
+
+  it("avgrenser enhetssøket til kunden når det er oppgitt", async () => {
+    await searchNormalizedIds("Product", "pumpe", 10, undefined, false, {
+      customerId: "cust-1",
+    });
+    const sql = lastSql();
+
+    expect(sql.text).toContain('"Product"."customerId" =');
+    expect(sql.values).toContain("cust-1");
+  });
+
+  it("avviser kundefilter for tabeller som ikke er kundeavgrensede", async () => {
+    await expect(
+      searchNormalizedIds("Customer", "kunde", 10, undefined, false, {
+        customerId: "cust-1",
+      }),
+    ).rejects.toThrow("Ugyldig kundefilter");
+  });
+
   it("søker i alle feltene på kundekortet", async () => {
     await searchNormalizedIds("Customer", "123456789", 10);
     const sql = lastSql();

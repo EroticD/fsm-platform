@@ -217,6 +217,12 @@ the user out.
 holds documents, agreements and images belonging to the customer. **Agreements**
 shows service agreements, coverage lines, next service, SLA and price lists.
 
+**Sites** and **Equipment** on the customer card have their own search fields.
+The search runs on the server and is limited to the open customer, so you can
+search by name, address, postal code, city, model or serial number without
+other customers' rows appearing. **Reset** clears the search, and the counter
+shows how many matches the customer has.
+
 ## Equipment and assets
 
 The asset register is at `/enheter`. Search by model, serial number, location or
@@ -230,6 +236,11 @@ customer, filter by status and category, or turn on **Show hierarchy**.
    **Criticality**.
 4. Set **Installation date**, **Warranty until** and **Meter unit** if relevant.
 5. Press **Register asset**.
+
+Once a **Customer** is selected, only that customer's **Sites** and **Parent
+asset** are loaded from the server. Changing customer clears and reloads the
+lists, so you cannot select a site or asset belonging to another customer. The
+same applies to **New work order** and **Edit work order**.
 
 **Edit asset** changes the same fields.
 

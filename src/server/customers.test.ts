@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
       delete: vi.fn(),
       findMany: vi.fn(),
     },
+    customerSite: { findMany: vi.fn(), count: vi.fn() },
     contract: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -53,6 +54,7 @@ const mocks = vi.hoisted(() => ({
   },
   recurring: vi.fn(async () => ({ contractId: "contract" })),
   claimUpload: vi.fn(async () => ({ claimed: true })),
+  searchNormalizedIds: vi.fn(async () => [] as Array<{ id: string; score: number; total: number }>),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -64,6 +66,9 @@ vi.mock("@/lib/departments", () => ({
   getDefaultDepartmentId: vi.fn(async () => "dep-a"),
 }));
 vi.mock("@/lib/upload-access", () => ({ claimUpload: mocks.claimUpload }));
+vi.mock("@/lib/search-sql", () => ({
+  searchNormalizedIds: mocks.searchNormalizedIds,
+}));
 vi.mock("fs/promises", () => ({
   default: { access: vi.fn(async () => undefined) },
 }));
@@ -301,6 +306,9 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
     mocks.prisma.report.count.mockResolvedValue(0);
     mocks.prisma.report.findMany.mockResolvedValue([]);
+    mocks.prisma.customerSite.findMany.mockResolvedValue([]);
+    mocks.prisma.customerSite.count.mockResolvedValue(0);
+    mocks.searchNormalizedIds.mockResolvedValue([]);
   });
 
   it("avgrenser rapportenhetene til aktørens oppdrag og krever reports.view", async () => {
@@ -408,6 +416,78 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     });
 
     expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+  });
+
+  it("søker i kundens steder med kunden som hardt filter", async () => {
+    mocks.searchNormalizedIds.mockResolvedValue([
+      { id: "site-1", score: 1, total: 1 },
+    ]);
+    mocks.prisma.customerSite.findMany.mockResolvedValue([
+      {
+        id: "site-1",
+        name: "Lager sør",
+        address: "Gata 1",
+        postalCode: "0001",
+        city: "Oslo",
+        isPrimary: true,
+        latitude: null,
+        longitude: null,
+      },
+    ]);
+
+    const result = await getCustomerDetail(office(), "kunde-1", {
+      tab: "mer",
+      orderPage: 1,
+      siteQuery: "lager",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mocks.searchNormalizedIds).toHaveBeenCalledWith(
+      "CustomerSite",
+      "lager",
+      200,
+      undefined,
+      false,
+      { customerId: "kunde-1" },
+    );
+    expect(mocks.prisma.customerSite.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerId: "kunde-1", id: { in: ["site-1"] } },
+        take: 200,
+      }),
+    );
+    expect(result.data.sites.map((site) => site.name)).toEqual(["Lager sør"]);
+    expect(result.data.siteTotal).toBe(1);
+  });
+
+  it("søker i kundens enheter uten å ta med andre kunder", async () => {
+    mocks.searchNormalizedIds.mockResolvedValue([
+      { id: "p1", score: 1, total: 1 },
+    ]);
+
+    const result = await getCustomerDetail(office(), "kunde-1", {
+      tab: "utstyr",
+      orderPage: 1,
+      unitQuery: "pumpe",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mocks.searchNormalizedIds).toHaveBeenCalledWith(
+      "Product",
+      "pumpe",
+      100,
+      undefined,
+      false,
+      { customerId: "kunde-1" },
+    );
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerId: "kunde-1", id: { in: ["p1"] } },
+      }),
+    );
+    expect(result.data.unitTotal).toBe(1);
   });
 
   it("viser bare kundens egne revisjonsrader – ikke oppdrag fra andre avdelinger", async () => {
