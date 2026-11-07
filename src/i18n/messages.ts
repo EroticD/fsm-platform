@@ -11,6 +11,8 @@ import ordersNb from "../../messages/fragments/orders.nb.json";
 import ordersEn from "../../messages/fragments/orders.en.json";
 import customersNb from "../../messages/fragments/customers.nb.json";
 import customersEn from "../../messages/fragments/customers.en.json";
+import customersPl from "../../messages/fragments/customers.pl.json";
+import customersDe from "../../messages/fragments/customers.de.json";
 import documentsNb from "../../messages/fragments/documents.nb.json";
 import documentsEn from "../../messages/fragments/documents.en.json";
 import settingsNb from "../../messages/fragments/settings.nb.json";
@@ -186,6 +188,7 @@ const plFragments = mergeAll([
   customerTransferPl,
   fieldAppPl,
   ssoPl,
+  customersPl,
 ]);
 const deFragments = mergeAll([
   p4De,
@@ -200,6 +203,7 @@ const deFragments = mergeAll([
   customerTransferDe,
   fieldAppDe,
   ssoDe,
+  customersDe,
 ]);
 
 export const messages = {

@@ -19,10 +19,7 @@
 | Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
 | P0 | Ingen åpne P0 funnet på denne commiten |
 
-**Kort status:** P1 består av GDPR-sletting (DATA-01). P2 er sju nye
-produkt-/plattformoppgaver pluss fem konkrete restrisiko-/gjeldsposter (to av
-dem er P3-visuell QA). P3 er plattform- og skaleringsarbeid som krever
-eiergodkjenning.
+**Kort status:** P1 er tom: DATA-01 og DOC-01 er levert. P2 er sju nye produkt-/plattformoppgaver pluss konkrete restrisiko-/gjeldsposter. P3 er plattform- og skaleringsarbeid som krever eiergodkjenning.
 
 ---
 
@@ -36,6 +33,13 @@ eiergodkjenning.
   opplasting med kvoter, API-nøkkel-scopes/rotasjon og påkrevd 2FA.
 - **DATA-02/03** — hash-kjedet revisjonslogg med oppbevaring/legal hold,
   revisjonseksport og signert bevis-eksport per oppdrag.
+- **DATA-01 — GDPR-sletting og anonymisering.** Admin-only forhåndsvisning,
+  navnebekreftelse, legal-hold-blokkering og transaksjonell anonymisering av
+  kunde, kontakter, steder, portalbrukere, oppdrag, rapporter/revisjoner,
+  kommentarer, meldinger, bestillinger og filmetadata. Kundens egne vedlegg
+  slettes; oppdrag, rapporter, signerte rapport-PDF-er og revisjonsloggen
+  bevares. Idempotent og revisjonslogget. Se
+  [`privacy-erasure.md`](privacy-erasure.md).
 - **OPS-01–04** — automatiserte backuper med ferskhetskontroll, metrics/
   varsler, trusted proxy og separate runtime-/migrasjonsroller.
 - **OPS-06 — automatisk SLA-opprydding.** Scheduleren kjører
@@ -126,9 +130,7 @@ størrelse.
 
 ### P1 — lukk disse først
 
-| ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
-| --- | --- | --- | --- | --- | --- |
-| **DATA-01** · GDPR-sletting/anonymisering med legal hold | P1 | L | Juridisk/DPO-avklaring; DATA-02-retensjon er levert | **Åpen.** Myk sletting er retensjon, ikke sletting. Det finnes ingen anonymiserings-/slettetjeneste eller UI for PII i kunder, kontakter, oppdrag, rapporter, revisjoner, vedlegg eller revisjonslogger. | Admin-only sletting med grunn og retensjonsmatrise; legal hold blokkerer; direkte identifikatorer anonymiseres irreversibelt; lovpålagte poster/bevis bevares; operasjonen revideres; tester beviser at identitetsfelt og dokumentmetadata fjernes og at hold-bevis beholdes. |
+Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet til «Levert».
 
 ---
 
@@ -217,7 +219,6 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon på
 Rekkefølgen er et forslag; bølger kan kjøres parallelt når avhengighetene
 tillater det.
 
-1. **P1-beslutning og risiko:** DATA-01 (L). Start juridisk/DPO-spor tidlig.
 2. **Plattformmuliggjører:** ARCH-01 (L). Ikke bygg nye moduler som hardkoder
    seg inn i navigasjon, server actions og worker før denne er på plass.
 3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) etter at

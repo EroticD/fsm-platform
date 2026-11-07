@@ -232,6 +232,8 @@ Each key can make **120 requests per minute**; exceeding the limit returns `429`
 
 **Privacy:** collect only necessary data, use department and customer scope, and grant `reports.viewAllDepartments` only when needed. Use separate portal accounts and deactivate them on leaving. Assess DPIA before tracking in a new department; tracking is opt-in, limited to `EN_ROUTE`, shows no route or coordinates and deletes pings after 24 hours. Obtain SMS consent and keep reviews internal. Deleting a customer deactivates portal users.
 
+**GDPR erasure:** **Privacy / Erase customer data** on the customer card anonymises the customer's direct identifiers. The preview shows affected row counts and blocks when a work order, report or audit hold has a retention obligation. Enter a reason and confirm with the customer's current name. Work orders, reports, revisions, technician signatures and the audit log are preserved; the customer's own attachments and document library are deleted. Signed report PDFs are kept unchanged as service evidence and may still contain the original data. A second run is a no-op. See `docs/privacy-erasure.md` for the retention matrix and evidence.
+
 **Export:** there is no automatic export job or self-service GDPR export. Evidence is exported through the database backup or an administrator-controlled query against `WorkOrder`, `Report`, `ReportRevision` and `AuditLog` for one work order at a time. Never export reports from the client or a public route.
 
 **Retention:** `RETENTION_DAYS` (default 365) controls hard deletion of soft-deleted work orders without reports. Work orders with reports are kept indefinitely. Legal hold stops all automatic deletion. Files are removed only when no rows reference them.
