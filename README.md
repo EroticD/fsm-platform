@@ -85,7 +85,7 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterpå �
    APP_URL=https://fsm.example.com
 
    # Pinn til en publisert versjon, ikke latest.
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.10
    POSTGRES_IMAGE=postgres:15.13
    ```
 
@@ -257,6 +257,8 @@ Backup, kryptering, restore-test og rollback er beskrevet i
 - [Backup og gjenoppretting](docs/BACKUP-RESTORE.md) – full runbook med RPO/RTO,
   Azure-native backup, restore-test, feilsøking og sjekklister. Se også
   [drift og feilsøking](docs/OPERATIONS.md).
+- [Azure-deployment](docs/AZURE.md) – VM, Docker Compose, Caddy, PostgreSQL
+  Flexible Server, Key Vault, Blob-backup og oppdateringsrutine.
 
 ## Oppdatere til ny versjon
 
@@ -266,7 +268,7 @@ Backup, kryptering, restore-test og rollback er beskrevet i
 2. Bytt `APP_IMAGE` til den nye, pinnede taggen i `.env`:
 
    ```dotenv
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.10
    ```
 
 3. Kontroller hvilke images som faktisk brukes, hent og recreate:
