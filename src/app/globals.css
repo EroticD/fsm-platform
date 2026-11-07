@@ -1,3 +1,9 @@
+/* FullCalendar v7 leverer ikke lenger CSS selv. Skeleton må alltid lastes,
+   deretter én tema-plugin og dens palett. Classic er valgt fordi den ligger
+   nærmest den eksisterende papir/ink-kalenderen. */
+@import "fullcalendar/skeleton.css";
+@import "fullcalendar/themes/classic/theme.css";
+@import "fullcalendar/themes/classic/palette.css";
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
