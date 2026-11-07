@@ -20,7 +20,7 @@ function isoDateOffset(days: number): string {
 async function eventDate(page: Page, title: string): Promise<string> {
   return (
     (await page
-      .locator(".fc-event")
+      .locator("[data-testid=\"calendar-event\"]")
       .filter({ hasText: title })
       .first()
       .evaluate((element) =>
@@ -36,7 +36,7 @@ async function adjacentVisibleDate(
 ): Promise<string> {
   const dates = [
     ...new Set(
-      (await page.locator("td.fc-day[data-date]").evaluateAll((cells) =>
+      (await page.locator(".kal-day-cell[data-date]").evaluateAll((cells) =>
         cells.map((cell) => cell.getAttribute("data-date")),
       )).filter((date): date is string => Boolean(date)),
     ),
@@ -71,11 +71,16 @@ async function releaseLegalHold(page: Page): Promise<void> {
 }
 
 async function dragToDate(page: Page, title: string, date: string) {
-  const event = page.locator(".fc-event").filter({ hasText: title }).first();
+  const event = page.locator("[data-testid=\"calendar-event\"]").filter({ hasText: title }).first();
   await expect(event).toBeVisible({ timeout: 20_000 });
-  // Ukevisningen har både en TH-header og en TD-dagcelle med samme dato.
+  // v7 kan sende en datesSet/URL-oppdatering rett etter første rendering.
+  // La kalenderen bli ferdig før musebevegelsen starter, ellers kan elementet
+  // bli byttet ut midt i draget.
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(250);
+  // Ukevisningen har både en kolonneoverskrift og en dagcelle med samme dato.
   // Slippet må treffe dagcellen, ellers starter FullCalendar ingen flytting.
-  const target = page.locator(`td.fc-day[data-date="${date}"]`).first();
+  const target = page.locator(`.kal-day-cell[data-date="${date}"]`).first();
   await expect(target).toBeVisible();
 
   // Kalenderen er høyere enn standard testviewport. Sørg for at både kortet
@@ -265,7 +270,7 @@ test("kalender: flytt en visitt med dra-og-slipp og flytt den tilbake", async ({
   await page.goto(`/kalender?vis=2uker&dato=${today}`);
 
   const title = "Venter på deler – portmotor";
-  const event = page.locator(".fc-event").filter({ hasText: title }).first();
+  const event = page.locator("[data-testid=\"calendar-event\"]").filter({ hasText: title }).first();
   await expect(event).toBeVisible({ timeout: 20_000 });
   const sourceDate = await eventDate(page, title);
   expect(sourceDate).not.toBe("");
@@ -314,7 +319,7 @@ test("kalender: konfliktvarsel når oppdraget har bevaringsplikt", async ({
     await page.goto(`/kalender?vis=2uker&dato=${isoDateOffset(0)}`);
 
     const title = "Kvartalsservice – pumpe";
-    const event = page.locator(".fc-event").filter({ hasText: title }).first();
+    const event = page.locator("[data-testid=\"calendar-event\"]").filter({ hasText: title }).first();
     await expect(event).toBeVisible({ timeout: 20_000 });
     const holdDate = await eventDate(page, title);
     expect(holdDate).not.toBe("");

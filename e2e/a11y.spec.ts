@@ -78,10 +78,6 @@ async function expectNoBlockingA11yIssues(page: Page, context?: string) {
     try {
       results = await new AxeBuilder({ page })
         .withTags(A11Y_TAGS)
-        // FullCalendar setter aria-labelledby på rene TD-celler. «Label in
-        // Name» gjelder interaktive kontroller, ikke grid-celler, og gir ellers
-        // falske treff på kalenderens dagnett.
-        .exclude('td[aria-labelledby^="fc-dom-"]')
         .analyze();
       break;
     } catch (error) {
