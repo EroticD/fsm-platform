@@ -32,8 +32,8 @@
       "held": "Termin u {technician} od {from} do {to} jest zarezerwowany. Masz {minutes} minut.",
       "release": "Zwolnij termin",
       "selectedSlot": "Wybrany termin: {technician}, {date} od {from} do {to}.",
-      "confirm": "Potwierdź rezerwację",
-      "confirming": "Potwierdzanie …",
+      "confirm": "Wyślij zapytanie",
+      "confirming": "Wysyłanie …",
       "successConfirmedTitle": "Rezerwacja jest potwierdzona",
       "successConfirmedBody": "Termin jest zarezerwowany u {technician}. Znajdziesz go w „Twoje rezerwacje”.",
       "unconfiguredPolicy": "{count} technik(ów) nie ma godzin pracy. Użyto godzin otwarcia działu jako domyślnych.",
@@ -81,8 +81,8 @@
       "planSuccess": "Rezerwacja została zaplanowana i potwierdzona.",
       "alreadyConfirmed": "Rezerwacja była już potwierdzona.",
       "planErrors": {
-        "noTechnician": "Brak wolnego technika w tym przedziale czasu. Wybierz inny termin lub technika.",
-        "unavailable": "Technik jest zajęty, nieobecny lub niedostępny w tym przedziale czasu.",
+        "noTechnician": "Brak propozycji wolnego technika w tym przedziale czasu. Możesz wybrać innego technika.",
+        "unavailable": "Technik jest nieobecny lub poza godzinami pracy w tym przedziale czasu.",
         "needsPlanning": "Zgłoszenie nie ma godziny. Wybierz datę i godzinę.",
         "invalidTime": "Nieprawidłowy przedział czasu. Koniec musi być po początku.",
         "forbidden": "Nie masz uprawnień do potwierdzania rezerwacji.",
@@ -92,7 +92,7 @@
         "error": "Nie udało się potwierdzić rezerwacji. Spróbuj ponownie."
       },
       "cancel": "Anuluj",
-      "noTechnician": "Brak wolnego technika w żądanym terminie",
+      "noTechnician": "Brak propozycji wolnego technika w żądanym terminie",
       "chooseTechnician": "Wybierz technika",
       "status": {
         "PENDING": "Oczekuje",

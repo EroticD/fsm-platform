@@ -3,6 +3,8 @@ import { generateDueMaintenanceWorkOrders } from "@/server/maintenance";
 import { notifyWarrantyExpiring } from "@/server/equipment";
 import { runContractLifecycle } from "@/server/contracts";
 import { sweepSlaClocks } from "@/server/sla";
+import { runSlaCleanupJob } from "@/server/sla-cleanup-job";
+import { slaCleanupIntervalMs } from "@/lib/sla-cleanup-config";
 import { logger } from "@/lib/logger";
 
 /** Hvor ofte jobben sjekker avtaler, vedlikehold, garanti og SLA. */
@@ -19,6 +21,7 @@ export type SchedulerRunResult = {
   recurring: Awaited<ReturnType<typeof generateDueRecurringWorkOrders>>;
   lifecycle: Awaited<ReturnType<typeof runContractLifecycle>>;
   sla: Awaited<ReturnType<typeof sweepSlaClocks>>;
+  slaCleanup: Awaited<ReturnType<typeof runSlaCleanupJob>>;
   maintenance: Awaited<ReturnType<typeof generateDueMaintenanceWorkOrders>>;
   warranty: Awaited<ReturnType<typeof notifyWarrantyExpiring>>;
 };
@@ -69,6 +72,20 @@ export async function runScheduledJobs(
     return { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 };
   });
 
+  // Fjern SLA-klokker uten aktiv avtaledekning. Jobben er selvbegrensende
+  // (SLA_CLEANUP_ENABLED og SLA_CLEANUP_INTERVAL_HOURS) og kaster aldri, men
+  // vi fanger likevel feil her så en framtidig regresjon ikke stopper resten.
+  const slaCleanup = await runSlaCleanupJob({ now }).catch((error) => {
+    logger.error("sla: cleanup failed", { error: errorText(error) });
+    return {
+      enabled: false,
+      skipped: null,
+      runId: null,
+      result: null,
+      error: errorText(error),
+    };
+  });
+
   // Garantivarsel er best effort og skal aldri stoppe de andre jobbene.
   let warranty: SchedulerRunResult["warranty"] = {
     checked: 0,
@@ -86,6 +103,7 @@ export async function runScheduledJobs(
     recurring,
     lifecycle,
     sla,
+    slaCleanup,
     maintenance: maintenanceResult,
     warranty,
   };
@@ -120,6 +138,11 @@ async function runOnce() {
       notified: result.sla.notified,
     });
   }
+  if (result.slaCleanup.error) {
+    logger.error("sla: cleanup run reported an error", {
+      error: result.slaCleanup.error,
+    });
+  }
 }
 
 /**
@@ -142,6 +165,19 @@ export function startScheduler() {
 
   setTimeout(run, START_DELAY_MS);
   setInterval(run, RUN_INTERVAL_MS);
+
+  // SLA-oppryddingen har eget intervall (SLA_CLEANUP_INTERVAL_HOURS) fordi
+  // den kan kjøres oftere enn de øvrige tunge jobbene. runScheduledJobs gjør
+  // også et due-sjekk-kall, så intervallet respekteres uansett hvem som vekker
+  // den (intern timer eller /api/cron/recurring).
+  const cleanupTimer = setInterval(() => {
+    void runSlaCleanupJob().catch((error) => {
+      logger.error("sla: cleanup timer failed", {
+        error: errorText(error),
+      });
+    });
+  }, slaCleanupIntervalMs());
+  cleanupTimer.unref?.();
 }
 
 /** Bakoverkompatibelt navn fra da jobben bare håndterte serviceavtaler. */

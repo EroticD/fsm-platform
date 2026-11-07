@@ -56,8 +56,6 @@ function form(overrides: Record<string, string> = {}): FormData {
     contactPhone: "12345678",
     siteId: "site-1",
     serviceType: "maintenance",
-    technicianId: "tech-1",
-    holdToken: "hold-token",
     ...overrides,
   })) {
     data.set(key, value);
@@ -75,8 +73,8 @@ beforeEach(() => {
     data: {
       id: "wo-1",
       reference: "B-1",
-      status: "CONFIRMED",
-      technicianName: "Tekniker",
+      status: "PENDING",
+      technicianName: null,
     },
   });
   mocks.getCustomerAvailability.mockResolvedValue({
@@ -91,7 +89,7 @@ beforeEach(() => {
 });
 
 describe("bookingactions", () => {
-  it("sender sted, tjeneste og reservasjon videre til tjenestelaget", async () => {
+  it("sender datoforespørselen videre uten slotfelter", async () => {
     const result = await bookWorkOrderAction(idle, form());
 
     expect(result).toEqual({
@@ -99,22 +97,27 @@ describe("bookingactions", () => {
       duplicate: false,
       id: "wo-1",
       reference: "B-1",
-      bookingStatus: "CONFIRMED",
-      technicianName: "Tekniker",
+      bookingStatus: "PENDING",
+      technicianName: null,
     });
     expect(mocks.createBooking).toHaveBeenCalledWith(
       user,
       expect.objectContaining({
         siteId: "site-1",
         serviceType: "maintenance",
-        technicianId: "tech-1",
-        holdToken: "hold-token",
         requestedDate: "2026-11-09",
         requestedFrom: "08:00",
         requestedTo: "08:30",
         ip: "10.0.0.1",
       }),
     );
+    const sent = mocks.createBooking.mock.calls[0][1] as Record<
+      string,
+      unknown
+    >;
+    expect(sent).not.toHaveProperty("holdToken");
+    expect(sent).not.toHaveProperty("technicianId");
+    expect(sent).not.toHaveProperty("preferredTechnicianId");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/kundeportal");
   });
 

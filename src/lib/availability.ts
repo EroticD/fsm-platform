@@ -334,7 +334,9 @@ export function generateDaySlots(input: DaySlotInput): DaySlotResult {
 /**
  * Kontrollerer et vilkårlig tidsintervall (brukt av kontorets
  * bekreftelseskø). Intervallene må ligge helt innenfor både åpningstid og
- * arbeidstid, og verken fravær, visiter eller reservasjoner kan overlappe.
+ * arbeidstid, og fravær og reservasjoner kan ikke overlappe. Visiter er som
+ * standard en opptatt-markering; `allowVisitOverlap` lar kontoret bekrefte et
+ * overlappende oppdrag bevisst.
  */
 export function isRangeBookable(input: {
   date: DateOnly;
@@ -349,6 +351,8 @@ export function isRangeBookable(input: {
   /** Stengte kalenderdager (helligdager) i Oslo. */
   holidays?: readonly DateOnly[];
   leadHours?: number;
+  /** Når true er eksisterende visiter en opptatt-markering, ikke en sperre. */
+  allowVisitOverlap?: boolean;
 }): boolean {
   if (!(input.startsAt instanceof Date) || !(input.endsAt instanceof Date)) {
     return false;
@@ -386,12 +390,15 @@ export function isRangeBookable(input: {
   if (!startsInWindow) return false;
 
   // Timede visiter opptar den konkrete tiden, mens heldagsvisiter bare er
-  // planleggingsmarkører og ikke stenger hele dagen.
+  // planleggingsmarkører og ikke stenger hele dagen. Kontorets bekreftelse kan
+  // bevisst tillate overlapp; da er visiter bare informasjon om at montøren er
+  // opptatt. Fravær og aktive reservasjoner er alltid harde.
   return !(
     blocksCandidate(input.date, input.startsAt, input.endsAt, input.absences) ||
-    blocksCandidate(input.date, input.startsAt, input.endsAt, input.visits, {
-      ignoreAllDay: true,
-    }) ||
+    (!input.allowVisitOverlap &&
+      blocksCandidate(input.date, input.startsAt, input.endsAt, input.visits, {
+        ignoreAllDay: true,
+      })) ||
     blocksCandidate(input.date, input.startsAt, input.endsAt, input.holds)
   );
 }

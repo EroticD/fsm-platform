@@ -367,6 +367,8 @@ Bekreft at meldingen faktisk kommer fram i kanalen. Systemd-enhetene i
 | `FsmDocumentJobsFailed` | > 0 i 15 min | `DocumentJob.lastError`, `/tmp` |
 | `FsmSmsDeadLetters` | > 0 i 15 min | `SmsMessage.lastError`, leverandør |
 | `FsmNotificationEmailFailures` | > 0 i 30 min | SMTP, `Notification.emailError` |
+| `FsmSlaCleanupStale` | utdatert i 30 min | `SlaCleanupRun`, `SLA_CLEANUP_*`, scheduler |
+| `FsmSlaCleanupFailed` | > 0 feilede siste 24 t | `SlaCleanupRun.error`, logger |
 
 ## Logger
 
@@ -438,7 +440,30 @@ kjøres automatisk av appen eller i CI mot produksjon.
 
 SLA-klokker skal bare finnes for oppdrag med en aktiv, datogyldig avtale og en
 aktiv SLA-policy. Eldre data kan ha klokker uten slik dekning, eller klokker som
-peker på en annen policy enn avtalen nå gir. Rydd dem med:
+peker på en annen policy enn avtalen nå gir.
+
+**Automatisk opprydding.** Scheduleren kjører oppryddingen ved oppstart og
+deretter med `SLA_CLEANUP_INTERVAL_HOURS` (standard 6 timer). En ekstern cron
+kan i tillegg kalle `/api/cron/recurring`; en advisory-lås og en due-sjekk gjør
+at samtidige kall ikke dupliserer arbeid. Slås av med
+`SLA_CLEANUP_ENABLED=false` når en ekstern prosess eier jobben.
+
+- **Idempotent:** klokker som allerede er `CANCELLED` røres ikke, og klokker
+  med gyldig aktiv avtale og samme policy beholdes uendret. Hver kjøring
+  vurderer inntil 1000 klokker; en større engangsmengde tas over flere
+  intervaller eller med CLI-en.
+- **Transaksjon + revisjon:** hver kansellering skrives i samme transaksjon som
+  revisjonsloggen.
+- **Kjøringslogg:** hver kjøring får en rad i `SlaCleanupRun` med status,
+  antall vurderte/beholdte/kansellerte og eventuell feil. Feil kaster aldri
+  videre og stopper ikke de andre bakgrunnsjøbbene.
+- **Metrics/varsel:** `/api/metrics` eksponerer `fsm_sla_cleanup_enabled`,
+  `fsm_sla_cleanup_last_run_timestamp_seconds`,
+  `fsm_sla_cleanup_last_cancelled`, `fsm_sla_cleanup_failed_runs` og
+  `fsm_sla_cleanup_stale`. `deploy/monitoring/fsm-alerts.yml` varsler når
+  jobben er utdatert eller har feilet.
+
+Manuell kjøring er fortsatt tilgjengelig for feilsøking og engangsopprydding:
 
 ```bash
 # Tørrkjøring: viser kandidatene uten å skrive
@@ -448,11 +473,10 @@ npm run sla:cleanup
 npm run sla:cleanup -- --apply
 ```
 
-Klokker som allerede er `CANCELLED` røres ikke, og klokker med gyldig aktiv
-avtale og samme policy beholdes uendret. Hver kansellering skrives i samme
-transaksjon som revisjonsloggen. `sweepSlaClocks` og oppdragsdetaljen ignorerer
-kansellerte klokker, så de verken varsler eller vises i SLA-panelet. Ta backup
-og kjør mot en kopi/testdatabase før `--apply` i produksjon.
+Den manuelle kjøringen rører ikke `SlaCleanupRun`; den er bare et
+diagnoseverktøy. `sweepSlaClocks` og oppdragsdetaljen ignorerer kansellerte
+klokker, så de verken varsler eller vises i SLA-panelet. Ta backup og kjør mot
+en kopi/testdatabase før `--apply` i produksjon.
 
 ### Databaseroller (minste privilegium)
 
@@ -1143,6 +1167,7 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
+| SLA-oppryddingen kjører ikke | `SLA_CLEANUP_ENABLED`, `SLA_CLEANUP_INTERVAL_HOURS`, `SlaCleanupRun`, advisory lock, `fsm_sla_cleanup_stale` |
 | Disk full | `df -h /`, `docker system df -v`, opplastingsvolum, backupfiler |
 
 Rapport-PDF-er bygger inn bilder og signaturer fra `UPLOAD_DIR` bare når

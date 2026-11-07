@@ -767,6 +767,25 @@ model SlaClock {
   @@index([policyId])
 }
 
+/// Én kjøring av den automatiske SLA-oppryddingen. Raden brukes av
+/// driftsmålinger og alarmen for «siste kjøring»; selve kanselleringene har
+/// egne revisjonslogger på hver klokke.
+model SlaCleanupRun {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// RUNNING, SUCCEEDED eller FAILED.
+  status     String    @default("RUNNING")
+  dryRun     Boolean   @default(false)
+  scanned    Int       @default(0)
+  kept       Int       @default(0)
+  cancelled  Int       @default(0)
+  error      String?
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+}
+
 /// Åpningstider per ukedag, minutter fra midnatt i Europe/Oslo. 0 = mandag.
 model BusinessHours {
   id           String     @id @default(cuid())

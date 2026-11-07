@@ -11,6 +11,10 @@
 | `fsm_document_jobs{status="failed"}` | PDF/OCR-jobber som har gitt opp |
 | `fsm_sms_messages{status="dead_letter"}` | SMS dead letters |
 | `fsm_notification_email_failures` | Varsler som har gitt opp e-post |
+| `fsm_sla_cleanup_enabled` / `fsm_sla_cleanup_stale` | Automatisk SLA-opprydding er på / utdatert |
+| `fsm_sla_cleanup_last_run_timestamp_seconds` | Når siste SLA-opprydding startet |
+| `fsm_sla_cleanup_last_cancelled` | Klokker kansellert i siste kjøring |
+| `fsm_sla_cleanup_failed_runs{window="24h"}` | Feilede oppryddinger siste døgn |
 | `fsm_backup_age_seconds` / `fsm_backup_fresh` | Backupalder fra statusfilen |
 | `fsm_process_uptime_seconds` | Restart-signal (lav verdi = nylig restart) |
 

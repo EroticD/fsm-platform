@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     renewed: run.lifecycle.renewed,
     expired: run.lifecycle.expired,
     sla: run.sla,
+    slaCleanup: run.slaCleanup,
     results: run.recurring,
   });
 }

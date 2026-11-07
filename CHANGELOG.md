@@ -28,6 +28,16 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
   å skrive) kansellerer ikke-kansellerte SLA-klokker uten gyldig avtaledekning
   eller med en annen policy enn avtalen gir. Hver endring revisjonslogges, og
   kansellerte klokker ignoreres av sveiping, dispatch og SLA-panelet.
+- Oppryddingen kjører nå automatisk fra scheduleren (standard hvert sjette
+  døgn, `SLA_CLEANUP_INTERVAL_HOURS`; `SLA_CLEANUP_ENABLED=false` slår av).
+  Kjøringen er advisory-låst og idempotent, lagres i `SlaCleanupRun`, og
+  eksponerer siste kjøring, kansellert antall, feil og stale-signal i
+  `/api/metrics` med Prometheus-alarmer. CLI-en består som diagnoseverktøy.
+- Kundebestillinger er nå dokumentert og implementert som rene
+  datoforespørsler: den ikke-nåbare direkte slotbekreftelsen er fjernet, alle
+  ventende forespørsler planlegges og bekreftes av kontoret, overlapp er en
+  opptatt-markering, og `BookingHold` brukes bare ved ombooking av en allerede
+  bekreftet avtale.
 - Engangsbackfill `npm run visits:backfill:daily` splitter eldre flerdagers
   heldagsvisiter til én økt per dag uten å kopiere tidsstempler.
 

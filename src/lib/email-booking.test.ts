@@ -138,10 +138,10 @@ describe("sendBookingNotification", () => {
       subject: string;
       html: string;
     };
-    expect(mail.subject).toContain("We have received your booking");
-    expect(mail.html).toContain("Booking received");
+    expect(mail.subject).toContain("We have received your date request");
+    expect(mail.html).toContain("Date request received");
     expect(mail.html).toContain("<strong>Customer:</strong> Kunde AS");
-    expect(mail.html).not.toContain("Bestilling mottatt");
+    expect(mail.html).not.toContain("Datoforespørsel mottatt");
   });
 
   it("nøytraliserer URL-er i brukerstyrt tittel og beskrivelse", async () => {

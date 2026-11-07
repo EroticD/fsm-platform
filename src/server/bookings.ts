@@ -398,6 +398,10 @@ export async function confirmBooking(
         endsAt: window.endsAt,
         excludeVisitId: booking.visitId ?? undefined,
         leadHours: 0,
+        // Overlapp er en opptatt-markering, ikke en hard sperre. Kontoret kan
+        // bevisst bekrefte to oppdrag på samme tid; fravær og arbeidstid
+        // håndheves fortsatt.
+        allowVisitOverlap: true,
       });
       if (!available.ok) {
         return fail("conflict", { code: "technician_unavailable" });

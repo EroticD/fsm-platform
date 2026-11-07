@@ -448,8 +448,8 @@ export async function runSerializable<T>(
 }
 
 /**
- * Kontrollerer at en montør faktisk kan ta en konkret tidsblokk. Brukes både
- * av kundeportalen (direkte bekreftelse) og av kontorets bekreftelseskø.
+ * Kontrollerer at en montør faktisk kan ta en konkret tidsblokk. Brukes av
+ * kontorets bekreftelseskø og av den eldre ombookingsflyten.
  */
 export async function assertTechnicianSlotAvailable(
   client: DbClient,
@@ -463,6 +463,8 @@ export async function assertTechnicianSlotAvailable(
     excludeVisitId?: string;
     excludeHoldId?: string;
     leadHours?: number;
+    /** Kontorets bekreftelse kan tillate overlappende visiter. */
+    allowVisitOverlap?: boolean;
   },
 ): Promise<
   | { ok: true; technician: TechnicianContext }
@@ -499,6 +501,7 @@ export async function assertTechnicianSlotAvailable(
     holds: technician.holds,
     holidays: context.holidays,
     leadHours: input.leadHours,
+    allowVisitOverlap: input.allowVisitOverlap,
   });
   return available
     ? { ok: true, technician }

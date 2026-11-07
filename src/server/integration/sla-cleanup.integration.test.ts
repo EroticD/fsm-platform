@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import prisma from "@/lib/prisma";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
 import { cancelUncontractedSlaClocks } from "@/server/sla-cleanup";
+import { runSlaCleanupJob } from "@/server/sla-cleanup-job";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
@@ -295,5 +296,69 @@ describeIntegration("Opprydding av SLA-klokker uten aktiv avtale", () => {
       select: { state: true },
     });
     expect(stored?.state).toBe("CANCELLED");
+  });
+
+  it("er idempotent og tåler samtidig kjøring", async () => {
+    const { clock } = await createOrderWithClock({
+      policyId: activePolicyId,
+    });
+
+    const [first, second] = await Promise.all([
+      cancelUncontractedSlaClocks(prisma, { now: NOW }),
+      cancelUncontractedSlaClocks(prisma, { now: NOW }),
+    ]);
+
+    // Advisory-låsen serialiserer kjøringene. Den andre ser allerede
+    // kansellert klokke og skal ikke kansellere eller revidere den på nytt.
+    expect(first.cancelled + second.cancelled).toBe(1);
+    expect(
+      await prisma.auditLog.count({
+        where: {
+          entityType: "SlaClock",
+          entityId: clock.id,
+          action: "SLA: klokken kansellert ved opprydding",
+        },
+      }),
+    ).toBe(1);
+
+    const again = await cancelUncontractedSlaClocks(prisma, { now: NOW });
+    expect(
+      again.candidates.some((candidate) => candidate.clockId === clock.id),
+    ).toBe(false);
+    expect(again.cancelled).toBe(0);
+  });
+
+  it("registrerer kjøring, kansellert antall og siste status for metrics", async () => {
+    const { clock } = await createOrderWithClock({
+      policyId: activePolicyId,
+    });
+
+    const result = await runSlaCleanupJob({
+      now: NOW,
+      env: { SLA_CLEANUP_ENABLED: "true", SLA_CLEANUP_INTERVAL_HOURS: "6" },
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.runId).toBeTruthy();
+    const run = await prisma.slaCleanupRun.findUniqueOrThrow({
+      where: { id: result.runId! },
+      select: {
+        status: true,
+        cancelled: true,
+        scanned: true,
+        finishedAt: true,
+      },
+    });
+    expect(run.status).toBe("SUCCEEDED");
+    expect(run.finishedAt).not.toBeNull();
+    expect(run.cancelled).toBeGreaterThanOrEqual(1);
+    expect(run.scanned).toBeGreaterThanOrEqual(1);
+    expect(
+      result.result?.candidates.some(
+        (candidate) => candidate.clockId === clock.id,
+      ),
+    ).toBe(true);
+
+    await prisma.slaCleanupRun.deleteMany({ where: { id: result.runId! } });
   });
 });

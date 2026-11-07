@@ -19,10 +19,10 @@
 | Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
 | P0 | Ingen åpne P0 funnet på denne commiten |
 
-**Kort status:** P1 består av GDPR-sletting (DATA-01) og en dokumentasjons-/
-policykonflikt i booking (DOC-01). P2 er sju nye produkt-/plattformoppgaver
-pluss seks konkrete restrisiko-/gjeldsposter (to av dem er P3-visuell QA). P3 er
-plattform- og skaleringsarbeid som krever eiergodkjenning.
+**Kort status:** P1 består av GDPR-sletting (DATA-01). P2 er sju nye
+produkt-/plattformoppgaver pluss fem konkrete restrisiko-/gjeldsposter (to av
+dem er P3-visuell QA). P3 er plattform- og skaleringsarbeid som krever
+eiergodkjenning.
 
 ---
 
@@ -38,6 +38,22 @@ plattform- og skaleringsarbeid som krever eiergodkjenning.
   revisjonseksport og signert bevis-eksport per oppdrag.
 - **OPS-01–04** — automatiserte backuper med ferskhetskontroll, metrics/
   varsler, trusted proxy og separate runtime-/migrasjonsroller.
+- **OPS-06 — automatisk SLA-opprydding.** Scheduleren kjører
+  `cancelUncontractedSlaClocks` ved oppstart og med
+  `SLA_CLEANUP_INTERVAL_HOURS` (standard 6 timer; `SLA_CLEANUP_ENABLED=false`
+  slår av). Kjøringen er idempotent, advisory-låst, transaksjonsbasert og
+  revisjonslogget, og lagres i `SlaCleanupRun` for metrics. Prometheus
+  eksponerer siste kjøring, kansellert antall, feilede kjøringer og stale-signal
+  med tilhørende alarmer. CLI-en `npm run sla:cleanup` med `--apply` består som
+  diagnoseverktøy. Tester dekker scheduler-kallet, avslått konfigurasjon,
+  feilende kjøring, metrics og idempotent/samtidig kjøring mot reell
+  PostgreSQL. Se [`OPERATIONS.md`](OPERATIONS.md).
+- **DOC-01 — booking/overlapp avstemt.** Den direkte slotbekreftelsen i
+  `createBooking` er fjernet; alle nye bestillinger er datoforespørsler som
+  kontoret planlegger og bekrefter. Overlappende visiter er en
+  opptatt-markering, ikke en hard sperre, og `BookingHold` brukes bare i den
+  eldre ombookingsflyten. Manual (nb/en), ordlisten, `DECISIONS.md` Phase 5A,
+  sikkerhetsrevisjonen og testene forteller samme historie.
 - **UX-01–07** — vedlikeholdsplaner, utstyrsfilter, dispatch-innstillinger,
   omtaler, booking-e-post, iCal og PDF-sidesøk.
 - **QA-01/02** — utvidet a11y/E2E og API-/OpenAPI-kontrakttest.
@@ -92,9 +108,9 @@ plattform- og skaleringsarbeid som krever eiergodkjenning.
   `67bf9d8`). Backfill og automatisk lukking av siste kjøring gjenstår som
   **DATA-04** og **FLD-02**.
 - **SLA med aktiv avtale** — SLA starter bare med aktiv, datogyldig avtale og
-  aktiv policy; ingen fallback til avdeling/global policy. `npm run
-  sla:cleanup` kansellerer gamle klokker uten dekning, med revisjonslogg
-  (`96a8180`). Oppryddingen er fortsatt manuell, se **OPS-06**.
+  aktiv policy; ingen fallback til avdeling/global policy. Oppryddingen av
+  gamle klokker uten dekning kjører automatisk og revisjonslogges
+  (`96a8180`, se **OPS-06** over).
 - **Dashbord med live feltstatus og kart** — dagens montørstatus, aktive
   visiter og kartmarkører fra ferske posisjonspinger (`17f758d`). Kartet
   krever at avdelingen har sporing på og at montøren deler posisjon, se
@@ -113,7 +129,6 @@ størrelse.
 | ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
 | --- | --- | --- | --- | --- | --- |
 | **DATA-01** · GDPR-sletting/anonymisering med legal hold | P1 | L | Juridisk/DPO-avklaring; DATA-02-retensjon er levert | **Åpen.** Myk sletting er retensjon, ikke sletting. Det finnes ingen anonymiserings-/slettetjeneste eller UI for PII i kunder, kontakter, oppdrag, rapporter, revisjoner, vedlegg eller revisjonslogger. | Admin-only sletting med grunn og retensjonsmatrise; legal hold blokkerer; direkte identifikatorer anonymiseres irreversibelt; lovpålagte poster/bevis bevares; operasjonen revideres; tester beviser at identitetsfelt og dokumentmetadata fjernes og at hold-bevis beholdes. |
-| **DOC-01** · Policy- og dokumentasjonsavstemming for booking/overlapp | P1 | S | Produkteierbeslutning; service/UI/manual/DECISIONS må oppdateres samlet | **Delvis lukket.** Hovedflyten i manualen er nå datoforespørsel + kontorplanlegging (`manual/nb/00-innledning.md:121-123`, `manual/nb/10-kontor.md:535-539`), men driften gjenstår: `manual/nb/10-kontor.md:702` sier fortsatt «Book en ledig time», `:809` viser til «ledig tid/ledige tidsrom», og `DECISIONS.md` Phase 5A (linje 299–333) beskriver direkte slotbekreftelse og `BookingHold` som gjeldende for nye bestillinger, mens `security-audit-2026-10-29.md:170` sier at bookinger er forespørsler, ikke reservasjoner. I koden settes `confirmedBooking = false` i `src/server/portal.ts`, og `BookingForm.tsx` spør bare om dato; den direkte bekreftelsesgrenen i `createBooking` er dermed ikke nåbar, mens bekreftet ombooking fortsatt bruker `AvailabilityBoard`/hold. | Produkteier velger enten (a) datoforespørsel + kontorplanlegging eller (b) direkte slotbooking. Deretter fjernes den ikke-nåbare grenen eller den gjenopprettes; manual, `DECISIONS.md`, OpenAPI, ordlisten (`Ledig time`, `Reservasjon`) og tester forteller én historie. Ingen uoppnåelig kodevei eller motstridende dokumentasjon. |
 
 ---
 
@@ -151,7 +166,6 @@ det som allerede er levert.
 
 | ID | Prioritet | Størrelse | Status | Akseptanse |
 | --- | --- | --- | --- | --- |
-| **OPS-06** · Automatiser SLA-opprydding | P2 | S | **Manuell i dag:** `npm run sla:cleanup -- --apply`. | Planlagt, idempotent jobb med tørrkjøringsmodus, metrikk/varsel og revisjonslogg; kansellerer bare klokker uten gyldig aktiv avtale/policy; tester dekker hold, allerede kansellerte klokker og samtidig kjøring; runbook oppdatert. |
 | **DATA-04** · Backfill for eldre tidsstyrte visiter | P2 | M | **Delvis:** `npm run visits:backfill:daily` splitter bare flerdagers heldagsvisiter; eldre tidsstyrte enkeltdagsvisiter blir ikke normalisert. | Skript/tørrkjøring som oppdager og rapporterer legacy tidsstyrte enkeltdagsvisiter; trygg splitting eller eksplisitt manuell rapport; tidsstempler dupliseres aldri; integrasjonstest mot reell PostgreSQL; `OPERATIONS.md` oppdatert. |
 | **FLD-02** · Automatisk lukking av siste kjøring | P2 | S | **Manuell i dag:** siste jobb på dagen må bruke «Avslutt kjøring». | Definer policy for auto-lukking (tidspunkt/avstand) som aldri gjetter ulønnet reise; handlingen revideres og kan korrigeres; felt-UI viser hvorfor reisen ble lukket; tester dekker neste `EN_ROUTE`, siste jobb og overnatting. |
 | **SEC-06** · Atomisk opplastingskvote | P2 | M | **Kjent kappløp:** kontrollen er lesning før skriving; samtidige opplastinger kan overskride kvoten med noen MB (`src/lib/upload-quota.ts`). | Kvoten reserveres/oppdateres atomisk (ledger, radlås eller tilsvarende); samtidig test viser at grensen ikke overskrides; 507 gir tydelig feil; ingen orphan-filer ved avvisning; eksisterende kvoter og opprydding bevares. |
@@ -203,16 +217,15 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon på
 Rekkefølgen er et forslag; bølger kan kjøres parallelt når avhengighetene
 tillater det.
 
-1. **P1-beslutning og risiko:** DOC-01 (S) først, deretter DATA-01 (L).
-   DATA-01 bør starte juridisk/DPO-spor tidlig, selv om kodingen kommer senere.
+1. **P1-beslutning og risiko:** DATA-01 (L). Start juridisk/DPO-spor tidlig.
 2. **Plattformmuliggjører:** ARCH-01 (L). Ikke bygg nye moduler som hardkoder
    seg inn i navigasjon, server actions og worker før denne er på plass.
 3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) etter at
    omsetningsdata finnes.
 4. **Felt og logistikk:** FLD-01 (M), OPS-05 (L). CUST-EXPORT-02 (L) kan gå
    parallelt som egen data-/plattformstrøm.
-5. **Teknisk gjeld P2:** OPS-06, DATA-04, FLD-02, SEC-06. Disse er små nok til
-   å tas mellom større bølger.
+5. **Teknisk gjeld P2:** DATA-04, FLD-02, SEC-06. Disse er små nok til å tas
+   mellom større bølger.
 6. **P3:** PLAT-01–12, NATIVE-01, SCH-02, AI-01 og INT-01. **Krever
    godkjenning** og en konkret kunde-/driftsbegrunnelse per oppgave.
 

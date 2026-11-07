@@ -167,8 +167,12 @@ resume/online; clear on forced logout; minimize cached PII.
 - **2FA is optional, including for ADMIN/OFFICE.** Consider mandatory 2FA for
   privileged roles.
 - **Map provider key is public to staff.** Use a restricted/publishable token.
-- **Bookings are requests, not reservations.** The UI must not imply a slot is
-  confirmed; server-side availability enforcement would be stronger.
+- **Bookings are requests, not reservations — resolved 2026-11-07.** New
+  bookings are date-only requests (`BookingRequest(PENDING)`,
+  `WorkOrder(OPEN)`) that the office plans and confirms; the UI no longer
+  offers a slot to new bookings. Confirmed reschedules may still use a
+  short-lived hold. Overlapping visits are a busy marker, not a hard block.
+  See `DECISIONS.md` Phase 5A.
 
 ## Fix order
 

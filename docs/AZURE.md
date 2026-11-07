@@ -1811,7 +1811,7 @@ dekker forretningsfeil.
 
 Appen har in-process workers:
 
-- `RECURRING_SCHEDULER` – serviceavtaler og vedlikeholdsplaner
+- `RECURRING_SCHEDULER` – serviceavtaler, vedlikeholdsplaner og SLA-opprydding
 - `SMS_WORKER` – utgående SMS og retries
 - `REMINDER_WORKER` – påminnelser
 - `PDF_JOB_WORKER` – PDF/OCR-kø
