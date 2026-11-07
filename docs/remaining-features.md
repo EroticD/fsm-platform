@@ -1,17 +1,39 @@
-# Remaining feature worklist
+# Gjenstående arbeid etter 0.8.10
 
-> **Status snapshot:** `dev` @ `a615dd7` (app 0.8.9), 2026-11-04.
-> This is a queue for workers, not a description of shipped behaviour.
-> Do not mark an item done without the acceptance criteria and the gates below.
+> **Status snapshot 0.8.10:** 2026-11-07, `master` @ `f5ba5b1`.
+> `package.json` er 0.8.10. Taggen `v0.8.10` peker på `de4be00`; `f5ba5b1`
+> inneholder i tillegg det som står under «Unreleased» i
+> [`CHANGELOG.md`](../CHANGELOG.md): FullCalendar 7, arbeidsdager/tid/reise og
+> live feltstatus.
+>
+> **Dette er den reelle gjenstående køen.** Leverte ting står under
+> [«Levert»](#levert-ikke-dupliser) og skal ikke gjenåpnes som nye oppgaver.
+> Ikke marker noe som ferdig uten akseptansekriteriene og portene nederst.
 
-## Status etter 0.8.6 (2026-11-03)
+| Felt | Verdi |
+| --- | --- |
+| Dato | 2026-11-07 |
+| Kodegren | `master` @ `f5ba5b1` |
+| Versjon | 0.8.10 (`v0.8.10` = `de4be00`, 30 commits bak `f5ba5b1`) |
+| Denne doc-endringen | `feat/backlog-0810` |
+| Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
+| P0 | Ingen åpne P0 funnet på denne commiten |
 
-Levert og verifisert i 0.8.6:
+**Kort status:** P1 består av GDPR-sletting (DATA-01) og en dokumentasjons-/
+policykonflikt i booking (DOC-01). P2 er sju nye produkt-/plattformoppgaver
+pluss seks konkrete restrisiko-/gjeldsposter (to av dem er P3-visuell QA). P3 er
+plattform- og skaleringsarbeid som krever eiergodkjenning.
+
+---
+
+## Levert (ikke dupliser)
+
+### Kjerne, sikkerhet, data og drift
 
 - **CORE-01–04** — bemanning/kompetanse/kapasitet, portaldelegering,
   kundesteder og planlegging av datoforespørsler i bookingkøen.
-- **SEC-01–05** — krypterte offline-kladder med PIN, PDF-sanering,
-  strømmende opplasting med kvoter, API-nøkkel-scopes/rotasjon og påkrevd 2FA.
+- **SEC-01–05** — krypterte offline-kladder med PIN, PDF-sanering, strømmende
+  opplasting med kvoter, API-nøkkel-scopes/rotasjon og påkrevd 2FA.
 - **DATA-02/03** — hash-kjedet revisjonslogg med oppbevaring/legal hold,
   revisjonseksport og signert bevis-eksport per oppdrag.
 - **OPS-01–04** — automatiserte backuper med ferskhetskontroll, metrics/
@@ -19,550 +41,207 @@ Levert og verifisert i 0.8.6:
 - **UX-01–07** — vedlikeholdsplaner, utstyrsfilter, dispatch-innstillinger,
   omtaler, booking-e-post, iCal og PDF-sidesøk.
 - **QA-01/02** — utvidet a11y/E2E og API-/OpenAPI-kontrakttest.
-- **SCH-01 (delvis)** — ruteplan per montør med nærmeste nabo + 2-opt,
-  tidsvinduer, kjøretid/ventetid/ETA per stopp, kartliste på `/kalender/rute`,
-  eksplisitt «Bruk rekkefølge» med transaksjon, revisjon og konfliktvern, samt
-  live ETA i offentlig sporing med ferskhetsgrense og polling. Dynamisk
-  omruting underveis gjenstår.
 - **CUST-EXPORT-01 v1** — admin-only eksport/import av kundepakker med
   manifest, sjekksum, dry-run, id-remapping, filhåndtering og reell
-  PostgreSQL-test. Se kjente begrensninger i
-  [`docs/backlog-customer-export-import.md`](backlog-customer-export-import.md).
+  PostgreSQL-test (`e83f38c`). Kjente v1-begrensninger er dokumentert i
+  [`backlog-customer-export-import.md`](backlog-customer-export-import.md) og
+  er løftet til **CUST-EXPORT-02** nedenfor.
 
-Fortsatt åpne fra denne listen: **DATA-01** (GDPR-sletting/anonymisering)
-og **DOC-01** (dokumentasjon/overlappspolicy), samt P3.
+### Kommunikasjon, identitet og felt
 
-### Levert i dev etter 0.8.6
-
-- **Toveis SMS og påminnelser:** innkommende webhook med signatur,
+- **Toveis SMS og påminnelser** — innkommende webhook med signatur,
   idempotens, leveringsstatus og STOP/START; kontorinnboks med svar;
-  konfigurerbare SMS-/e-postpåminnelser via durabel worker.
-- **SSO og SCIM:** OIDC for Entra ID, Keycloak, Authentik og Zitadel,
+  konfigurerbare SMS-/e-postpåminnelser via durabel worker (`ab66155`).
+- **SSO og SCIM-brukere** — OIDC for Entra ID, Keycloak, Authentik og Zitadel,
   verifisert e-post-kobling, rolle-/gruppemapping; SCIM 2.0 Users med
-  hash-lagrede token og admin-fane. SAML og SCIM Groups er ikke implementert.
-- **Feltapp, navigasjon og strekkode:** `/skann` med BarcodeDetector og
+  hash-lagrede token og admin-fane (`334a700`). SAML, SCIM Groups og Entra
+  group overage gjenstår, se **PLAT-04**.
+- **Feltapp, navigasjon og strekkode** — `/skann` med BarcodeDetector/ZXing og
   manuell fallback, Apple/Google Maps-dypelenker, kopier adresse/ring,
-  PWA-forbedringer og Capacitor-skall (signerte butikkbygg gjenstår).
-- **Rute og ETA:** ruteplanlegger med 2-opt, valgfri OSRM og lokal fallback,
-  «Bruk rekkefølge» med overlapp-/fraværssjekk, og sanntids ETA i sporingen.
+  PWA-forbedringer og Capacitor-skall (`9f290ac`). Kunders eksisterende
+  QR-koder på utstyr støttes med globalt unike verdier (`b79ed94`).
+- **Rute og ETA** — ruteplanlegger med nærmeste nabo + 2-opt, valgfri OSRM og
+  lokal fallback, «Bruk rekkefølge» med overlapp-/fraværssjekk, og sanntids
+  ETA i sporingen (`978ceee`). Trafikkdata, dynamisk omruting og
+  turn-by-turn gjenstår, se **SCH-02**.
 
+### Kalender, arbeidsdag og rettelser
 
-
-## How to work this list
-
-- One branch/worktree per item, named `feat/<id>-<short-name>`.
-- Read the evidence before changing code. Some “missing” features already have a
-  service but no UI; do not duplicate the service.
-- Keep `npx tsc --noEmit`, `npx vitest run`, `npm run test:integration`,
-  `npm run lint`, `npm run check:i18n:strict` and `npm run build` green.
-- Re-authorise every server action. A hidden button is not access control.
-- Preserve Norwegian-first UI and complete nb/en/pl/de catalogs.
-- Do not add a migration unless the item explicitly says so. Never alter an
-  existing migration.
-- Do not touch untracked design-lab files.
-
-Legend: **P1** blocked/incorrect core workflow · **P2** significant missing
-capability · **P3** polish/product decision · **S/M/L** size.
-
----
-
-## P0
-
-No open P0 defect was found at the audited HEAD. Keep it that way: the P1 items
-below include data-loss/privacy risks that must not be deferred indefinitely.
-
----
-
-## P1 — fix before adding more product surface
-
-### CORE-01 · Workforce and planning administration (L)
-
-**Gap:** Skills, user skills, weekly availability, absences and capacity plans
-exist in services/schema but have no production UI. Work-order skill
-requirements have no writer at all, so `SKILLS` dispatch mode is inert.
-
-**Evidence:** `src/server/workforce.ts:161-1118`,
-`src/server/dispatch.ts:230-450`, `src/lib/settings-tabs.ts`,
-`src/components/settings/DispatchSettingsTab.tsx`,
-`src/app/kalender/kapasitet/page.tsx`, `prisma/schema.prisma`.
-
-**Workers:**
-1. Skills catalogue + per-user skills CRUD.
-2. Weekly availability editor and absence CRUD.
-3. Capacity-plan upsert/delete (department and per technician).
-4. Work-order skill requirements on create/edit/detail, persisted in the same
-   transaction as the work order.
-
-**Acceptance:** An admin can create/assign/edit all of the above. Dispatch and
-booking exclude absent/unavailable/unqualified technicians, show why, and use
-real skill requirements. Overlapping availability windows and exact duplicate
-absences are rejected. All mutations are audited and permission-tested.
-
-### CORE-02 · Portal delegation editor (M)
-
-**Gap:** `PortalDelegation` can restrict booking/documents/contracts/equipment,
-but there is no write service or UI. Contacts without a row retain backward-
-compatible full access.
-
-**Evidence:** `src/server/portal-access.ts:102-122`,
-`prisma/schema.prisma:316-331`, customer portal tab,
-`docs/manual/nb/30-administrator.md:119`.
-
-**Worker task:** add per-contact delegation controls on the customer card:
-active, booking, documents, contracts and equipment. Persist and audit changes.
-
-**Acceptance:** Restrictions take effect on the next request; disabled
-capabilities return 403 on pages, PDFs and `/uploads`; tests cover each
-capability and inactive contacts.
-
-### CORE-03 · Booking queue can plan date-only requests (M)
-
-**Gap:** New portal bookings are date-only requests. `/bookinger` hides the
-confirm form when no time window exists and `confirmBooking` returns
-`needs_planning`. The office must leave the queue and plan manually.
-
-**Evidence:** `src/server/bookings.ts:126-132,241-243`,
-`src/app/bookinger/page.tsx:194-227`,
-`src/app/kundeportal/BookingForm.tsx:388-407`,
-`docs/manual/nb/10-kontor.md:399-412`.
-
-**Worker task:** add an inline “plan and confirm” flow that collects
-date/start/end/technician, or link to the work-order visit planner with a safe
-return path. Handle `needs_planning` explicitly.
-
-**Acceptance:** Every PENDING request can be confirmed from `/bookinger`;
-date-only requests never show “no technician” merely because a time is absent;
-legacy timed requests still work.
-
-### CORE-04 · Customer sites are manageable and linked (L)
-
-**Gap:** `CustomerSite` is referenced by work orders, equipment and bookings, but
-there is no office CRUD and no site selector on work orders/equipment. New site
-input from date-only bookings is copied as text but no reusable site is created.
-
-**Evidence:** `prisma/schema.prisma:261-285`,
-`src/server/portal-expansion.ts:680-725`,
-`src/server/portal.ts:595-610,740-791`,
-`src/app/oppdrag/ny/page.tsx`, `src/app/enheter/ny/page.tsx`.
-
-**Workers:** site CRUD (office and portal), primary-site rules, site selector on
-work-order create/edit and equipment create/edit, creation during date-only
-booking, and site display in detail/list/PDF.
-
-**Acceptance:** New booking sites appear on the customer card and are linked to
-the order; office can manage sites; equipment/orders can select them; all reads
-and writes are customer-scoped; tests cover address fallback.
-
-### DATA-01 · GDPR erasure/anonymisation, legal-hold aware (L)
-
-**Gap:** Soft delete is retention, not erasure. PII in customers, contacts,
-orders, reports, revisions, uploads and audit logs is retained indefinitely and
-cannot be erased through the app.
-
-**Evidence:** `docs/security-audit-2026-10-29.md:164-166`,
-`src/server/customers.ts`, `src/lib/job-worker.ts:540-618`,
-`prisma/schema.prisma`.
-
-**Worker task:** add an admin-only erasure workflow with reason, retention
-matrix, legal-hold block, identifier anonymisation and audit trail.
-
-**Acceptance:** Direct identifiers are irreversibly anonymised while statutory
-records/legal holds remain; the operation is audited; tests prove identity
-fields and document metadata are removed and held evidence is preserved.
-
-### SEC-01 · Encrypt offline drafts and outbox at rest (M)
-
-**Gap:** IndexedDB stores customer names, addresses, report notes, photos and
-signatures in plaintext for up to seven days. TTL/cache clearing exist; at-rest
-encryption/PIN does not.
-
-**Evidence:** `src/lib/offline/db.ts:20-26,71-103`,
-`src/lib/offline/draft-outbox.ts`, `public/offline.js`.
-
-**Worker task:** AES-GCM with a per-user key protected by PIN/WebAuthn; lock
-after restart/idle; attempt limits; migration for existing drafts.
-
-**Acceptance:** No plaintext PII remains in IndexedDB/localStorage; wrong
-PIN/other browser profile cannot read drafts; unlocking restores the exact
-draft; tests cover lockout and cleanup.
-
-### OPS-01 · Automated, monitored backups (M)
-
-**Gap:** Encrypted backup/restore scripts exist, but scheduling, freshness
-checks, remote checksum verification and failure alerting are manual.
-
-**Evidence:** `scripts/backup.sh`, `scripts/restore-test.sh`,
-`docs/OPERATIONS.md:413-430`.
-
-**Worker task:** ship a systemd timer or Compose job, freshness probe, checksum
-verification and alert on failure. Document RPO/RTO and key recovery.
-
-**Acceptance:** Daily backup and weekly restore test run without human action;
-a missed/stale/failed backup alerts; restore drill passes against a real
-database; remote copy is verified.
-
-### OPS-02 · Monitoring and alerting (M)
-
-**Gap:** Only JSON logs and Docker healthchecks exist. No metrics, alert rules or
-continuous readiness probe.
-
-**Evidence:** `src/lib/logger.ts`, `docker-compose.prod.yml`,
-`docs/OPERATIONS.md:456-458`.
-
-**Worker task:** protected metrics endpoint (or external probes) for readiness,
-restarts, disk, backup age, failed document jobs, SMS dead letters and failed
-notification e-mails; alert rules plus test alert.
-
-**Acceptance:** A test alert reaches the chosen channel; dashboards/probes cover
-the listed signals; runbook describes response.
-
-### OPS-03 · Trusted proxy configuration (S/M)
-
-**Gap:** Production defaults `TRUST_PROXY=false`, silently disabling IP rate
-limits behind the documented proxy; multi-hop trusted proxies are unsupported.
-
-**Evidence:** `docker-compose.prod.yml:71`, `src/lib/client-ip.ts:12-29`,
-`src/lib/config.ts:36-69`.
-
-**Worker task:** add `TRUST_PROXY_HOPS` or trusted CIDRs, fail/warn on ambiguous
-production config, ship a Caddy/nginx example, and test spoofed
-`X-Forwarded-For`.
-
-**Acceptance:** A client-supplied header cannot change the rate-limit key;
-production refuses an unsafe ambiguous proxy setup; deployment docs/config
-match.
-
-### DOC-01 · Resolve booking and overlap policy drift (S)
-
-**Gap:** Documents/manual still promise direct slot booking and blocked
-overlaps, while new bookings are date-only and overlapping visits are allowed.
-Dead confirmed-booking code remains.
-
-**Evidence:** `docs/DECISIONS.md` Phase 5A, `docs/manual/nb/10-kontor.md:407-410`,
-`src/server/portal.ts:326-328,529-738`, `src/server/visits.ts`,
-`src/app/api/v1/visits/[id]/route.ts`.
-
-**Worker task:** product-owner decision: (a) restore real slot booking with
-holds/atomic confirmation, or remove the dead branch and update all docs; and
-(b) either block overlaps with warnings or make “busy only” explicit everywhere.
-
-**Acceptance:** Service, UI, manual, DECISIONS and OpenAPI tell one story; no
-unreachable branch; tests cover the chosen behaviour.
+- **PDF-bilder/signaturer og PDF-visning** — bilder og signaturer bygges inn i
+  rapport- og revisjons-PDF-er (`136365c`), og PDF-er kan vises trygt i appen
+  med `?inline=1` etter sanitering (`89c8024`).
+- **Opplastingskvote** — standardkvotene regnes nå i MB/bytes riktig
+  (2 GiB per bruker, 10 GiB per kunde), med tydelige feilmeldinger
+  (`870f13e`). Kappløpet mellom kontroll og skriving gjenstår som **SEC-06**.
+- **Kundeoverføring** — eksport dedupliseres per utvalg, feil lagres på jobben
+  og vises i UI, og første forsøk blokkeres ikke av gamle tellere; grensen er
+  10 starter/time (`28e82cb`). Selve overføringen er fortsatt synkron og
+  in-memory, se **CUST-EXPORT-02**.
+- **Kundeadskillelse og søk** — steds- og enhetsvelgere henter bare data for
+  valgt kunde, og kundekortet har søkbare lister (`abe9445`).
+- **Flytt enhet med historikk** — hele enheten med underenheter, oppdrag,
+  rapporter/revisjoner/PDF, målinger, planer, dokumenter, vedlegg og QR-koder
+  flyttes; aktive kontraktslinjer blokkerer (`002ffa5`).
+- **FullCalendar 7** — migrert til `fullcalendar` 7.1.4 med
+  `temporal-polyfill`, v7-plugins og offentlige klassehooks (`6c057cc`), med
+  oppfølgingsfikser for høyder og ukenummer (`a2bd4cd`). Visuelle
+  kanttilfeller gjenstår som **UX-08**.
+- **Arbeidsdager, tid og reise** — én intern økt per kalenderdag, faktisk
+  start/slutt/varighet i kalenderen, tidsregistrering per dag og reisetid
+  som lukkes av neste `EN_ROUTE` eller «Avslutt kjøring» (`b8ea453`,
+  `67bf9d8`). Backfill og automatisk lukking av siste kjøring gjenstår som
+  **DATA-04** og **FLD-02**.
+- **SLA med aktiv avtale** — SLA starter bare med aktiv, datogyldig avtale og
+  aktiv policy; ingen fallback til avdeling/global policy. `npm run
+  sla:cleanup` kansellerer gamle klokker uten dekning, med revisjonslogg
+  (`96a8180`). Oppryddingen er fortsatt manuell, se **OPS-06**.
+- **Dashbord med live feltstatus og kart** — dagens montørstatus, aktive
+  visiter og kartmarkører fra ferske posisjonspinger (`17f758d`). Kartet
+  krever at avdelingen har sporing på og at montøren deler posisjon, se
+  **UX-09**.
 
 ---
 
-## P2 — major missing capability
+## Åpne prioriteringer
 
-### CUST-EXPORT-01 · Admin customer export/import (L) — **LEVERT (v1)**
+**Legende:** **P1** = må lukkes før mer produktflate · **P2** = viktig manglende
+kapasitet · **P3** = produktvalg/skala, krever godkjenning · **S/M/L/XL** =
+størrelse.
 
-**Gap (historisk):** No admin customer transfer package.
+### P1 — lukk disse først
 
-**Status:** **IMPLEMENTED v1 in 0.8.6.** Full specification and current
-limitations:
-[`docs/backlog-customer-export-import.md`](backlog-customer-export-import.md).
-
-**Levert:** admin-only guard (ADMIN + `settings.manage`), ZIP med manifest/
-sjekksum/content-addressed filer, deterministisk eksport av kunde, kontakter,
-steder, delegering, utstyr, målinger, vedlikeholdsplaner, kontrakter, oppdrag,
-besøk, rapporter/revisjoner/PDF, dokumenter/versjoner og vedlegg, dry-run med
-konfliktanalyse, id-remapping, transaksjonell import med filstaging/rollback,
-audit og innstillinger-fane. Verifisert med eksport → import i ren PostgreSQL,
-inkludert avvisning av traversal/sjekksum-/MIME-feil og 403 for ikke-admin.
-
-**Gjenstående (dokumentert, ikke påstått levert):** asynkron jobbworker/
-gjenopptakelse, pakkesignatur/kryptering, kryssversjon-migratorer,
-rekonciliering av final-filer etter krasj, og juridisk avklaring for
-signaturbilder/HMS.
-
-
-### DATA-02 · Audit retention, legal hold and export (M)
-
-**Gap:** `AuditLog` has no retention/hold field, hash chain, export or purge job.
-
-**Evidence:** `prisma/schema.prisma` `AuditLog`, `src/lib/job-worker.ts`,
-`src/server/settings.ts`.
-
-**Worker task:** configurable retention with legal-hold override, admin export
-with manifest/hash chain, runtime DB role denied update/delete on audit rows.
-
-**Acceptance:** Purge respects hold and retention; export verifies hashes;
-tampering is detectable; tests cover boundaries.
-
-### DATA-03 · Evidence export with hash chain (M)
-
-**Gap:** No signed archive for one work order/report/revisions/attachments/audit
-rows. Only a customer CSV exists.
-
-**Evidence:** `docs/DECISIONS.md:177-182`,
-`src/app/api/kundeportal/export/route.ts`.
-
-**Worker task:** admin-only signed ZIP with hashes of reports, revisions,
-attachments and audit rows; audit the export itself.
-
-**Acceptance:** Archive validates offline; a changed file breaks verification;
-unauthorised users get 403; tests cover one complete order and one missing file.
-
-### SEC-02 · PDF active-content handling (S)
-
-**Gap:** Report/revision PDFs default to inline and are not scanned/stripped.
-
-**Evidence:** `src/app/api/rapporter/[id]/pdf/route.ts:52`,
-revision PDF route, `src/lib/report-pdf-store.ts`.
-
-**Worker task:** default `attachment`, reject/strip `/JavaScript`, `/Launch`,
-`/EmbeddedFile` (qpdf or equivalent) and log the result.
-
-**Acceptance:** JS-bearing test PDF is neutralised; browser does not render
-active content inline; download still works.
-
-### SEC-03 · Stream uploads and enforce quotas (M)
-
-**Gap:** Upload route buffers the whole multipart body; no per-user/customer
-quota.
-
-**Evidence:** `src/app/api/upload/route.ts:88-125`, `src/lib/upload-slot.ts`,
-`docs/OPERATIONS.md:439-443`.
-
-**Worker task:** stream parts to temp files under a hard cap; per-user/customer
-byte quota; cleanup; 413/507 responses.
-
-**Acceptance:** Four concurrent large uploads stay within the memory budget; a
-quota-exceeded account receives a clear error; no orphan temp files.
-
-### SEC-04 · API key scopes and audit (M)
-
-**Gap:** API keys inherit all owner permissions, have optional expiry and no
-audit for create/revoke/rotate.
-
-**Evidence:** `prisma/schema.prisma` `ApiKey`, `src/server/api-keys.ts`,
-`src/lib/api-auth.ts`, settings API tab.
-
-**Worker task:** scopes/read-only keys, default/max lifetime, audit rows,
-last-used/expiry UI, rotation.
-
-**Acceptance:** Out-of-scope calls 403; create/revoke/rotate are attributable in
-audit; expired/revoked keys fail; tests cover every documented endpoint.
-
-### SEC-05 · Mandatory 2FA for ADMIN/OFFICE (M)
-
-**Gap:** Optional only.
-
-**Worker task:** policy flag, enrollment gate, break-glass procedure, audit and
-tests; update SECURITY/OPERATIONS.
-
-**Acceptance:** Privileged users cannot complete login without 2FA once enabled;
-break-glass is documented and audited; legacy accounts have an explicit grace
-path.
-
-### OPS-04 · Separate runtime and migration DB roles (M)
-
-**Gap:** Production defaults to a superuser connection; documented roles are not
-enforced.
-
-**Worker task:** provisioning SQL/script, Compose defaults, readiness check that
-runtime role cannot DDL, upgrade path for existing installs.
-
-**Acceptance:** Runtime role is DML-only; migration role is separate; existing
-deployments have a tested upgrade; audit tables are protected from app role
-mutation.
-
-### UX-01 · Maintenance-plan edit/delete (S)
-
-**Gap:** UI only creates/pauses; service supports update/delete.
-
-**Evidence:** `src/server/maintenance.ts:393-542`,
-`src/app/enheter/[id]/page.tsx:487-582`.
-
-**Acceptance:** All editable fields can be changed; delete blocks plans with
-occurrences; confirmation and audit; tests.
-
-### UX-02 · Equipment customer filter persistence (S)
-
-**Gap:** `?kunde=` works only on first load; search/pagination/hierarchy drops
-it.
-
-**Evidence:** `src/app/enheter/page.tsx:123-169,206-289`.
-
-**Acceptance:** Filter persists through search, pagination and hierarchy (or
-hierarchy is disabled with explanation); counter matches; reset clears.
-
-### UX-03 · Dispatch settings full CRUD (S/M)
-
-**Gap:** Only first policy editable; territories cannot be edited.
-
-**Evidence:** `src/components/settings/DispatchSettingsTab.tsx:50,188-201`,
-`src/server/dispatch.ts`.
-
-**Acceptance:** Multiple policies create/edit/deactivate; territory fields
-editable; department scope; no duplicates; audit and tests.
-
-### UX-04 · Reviews visible to staff (S/M)
-
-**Gap:** Reviews are write-only for staff; aggregate service unused.
-
-**Evidence:** `src/server/reviews.ts:259-279`.
-
-**Decision/task:** either wire scoped dashboard/list or remove the aggregate.
-If shown, enforce department/customer scope and avoid unnecessary reviewer PII.
-
-### UX-05 · Booking confirmation e-mail (S)
-
-**Gap:** `sendBookingNotification` exists but no production caller.
-
-**Evidence:** `src/lib/email.ts:320-424`; `src/server/portal.ts:857-874`.
-
-**Acceptance:** Exactly one localized confirmation per booking when the contact
-has e-mail; SMTP failure never rolls back the booking; duplicate calls
-idempotent.
-
-### UX-06 · iCal exports visits (S)
-
-**Gap:** Feed emits work-order date all-day events, not visit times/multiple
-visits.
-
-**Evidence:** `src/server/calendar-feed.ts:268-347`.
-
-**Acceptance:** One VEVENT per active visit with stable UID and correct
-Europe/Oslo/DST times; all-day fallback only for orders without visits.
-
-### UX-07 · Search links to matching PDF page (S/M)
-
-**Gap:** `pageTexts` is indexed but result links do not include the page.
-
-**Evidence:** `README.md:25-26`, `src/lib/search.ts:1121-1126`,
-`src/lib/job-worker.ts:259`.
-
-**Acceptance:** Hit includes page and opens `#page=N`; integration test matches
-indexed text to page number.
-
-### QA-01 · Expand a11y/E2E to detail, dialogs, offline and booking (M)
-
-**Gap:** A11y matrix omits equipment, contracts, messages, report/revision
-detail and many settings tabs; E2E does not submit a booking, drag a visit, or
-replay an offline draft.
-
-**Evidence:** `e2e/a11y.spec.ts:25-52`, `e2e/booking.spec.ts`,
-`e2e/visits.spec.ts`, `docs/ui-ux-backlog.md`.
-
-**Acceptance:** Axe covers one detail page per area plus open dialog/toast and
-WCAG 2.1/2.2 A tags; E2E covers booking submit→queue, drag assignment, and
-offline outbox replay; regressions fail CI.
-
-### QA-02 · API/OpenAPI contract test (S/M)
-
-**Gap:** No automated check that routes, `docs/API.md` and OpenAPI agree; docs
-already stale (q does not mention reference/order number).
-
-**Evidence:** `src/app/api/v1/openapi.json/route.ts`, `docs/API.md:244`.
-
-**Acceptance:** CI fails on route/spec drift; every path/parameter/status is
-documented; baseline updated.
+| ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
+| --- | --- | --- | --- | --- | --- |
+| **DATA-01** · GDPR-sletting/anonymisering med legal hold | P1 | L | Juridisk/DPO-avklaring; DATA-02-retensjon er levert | **Åpen.** Myk sletting er retensjon, ikke sletting. Det finnes ingen anonymiserings-/slettetjeneste eller UI for PII i kunder, kontakter, oppdrag, rapporter, revisjoner, vedlegg eller revisjonslogger. | Admin-only sletting med grunn og retensjonsmatrise; legal hold blokkerer; direkte identifikatorer anonymiseres irreversibelt; lovpålagte poster/bevis bevares; operasjonen revideres; tester beviser at identitetsfelt og dokumentmetadata fjernes og at hold-bevis beholdes. |
+| **DOC-01** · Policy- og dokumentasjonsavstemming for booking/overlapp | P1 | S | Produkteierbeslutning; service/UI/manual/DECISIONS må oppdateres samlet | **Delvis lukket.** Hovedflyten i manualen er nå datoforespørsel + kontorplanlegging (`manual/nb/00-innledning.md:121-123`, `manual/nb/10-kontor.md:535-539`), men driften gjenstår: `manual/nb/10-kontor.md:702` sier fortsatt «Book en ledig time», `:809` viser til «ledig tid/ledige tidsrom», og `DECISIONS.md` Phase 5A (linje 299–333) beskriver direkte slotbekreftelse og `BookingHold` som gjeldende for nye bestillinger, mens `security-audit-2026-10-29.md:170` sier at bookinger er forespørsler, ikke reservasjoner. I koden settes `confirmedBooking = false` i `src/server/portal.ts`, og `BookingForm.tsx` spør bare om dato; den direkte bekreftelsesgrenen i `createBooking` er dermed ikke nåbar, mens bekreftet ombooking fortsatt bruker `AvailabilityBoard`/hold. | Produkteier velger enten (a) datoforespørsel + kontorplanlegging eller (b) direkte slotbooking. Deretter fjernes den ikke-nåbare grenen eller den gjenopprettes; manual, `DECISIONS.md`, OpenAPI, ordlisten (`Ledig time`, `Reservasjon`) og tester forteller én historie. Ingen uoppnåelig kodevei eller motstridende dokumentasjon. |
 
 ---
 
-## P3 — product decisions or scale work (do not start without approval)
+### P2 — nye prioriterte arbeidsoppgaver
 
-- **PLAT-01 · S3/object storage driver** (`docs/DECISIONS.md:63`): storage
-  abstraction, migration, no local-disk coupling.
-- **PLAT-02 · Redis/BullMQ** (`docs/OPERATIONS.md`): only needed for
-  multi-replica/scale; keep DB fallback.
-- **PLAT-03 · Outbound signed webhooks** (`docs/DECISIONS.md:67`): retries,
-  idempotency, dead letter, settings UI.
-- **PLAT-04 · SSO/OIDC/SAML + SCIM** (`docs/DECISIONS.md:68`): enterprise
-  provisioning with break-glass admin. OIDC (Entra ID, Keycloak, Authentik,
-  Zitadel) og SCIM 2.0 for brukere er levert; SAML og SCIM Groups gjenstår.
-  Se `SECURITY.md`, `docs/OPERATIONS.md` og
-  `docs/manual/nb/31-sso-scim.md`.
-- **PLAT-05 · Advanced RBAC/field-level permissions + separation of duties**
-  (`docs/DECISIONS.md:69`).
-- **PLAT-06 · HA/DR/PITR** (`docs/DECISIONS.md:73`): RPO/RTO, failover drill,
-  PITR; infrastructure work.
-- **PLAT-07 · White-label custom domains** (`docs/DECISIONS.md:71`): host
-  mapping, TLS, tenant resolution.
-- **PLAT-08 · Inventory/stock module** (`docs/DECISIONS.md:66`): stock items,
-  movements, reservations; separate product area.
-- **PLAT-09 · Key rotation** (`SECURITY.md`): `NEXTAUTH_SECRET`, DB/SMTP/SMS,
-  age recipients, old-backup re-encryption.
-- **PLAT-10 · Base image/Prisma CLI digest pinning and CI SAST/secret/
-  dependency/SBOM checks** (`Dockerfile`, `.github/workflows/ci.yml`).
-- **PLAT-11 · Maintenance mode + request-ID hardening + health uptime removal**
-  (`src/proxy.ts`, `src/lib/logger.ts`, `/api/health`).
-- **PLAT-12 · Performance budgets, screenshot-manifest CI, bulk customer/
-  equipment operations** (only if product wants them).
+| ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
+| --- | --- | --- | --- | --- | --- |
+| **ARCH-01** · Modulær plattform | P2 | L | Ingen hard; bør komme før nye produktmoduler | **Åpen.** Dagens funksjoner er sammenvevd i navigasjon, server actions, API og worker. Dette er en plattformmuliggjører, ikke en produktmodul. | Modulregister med flagg og presets; tydelig skille mellom kjerne og valgfrie moduler; server actions/API/UI/worker-jobber gates konsistent; avhengigheter mellom moduler valideres; en kjerne-only installasjon kan drive kunde-, oppdrags-, dispatch- og rapportflyt uten døde lenker eller skjulte kall; tester dekker på/av, ugyldige kombinasjoner og oppgradering fra dagens installasjon; driftsdokumentasjon beskriver presets. |
+| **REV-01** · Tilbud og estimater | P2 | L | ARCH-01 anbefales; prislister finnes som referansedata | **Åpen.** | Tilbudsbygger med linjer, mengder, rabatt og versjonering; gode/bedre/beste-varianter; godkjenning i kundeportalen med sporbar signatur/kvittering; konvertering til oppdrag uten å miste historikk; avviste/utløpte tilbud håndteres; alt revideres og tilgangstestes. |
+| **REV-02** · Fakturering og betaling | P2 | L | REV-01; valg av regnskaps-/betalingsleverandør og MVA-regler | **Åpen.** | Faktura fra fullført oppdrag/rapport med linjer, MVA, kreditnota og betalingsstatus; betalingslenke og avstemming; regnskapseksport med idempotent synk; delvis betaling/avskrivning håndteres; tester dekker MVA, kreditnota og dobbeltsynk. |
+| **OPS-05** · Lager, deler og innkjøp | P2 | L | ARCH-01 anbefales; beslutning om lagerstruktur | **Åpen.** Erstatter PLAT-08 som produktområde. | Saldo per lager/bil; reservasjon mot oppdrag og visit; forbruk trekkes ved fullført arbeid; innkjøpsforslag ved minimumsnivå; sporbarhet på del/serie/lot der relevant; justeringer og tellinger revideres; tester dekker reservasjon, negativ saldo og samtidige uttak. |
+| **FLD-01** · Kjøring, utlegg og lønnseksport | P2 | M | Arbeidsdager/tid er levert; valg av lønnsformat/leverandør | **Åpen.** Tid finnes; kjørebok, kvitteringer/utlegg og lønnseksport mangler. | Kjøretur kan logges per dag/montør med start/stopp/avstand og formål; kvittering/utlegg festes til oppdrag med beløp, MVA og kategori; godkjenning/avvisning; lønnseksport i avtalt format med periode, timer, reise og utlegg; eksporten er idempotent og revideres; tester dekker avrunding, MVA og avviste utlegg. |
+| **BI-01** · Lønnsomhet og rapportbygger | P2 | M | REV-02 for faktisk omsetning; arbeidsdager/tid er levert | **Åpen.** Dashbord/statistikk og revisjonseksport finnes, men ikke omsetnings-/lønnsomhetsanalyse eller egendefinerte rapporter. | Inntekt per oppdrag/kunde/tekniker; first-time-fix; utnyttelse fra arbeidstid; kostnadsgrunnlag merkes tydelig når faktisk omsetning mangler; filter per periode/avdeling/kunde; eksport til CSV/PDF; tallene stemmer med underliggende poster i tester. |
+| **CUST-EXPORT-02** · Herding av kundeoverføring | P2 | L | CUST-EXPORT-01 v1 | **Åpen.** v1 er synkron/in-memory, uten kryptering/signatur, kryssversjon-migratorer eller avstemming av final-filer; se [`backlog-customer-export-import.md`](backlog-customer-export-import.md). | Durabel asynkron worker med fremdrift, gjenopptakelse etter restart og idempotente steg; signerte og krypterte pakker med dokumentert nøkkelrotasjon; eksplisitte kryssversjon-migratorer med tester; avstemmingsjobb for endelige `/uploads`-filer; juridisk beslutning for signaturbilder/HMS dokumentert; test av krasj/restart, feil sjekksum, feil versjon og avvist signatur. |
+
+**Merknader til P2:**
+
+- **ARCH-01** er en forutsetning for at REV-, OPS-05- og BI-moduler skal kunne
+  leveres uten å tvinge alle kunder til å installere alt. Kjernen skal fortsatt
+  kunne kjøre kunde/oppdrag/dispatch/rapport alene.
+- **REV-01 → REV-02** er quote-to-cash-løpet. Ikke start REV-02 uten avklart
+  MVA- og regnskapsmodell.
+- **OPS-05** flytter det gamle PLAT-08-innholdet inn i produktkøen. PLAT-08
+  beholdes som referanse i P3-tabellen, men er ikke en egen åpen oppgave.
+- **FLD-01** bygger på levert tidsregistrering; ikke dupliser `Visit`-tid.
+- **BI-01** må merke estimert vs. faktisk omsetning til REV-02 er levert.
+- **CUST-EXPORT-02** er herding av v1, ikke en ny eksportfunksjon.
 
 ---
 
-## Sammenligning med ledende FSM-systemer (2026)
+## Teknisk gjeld og restrisiko
 
-Grunnlag: offentlige funksjonsoversikter for ServiceTitan, Salesforce Field
-Service, Microsoft Dynamics 365 Field Service, Jobber/Housecall Pro,
-ServiceMax og IFS. Plattformen vår er sterk på nordisk serviceoperasjon,
-feltdokumentasjon, offline, revisjonsspor og selvdrift. De største
-kommersielle hullene er **quote-to-cash** (tilbud → faktura → betaling) og
-**feltlogistikk** (lager/deler, rute, tid/mileage).
+Disse er konkrete oppgaver, ikke nye produktmoduler. De lukker kjente hull i
+det som allerede er levert.
 
-| Område | Ledende systemer (2026) | Status i 0.8.6 | Vurdering |
-| --- | --- | --- | --- |
-| Dispatch og bemanning | Drag-og-slipp, kompetanse, arbeidstid, fravær, territorier, kapasitet, auto-tildeling | ✅ Levert (CORE-01/03, UX-03) | Bra. Ruteplan finnes; dynamisk re-planlegging underveis mangler. |
-| Rute- og reiseoptimalisering | Flerstoppsruter etter kjøretid, tidsvinduer, dynamisk omruting | 🟡 Ruteplan + ETA, ingen dynamisk omruting | Nærmeste nabo + 2-opt, valgfri OSRM og lokal fallback. SCH-01 delvis. |
-| Kundeportal og booking | Sanntids ledige tider, bekreftelse, ombooking, betaling | 🟡 Datoforespørsel + kontorplanlegging + e-postbekreftelse | Bevisst produktvalg (DOC-01). Sanntids slot-booking er neste modenhetssteg. |
-| Tilbud og estimater | Gode/bedre/beste-tilbud, godkjenning, konvertering til oppdrag | ❌ Ikke implementert | Største kommersielle gap. P2. |
-| Fakturering og betaling | Faktura fra fullført oppdrag, MVA, betalingslenker, finansiering | ❌ Ikke implementert (prislister/SLA finnes) | Største omsetningsgap. P2. |
-| Lager og deler | Lagersaldo, reservasjoner, innkjøp, bilager | ❌ Ikke implementert | P2/P3 avhengig av kundebehov. |
-| Mobil feltapp | Native app, offline, navigasjon, strekkode, tid/mileage, push | ✅ PWA + Capacitor-skall, navigasjon og strekkode | Signerte butikkbygg, push og tid/mileage gjenstår. |
-| Tid, kjøring og utlegg | Stempling, lønnseksport, kjørebok, utlegg | ❌ Ikke implementert | P2 for entreprenørmarkedet. |
-| Serviceavtaler og vedlikehold | Gjentakende planer, varsler, fornyelse, fakturering | ✅ Planer/forekomster, kontrakter, SLA, iCal | Mangler automatisert fornyelse/fakturering og forbruksbaserte avtaler. |
-| Kunde kommunikasjon | SMS/e-post, påminnelser, toveis innboks, ETA-lenker | ✅ Toveis SMS, påminnelser, portal, sporing og ETA | Automatiserte markedsføringsløp og samtykkehåndtering kan utvides. |
-| Rapportering/BI | Inntjening, utnyttelse, first-time-fix, egendefinerte rapporter | 🟡 Dashbord/statistikk og revisjonseksport | Mangler omsetnings-/lønnsomhetsanalyse og rapportbygger. P2. |
-| AI/Copilot | Planleggingsforslag, sammendrag, stemmeintake, prediktivt vedlikehold | ❌ Ikke implementert | P3, men raskt økende bordstake. |
-| Integrasjoner | Regnskap (QuickBooks/Xero/Fiken), CRM, betaling, webhooks | 🟡 API v1 med scopes/OpenAPI | Mangler regnskaps-/CRM-/betalingskonnektorer og utgående webhooks. P3. |
-| Enterprise-plattform | SSO/SCIM, avansert RBAC, multi-tenant, HA/PITR, objektlagring | 🟡 SSO/SCIM, RBAC, revisjon, separate DB-roller | Multi-tenant, S3/Redis/HA/PITR gjenstår. |
-| Compliance og bevis | Revisjonskjede, legal hold, signert bevis-eksport, GDPR | ✅ Hash-kjede, legal hold, bevis- og kundeoverføring | Mangler GDPR-sletting (DATA-01) og eventuell DPA/HIPAA-malverk. |
-| Utstyr og IoT | Asset hierarchy, målere, QR, garanti, IoT/prediktivt | ✅ Hierarki, målere, QR, garanti, planer | Mangler IoT-inntak, prediktiv analyse og AR/fjernhjelp. P3. |
-| Skjema og dokumentasjon | Egendefinerte skjema, revisjoner, signatur, PDF | ✅ Maler, rapporter, revisjoner, signatur, PDF | Modent. |
-
-### Nye kandidater etter sammenligningen
-
-- **REV-01 · Tilbud og estimater (P2, L):** tilbudsbygger, gode/bedre/beste,
-  godkjenning i portal, konvertering til oppdrag, versjonering og audit.
-- **REV-02 · Fakturering og betaling (P2, L):** faktura fra oppdrag/rapport,
-  MVA, kreditnota, betalingslenke, avstemming og regnskapseksport.
-- **OPS-05 · Lager, deler og innkjøp (P2/P3, L):** lagersaldo per lager/bil,
-  reservasjon mot oppdrag, innkjøpsforslag og sporbarhet.
-- **FLD-01 · Tid, kjøring og utlegg (P2, M):** stempling, kjørebok,
-  kvitteringer og lønnseksport.
-- **FLD-02 · Signert native app, push og turn-by-turn (P3, L).**
-- **SCH-01 · Rute- og reiseoptimalisering (P3, L):** ruteplan og sanntids ETA
-  er levert. Gjenstår dynamisk omruting underveis, trafikkdata og
-  turn-by-turn i feltappen.
-- **BI-01 · Lønnsomhet og rapportbygger (P2, M):** omsetning per oppdrag/
-  kunde/tekniker, first-time-fix, utnyttelse og eksport.
-- **INT-01 · Regnskap/CRM/betaling og utgående webhooks (P3, L).**
-- **AI-01 · Copilot, stemmeintake og prediktivt vedlikehold (P3, XL).**
+| ID | Prioritet | Størrelse | Status | Akseptanse |
+| --- | --- | --- | --- | --- |
+| **OPS-06** · Automatiser SLA-opprydding | P2 | S | **Manuell i dag:** `npm run sla:cleanup -- --apply`. | Planlagt, idempotent jobb med tørrkjøringsmodus, metrikk/varsel og revisjonslogg; kansellerer bare klokker uten gyldig aktiv avtale/policy; tester dekker hold, allerede kansellerte klokker og samtidig kjøring; runbook oppdatert. |
+| **DATA-04** · Backfill for eldre tidsstyrte visiter | P2 | M | **Delvis:** `npm run visits:backfill:daily` splitter bare flerdagers heldagsvisiter; eldre tidsstyrte enkeltdagsvisiter blir ikke normalisert. | Skript/tørrkjøring som oppdager og rapporterer legacy tidsstyrte enkeltdagsvisiter; trygg splitting eller eksplisitt manuell rapport; tidsstempler dupliseres aldri; integrasjonstest mot reell PostgreSQL; `OPERATIONS.md` oppdatert. |
+| **FLD-02** · Automatisk lukking av siste kjøring | P2 | S | **Manuell i dag:** siste jobb på dagen må bruke «Avslutt kjøring». | Definer policy for auto-lukking (tidspunkt/avstand) som aldri gjetter ulønnet reise; handlingen revideres og kan korrigeres; felt-UI viser hvorfor reisen ble lukket; tester dekker neste `EN_ROUTE`, siste jobb og overnatting. |
+| **SEC-06** · Atomisk opplastingskvote | P2 | M | **Kjent kappløp:** kontrollen er lesning før skriving; samtidige opplastinger kan overskride kvoten med noen MB (`src/lib/upload-quota.ts`). | Kvoten reserveres/oppdateres atomisk (ledger, radlås eller tilsvarende); samtidig test viser at grensen ikke overskrides; 507 gir tydelig feil; ingen orphan-filer ved avvisning; eksisterende kvoter og opprydding bevares. |
+| **UX-08** · FullCalendar 7 visuell QA | P3 | S | **Kjente kanttilfeller:** to-ukersvisningens andre uke har en egen workaround for kolonneoverskrifter; timegrid skal åpne 07:00 (`scrollTime`), men mangler visuell test mot 00:00; korte tidsstyrte kort kan klippe tekst. | To-ukersvisning viser riktig dato/ukenummer i begge uker i nb/en/pl/de og smale bredder; timegrid åpner på arbeidsdagen og ikke 00:00 ved visningsbytte; korte hendelser er lesbare uten klipping; visuell/E2E-test eller skjermbildekontroll fanger regresjoner. |
+| **UX-09** · Tydelige forutsetninger for live-kart | P3 | S | **Dokumentert forutsetning:** dashbordkartet krever `Department.trackingEnabled` og at montøren deler posisjon; ellers vises tom/flagg-tilstand. | Tomtilstand forklarer begge forutsetningene og lenker til riktig sted (innstillinger for sporing, feltflate for deling); ingen markører fra gamle/avsluttede visiter; test dekker sporing av, ingen deling og fersk posisjon. |
 
 ---
 
-## Already implemented — do not duplicate
+## P3 — plattform og skala (krever godkjenning)
 
-- Searchable work-order `reference` and external order number; office/field
-  display and search (`src/lib/work-order-reference.ts`, work-order pages).
-- Calendar visits, drag/resize, dispatch board drag-to-assign, dry-run
-  auto-assign, territories, SLA, capacity read view.
-- Equipment categories/hierarchy/meters/QR/warranty, customer/contracts/
-  documents/reports/portal/SMS/tracking/reviews.
-- Offline PWA shell, drafts/outbox, ordering/coalescing, cache TTL and clearing.
-- API keys, OpenAPI spec, API v1 work orders/visits/equipment/plans/reports;
-  strict i18n, typecheck/lint/unit/integration/E2E/axe/Lighthouse/Trivy CI.
-- Customer portal CSV export is not the admin transfer feature; do not extend
-  it for `CUST-EXPORT-01`.
+P3 starter ikke uten produkt-/eiergodkjenning og en konkret kunde- eller
+driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon på
+`f5ba5b1`.
+
+| ID | Status | Det som gjenstår |
+| --- | --- | --- |
+| **PLAT-01** · S3/objektlagring | **Åpen.** Appen bruker lokal disk; Azure-guiden sier uttrykkelig at S3-driver ikke finnes. | Storage-abstraksjon med lokal og S3/MinIO-driver, gjenopptakbar migrering av eksisterende filer, ingen lokal-disk-kobling i tjenestelaget. |
+| **PLAT-02** · Redis/BullMQ | **Åpen.** Jobbkø og rate limits er databasebaserte; Azure-guiden nevner in-process workers og Redis som skaleringsvei. | Redis/BullMQ bak samme grensesnitt, DB-fallback, lasttest med to replikaer, dokumentert drift. |
+| **PLAT-03** · Utgående signerte webhooks | **Åpen.** Bare innkommende SMS-webhook finnes. | Retry, idempotens, dead letter, HMAC-signering, abonnements-/innstillings-UI og tester. |
+| **PLAT-04** · SSO/OIDC/SAML + SCIM | **Delvis.** OIDC (Entra ID, Keycloak, Authentik, Zitadel), SCIM 2.0 Users og break-glass er levert. | SAML; SCIM Groups; Entra group overage via Graph eller dokumentert begrensning; tester for provisioning/deaktivering; se [`manual/nb/31-sso-scim.md`](manual/nb/31-sso-scim.md) og [`OPERATIONS.md`](OPERATIONS.md). |
+| **PLAT-05** · Avansert RBAC/field-level + separation of duties | **Åpen.** Roller/rettigheter finnes, men ikke feltnivå eller pliktsegregering. | Scoped roller, feltnivåregler, godkjenningsflyt som krever to personer, tester for hver rolle. |
+| **PLAT-06** · HA/DR/PITR | **Åpen.** Backup/restore og Azure-guide finnes, men ikke HA, failover-drill eller PITR. | RPO/RTO, PITR, failover-test, lasttest, dokumentert restore-drill; se [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md) og [`AZURE.md`](AZURE.md). |
+| **PLAT-07** · White-label/custom domains | **Åpen.** Én deployment med Caddy/TLS; ingen tenant-host-mapping. | Host-mapping, per-tenant branding, TLS/DNS-validering, feilhåndtering for ukjent vert. |
+| **PLAT-08** · Lager/stock-modul | **Flyttet til OPS-05 (P2).** | Beholdes bare som historisk referanse; ikke start som egen P3-oppgave. |
+| **PLAT-09** · Nøkkelrotasjon | **Delvis.** API-nøkler kan roteres; infrastrukturhemmeligheter (`NEXTAUTH_SECRET`, DB/SMTP/SMS, age-mottakere, gamle backuper) er manuelle. | Dokumentert rotasjonsplan, overlappsvindu, re-encryption av backuper, test av gammel/nv nøkkel. |
+| **PLAT-10** · Supply chain | **Delvis.** Trivy, SHA-pinnede actions og digest-skanning av publisert image finnes; base image er tagget, ikke digest-pinnet; SBOM/SAST/secret-scanning mangler. | Digest-pinning av base image/Prisma CLI, SBOM, SAST/secret-scanning, signert provenance og policy for oppdateringer. |
+| **PLAT-11** · Maintenance mode + request-ID + health | **Delvis.** Request-ID er implementert; maintenance mode mangler; `/api/health` eksponerer fortsatt `uptimeSeconds`. | Maintenance mode med kontrollert 503 og unntak for helse/metrics; fjern eller begrens uptime; test av proxy/helse. |
+| **PLAT-12** · Performance-budsjett, skjermbilde-manifest og masseoperasjoner | **Delvis.** Lighthouse a11y-terskel er i CI; performance-budsjett, skjermbilde-manifest i CI og bulk-operasjoner for kunder/utstyr mangler. | Konkrete budsjett-test er i CI; skjermbildemanifest verifiseres; bulkoperasjoner med tilgangskontroll, revisjon og tester. |
+
+**Andre P3-kandidater (ikke startet):**
+
+- **NATIVE-01 · Signert native app og push** — Capacitor-skallet finnes, men
+  signerte butikkbygg, FCM/APNs, butikkoppføring og enhetstester gjenstår; se
+  [`NATIVE.md`](NATIVE.md). Ingen push i dag.
+- **SCH-02 · Trafikk, dynamisk omruting og turn-by-turn** — ruteplan og ETA er
+  levert; trafikkdata, omruting underveis og turn-by-turn i feltappen mangler.
+- **AI-01 · Copilot, IoT, prediktivt vedlikehold og AR** — verken
+  AI-assistent, stemmeintake, IoT-inntak, prediktiv analyse eller AR er
+  implementert. Krever egen produktbeslutning, datagrunnlag og
+  personvernsvurdering.
+- **INT-01 · Regnskap/CRM/betaling og utgående webhooks** — API v1 med
+  scopes/OpenAPI finnes; konnektorer og utgående webhooks mangler. Se også
+  REV-02 og PLAT-03.
 
 ---
 
-## Suggested worker waves
+## Forslag til worker-bølger
 
-1. **P1 product unblock:** CORE-01, CORE-02, CORE-03, CORE-04.
-2. **P1 risk:** SEC-01, OPS-01, OPS-02, OPS-03, DATA-01.
-3. **P2 security/data:** SEC-02–05, OPS-04, DATA-02/03.
-4. **P2 UX/QA:** UX-01–07, QA-01/02.
-5. **Backlog only:** CUST-EXPORT-01 — wait for explicit go-ahead.
-6. **P3:** only after product decisions; split by platform area.
+Rekkefølgen er et forslag; bølger kan kjøres parallelt når avhengighetene
+tillater det.
+
+1. **P1-beslutning og risiko:** DOC-01 (S) først, deretter DATA-01 (L).
+   DATA-01 bør starte juridisk/DPO-spor tidlig, selv om kodingen kommer senere.
+2. **Plattformmuliggjører:** ARCH-01 (L). Ikke bygg nye moduler som hardkoder
+   seg inn i navigasjon, server actions og worker før denne er på plass.
+3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) etter at
+   omsetningsdata finnes.
+4. **Felt og logistikk:** FLD-01 (M), OPS-05 (L). CUST-EXPORT-02 (L) kan gå
+   parallelt som egen data-/plattformstrøm.
+5. **Teknisk gjeld P2:** OPS-06, DATA-04, FLD-02, SEC-06. Disse er små nok til
+   å tas mellom større bølger.
+6. **P3:** PLAT-01–12, NATIVE-01, SCH-02, AI-01 og INT-01. **Krever
+   godkjenning** og en konkret kunde-/driftsbegrunnelse per oppgave.
+
+---
+
+## Vedlikeholdsregler for denne listen
+
+- **Kilde til sannhet:** Denne filen er køen, ikke en leveransebeskrivelse.
+  Verifiser alltid mot kode, `CHANGELOG.md`, `DECISIONS.md`, manualen og
+  `OPERATIONS.md` før du endrer status.
+- **Når noe leveres:** Flytt oppgaven til «Levert (ikke dupliser)» i samme
+  PR/commit, fjern den fra åpen tabell, og oppdater `CHANGELOG.md`,
+  `DECISIONS.md`, manualen, `OPERATIONS.md`, OpenAPI og skjermbilder der
+  oppførselen er endret. Legg ved commit, testkjøring og eventuelle kjente
+  begrensninger.
+- **Akseptansegater:** `npm run typecheck`, `npm test`, `npm run lint`,
+  `npm run check:i18n:strict` og `npm run build` skal være grønne.
+  Server-/dataendringer krever i tillegg `npm run test:integration` mot reell
+  PostgreSQL. Sikkerhets- og GDPR-endringer krever egne negative tester
+  (403, avvist sletting, hold-bevis).
+- **Docs-only endringer:** `git diff --check` og lokal lenkesjekk er nok; ikke
+  kjør apptester bare for tekst. Rapporter hva som er verifisert.
+- **Ingen duplikater:** Ikke gjenåpne CORE/SEC/DATA-02/03/OPS-01–04/UX/QA,
+  SMS, SSO-brukere, feltapp, QR, rute/ETA, PDF, kvote, eksportfiks,
+  kundeadskillelse, enhetsflytting, FullCalendar 7, arbeidsdager, SLA-opprydding
+  eller dashbord-live som nye oppgaver.
+- **P3 krever godkjenning:** Ikke start PLAT-, NATIVE-, SCH-02-, AI- eller
+  INT-arbeid uten eiergodkjenning og en dokumentert begrunnelse.
+- **Hold listen ærlig:** Ikke skriv «levert» uten akseptansekriteriene og
+  bevis. Ikke skjul kjente begrensninger; løft dem til egne ID-er i stedet.
+- **Lenker:** Interne lenker skal peke på eksisterende filer i `docs/`.
+  Oppdater lenkene når dokumenter flyttes eller splittes.
