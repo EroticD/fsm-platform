@@ -2472,3 +2472,287 @@ model BillingSettings {
   updatedAt           DateTime @default(now()) @updatedAt
   updatedById         String?
 }
+
+// ---------------------------------------------------------------------------
+// OPS-05: Lager og reservedeler
+// ---------------------------------------------------------------------------
+
+/// Fysisk lager eller montørbil. Bil-lokasjoner kan knyttes til en bruker, slik
+/// at montøren ser eget lagerbeholdning i felt.
+enum InventoryLocationType {
+  WAREHOUSE
+  VAN
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUST
+  RESERVE
+  RELEASE
+  CONSUME
+}
+
+enum InventoryReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+}
+
+model InventoryLocation {
+  id   String                @id @default(cuid())
+  name String
+  type InventoryLocationType @default(WAREHOUSE)
+
+  /// Avdelingen lokasjonen tilhører. Avdelingssperren gjenbruker samme
+  /// prinsipp som oppdrag: ansatte ser bare egen avdeling.
+  departmentId String?
+  /// Satt for montørbiler der en bestemt bruker er ansvarlig.
+  assignedUserId String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations InventoryReservation[]
+
+  @@index([departmentId])
+  @@index([assignedUserId])
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id          String  @id @default(cuid())
+  sku         String  @unique
+  name        String
+  unit        String  @default("stk")
+  /// Bestillingspunkt. Når tilgjengelig beholdning faller under dette nivået
+  /// lager tjenestelaget et kjøpsforslag; ingen egen tabell er nødvendig.
+  minLevel    Decimal @default(0) @db.Decimal(12, 3)
+  active      Boolean @default(true)
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations InventoryReservation[]
+
+  @@index([active])
+  @@index([name])
+}
+
+model StockLevel {
+  id         String @id @default(cuid())
+  itemId     String
+  item       InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Decimal @default(0) @db.Decimal(12, 3)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([itemId, locationId])
+  @@index([itemId])
+  @@index([locationId])
+}
+
+/// Alle beholdningsendringer er sporet. `quantity` er positiv for IN/OUT/
+/// RESERVE/RELEASE/CONSUME, mens ADJUST lagrer den signerte differansen.
+model StockMovement {
+  id         String            @id @default(cuid())
+  itemId     String
+  item       InventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  type       StockMovementType
+  quantity   Decimal           @db.Decimal(12, 3)
+  reason     String?
+
+  workOrderId  String?
+  visitId      String?
+  userId       String?
+  reservationId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId, createdAt])
+  @@index([locationId, createdAt])
+  @@index([workOrderId])
+  @@index([visitId])
+}
+
+/// Reservert mengde mot et oppdrag eller en arbeidsøkt. Reservasjonen holder
+/// ikke tilbake fysisk vare før den forbrukes, men reduserer tilgjengelig
+/// beholdning og hindrer at to montører reserverer samme del.
+model InventoryReservation {
+  id         String                     @id @default(cuid())
+  itemId     String
+  item       InventoryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Decimal                    @db.Decimal(12, 3)
+  status     InventoryReservationStatus @default(ACTIVE)
+
+  workOrderId String?
+  visitId     String?
+  createdById String?
+  note        String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  releasedAt DateTime?
+  consumedAt DateTime?
+
+  @@index([itemId, status])
+  @@index([locationId, status])
+  @@index([workOrderId, status])
+  @@index([visitId, status])
+}
+
+// ---------------------------------------------------------------------------
+// FLD-01: Kjøreturer, utlegg og lønnsgrunnlag
+// ---------------------------------------------------------------------------
+
+enum MileageStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayrollLineKind {
+  WORK
+  TRAVEL
+  MILEAGE
+  EXPENSE
+}
+
+/// Kjøretur registrert av montøren. `amount` beregnes alltid av tjenestelaget
+/// som `km × rate` avrundet til øre, slik at klienten ikke kan sende et avvik.
+model MileageTrip {
+  id           String        @id @default(cuid())
+  userId       String
+  departmentId String?
+  workOrderId  String?
+  visitId      String?
+
+  date        DateTime @db.Date
+  fromAddress String
+  toAddress   String
+  km          Decimal  @db.Decimal(10, 2)
+  rate        Decimal  @db.Decimal(10, 4)
+  amount      Decimal  @db.Decimal(12, 2)
+  purpose     String?
+
+  status          MileageStatus @default(PENDING)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+
+  /// Settes når turen er med i en låst lønnsperiode. Da kan den ikke eksporteres
+  /// på nytt i en overlappende periode.
+  payrollExportId String?
+  exportedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId, date])
+  @@index([departmentId, status])
+  @@index([workOrderId])
+  @@index([visitId])
+  @@index([payrollExportId])
+}
+
+/// Utlegg med kvittering. `amount` er bruttobeløp inkl. mva, og `vatAmount` er
+/// mva-delen. Lønnsgrunnlaget bruker beløpet slik det står på kvitteringen.
+model Expense {
+  id           String        @id @default(cuid())
+  userId       String
+  departmentId String?
+  workOrderId  String?
+
+  date        DateTime @db.Date
+  category    String
+  description String?
+  amount      Decimal  @db.Decimal(12, 2)
+  vatAmount   Decimal  @default(0) @db.Decimal(12, 2)
+
+  /// Enten en fil fra den eksisterende opplastingsruten (`/uploads/...`) eller
+  /// et dokument i dokumentbiblioteket. Begge valideres av tjenestelaget.
+  receiptUrl  String?
+  documentId  String?
+
+  status          ExpenseStatus @default(PENDING)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+
+  payrollExportId String?
+  exportedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId, date])
+  @@index([departmentId, status])
+  @@index([workOrderId])
+  @@index([payrollExportId])
+}
+
+/// Låst lønnsperiode. Raden gjør eksporten idempotent: samme avdeling og
+/// periode returnerer nøyaktig samme CSV, og overlappende perioder avvises.
+model PayrollExport {
+  id           String @id @default(cuid())
+  departmentId String
+  periodStart  DateTime @db.Date
+  periodEnd    DateTime @db.Date
+  createdById  String
+  checksum     String
+  rowCount     Int
+  csvText      String
+
+  createdAt DateTime @default(now())
+
+  lines PayrollExportLine[]
+
+  @@unique([departmentId, periodStart, periodEnd])
+  @@index([departmentId, createdAt])
+}
+
+model PayrollExportLine {
+  id       String        @id @default(cuid())
+  exportId String
+  export   PayrollExport @relation(fields: [exportId], references: [id], onDelete: Cascade)
+  kind     PayrollLineKind
+
+  /// Stabil referanse innenfor eksporten: bruker+dato for tid, ellers rad-id.
+  refId       String
+  userId      String
+  userName    String
+  workOrderId String?
+  occurredOn  DateTime @db.Date
+  description String?
+  quantity    Decimal  @db.Decimal(12, 3)
+  unit        String
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
+  vatAmount   Decimal  @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([exportId, kind, refId])
+  @@index([exportId])
+}

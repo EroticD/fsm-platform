@@ -1,0 +1,112 @@
+{
+  "inventory": {
+    "title": "Inventory",
+    "eyebrow": "OPS-05 · Inventory and spare parts",
+    "description": "Stock per warehouse and service van, reservations against work orders, and purchase suggestions when an item reaches its reorder point.",
+    "searchPlaceholder": "Search SKU or name",
+    "search": "Search",
+    "back": "Back to inventory",
+    "location": "Location",
+    "status": "Status",
+    "workOrder": "Work order",
+    "actions": "Actions",
+    "openWorkOrder": "Open work order",
+    "workOrderLink": "Spare parts",
+    "chooseLocation": "Choose location",
+    "feedback": {
+      "saved": "The change has been saved.",
+      "error": "The action could not be completed. Check stock, access, and that the work order is open."
+    },
+    "suggestions": {
+      "title": "Purchase suggestions",
+      "description": "Items at or below the reorder point, after active reservations.",
+      "empty": "No items need restocking right now.",
+      "buy": "Suggested purchase"
+    },
+    "item": {
+      "title": "Item",
+      "sku": "SKU",
+      "name": "Item",
+      "unit": "Unit",
+      "minLevel": "Reorder point",
+      "description": "Description",
+      "onHand": "On hand",
+      "reserved": "Reserved",
+      "available": "Available",
+      "low": "Low stock",
+      "noDescription": "No description.",
+      "edit": "Edit item",
+      "active": "Active",
+      "save": "Save"
+    },
+    "items": {
+      "title": "Items",
+      "empty": "No items have been registered yet.",
+      "create": "New item",
+      "createButton": "Create item"
+    },
+    "locations": {
+      "title": "Locations",
+      "empty": "No warehouses or vans have been registered yet.",
+      "itemCount": "{count} items",
+      "lowCount": "{count} low",
+      "create": "New location",
+      "name": "Warehouse or van name",
+      "createButton": "Create location",
+      "detailTitle": "Location",
+      "edit": "Edit location",
+      "active": "Active"
+    },
+    "locationType": {
+      "warehouse": "Warehouse",
+      "van": "Service van"
+    },
+    "stock": {
+      "levels": "Stock per location",
+      "noLevels": "No stock has been registered for this item yet."
+    },
+    "adjust": {
+      "title": "Adjust stock",
+      "description": "In and out reject negative stock. Adjustment is an explicit correction and can fix a count.",
+      "types": {
+        "in": "In",
+        "out": "Out",
+        "adjust": "Adjust"
+      },
+      "quantity": "Quantity",
+      "reason": "Reason",
+      "button": "Save movement"
+    },
+    "reserve": {
+      "title": "Reserve parts",
+      "description": "The reservation holds available quantity against a work order or work session. Stock is deducted only when consumed.",
+      "quantity": "Quantity",
+      "workOrderId": "Work order ID",
+      "note": "Note",
+      "button": "Reserve",
+      "chooseItem": "Choose item",
+      "noVisit": "Whole work order (no specific session)"
+    },
+    "reservations": {
+      "title": "Reservations",
+      "empty": "No reservations.",
+      "release": "Release",
+      "consume": "Consume"
+    },
+    "movements": {
+      "title": "Movements",
+      "empty": "No movements have been registered.",
+      "at": "Time",
+      "type": "Type",
+      "quantity": "Quantity",
+      "reason": "Reason"
+    },
+    "workOrderParts": {
+      "title": "Spare parts",
+      "backToWorkOrder": "Back to work order",
+      "consumeVisit": "Consume parts for a completed session",
+      "consumeVisitDescription": "Consumes all active reservations tied to the session. Use this when the work has actually been done.",
+      "consumeAll": "Consume all"
+    }
+  }
+}
