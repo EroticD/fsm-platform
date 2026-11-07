@@ -1,5 +1,8 @@
 # Drift og feilsøking
 
+> Azure-oppsett med VM, Docker Compose og PostgreSQL Flexible Server er
+> beskrevet i [`AZURE.md`](AZURE.md).
+
 ## Produksjonssett: image-pinning
 
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
@@ -516,9 +519,10 @@ BACKUP_CONFIRMED=true docker compose -f docker-compose.prod.yml up -d app
 
 Standard er `false`, slik at lokal utvikling og eksisterende oppsett ikke
 endres. `BACKUP_CONFIRMED` bekrefter bare at du har tatt backup; det sier ikke
-at backupen er god. Kjør derfor restore-testen før du setter den. Neste
-utrulling krever en ny backup. Prisma tar sin egen advisory lock, så flere
-instanser ikke migrerer samtidig.
+at backupen er god. Kjør derfor restore-testen før du setter den.
+`BACKUP_CONFIRMED` nullstilles ikke automatisk: fjern den eller sett den til
+`false` etter vellykket oppstart, ellers er sperren åpen ved neste utrulling.
+Prisma tar sin egen advisory lock, så flere instanser ikke migrerer samtidig.
 
 ## Rollback
 
@@ -605,6 +609,19 @@ deres reelle RTO.
 
 ## Backup og restore
 
+> **Kortversjon:** `scripts/backup.sh` tar en logisk `pg_dump` av databasen og
+> et tar-arkiv av `fsm_uploads`, krypterer begge med age i strøm, skriver
+> SHA-256-sjekksum og en atomisk statusfil, og kopierer valgfritt til
+> `BACKUP_REMOTE` med rclone. Produksjon nekter å ta backup uten
+> `BACKUP_AGE_RECIPIENT`. Daglig backup, daglig ferskhetskontroll og ukentlig
+> restore-test kjøres av systemd-enhetene i `deploy/systemd/` og varsler via
+> `scripts/ops-alert.sh`.
+>
+> **Full runbook:** se [BACKUP-RESTORE.md](BACKUP-RESTORE.md) for RPO/RTO,
+> nøkkelgjenoppretting, full disaster restore, Azure PITR/Azure Backup,
+> enkeltfilgjenoppretting, feilsøking og sjekklister. Denne seksjonen er
+> oppsummeringen og de raske kommandoene.
+
 Ta backup av database og opplastingsvolum:
 
 ```bash
@@ -624,8 +641,10 @@ ukrypterte filer aldri ligger på disk. Filene får `0600`. `BACKUP_REMOTE`
 kopierer til ekstern lagring med rclone **etter** at filene er kryptert (eller
 bevisst ukryptert i lokal utvikling). Kopien verifiseres med `rclone check`
 med mindre `BACKUP_VERIFY_REMOTE=false` er satt bevisst. `RETENTION_DAYS`
-(standard 30) styrer hvor lenge lokale filer beholdes; ekstern lagring bør ha
-egen, lengre oppbevaring.
+(standard 30 i backupjobben) styrer hvor lenge lokale filer beholdes; ekstern
+lagring bør ha egen, lengre oppbevaring. Merk at appen bruker samme variabelnavn
+med standard 365 for oppdragsretention – hold backupjobbens verdi og appens
+`.env` adskilt.
 
 Sjekk ferskhet, alder og sjekksum uten å røre databasen:
 

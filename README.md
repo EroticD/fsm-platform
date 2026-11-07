@@ -85,7 +85,7 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterpå �
    APP_URL=https://fsm.example.com
 
    # Pinn til en publisert versjon, ikke latest.
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.10
    POSTGRES_IMAGE=postgres:15.13
    ```
 
@@ -178,6 +178,8 @@ nginx-eksempel, feilsøking av 502 og flere proxy-detaljer står i
 [`deploy/proxy/README.md`](deploy/proxy/README.md) og
 [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
+Azure-drift med VM, Docker Compose og PostgreSQL Flexible Server: se [`docs/AZURE.md`](docs/AZURE.md).
+
 ## Flytte database og data
 
 Produksjons-Compose bruker to navngitte volumer:
@@ -247,7 +249,16 @@ uten filene gir vedlegg som peker på filer som mangler.
 > produksjonsmaskin. Det sletter `fsm_postgres_data` og `fsm_uploads`.
 
 Backup, kryptering, restore-test og rollback er beskrevet i
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md#backup-og-restore).
+[`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) (full runbook) og
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md#backup-og-restore) (kortversjon).
+
+## Drift
+
+- [Backup og gjenoppretting](docs/BACKUP-RESTORE.md) – full runbook med RPO/RTO,
+  Azure-native backup, restore-test, feilsøking og sjekklister. Se også
+  [drift og feilsøking](docs/OPERATIONS.md).
+- [Azure-deployment](docs/AZURE.md) – VM, Docker Compose, Caddy, PostgreSQL
+  Flexible Server, Key Vault, Blob-backup og oppdateringsrutine.
 
 ## Oppdatere til ny versjon
 
@@ -257,7 +268,7 @@ Backup, kryptering, restore-test og rollback er beskrevet i
 2. Bytt `APP_IMAGE` til den nye, pinnede taggen i `.env`:
 
    ```dotenv
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.9
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.8.10
    ```
 
 3. Kontroller hvilke images som faktisk brukes, hent og recreate:
@@ -326,6 +337,7 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | Dokument | Innhold |
 | --- | --- |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
+| [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, Azure-native backup, øvelser og sjekklister |
 | [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
 | [`docs/NATIVE.md`](docs/NATIVE.md) | Capacitor-skallet for Android/iOS |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |

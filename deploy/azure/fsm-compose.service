@@ -1,0 +1,44 @@
+[Unit]
+Description=FSM-plattformen (Azure: app + Caddy via Docker Compose)
+Documentation=file:/opt/fsm-platform/docs/AZURE.md
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/fsm-platform
+
+# Henter hemmeligheter fra Key Vault og skriver /etc/fsm/fsm.env (0600).
+# azure.env inneholder ikke-hemmelig konfigurasjon og opprettes manuelt.
+ExecStartPre=/usr/local/bin/fsm-fetch-secrets.sh
+
+# To env-filer: senere fil vinner. Hemmelighetene ligger bare i fsm.env.
+ExecStart=/usr/bin/docker compose \
+  --env-file /etc/fsm/azure.env \
+  --env-file /etc/fsm/fsm.env \
+  -f deploy/azure/docker-compose.azure.yml \
+  up -d --remove-orphans
+
+# Behold data-volumene; `down` uten -v sletter ikke opplastinger eller Caddy-data.
+ExecStop=/usr/bin/docker compose \
+  --env-file /etc/fsm/azure.env \
+  --env-file /etc/fsm/fsm.env \
+  -f deploy/azure/docker-compose.azure.yml \
+  down
+
+ExecReload=/usr/bin/docker compose \
+  --env-file /etc/fsm/azure.env \
+  --env-file /etc/fsm/fsm.env \
+  -f deploy/azure/docker-compose.azure.yml \
+  up -d --force-recreate app
+
+Environment=COMPOSE_PROJECT_NAME=fsm-prod
+TimeoutStartSec=900
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=30s
+
+[Install]
+WantedBy=multi-user.target
