@@ -1,0 +1,161 @@
+# Azure-produksjon: app + Caddy, uten lokal PostgreSQL.
+#
+# Denne filen er bevisst en søsken til docker-compose.prod.yml. Forskjellen er
+# at databasen er en ekstern Azure Database for PostgreSQL Flexible Server, og
+# at Caddy kjører i samme Compose-nettverk og når appen på `app:3000`.
+#
+# Bruk:
+#
+#   docker compose \
+#     --env-file /etc/fsm/azure.env \
+#     --env-file /etc/fsm/fsm.env \
+#     -f deploy/azure/docker-compose.azure.yml up -d
+#
+# Alle hemmeligheter kommer fra env-filene. /etc/fsm/fsm.env skal være 0600 og
+# eies av root, og skrives av deploy/azure/fsm-fetch-secrets.sh.
+# Se docs/AZURE.md og deploy/azure/README.md.
+#
+# Appen har in-process workers (PDF/OCR, SMS, påminnelser og serviceavtaler).
+# Kjør derfor alltid én app-replika. Skal dere skalere ut, må workerne skilles
+# ut og opplastingsvolumet flyttes til delt lagring først.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    image: ${APP_IMAGE:?Sett APP_IMAGE til en publisert versjon eller et digest}
+    restart: unless-stopped
+    environment:
+      # Runtime (DML) og migrasjoner (DDL) er separate roller også i Azure.
+      # URL-ene peker på Flexible Server og må ha sslmode=verify-full (eller
+      # require der CA-kjeden ikke kan valideres).
+      DATABASE_URL: ${DATABASE_URL:?Sett DATABASE_URL til runtime-rollen}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:?Sett DATABASE_MIGRATION_URL til migrasjonsrollen}
+      ALLOW_DB_DDL_ROLE: ${ALLOW_DB_DDL_ROLE:-false}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?Sett NEXTAUTH_URL til https://...}
+      APP_URL: ${APP_URL:?Sett APP_URL til https://...}
+      TZ: Europe/Oslo
+      AUTH_TRUST_HOST: "true"
+      # Caddy er eneste vei inn, og den overskriver X-Forwarded-*.
+      TRUST_PROXY: "true"
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_SECRET: ${METRICS_SECRET:-}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/monitoring/backup-status.json}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-FSM}
+      SMS_WEBHOOK_SECRET: ${SMS_WEBHOOK_SECRET:-}
+      SMS_ALLOWLIST: ${SMS_ALLOWLIST:-}
+      SMS_WORKER: ${SMS_WORKER:-true}
+      SMS_LINKMOBILITY_URL: ${SMS_LINKMOBILITY_URL:-}
+      SMS_LINKMOBILITY_API_KEY: ${SMS_LINKMOBILITY_API_KEY:-}
+      SMS_LINKMOBILITY_SECRET: ${SMS_LINKMOBILITY_SECRET:-}
+      SMS_PSWINCOM_URL: ${SMS_PSWINCOM_URL:-}
+      SMS_PSWINCOM_USER: ${SMS_PSWINCOM_USER:-}
+      SMS_PSWINCOM_PASSWORD: ${SMS_PSWINCOM_PASSWORD:-}
+      SMS_PSWINCOM_SECRET: ${SMS_PSWINCOM_SECRET:-}
+      SMS_TWILIO_ACCOUNT_SID: ${SMS_TWILIO_ACCOUNT_SID:-}
+      SMS_TWILIO_AUTH_TOKEN: ${SMS_TWILIO_AUTH_TOKEN:-}
+      SEED_DATABASE: ${SEED_DATABASE:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+      RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
+      CRON_SECRET: ${CRON_SECRET:-}
+      READY_SECRET: ${READY_SECRET:-}
+      REQUIRE_2FA_ROLES: ${REQUIRE_2FA_ROLES:-}
+      GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
+      GEOCODE_USER_AGENT: ${GEOCODE_USER_AGENT:-}
+      GEOCODE_TIMEOUT_MS: ${GEOCODE_TIMEOUT_MS:-2500}
+      TRACKING_AVERAGE_SPEED_KMH: ${TRACKING_AVERAGE_SPEED_KMH:-50}
+      UPLOAD_DIR: /app/uploads
+      UPLOAD_MAX_IMAGE_MB: ${UPLOAD_MAX_IMAGE_MB:-15}
+      UPLOAD_MAX_DOCUMENT_MB: ${UPLOAD_MAX_DOCUMENT_MB:-50}
+      UPLOAD_QUOTA_USER_MB: ${UPLOAD_QUOTA_USER_MB:-2048}
+      UPLOAD_QUOTA_CUSTOMER_MB: ${UPLOAD_QUOTA_CUSTOMER_MB:-10240}
+      # Sperre for trygg migrering. Ta backup (Flexible Server PITR eller
+      # pg_dump) og start med BACKUP_CONFIRMED=true når sperren er på.
+      REQUIRE_BACKUP_BEFORE_MIGRATE: ${REQUIRE_BACKUP_BEFORE_MIGRATE:-false}
+      BACKUP_CONFIRMED: ${BACKUP_CONFIRMED:-false}
+      # Ekstern database kan trenge litt mer tid ved kaldstart.
+      DB_WAIT_RETRIES: ${DB_WAIT_RETRIES:-180}
+      DB_WAIT_SECONDS: ${DB_WAIT_SECONDS:-2}
+      # Heap holdes under mem_limit, slik at native buffere (sharp, tesseract,
+      # PDF) og tmpfs fortsatt får plass. Øk bevisst ved større VM.
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=1536}
+    volumes:
+      - fsm_uploads:/app/uploads
+      # Valgfri backupstatus for /api/metrics. Katalogen må finnes på verten.
+      - ${MONITORING_DIR:-../../monitoring}:/app/monitoring:ro
+    # Samme herding som docker-compose.prod.yml.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+      - /app/.next/cache:size=96m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    # Dimensjonert for 8 GB VM. På 4 GB bør APP_MEM_LIMIT og NODE_OPTIONS
+    # senkes bevisst; se docs/AZURE.md.
+    mem_limit: ${APP_MEM_LIMIT:-3g}
+    mem_reservation: 512m
+    logging: *default-logging
+    healthcheck:
+      # Readiness, ikke liveness. En utilgjengelig database gjør containeren
+      # unhealthy uten å gi restart-løkke.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    stop_grace_period: 30s
+
+  caddy:
+    # Caddy terminerer TLS og er eneste tjeneste med publik port.
+    image: ${CADDY_IMAGE:-caddy:2.10-alpine}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      FSM_DOMAIN: ${FSM_DOMAIN:?Sett FSM_DOMAIN til domenet uten https://}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    cap_drop:
+      - ALL
+    cap_add:
+      # Caddy kjører som root i det offisielle imaget og trenger bare denne
+      # kapabiliteten for å binde 80/443.
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    stop_grace_period: 10s
+
+volumes:
+  fsm_uploads:
+  caddy_data:
+  caddy_config:

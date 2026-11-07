@@ -1,5 +1,8 @@
 # Drift og feilsøking
 
+> Azure-oppsett med VM, Docker Compose og PostgreSQL Flexible Server er
+> beskrevet i [`AZURE.md`](AZURE.md).
+
 ## Produksjonssett: image-pinning
 
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
