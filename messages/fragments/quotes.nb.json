@@ -1,0 +1,165 @@
+{
+  "quotes": {
+    "status": {
+      "DRAFT": "Utkast",
+      "SENT": "Sendt",
+      "ACCEPTED": "Godkjent",
+      "REJECTED": "Avslått",
+      "EXPIRED": "Utløpt"
+    },
+    "lines": {
+      "line": "Linje {number}",
+      "description": "Beskrivelse",
+      "quantity": "Antall",
+      "unit": "Enhet",
+      "unitPrice": "Pris",
+      "vatRate": "MVA %",
+      "total": "Sum",
+      "add": "Legg til linje",
+      "remove": "Fjern"
+    },
+    "list": {
+      "title": "Tilbud",
+      "subtitle": "Tilbud til kunder, med versjoner, godkjenning og konvertering til oppdrag.",
+      "new": "Nytt tilbud",
+      "search": "Søk",
+      "searchPlaceholder": "Tilbudsnummer, tittel eller kunde",
+      "status": "Status",
+      "allStatuses": "Alle statuser",
+      "emptyTitle": "Ingen tilbud ennå",
+      "emptyDescription": "Opprett det første tilbudet og send godkjenningslenken til kunden.",
+      "noNumber": "Uten tilbudsnummer",
+      "noCustomer": "Ingen kunde",
+      "validUntil": "Gyldig til {date}",
+      "version": "Versjon {version}",
+      "updated": "Oppdatert {date}",
+      "versioned": "Ny versjon er lagret."
+    },
+    "new": {
+      "title": "Nytt tilbud",
+      "subtitle": "Beløpene regnes ut på serveren. Du kan lagre kladden og sende den når den er klar.",
+      "back": "Tilbake til tilbud",
+      "submit": "Opprett tilbud"
+    },
+    "edit": {
+      "title": "Rediger tilbud",
+      "back": "Tilbake til tilbudet",
+      "submit": "Lagre endringer"
+    },
+    "form": {
+      "details": "Tilbudsdetaljer",
+      "title": "Tittel",
+      "customer": "Kunde",
+      "chooseCustomer": "Velg kunde",
+      "contact": "Kontaktperson",
+      "noContact": "Ingen kontaktperson",
+      "workOrder": "Oppdrag",
+      "noWorkOrder": "Ikke koblet til oppdrag",
+      "contract": "Serviceavtale",
+      "noContract": "Ingen avtale",
+      "equipment": "Utstyr",
+      "noEquipment": "Ikke koblet til utstyr",
+      "department": "Avdeling",
+      "defaultDepartment": "Standardavdeling",
+      "validUntil": "Gyldig til",
+      "vatRate": "MVA-sats",
+      "notes": "Notater",
+      "linesTitle": "Linjer",
+      "linesHint": "Beskriv hva som er tilbudt. Du kan bruke ulik MVA-sats per linje.",
+      "saving": "Lagrer …"
+    },
+    "detail": {
+      "noNumber": "Uten tilbudsnummer",
+      "version": "Versjon {version}",
+      "back": "Tilbake til tilbud",
+      "linkTitle": "Godkjenningslenke",
+      "linkHint": "Lenken er kortlivet og kan bare brukes én gang. Del den bare med kunden.",
+      "openLink": "Åpne lenken",
+      "customer": "Kunde",
+      "openCustomer": "Åpne kundekortet",
+      "contact": "Kontaktperson",
+      "noContact": "Ingen kontaktperson",
+      "validUntil": "Gyldig til",
+      "noDate": "Ikke satt",
+      "department": "Avdeling",
+      "workOrder": "Oppdrag",
+      "contract": "Serviceavtale",
+      "equipment": "Utstyr",
+      "converted": "Konvertert",
+      "openWorkOrder": "Åpne oppdraget",
+      "lines": "Tilbudslinjer",
+      "subtotal": "Netto",
+      "vat": "MVA ({rate} %)",
+      "vatTotal": "MVA",
+      "total": "Totalt",
+      "actions": "Handlinger",
+      "edit": "Rediger",
+      "send": "Send til kunde",
+      "sending": "Sender …",
+      "saveVersion": "Lagre ny versjon",
+      "newLink": "Ny godkjenningslenke",
+      "convert": "Konverter til oppdrag",
+      "converting": "Konverterer …",
+      "clone": "Klon tilbud",
+      "history": "Versjonshistorikk",
+      "noHistory": "Ingen versjoner er lagret ennå.",
+      "rejectedReason": "Kunden avslo: {reason}",
+      "invoices": "Fakturaer",
+      "draftInvoice": "Fakturakladd"
+    },
+    "approval": {
+      "title": "Godkjenn tilbud",
+      "eyebrow": "Tilbud til godkjenning",
+      "accepted": "Tilbudet er godkjent. Takk for tilbakemeldingen.",
+      "rejected": "Tilbudet er avslått.",
+      "expired": "Lenken eller tilbudet er utløpt. Kontakt leverandøren for et nytt tilbud.",
+      "validUntil": "Gyldig til",
+      "contact": "Kontaktperson",
+      "acceptTitle": "Godkjenn",
+      "acceptHint": "Ved å godkjenne bekrefter du tilbudet med beløpene over.",
+      "name": "Navn",
+      "comment": "Kommentar (valgfritt)",
+      "accept": "Godkjenn tilbudet",
+      "accepting": "Godkjenner …",
+      "rejectTitle": "Avslå",
+      "rejectHint": "Skriv kort hvorfor tilbudet ikke passer.",
+      "reason": "Årsak",
+      "reject": "Avslå tilbudet",
+      "rejecting": "Avslår …",
+      "home": "Til forsiden",
+      "errors": {
+        "generic": "Handlingen kunne ikke fullføres.",
+        "forbidden": "Du har ikke tilgang til å gjøre dette.",
+        "invalid": "Feltene er ugyldige.",
+        "not_found": "Tilbudet eller lenken ble ikke funnet.",
+        "conflict": "Tilbudet er allerede behandlet.",
+        "token": {
+          "expired": "Lenken er utløpt.",
+          "used": "Lenken er allerede brukt."
+        },
+        "quote": {
+          "expired": "Tilbudet er utløpt."
+        }
+      }
+    },
+    "errors": {
+      "generic": "Handlingen kunne ikke fullføres.",
+      "forbidden": "Du har ikke tilgang til å gjøre dette.",
+      "invalid": "Feltene er ugyldige.",
+      "not_found": "Tilbudet ble ikke funnet.",
+      "conflict": "Tilbudet er i en tilstand som ikke tillater handlingen.",
+      "quote": {
+        "locked": "Sendte tilbud kan ikke redigeres.",
+        "expired": "Tilbudet er utløpt.",
+        "notDraft": "Bare kladder kan sendes.",
+        "notSent": "Bare sendte tilbud kan få ny lenke.",
+        "notAccepted": "Bare godkjente tilbud kan konverteres.",
+        "conversionRace": "Tilbudet ble endret. Oppdater siden og prøv igjen."
+      },
+      "token": {
+        "expired": "Lenken er utløpt.",
+        "used": "Lenken er allerede brukt."
+      }
+    }
+  }
+}
