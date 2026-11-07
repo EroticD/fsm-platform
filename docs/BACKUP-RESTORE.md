@@ -6,7 +6,7 @@
 > **Status:** skriptene og miljøvariablene er kontrollert mot kilden i denne
 > versjonen. Azure-native steg er eksempler med `az`/portal og må verifiseres i
 > abonnementet før de brukes i en reell hendelse. Se
-> [docs/AZURE.md](AZURE.md) for selve Azure-utrulleringen (skrives separat).
+> [docs/AZURE.md](AZURE.md) for selve Azure-utrulleringen (egen driftsguide).
 
 Denne runbooken erstatter ikke [OPERATIONS.md](OPERATIONS.md), men går dypere i
 backup og gjenoppretting. Ved konflikt mellom denne teksten og skriptene i
