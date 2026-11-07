@@ -6,6 +6,7 @@ import path from "node:path";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { uploadDir } from "@/lib/uploads";
+import { writeFinalFilesLedger } from "./reconcile";
 import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { toAuditActor, type ServiceActor } from "@/server/actor";
@@ -1262,6 +1263,8 @@ export async function applyImport(input: {
   read: PackageReadResult;
   policies: ConflictPolicies;
   options: ImportOptions;
+  /** Hvilke jobbstatusser som er lov å anvende fra. */
+  expectedStatuses?: readonly string[];
 }): Promise<{
   ok: true;
   targets: Map<string, string>;
@@ -1298,11 +1301,25 @@ export async function applyImport(input: {
         const locked = await tx.$queryRaw<Array<{ status: string }>>`
           SELECT "status" FROM "CustomerTransferJob" WHERE "id" = ${input.jobId} FOR UPDATE
         `;
-        if (locked[0]?.status !== "DRY_RUN") {
+        const allowed = input.expectedStatuses ?? ["DRY_RUN"];
+        if (!locked[0] || !allowed.includes(locked[0].status)) {
           throw new Error("transfer_already_completed");
         }
         const lockKey = `customer-transfer:${input.read.checksum}`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+        // Lås også eksisterende målkunder. To ulike pakker som treffer samme
+        // kunde skal ikke kunne skrive samtidig, selv om sjekksummen er ulik.
+        const targetCustomerIds = [
+          ...new Set(
+            analysis.customers
+              .map((customer) => customer.targetId)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        ].sort();
+        for (const customerId of targetCustomerIds) {
+          const customerLock = `customer-transfer-customer:${customerId}`;
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${customerLock}, 0))`;
+        }
 
         await createReferences(ctx);
         await importCustomers(ctx);
@@ -1316,6 +1333,13 @@ export async function applyImport(input: {
         await importUploads(ctx);
         await persistRecords(ctx);
 
+        // Skriv den durabare fillisten før første fil. Krasjer prosessen etter
+        // dette punktet, kan avstemmingen slette nøyaktig de filene som ikke
+        // ble referert av en committet transaksjon.
+        await writeFinalFilesLedger(
+          ctx.jobId,
+          ctx.pendingFiles.map((file) => file.storedName),
+        );
         const moved = await movePendingFiles(ctx.pendingFiles);
         movedFiles.push(...moved);
 

@@ -5,8 +5,9 @@ import {
   ALLOWED_MIME_SET,
   TRANSFER_FORMAT,
   TRANSFER_SCHEMA_VERSION,
-  TRANSFER_SUPPORTED_MAJOR,
+  TRANSFER_SUPPORTED_SCHEMA_VERSIONS,
 } from "./constants";
+import { isSupportedSchemaVersion } from "./schema-version";
 
 /** Rekursiv sortering av objektnøkler. Array-rekkefølge bevares (kalleren sorterer). */
 export function sortKeysDeep(value: unknown): unknown {
@@ -87,6 +88,8 @@ export const manifestFileSchema = z.object({
 export const manifestSchema = z.object({
   format: z.literal(TRANSFER_FORMAT),
   schemaVersion: z.string().regex(/^\d+\.\d+$/),
+  /** Påkrevd fra 1.1; eldre 1.0-pakker får en deterministisk verdi ved migrering. */
+  packageId: z.string().min(1).max(128).optional(),
   exportedAt: z.string().datetime(),
   source: z.object({
     instanceId: z.string().min(1).max(128),
@@ -115,9 +118,12 @@ export const manifestSchema = z.object({
 export type TransferManifest = z.infer<typeof manifestSchema>;
 
 export function supportedSchemaVersion(version: string): boolean {
-  const major = Number.parseInt(version.split(".")[0] ?? "", 10);
-  return Number.isInteger(major) && major === TRANSFER_SUPPORTED_MAJOR;
+  // Eksplisitt liste, ikke bare major: en fremtidig 1.2 skal avvises til
+  // noen har skrevet og testet en migrering.
+  return isSupportedSchemaVersion(version);
 }
+
+export { TRANSFER_SUPPORTED_SCHEMA_VERSIONS };
 
 export function manifestChecksum(manifest: TransferManifest): string {
   // Manifestet sjekksummeres ikke selv; denne verdien brukes bare til å binde

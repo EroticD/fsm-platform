@@ -13,12 +13,10 @@ const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
  * slettet fil ikke lenger hentes via `/uploads/...` av andre enn administrator,
  * samtidig som filer som deles mellom flere rader blir liggende.
  */
-export async function releaseUpload(
+export async function isUploadReferenced(
   fileUrl: string | null | undefined,
 ): Promise<boolean> {
   if (!fileUrl || !UPLOAD_URL.test(fileUrl)) return false;
-  const storedName = fileUrl.slice("/uploads/".length);
-
   const [
     attachment,
     customerAttachment,
@@ -84,19 +82,25 @@ export async function releaseUpload(
     }),
   ]);
 
-  if (
+  return Boolean(
     attachment ||
-    customerAttachment ||
-    document ||
-    version ||
-    signature ||
-    unit ||
-    legacy ||
-    revision ||
-    draft
-  ) {
-    return false;
-  }
+      customerAttachment ||
+      document ||
+      version ||
+      signature ||
+      unit ||
+      legacy ||
+      revision ||
+      draft,
+  );
+}
+
+export async function releaseUpload(
+  fileUrl: string | null | undefined,
+): Promise<boolean> {
+  if (!fileUrl || !UPLOAD_URL.test(fileUrl)) return false;
+  const storedName = fileUrl.slice("/uploads/".length);
+  if (await isUploadReferenced(fileUrl)) return false;
 
   const deleted = await prisma.upload.deleteMany({ where: { storedName } });
   if (deleted.count > 0) {

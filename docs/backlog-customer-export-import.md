@@ -1,54 +1,91 @@
 # Backlog — Admin export and import of customers
 
-> **STATUS: v1 IMPLEMENTED — SEE LIMITATIONS**
+> **STATUS: v1 IMPLEMENTED AND HARDENED (CUST-EXPORT-02)**
 >
-> The v1 transfer feature described here is implemented in `feat/cust-export`
-> (schema migration `20261103120000_customer_transfer`, services under
-> `src/lib/customer-transfer/` and `src/server/customer-transfer.ts`, settings
-> tab `kundeoverforing`, and internal routes under
-> `/api/innstillinger/kunder/`). It has been exercised by unit tests and by a
-> real-PostgreSQL integration suite that exports a synthetic dossier, imports it
-> into a cleaned target, verifies new IDs/relations/files, repeats the import,
-> and rejects malformed/checksum/path-traversal/missing-file packages without
+> The feature is implemented in `feat/cust-export` and hardened in
+> `feat/transfer-hardening` (schema migration `20261103120000_customer_transfer`,
+> services under `src/lib/customer-transfer/` and
+> `src/server/customer-transfer.ts`, settings tab `kundeoverforing`, and
+> internal routes under `/api/innstillinger/kunder/`). Unit tests and a
+> real-PostgreSQL integration suite export a synthetic dossier, import it into
+> a cleaned target, verify new IDs/relations/files, repeat the import, exercise
+> the durable queue, signature/version/reconciliation paths, and reject
+> malformed/checksum/tampered/path-traversal/missing-file packages without
 > writes.
 >
-> **Honest v1 limitations (not silently dropped):**
+> **Delivered in the hardening slice:**
 >
-> - **Synchronous, in-memory jobs.** Export/import runs in the request process
->   and the ZIP is buffered in memory. Durable job rows record state, but there
->   is no async worker, resume-after-crash or progress streaming. Package limit
->   is therefore 500 MiB in total and 50 MiB per file. A process crash between
->   the file move and the DB commit can leave unreferenced files; v1 cleans
->   staging automatically but does not run a background reconciliation of final
->   `/uploads` files. Operators should compare the filesystem against `Upload`
->   rows after a crash during import.
-> - **No package encryption or signature.** SHA-256 checksums detect corruption,
->   not tampering. ZIP passwords are deliberately rejected; confidentiality
->   relies on authenticated HTTPS, ephemeral staging (24 h) and restrictive
->   permissions. Envelope encryption is future work.
-> - **Signatures excluded by default.** Signature images are included only when
->   the admin explicitly opts in; the default package sets `signatureExcluded`
->   and relies on the cached PDF. The legal basis for signatures/HMS data must
->   be assessed before enabling the option.
-> - **Audit snapshot is provenance only.** Source audit rows are exported to
->   `data/audit-snapshot.json` (cap 5 000 rows) and referenced from
->   `provenance/audit.json`; they are never copied into the target `AuditLog`.
->   The target gets one `CustomerTransfer` audit entry for the import itself.
-> - **One schema major version.** Only `1.x` is accepted; there are no
->   cross-version migrators, and unknown future majors are rejected.
-> - **No equipment attachment version model.** Equipment `Upload` rows are
->   transferred as distinct attachments; versions are not inferred from time.
-> - **Document ownership is nullable.** Only documents with `customerId` or
->   `productId` are exported. Unowned/global documents are excluded and are
->   never guessed from title or filename.
-> - **Conflict updates are narrow.** Only customer and equipment fields can be
->   updated; reports are never updated, and contacts/sites/contracts/work
->   orders/plans/readings/documents/uploads are skip-or-new.
-> - **Not exposed on `/api/v1`.** Routes are internal, admin-session-only and
->   intentionally unavailable to API keys or the customer portal.
-> - **No SLA clocks, booking workflow, notifications, SMS, tracking pings,
->   reviews, drafts or offline/outbox data.** These remain explicit non-goals
->   (§5.11) rather than partial imports.
+> - **Durable asynchronous jobs.** `CustomerTransferJob` is the queue. Export
+>   starts as `PENDING`; confirmed import becomes `QUEUED`. `src/lib/customer-transfer/worker.ts`
+>   claims one job with `FOR UPDATE SKIP LOCKED`, sets `RUNNING`, updates
+>   `progressStage`/`progressProcessed`/`progressTotal`, and uses guarded
+>   transitions (`updateMany ... where status = RUNNING`) so an abort or a
+>   second worker cannot overwrite a finished result. Stale `RUNNING` exports
+>   are re-queued as `PENDING` and rebuilt; stale `RUNNING` imports are re-queued
+>   as `QUEUED` (the DB transaction and the job status commit atomically, so a
+>   retry is safe). Export polling/download and the upload → dry-run → confirm
+>   UI flow still work.
+> - **One active import per package.** Confirmation takes a PostgreSQL advisory
+>   lock on the package checksum and rejects a second `QUEUED`/`RUNNING` import
+>   for the same package with `409`. `applyImport` additionally locks the job
+>   row and the checksum inside the transaction.
+> - **Package signatures.** HMAC-SHA256 over the manifest and
+>   `checksums.sha256`, written to `manifest.sig` when
+>   `CUSTOMER_TRANSFER_SIGNING_KEY` is set. Import verifies before trusting the
+>   package and rejects tampered or unknown-key signatures. Key generation,
+>   rotation and the trust model are documented in `docs/OPERATIONS.md`.
+>   `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` rejects unsigned packages.
+> - **Optional package encryption.** A versioned AES-256-GCM envelope with a
+>   scrypt-derived key (`N=32768, r=8, p=1`) and random salt/IV. It is a real,
+>   reviewed Node `crypto` scheme, not ZIP passwords. CLI:
+>   `npm run transfer:encrypt` / `npm run transfer:decrypt`; import accepts a
+>   `.fsmenc` envelope with a passphrase in the multipart `passphrase` field
+>   (or `X-Transfer-Passphrase` for CLI use). The passphrase is never stored.
+> - **Cross-version handling.** Exports use schema `1.1` (adds a deterministic
+>   `packageId`). Imports accept the explicit list `1.0` and `1.1`;
+>   `1.0 → 1.1` is a deterministic migrator. Other versions, including a future
+>   `1.2`/`2.0`, get the stable `customer_transfer.unsupported_schema` error.
+> - **Final-file reconciliation.** Import writes a private
+>   `final-files.json` ledger in its staging directory before writing final
+>   `/uploads` files. `reconcileTransferFiles()` only processes names from that
+>   ledger and deletes a file only after `isUploadReferenced()` confirms that
+>   no attachment, document, version, report, revision or draft references it.
+>   A referenced file is never deleted. Reconciliation runs on startup, hourly
+>   with cleanup, and after a failed/abandoned import.
+> - **Cleanup/retention.** Staging and artifacts expire after 24 h. Job rows
+>   are retained after artifact deletion (default 90 days for exports, 365 for
+>   imports, configurable with `CUSTOMER_TRANSFER_JOB_RETENTION_DAYS`). Job
+>   JSON contains IDs, counts, checksums, policies and stable error codes only —
+>   no names, e-mail addresses, file names or passphrases.
+>
+> **Residual limitations (not silently dropped):**
+>
+> - Whole ZIPs are still built/read in memory; the 500 MiB package / 50 MiB file
+>   caps remain. Streaming storage/S3-minio is future work.
+> - The durable worker is a polling loop in the app process, not a separate
+>   queue service. A deployment with zero app processes has no worker.
+> - Encryption is an outer envelope applied after export (CLI) or before upload;
+>   there is no passphrase field in the existing admin UI yet. The CLI/API flow
+>   is real and documented, but the UI prompts packaged with the settings tab
+>   are residual.
+> - No automatic periodic reconciliation of arbitrary orphan files. Only files
+>   named in a transfer job's ledger are touched, which is intentional: a
+>   generic “delete files without a row” scanner would be unsafe.
+> - Signatures are HMAC (shared secret), not asymmetric Ed25519. This protects
+>   tampering between installations that share a key; it does not provide
+>   third-party non-repudiation. Multi-recipient trust needs a future key
+>   exchange/Ed25519 design.
+> - Signature images are still excluded by default; the legal basis for
+>   signatures/HMS data must be assessed before enabling the option.
+> - Audit snapshot is provenance only. Source audit rows are exported to
+>   `data/audit-snapshot.json` (cap 5 000 rows), never copied into the target
+>   `AuditLog`; the target gets one `CustomerTransfer` audit entry.
+> - Conflict updates remain narrow: only customer and equipment fields can be
+>   updated; reports are never updated.
+> - Not exposed on `/api/v1`; routes stay internal, admin-session-only and
+>   unavailable to API keys or the customer portal.
+> - No SLA clocks, booking workflow, notifications, SMS, tracking pings,
+>   reviews, drafts or offline/outbox data (§5.11).
 >
 > The customer portal CSV export at
 > `src/app/api/kundeportal/export/route.ts` is still unrelated and untouched.
@@ -718,16 +755,19 @@ Proposed schema (version 1.0):
 
 Requirements:
 
-- `schemaVersion` is mandatory. Import accepts the current major version and
-  explicitly supported older versions; it rejects future major versions with a
-  stable error and never guesses.
+- `schemaVersion` is mandatory. Import accepts only the explicit list `1.0`
+  and `1.1` (current export version is `1.1`); `1.0 → 1.1` is a deterministic
+  migrator. Other versions, including future `1.2`/`2.0`, are rejected with
+  `customer_transfer.unsupported_schema`; the importer never guesses.
 - `counts` must match the actual decoded arrays/files; mismatch is a hard error.
 - `checksums` covers every `data/*.json` and every file entry. `checksums.sha256`
   repeats them in a `sha256sum -c`-compatible format for manual inspection.
-- There is no self-referential manifest checksum. If a package signature is
-  added later, sign `checksums.sha256` plus a canonical manifest projection; put
-  the signature in `manifest.sig` and document the algorithm/key rotation.
-  Checksums are integrity, not authenticity; state this in `README.txt`.
+- There is no self-referential manifest checksum. The optional signature in
+  `manifest.sig` signs the SHA-256 of `manifest.json` plus the SHA-256 of
+  `checksums.sha256` (see `src/lib/customer-transfer/signature.ts`). Key
+  generation, rotation and the trust model are in `docs/OPERATIONS.md`.
+  Checksums are integrity; only a verified signature is authenticity. State
+  this in `README.txt`.
 - `source.instanceId` is a stable, non-secret installation identifier used for
   provenance/idempotency. Do not use a hostname or secret.
 - `scope.customerIds` lists source IDs only; no credentials.

@@ -112,8 +112,15 @@
       "duplicateEntry": "Pakiet zawiera zduplikowane nazwy plików.",
       "unsupportedMime": "Pakiet zawiera niedozwolony typ pliku.",
       "mimeMismatch": "Zawartość pliku nie zgadza się z deklarowanym typem.",
-      "encryptedArchive": "Zaszyfrowane archiwa ZIP nie są obsługiwane.",
+      "encryptedArchive": "Zaszyfrowane archiwa ZIP nie są obsługiwane. Użyj udokumentowanej koperty FSM z hasłem.",
       "nestedArchive": "Zagnieżdżone archiwa są niedozwolone.",
+      "signatureInvalid": "Podpis pakietu jest nieprawidłowy. Pakiet został zmieniony lub podpisany nieznanym kluczem.",
+      "signatureMissing": "W pakiecie brakuje wymaganego podpisu. Import jest zablokowany.",
+      "signatureKeyMissing": "Pakiet jest podpisany, ale ta instalacja nie ma klucza do weryfikacji. Traktuj pakiet jako niezweryfikowany.",
+      "signatureUnsigned": "Pakiet nie jest podpisany. Sumy kontrolne wykrywają uszkodzenie, ale nie złośliwą zmianę.",
+      "schemaMigrated": "Pakiet został zmigrowany ze starszej, obsługiwanej wersji schematu.",
+      "decryptionFailed": "Nie można odszyfrować pakietu. Sprawdź hasło i kompletność pliku.",
+      "passphraseRequired": "Pakiet jest zaszyfrowany. Podaj hasło, aby go odszyfrować.",
       "conflict": "Pakiet zawiera konflikt, który trzeba rozwiązać.",
       "policyRequired": "Musisz wybrać zasadę konfliktu.",
       "previewStale": "Dane docelowe zmieniły się od podglądu. Uruchom nowy podgląd.",
@@ -149,7 +156,8 @@
       "unknownEntry": "Nieznany plik najwyższego poziomu został zignorowany z ostrzeżeniem.",
       "rateLimitedRetry": "Zbyt wiele prób eksportu. Spróbuj ponownie za {minutes} minut.",
       "exportInProgress": "Eksport nadal trwa. Spróbuj ponownie za chwilę.",
-      "moduleDisabled": "Pakiet zawiera dane z wyłączonego modułu. Włącz moduł lub utwórz nowy eksport."
+      "moduleDisabled": "Pakiet zawiera dane z wyłączonego modułu. Włącz moduł lub utwórz nowy eksport.",
+      "importInProgress": "Import tego samego pakietu już trwa."
     }
   },
   "auditActions": {
