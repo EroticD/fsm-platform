@@ -246,8 +246,15 @@ test("dispatch: dra en visitt mellom montørkolonner", async ({
 
 test("kalender: flytt en visitt med dra-og-slipp og flytt den tilbake", async ({
   page,
-}) => {
+}, testInfo) => {
   test.setTimeout(90_000);
+  // FullCalendar bruker musehendelser for dra-og-slipp. I mobilprosjektet
+  // emuleres touch, og draget starter ikke pålitelig i CI. Den faktiske
+  // flyttehandlingen dekkes av desktopprosjektet og tjenestetestene.
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Dra-og-slipp testes i desktopprosjektet",
+  );
   test.skip(
     !roleCredentials("office"),
     "E2E_OFFICE_EMAIL/PASSWORD er ikke satt",
