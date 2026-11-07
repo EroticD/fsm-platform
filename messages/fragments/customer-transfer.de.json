@@ -112,8 +112,15 @@
       "duplicateEntry": "Das Paket enthält doppelte Dateinamen.",
       "unsupportedMime": "Das Paket enthält einen nicht erlaubten Dateityp.",
       "mimeMismatch": "Der Dateiinhalt stimmt nicht mit dem deklarierten Typ überein.",
-      "encryptedArchive": "Verschlüsselte ZIP-Archive werden nicht unterstützt.",
+      "encryptedArchive": "Verschlüsselte ZIP-Archive werden nicht unterstützt. Verwenden Sie den dokumentierten verschlüsselten FSM-Umschlag mit Passphrase.",
       "nestedArchive": "Verschachtelte Archive sind nicht erlaubt.",
+      "signatureInvalid": "Die Paketsignatur ist ungültig. Das Paket wurde verändert oder mit einem unbekannten Schlüssel signiert.",
+      "signatureMissing": "Dem Paket fehlt eine erforderliche Signatur. Der Import ist blockiert.",
+      "signatureKeyMissing": "Das Paket ist signiert, aber diese Installation hat keinen Schlüssel zur Prüfung. Behandeln Sie das Paket als ungeprüft.",
+      "signatureUnsigned": "Das Paket ist nicht signiert. Prüfsummen erkennen Korruption, nicht böswillige Änderungen.",
+      "schemaMigrated": "Das Paket wurde aus einer älteren, unterstützten Schemaversion migriert.",
+      "decryptionFailed": "Das Paket konnte nicht entschlüsselt werden. Prüfen Sie die Passphrase und ob die Datei vollständig ist.",
+      "passphraseRequired": "Das Paket ist verschlüsselt. Geben Sie die Passphrase zum Entschlüsseln an.",
       "conflict": "Das Paket enthält einen Konflikt, der gelöst werden muss.",
       "policyRequired": "Sie müssen eine Konfliktregel wählen.",
       "previewStale": "Die Zieldaten haben sich seit der Vorschau geändert. Führen Sie eine neue Vorschau aus.",
@@ -149,7 +156,8 @@
       "unknownEntry": "Eine unbekannte Datei auf oberster Ebene wurde mit einer Warnung ignoriert.",
       "rateLimitedRetry": "Zu viele Exportversuche. Versuchen Sie es in {minutes} Minuten erneut.",
       "exportInProgress": "Der Export läuft noch. Versuchen Sie es gleich erneut.",
-      "moduleDisabled": "Das Paket enthält Daten aus einem ausgeschalteten Modul. Schalten Sie das Modul ein oder erstellen Sie einen neuen Export."
+      "moduleDisabled": "Das Paket enthält Daten aus einem ausgeschalteten Modul. Schalten Sie das Modul ein oder erstellen Sie einen neuen Export.",
+      "importInProgress": "Ein Import desselben Pakets läuft bereits."
     }
   },
   "auditActions": {

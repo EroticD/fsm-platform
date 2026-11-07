@@ -92,6 +92,9 @@ export type ImportAnalysis = {
 
 export type ImportPreview = {
   jobId: string;
+  /** Vedvarende jobbstatus, slik at UI kan polle en asynkron import. */
+  status?: string;
+  progressStage?: string | null;
   package: {
     schemaVersion: string;
     sourceInstanceId: string;

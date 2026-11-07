@@ -2,37 +2,28 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import { logger } from "@/lib/logger";
 import {
   TRANSFER_ERROR,
   TRANSFER_KIND,
   TRANSFER_LIMITS,
   TRANSFER_STATUS,
+  TRANSFER_TERMINAL_STATUSES,
 } from "./constants";
 import {
   EXPORT_DEDUPE_WINDOW_MS,
   EXPORT_STALE_RUNNING_MS,
 } from "./export-request";
+import {
+  ensureJobStaging,
+  jobStagingDir,
+  transferRoot,
+} from "./paths";
+import { reconcileTransferFiles } from "./reconcile";
 
-export function transferRoot(): string {
-  return path.join(uploadDir(), ".transfer");
-}
-
-export function jobStagingDir(jobId: string): string {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(jobId)) {
-    throw new Error("Ugyldig jobb-id");
-  }
-  return path.join(transferRoot(), jobId);
-}
-
-/** Oppretter staging-mappen med restriktive rettigheter (0700). */
-export async function ensureJobStaging(jobId: string): Promise<string> {
-  await fs.mkdir(transferRoot(), { recursive: true, mode: 0o700 });
-  const directory = jobStagingDir(jobId);
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  return directory;
-}
+export { ensureJobStaging, jobStagingDir, transferRoot };
 
 export async function writeStagedPackage(
   jobId: string,
@@ -168,6 +159,8 @@ export async function claimExportJob(input: {
   customerIds: string[];
   expiresAt: Date;
   now?: Date;
+  /** Valgsnapshot for workeren. Inneholder bare id-er og boolske valg. */
+  exportOptions?: Record<string, unknown>;
 }): Promise<{ job: ReusableJob; reused: boolean }> {
   const now = input.now ?? new Date();
   const lockKey = `customer-transfer-export:${input.actorId}:${input.fingerprint}`;
@@ -191,7 +184,14 @@ export async function claimExportJob(input: {
         kind: TRANSFER_KIND.export,
         status: TRANSFER_STATUS.pending,
         customerIdsJson: input.customerIds,
-        resultJson: { requestFingerprint: input.fingerprint },
+        resultJson: {
+          requestFingerprint: input.fingerprint,
+          ...(input.exportOptions
+            ? {
+                exportOptions: input.exportOptions as Prisma.InputJsonValue,
+              }
+            : {}),
+        },
         expiresAt: input.expiresAt,
       },
     });
@@ -246,12 +246,17 @@ export function previewTokenValid(
  * Returnerer antall jobber som ble ryddet. Trygg å kjøre flere ganger.
  */
 export async function cleanupExpiredTransfers(now = new Date()): Promise<number> {
+  // Avstem sluttfiler før staging slettes. En krasjet import kan ha skrevet
+  // filer uten DB-rad, og fillisten ligger nettopp i stagingmappen.
+  await reconcileTransferFiles({ now });
+
   const expired = await prisma.customerTransferJob.findMany({
     where: {
       expiresAt: { lt: now },
       status: {
         in: [
           TRANSFER_STATUS.pending,
+          TRANSFER_STATUS.queued,
           TRANSFER_STATUS.staged,
           TRANSFER_STATUS.dryRun,
           TRANSFER_STATUS.ready,
@@ -303,13 +308,59 @@ export async function cleanupExpiredTransfers(now = new Date()): Promise<number>
     // Mappen finnes ikke ennå.
   }
 
+  await pruneTransferJobRows(now);
   return expired.length;
 }
 
-export async function abortJob(jobId: string): Promise<void> {
-  await removeJobStaging(jobId);
-  await prisma.customerTransferJob.update({
-    where: { id: jobId },
+/**
+ * Retensjon for selve jobbradene. Artefaktene forsvinner etter 24 timer, men
+ * revisjonssporet (jobbid, sjekksum-prefiks, antall, feilkoder) beholdes
+ * lenger. Eksportjobber ryddes før importjobber fordi importledgeren kan ha
+ * verdi ved support/reklamasjon. Ingen av JSON-feltene inneholder PII.
+ */
+function retentionDaysFor(kind: string): number {
+  const fallback = kind === TRANSFER_KIND.import ? 365 : 90;
+  const configured = Number.parseInt(
+    process.env.CUSTOMER_TRANSFER_JOB_RETENTION_DAYS ?? "",
+    10,
+  );
+  return Number.isFinite(configured) && configured >= 1
+    ? configured
+    : fallback;
+}
+
+async function pruneTransferJobRows(now: Date): Promise<number> {
+  let deleted = 0;
+  for (const kind of [TRANSFER_KIND.export, TRANSFER_KIND.import]) {
+    const cutoff = new Date(
+      now.getTime() - retentionDaysFor(kind) * 24 * 60 * 60_000,
+    );
+    const result = await prisma.customerTransferJob.deleteMany({
+      where: {
+        kind,
+        status: { in: [...TRANSFER_TERMINAL_STATUSES] },
+        OR: [
+          { completedAt: { lt: cutoff } },
+          { completedAt: null, createdAt: { lt: cutoff } },
+        ],
+      },
+    });
+    deleted += result.count;
+  }
+  if (deleted > 0) {
+    logger.info("Pruned expired customer transfer job rows", { deleted });
+  }
+  return deleted;
+}
+
+export async function abortJob(jobId: string): Promise<boolean> {
+  // Betinget overgang: en import som nettopp fullførte i en annen transaksjon
+  // skal ikke kunne overskrives til ABORTED. Da beholder vi resultatet.
+  const updated = await prisma.customerTransferJob.updateMany({
+    where: {
+      id: jobId,
+      status: { not: TRANSFER_STATUS.completed },
+    },
     data: {
       status: TRANSFER_STATUS.aborted,
       stagingPath: null,
@@ -318,6 +369,9 @@ export async function abortJob(jobId: string): Promise<void> {
       completedAt: new Date(),
     },
   });
+  if (updated.count === 0) return false;
+  await removeJobStaging(jobId);
+  return true;
 }
 
 export function transferError(

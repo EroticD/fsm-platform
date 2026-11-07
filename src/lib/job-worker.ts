@@ -15,6 +15,10 @@ import {
 } from "@/server/notifications";
 import { cleanupVisitLocationPings } from "@/server/tracking";
 import { cleanupTransfers } from "@/server/customer-transfer";
+import {
+  resetTransferWorkerForTests,
+  startTransferWorker,
+} from "@/lib/customer-transfer/worker";
 import { startReminderWorker } from "@/server/reminders";
 import { moduleEnabled } from "@/server/modules";
 /**
@@ -761,6 +765,8 @@ export async function startJobWorker(): Promise<void> {
 
   // Slett utløpte eksport-/importartefakter og forlatte staging-mapper.
   if (transfer) {
+    // Eksport/import kjører i den vedvarende jobbkøen, ikke i HTTP-forespørselen.
+    startTransferWorker();
     const pruneTransfers = () => {
       void cleanupTransfers().catch((error) => {
         logger.error("Could not clean up customer transfer artifacts", {
@@ -835,6 +841,7 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmBookingHoldCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;
+  resetTransferWorkerForTests();
   // SMS-workeren har eget startflagg; nullstilles her slik at tester som
   // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.
   scope.__fsmSmsWorkerStarted = false;

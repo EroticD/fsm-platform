@@ -82,9 +82,14 @@ export async function POST(request: NextRequest) {
   );
   if (limited) return limited;
 
-  const result = await exportCustomerPackage(guard.actor, options);
+  // Selve pakkebyggingen skjer i den vedvarende workeren. Ruten returnerer en
+  // jobb med en gang; klienten poller statusruten og laster ned når READY.
+  const result = await exportCustomerPackage(guard.actor, options, {
+    mode: "queue",
+  });
   if (!result.ok) return transferFailureResponse(result);
+  const ready = result.data.status === "READY";
   return transferJson(result.data, {
-    status: result.data.reused ? 200 : 201,
+    status: result.data.reused ? 200 : ready ? 201 : 202,
   });
 }

@@ -8,8 +8,11 @@
  * Se docs/OPERATIONS.md og docs/DECISIONS.md.
  */
 export const TRANSFER_FORMAT = "fsm-customer-export";
-export const TRANSFER_SCHEMA_VERSION = "1.0";
+/** Gjeldende format. 1.1 legger bare til en deterministisk `packageId`. */
+export const TRANSFER_SCHEMA_VERSION = "1.1";
 export const TRANSFER_SUPPORTED_MAJOR = 1;
+/** Eksplisitt liste. Ukjente minor-/majorversjoner avvises, aldri gjettet. */
+export const TRANSFER_SUPPORTED_SCHEMA_VERSIONS = ["1.0", "1.1"] as const;
 
 const MiB = 1024 * 1024;
 
@@ -80,10 +83,15 @@ export const TRANSFER_ERROR = {
   mime_mismatch: "customer_transfer.mime_mismatch",
   encrypted_archive: "customer_transfer.encrypted_archive",
   nested_archive: "customer_transfer.nested_archive",
+  signature_invalid: "customer_transfer.signature_invalid",
+  signature_missing: "customer_transfer.signature_missing",
+  decryption_failed: "customer_transfer.decryption_failed",
+  passphrase_required: "customer_transfer.passphrase_required",
   conflict: "customer_transfer.conflict",
   policy_required: "customer_transfer.policy_required",
   preview_stale: "customer_transfer.preview_stale",
   preview_expired: "customer_transfer.preview_expired",
+  invalid_job_state: "customer_transfer.invalid_job_state",
   package_too_large: "customer_transfer.package_too_large",
   rate_limited: "customer_transfer.rate_limited",
   job_expired: "customer_transfer.job_expired",
@@ -167,7 +175,12 @@ export const TRANSFER_KIND = {
 } as const;
 
 export const TRANSFER_STATUS = {
+  /** Venter på at eksportworkeren skal bygge pakken. */
   pending: "PENDING",
+  /** Import er bekreftet og venter på at workeren skal anvende den. */
+  queued: "QUEUED",
+  /** Workeren eier jobben nå. En gammel RUNNING uten hjerteslag re-køes. */
+  running: "RUNNING",
   staged: "STAGED",
   dryRun: "DRY_RUN",
   ready: "READY",
@@ -176,6 +189,24 @@ export const TRANSFER_STATUS = {
   aborted: "ABORTED",
   expired: "EXPIRED",
 } as const;
+
+/** Statusser der en jobb eier midlertidige filer eller en låst køplass. */
+export const TRANSFER_ACTIVE_STATUSES = [
+  TRANSFER_STATUS.pending,
+  TRANSFER_STATUS.queued,
+  TRANSFER_STATUS.running,
+  TRANSFER_STATUS.staged,
+  TRANSFER_STATUS.dryRun,
+] as const;
+
+/** Terminale statusser. Jobbraden beholdes etter retensjonspolicyen. */
+export const TRANSFER_TERMINAL_STATUSES = [
+  TRANSFER_STATUS.ready,
+  TRANSFER_STATUS.completed,
+  TRANSFER_STATUS.failed,
+  TRANSFER_STATUS.aborted,
+  TRANSFER_STATUS.expired,
+] as const;
 
 /** Datafilnavn → nøkkel i manifest.counts. Rekkefølgen er kanonisk. */
 export const DATA_FILES = {
@@ -240,8 +271,10 @@ rapporter, dokumenter og vedlegg for én eller flere kunder.
   API-nøkler eller andre innloggingshemmeligheter.
 - Portalerbrukere importeres deaktivert og uten passord. De må inviteres eller
   tilbakestille passord i målinstallasjonen.
-- Sjekksummene i checksums.sha256 oppdager korrupsjon, men beviser ikke hvem
-  som lagde pakken. Pakken er ikke kryptografisk signert i v1.
+- Sjekksummene i checksums.sha256 oppdager korrupsjon. Når installasjonen har
+  en signeringsnøkkel, ligger en HMAC-SHA256-signatur i manifest.sig og binder
+  manifest og sjekksummer til nøkkelen. Uten nøkkel beviser ikke pakken hvem
+  som lagde den.
 - Rapporter kan inneholde helse-/HMS-opplysninger og signaturer. Signaturbilder
   er som standard ikke inkludert; PDF-en er den visuelle hovedkilden.
 - Behandle filen som konfidensielt materiale, oppbevar den tilgangsbegrenset og

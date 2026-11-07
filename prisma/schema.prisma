@@ -1777,7 +1777,7 @@ model CustomerTransferJob {
   actorId String
   /// EXPORT | IMPORT
   kind   String
-  /// PENDING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
+  /// PENDING | QUEUED | RUNNING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
   status String @default("PENDING")
 
   /// SHA-256 av hele ZIP-filen. Bindes til forhåndsvisningen og bekreftelsen.

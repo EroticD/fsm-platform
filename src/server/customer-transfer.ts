@@ -30,6 +30,12 @@ import {
   removeJobStaging,
   writeStagedPackage,
 } from "@/lib/customer-transfer/jobs";
+import {
+  isEncryptedPackage,
+  decryptPackageBuffer,
+  TransferCryptoError,
+} from "@/lib/customer-transfer/encryption";
+import { disabledImportModules } from "@/lib/customer-transfer/module-gate";
 import { canUseCustomerTransfer } from "@/lib/customer-transfer/guard";
 import {
   EXPORT_DEDUPE_WAIT_MS,
@@ -42,7 +48,7 @@ import type {
   ImportPreview,
 } from "@/lib/customer-transfer/types";
 import { toAuditActor, type ServiceActor } from "./actor";
-import { enabledModulesFor, moduleIsOn, type ModuleKey } from "@/lib/modules";
+import { enabledModulesFor, type ModuleKey } from "@/lib/modules";
 import { readModuleStates } from "./modules";
 
 export type TransferFailure = {
@@ -92,10 +98,16 @@ export type JobView = {
   createdAt: string;
   completedAt: string | null;
   expiresAt: string | null;
+  downloadUrl?: string;
+  fileName?: string;
 };
 
 function jobView(job: Awaited<ReturnType<typeof findJobForActor>>): JobView | null {
   if (!job) return null;
+  const readyExport =
+    job.kind === TRANSFER_KIND.export &&
+    job.status === TRANSFER_STATUS.ready &&
+    Boolean(job.packageChecksum);
   return {
     id: job.id,
     kind: job.kind,
@@ -112,6 +124,15 @@ function jobView(job: Awaited<ReturnType<typeof findJobForActor>>): JobView | nu
     createdAt: job.createdAt.toISOString(),
     completedAt: job.completedAt?.toISOString() ?? null,
     expiresAt: job.expiresAt?.toISOString() ?? null,
+    ...(readyExport
+      ? {
+          downloadUrl: `/api/innstillinger/kunder/eksport/${job.id}/download`,
+          fileName: exportFileName(
+            job.packageChecksum as string,
+            job.completedAt ?? job.createdAt,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -126,8 +147,8 @@ export function exportFileName(checksum: string, now = new Date()): string {
 }
 
 export type ExportJobView = JobView & {
-  downloadUrl: string;
-  fileName: string;
+  downloadUrl?: string;
+  fileName?: string;
   reused: boolean;
 };
 
@@ -136,16 +157,8 @@ function exportJobView(
   reused: boolean,
 ): ExportJobView | null {
   const view = jobView(job);
-  if (!view || !job?.packageChecksum) return null;
-  return {
-    ...view,
-    downloadUrl: `/api/innstillinger/kunder/eksport/${job.id}/download`,
-    fileName: exportFileName(
-      job.packageChecksum,
-      job.completedAt ?? job.createdAt,
-    ),
-    reused,
-  };
+  if (!view) return null;
+  return { ...view, reused };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -177,15 +190,34 @@ async function waitForExportJob(
 async function resolveReusableExport(
   actor: ServiceActor,
   job: NonNullable<Awaited<ReturnType<typeof findJobForActor>>>,
+  wait = false,
 ): Promise<TransferResult<ExportJobView>> {
   let current = job;
-  if (current.status === TRANSFER_STATUS.pending) {
+  if (
+    wait &&
+    (current.status === TRANSFER_STATUS.pending ||
+      current.status === TRANSFER_STATUS.running)
+  ) {
     current =
       (await waitForExportJob(
         current.id,
         actor.id,
         EXPORT_DEDUPE_WAIT_MS,
       )) ?? current;
+  }
+
+  if (
+    current.status === TRANSFER_STATUS.pending ||
+    current.status === TRANSFER_STATUS.running
+  ) {
+    const view = exportJobView(current, true);
+    return view
+      ? { ok: true, data: view }
+      : failure(
+          409,
+          TRANSFER_ERROR.export_in_progress,
+          "errors.customerTransfer.exportInProgress",
+        );
   }
 
   if (current.status === TRANSFER_STATUS.ready) {
@@ -278,6 +310,7 @@ export async function findReusableExport(
 export async function exportCustomerPackage(
   actor: ServiceActor,
   input: ExportRequestInput,
+  mode: { mode?: "inline" | "queue" } = {},
 ): Promise<TransferResult<ExportJobView>> {
   const denied = assertAdmin(actor);
   if (denied) return denied;
@@ -294,6 +327,16 @@ export async function exportCustomerPackage(
   if (customerIds.length > TRANSFER_LIMITS.maxCustomers) {
     return failure(400, "validation_error", "errors.customerTransfer.tooManyCustomers");
   }
+  if (mode.mode === "queue") {
+    // Tidlig, billig kontroll. Workeren bygger aldri en pakke for ukjente
+    // kunde-ID-er, og ruten beholder den gamle 404-semantikken.
+    const existing = await prisma.customer.count({
+      where: { id: { in: customerIds } },
+    });
+    if (existing < customerIds.length) {
+      return failure(404, "not_found", "errors.customerTransfer.customerNotFound");
+    }
+  }
 
   const exportedAt = new Date();
   const { job, reused } = await claimExportJob({
@@ -302,7 +345,16 @@ export async function exportCustomerPackage(
     customerIds,
     expiresAt: new Date(exportedAt.getTime() + TRANSFER_LIMITS.exportTtlMs),
     now: exportedAt,
+    exportOptions: options as unknown as Record<string, unknown>,
   });
+
+  if (mode.mode === "queue") {
+    if (reused) return resolveReusableExport(actor, job);
+    const fresh = await findJobForActor(job.id, actor.id);
+    const view = exportJobView(fresh, false);
+    return view ? { ok: true, data: view } : notFound();
+  }
+
   if (reused) return resolveReusableExport(actor, job);
 
   let stage = "build";
@@ -332,6 +384,7 @@ export async function exportCustomerPackage(
           requestFingerprint: exportRequestFingerprint(options),
           warnings: built.warnings.length,
           customerCount: built.customerIds.length,
+          packageId: built.manifest.packageId,
           manifestChecksum: sha256Hex(Buffer.from(JSON.stringify(built.manifest), "utf8")),
         },
         stagingPath,
@@ -470,7 +523,10 @@ export async function abortTransferJob(
   if (job.status === TRANSFER_STATUS.completed) {
     return failure(409, TRANSFER_ERROR.conflict, "errors.customerTransfer.alreadyCompleted");
   }
-  await abortJob(job.id);
+  const aborted = await abortJob(job.id);
+  if (!aborted) {
+    return failure(409, TRANSFER_ERROR.conflict, "errors.customerTransfer.alreadyCompleted");
+  }
   return { ok: true, data: { aborted: true } };
 }
 
@@ -479,40 +535,6 @@ export async function abortTransferJob(
  * oppretter en importjobb. Ingen parsing eller DB-skriving av kundedata skjer
  * før dry-run/confirm.
  */
-const IMPORT_MODULE_BY_ENTITY: Readonly<Record<string, ModuleKey>> = {
-  Product: "equipment",
-  EquipmentCategory: "equipment",
-  EquipmentQrCode: "equipment",
-  MaintenancePlan: "equipment",
-  MaintenancePlanOccurrence: "equipment",
-  MeterReading: "equipment",
-  Contract: "contracts",
-  ContractLine: "contracts",
-  SlaPolicy: "contracts",
-  PriceList: "contracts",
-  Document: "documents",
-  DocumentVersion: "documents",
-  DocumentFolder: "documents",
-  Report: "reports",
-  ReportUnit: "reports",
-  ReportRevision: "reports",
-  Template: "reports",
-  PortalUser: "portal",
-};
-
-async function disabledImportModules(
-  entities: ReadonlyArray<{ type: string }>,
-): Promise<ModuleKey[]> {
-  const states = await readModuleStates();
-  const disabled = new Set<ModuleKey>();
-  for (const entity of entities) {
-    if (!Object.hasOwn(IMPORT_MODULE_BY_ENTITY, entity.type)) continue;
-    const mod = IMPORT_MODULE_BY_ENTITY[entity.type];
-    if (mod && !moduleIsOn(states, mod)) disabled.add(mod);
-  }
-  return [...disabled];
-}
-
 function moduleDisabledFailure(modules: ModuleKey[]): TransferFailure {
   return failure(
     409,
@@ -533,6 +555,7 @@ export async function createImportJob(
   actor: ServiceActor,
   buffer: Buffer,
   _fileName: string,
+  options: { passphrase?: string | null } = {},
 ): Promise<TransferResult<JobView>> {
   // Filnavnet logges/lagres bevisst ikke: det kan inneholde personopplysninger.
   void _fileName;
@@ -544,17 +567,42 @@ export async function createImportJob(
   if (buffer.length > TRANSFER_LIMITS.maxPackageBytes) {
     return failure(413, TRANSFER_ERROR.package_too_large, "errors.customerTransfer.packageTooLarge");
   }
+
+  let payload = buffer;
+  let encrypted = false;
+  if (isEncryptedPackage(buffer)) {
+    encrypted = true;
+    try {
+      payload = decryptPackageBuffer(buffer, options.passphrase ?? "");
+    } catch (error) {
+      const cryptoError =
+        error instanceof TransferCryptoError ? error.code : "decryption_failed";
+      const code =
+        cryptoError === "passphrase_required" ||
+        cryptoError === "passphrase_too_short"
+          ? TRANSFER_ERROR.passphrase_required
+          : TRANSFER_ERROR.decryption_failed;
+      return failure(
+        422,
+        code,
+        code === TRANSFER_ERROR.passphrase_required
+          ? "errors.customerTransfer.passphraseRequired"
+          : "errors.customerTransfer.decryptionFailed",
+      );
+    }
+  }
+
   // Et ekte ZIP-arkiv starter med PK. Dette er bare en tidlig avvisning;
   // full strukturkontroll skjer i dry-run.
   if (
-    buffer.length < 4 ||
-    buffer[0] !== 0x50 ||
-    buffer[1] !== 0x4b ||
-    (buffer[2] !== 0x03 && buffer[2] !== 0x05 && buffer[2] !== 0x07)
+    payload.length < 4 ||
+    payload[0] !== 0x50 ||
+    payload[1] !== 0x4b ||
+    (payload[2] !== 0x03 && payload[2] !== 0x05 && payload[2] !== 0x07)
   ) {
     return failure(415, TRANSFER_ERROR.invalid_manifest, "errors.customerTransfer.invalidManifest");
   }
-  const checksum = sha256Hex(buffer);
+  const checksum = sha256Hex(payload);
   const job = await createTransferJob({
     actorId: actor.id,
     kind: TRANSFER_KIND.import,
@@ -563,13 +611,14 @@ export async function createImportJob(
     expiresAt: new Date(Date.now() + TRANSFER_LIMITS.exportTtlMs),
   });
   try {
-    const stagingPath = await writeStagedPackage(job.id, buffer);
+    const stagingPath = await writeStagedPackage(job.id, payload);
     await prisma.customerTransferJob.update({
       where: { id: job.id },
       data: {
         stagingPath,
-        // Bare størrelse – opprinnelig filnavn kan inneholde personopplysninger.
-        resultJson: { size: buffer.length },
+        // Bare størrelse og et flagg – opprinnelig filnavn og passfrase kan
+        // inneholde personopplysninger/hemmeligheter og lagres aldri.
+        resultJson: { size: payload.length, encrypted },
         progressStage: "staged",
       },
     });
@@ -592,6 +641,8 @@ function toPreview(
 ): ImportPreview {
   return {
     jobId,
+    status: TRANSFER_STATUS.dryRun,
+    progressStage: "preview",
     package: {
       schemaVersion: read.result.manifest.schemaVersion,
       sourceInstanceId: read.result.manifest.source.instanceId,
@@ -657,6 +708,8 @@ export async function dryRunImport(
       ok: true,
       data: {
         jobId: job.id,
+        status: TRANSFER_STATUS.dryRun,
+        progressStage: "validated",
         package: {
           schemaVersion: job.schemaVersion ?? "unknown",
           sourceInstanceId: job.sourceInstanceId ?? "",
@@ -720,6 +773,7 @@ export async function confirmImport(
     createMissingReferences?: boolean;
     confirmation: boolean;
   },
+  mode: { mode?: "inline" | "queue" } = {},
 ): Promise<
   TransferResult<{
     jobId: string;
@@ -754,6 +808,89 @@ export async function confirmImport(
     );
   }
 
+  const policies = normalisePolicies(input.policies);
+  const previewedReferences =
+    (job.resultJson as { createMissingReferences?: unknown } | null)
+      ?.createMissingReferences === true;
+  if (previewedReferences !== Boolean(input.createMissingReferences)) {
+    return failure(
+      409,
+      TRANSFER_ERROR.preview_stale,
+      "errors.customerTransfer.previewStale",
+    );
+  }
+
+  if (mode.mode === "queue") {
+    const checksum = job.packageChecksum;
+    const enqueued = await prisma.$transaction(async (tx) => {
+      // Serialiser bekreftelser for samme pakke. Den andre venter på
+      // rådlåsen og ser deretter at en annen import allerede er aktiv.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-transfer-confirm:${checksum}`}, 0))::text AS locked`;
+      const active = await tx.customerTransferJob.findFirst({
+        where: {
+          kind: TRANSFER_KIND.import,
+          packageChecksum: checksum,
+          id: { not: job.id },
+          status: {
+            in: [
+              TRANSFER_STATUS.queued,
+              TRANSFER_STATUS.running,
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      if (active) return false;
+      const current = await tx.customerTransferJob.findUnique({
+        where: { id: job.id },
+        select: { resultJson: true, status: true },
+      });
+      if (!current || current.status !== TRANSFER_STATUS.dryRun) return false;
+      const stored =
+        current.resultJson && typeof current.resultJson === "object"
+          ? (current.resultJson as Record<string, unknown>)
+          : {};
+      await tx.customerTransferJob.update({
+        where: { id: job.id },
+        data: {
+          status: TRANSFER_STATUS.queued,
+          progressStage: "queued",
+          startedAt: null,
+          completedAt: null,
+          previewTokenHash: null,
+          previewExpiresAt: null,
+          expiresAt: new Date(Date.now() + TRANSFER_LIMITS.exportTtlMs),
+          resultJson: {
+            ...stored,
+            confirm: {
+              requestedAt: new Date().toISOString(),
+              policies,
+              createMissingReferences: previewedReferences,
+            },
+          },
+        },
+      });
+      return true;
+    });
+    if (!enqueued) {
+      return failure(
+        409,
+        TRANSFER_ERROR.conflict,
+        "errors.customerTransfer.importInProgress",
+      );
+    }
+    return {
+      ok: true,
+      data: {
+        jobId: job.id,
+        counts: {},
+        warnings: 0,
+        customers: 0,
+        status: TRANSFER_STATUS.queued,
+      },
+    };
+  }
+
   const buffer = await readStagedPackage(job.id);
   if (!buffer) return failure(410, TRANSFER_ERROR.job_expired, "errors.customerTransfer.jobExpired");
   const read = readPackage(buffer);
@@ -768,17 +905,6 @@ export async function confirmImport(
     );
   }
 
-  const policies = normalisePolicies(input.policies);
-  const previewedReferences =
-    (job.resultJson as { createMissingReferences?: unknown } | null)
-      ?.createMissingReferences === true;
-  if (previewedReferences !== Boolean(input.createMissingReferences)) {
-    return failure(
-      409,
-      TRANSFER_ERROR.preview_stale,
-      "errors.customerTransfer.previewStale",
-    );
-  }
   const options: ImportOptions = {
     createMissingReferences: previewedReferences,
     restoreDeleted: false,
@@ -844,6 +970,23 @@ export async function confirmImport(
   };
 }
 
+function issuesFromErrorJson(value: unknown): TransferIssue[] {
+  if (Array.isArray(value)) return value as TransferIssue[];
+  if (value && typeof value === "object") {
+    const record = value as { code?: unknown; messageKey?: unknown };
+    if (typeof record.code === "string" && typeof record.messageKey === "string") {
+      return [
+        {
+          code: record.code as TransferIssue["code"],
+          path: "",
+          messageKey: record.messageKey,
+        },
+      ];
+    }
+  }
+  return [];
+}
+
 export async function getImportPreview(
   actor: ServiceActor,
   jobId: string,
@@ -856,10 +999,13 @@ export async function getImportPreview(
     return failure(409, TRANSFER_ERROR.conflict, "errors.customerTransfer.dryRunRequired");
   }
   const counts = (job.countsJson ?? {}) as Record<string, number>;
+  const errors = issuesFromErrorJson(job.errorJson);
   return {
     ok: true,
     data: {
       jobId: job.id,
+      status: job.status,
+      progressStage: job.progressStage,
       package: {
         schemaVersion: job.schemaVersion,
         sourceInstanceId: job.sourceInstanceId,
@@ -871,10 +1017,9 @@ export async function getImportPreview(
       entities: [],
       counts,
       warnings: [],
-      errors: (job.errorJson as TransferIssue[] | null) ?? [],
+      errors,
       canImport:
-        job.status === TRANSFER_STATUS.dryRun &&
-        ((job.errorJson as TransferIssue[] | null)?.length ?? 0) === 0,
+        job.status === TRANSFER_STATUS.dryRun && errors.length === 0,
       expiresAt: job.previewExpiresAt?.toISOString(),
     },
   };

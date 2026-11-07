@@ -1131,16 +1131,65 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   Mappen opprettes med `0700`, og `package.zip` skrives med `0600`.
 - **Grenser:** maks 50 MiB per fil, 500 MiB per pakke (ukomprimert og
   komprimert), 20 000 ZIP-oppføringer og kompresjonsforhold 100:1. Hele pakken
-  holdes i minnet i v1, så den praktiske minnegrensen er også 500 MiB.
+  holdes i minnet, så den praktiske minnegrensen er også 500 MiB.
   `next.config.ts` (`proxyClientMaxBodySize`) er hevet til 512 MiB for å slippe
   importkroppen gjennom proxyen.
-- **Levetid:** eksportartefakter og importstaging utløper etter 24 timer.
-  Jobbworkeren kaller `cleanupExpiredTransfers()` hver time; den sletter
+- **Asynkrone jobber:** eksport starter som `PENDING`; bekreftet import blir
+  `QUEUED`. Workeren i `src/lib/customer-transfer/worker.ts` henter én jobb om
+  gangen med `FOR UPDATE SKIP LOCKED`, setter `RUNNING`, oppdaterer
+  `progressStage`/`progressProcessed`/`progressTotal` og avslutter som `READY`,
+  `COMPLETED` eller `FAILED`. Statusruten polles av UI-et. Workeren starter fra
+  `startJobWorker()` når `transfer`-modulen er på.
+- **Gjenopptak:** en `RUNNING`-jobb uten oppdatering i mer enn
+  `CUSTOMER_TRANSFER_STALE_JOB_MS` (standard 60 min) settes tilbake til
+  `PENDING` (eksport) eller `QUEUED` (import). Eksport bygges på nytt fra
+  scratch; importens databasetransaksjon er atomisk med jobbstatusen, så et
+  nytt forsøk kan ikke duplisere rader. `CUSTOMER_TRANSFER_JOB_RETENTION_DAYS`
+  styrer hvor lenge terminale jobbrader beholdes (standard 90 dager eksport,
+  365 dager import).
+- **Én aktiv import per pakke/kunde:** bekreftelse tar en PostgreSQL advisory
+  lock på pakkesjekksummen. En ny import av samme pakke mens en annen er
+  `QUEUED` eller `RUNNING` avvises med `409`. Selve anvendelsen låser også hver
+  eksisterende målkunde (sortert, for å unngå deadlock), slik at to ulike
+  pakker som treffer samme kunde serialiseres.
+- **Signatur (anbefalt):** sett `CUSTOMER_TRANSFER_SIGNING_KEY` (minst 32 tegn,
+  f.eks. `openssl rand -base64 48`) på både kilde- og målinstallasjonen.
+  Eksporten legger da en HMAC-SHA256 i `manifest.sig`; importen verifierer
+  manifest + `checksums.sha256` og avviser endrede pakker. Sett
+  `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` for å kreve signatur. Nøkkelen
+  skal aldri i git, logger eller pakken.
+  - **Rotasjon:** generer ny nøkkel, sett den som `CUSTOMER_TRANSFER_SIGNING_KEY`
+    og legg den gamle i `CUSTOMER_TRANSFER_SIGNING_KEYS_PREVIOUS`
+    (kommaseparert). Nye pakker signeres med den nye; gamle verifiseres med den
+    gamle. Fjern gamle nøkler når alle mellomliggende pakker er importert eller
+    utløpt. `CUSTOMER_TRANSFER_SIGNING_KEY_ID` er en valgfri, ikke-hemmelig
+    etikett for logging.
+  - **Trust model:** HMAC er et delt hemmelighetssystem. Det beviser at
+    pakken er laget av noen med nøkkelen, ikke hvem i en juridisk
+    ikke-fornektelsesforstand. Behandle nøkkelen som en tjenestehemmelighet og
+    roter ved mistanke om lekkasje.
+- **Valgfri kryptering:** `npm run transfer:encrypt -- pakke.zip pakke.fsmenc`
+  (eller `TRANSFER_PASSPHRASE=...`) lager et AES-256-GCM-omslag med
+  scrypt-nøkkel. Import kan ta imot `.fsmenc` med passfrasen i multipart-feltet
+  `passphrase`; CLI kan også dekryptere med `npm run transfer:decrypt`.
+  Passfrasen lagres aldri i DB, jobb-JSON eller logg. `X-Transfer-Passphrase` er
+  bare for CLI og må ikke logges av proxyer. Bruk TLS i tillegg.
+- **Levetid/opprydding:** eksportartefakter og importstaging utløper etter 24
+  timer. `cleanupExpiredTransfers()` kalles hver time, avstemmer filer, sletter
   staging, markerer jobben `EXPIRED` og fjerner forlatte kataloger uten levende
   jobb. Hjelperen kan også kalles manuelt ved diskmangel.
-- **Ingen offentlig URL:** ZIP-en serveres bare fra en autentisert
-  adminrute med `no-store`. Den skal aldri legges i `public/`, `/uploads` eller
-  en delt cache.
+- **Avstemming etter krasj:** importen skriver fillisten
+  `.transfer/<jobbId>/final-files.json` før første sluttfil. Jobben
+  `reconcileTransferFiles()` sletter bare navn fra denne listen, og bare når
+  `isUploadReferenced()` bekrefter at ingen attachment, dokument(versjon),
+  rapport, revisjon eller kladd peker på filen. Refererte filer slettes aldri.
+  Kjør manuelt med `npm run transfer:reconcile` dersom en import krasjet og
+  staging fortsatt finnes. Den skriver en JSON-oppsummering og er trygg å
+  gjenta. Slett aldri filer i `UPLOAD_DIR` manuelt uten å sammenligne med
+  `Upload.storedName` og referansetabellene.
+- **Ingen offentlig URL:** ZIP-en serveres bare fra en autentisert adminrute
+  med `no-store`. Den skal aldri legges i `public/`, `/uploads` eller en delt
+  cache.
 - **Ikke backup:** kundepakken er et overføringsverktøy for én eller flere
   kunder. Den erstatter ikke PostgreSQL-backup + uploadvolum, og den inneholder
   bevisst ikke passord, sesjoner, API-nøkler eller 2FA-hemmeligheter.
@@ -1149,14 +1198,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   globalt unike, også på tvers av kunder. En kollisjon i målbasen er en
   konflikt som blokkerer importen; den importeres aldri som en ny kobling på
   feil enhet. `Product.qrToken` gjenbrukes ikke.
-- **Overvåking:** følg diskbruk på `UPLOAD_DIR` og antall jobber med status
-  `FAILED`. Utløpte jobber skal forsvinne fra staging innen en time etter
-  `expiresAt`.
-- **Etter krasj under import:** DB-transaksjonen ruller tilbake, men filer som
-  allerede er skrevet til `UPLOAD_DIR` kan bli liggende uten `Upload`-rad fordi
-  v1 ikke har en egen avstemmingsjobb for ferdige filer. Sammenlign filsystemet
-  med `Upload.storedName` før du sletter noe manuelt; slett aldri filer som er
-  referert av en rad.
+- **Overvåking:** følg diskbruk på `UPLOAD_DIR`, antall `QUEUED`/`RUNNING` som
+  ikke beveger seg, og antall `FAILED`. Utløpte jobber skal forsvinne fra
+  staging innen en time etter `expiresAt`. Jobb-JSON inneholder bare ID-er,
+  antall, sjekksummer, regler og stabile feilkoder – aldri navn, e-post,
+  filnavn eller passfrase.
 
 ## Sanntid (SSE)
 
