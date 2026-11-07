@@ -37,11 +37,11 @@ Kjernen kan ikke slås av:
 | REST-API | `api` | – | `/api/v1/**` og OpenAPI |
 | SSO og SCIM | `sso` | – | OIDC-knapper, SSO-innstillinger, `/api/scim/**` |
 | Offline felt | `offline` | – | Offline-kladder, utbokskø, sesjonsvakt og service worker |
-| Tilbud (P2) | `quotes` | `contracts` | Plassholder; ingen leverte sider |
-| Fakturering (P2) | `invoicing` | `quotes` | Plassholder; ingen leverte sider |
-| Lager (P2) | `inventory` | `equipment` | Plassholder; ingen leverte sider |
-| Kjøring/utlegg (P2) | `fieldExpenses` | `calendar` | Plassholder; ingen leverte sider |
-| Lønnsomhet (P2) | `bi` | `reports` | Plassholder; ingen leverte sider |
+| Tilbud | `quotes` | – | Levert v1: `/tilbud`, portalgodkjenning, konvertering |
+| Fakturering | `invoicing` | – | Levert v1: `/faktura`, betaling/kreditnota, CSV |
+| Lager | `inventory` | – | Levert v1: `/lager`, reservasjon/forbruk |
+| Kjøring/utlegg | `fieldExpenses` | – | Levert v1: `/utlegg`, godkjenning, lønn-CSV |
+| Lønnsomhet | `bi` | – | Levert v1: `/lonnsomhet`, estimert inntekt og CSV |
 
 Katalogen ligger i [`src/lib/modules.ts`](../src/lib/modules.ts). Nye moduler
 skal legges der med navn, beskrivelse, avhengigheter, ruter, API-prefikser og
@@ -73,7 +73,7 @@ avhengigheter og sirkler i tester.
 
 | Preset | Innhold | Bruk |
 | --- | --- | --- |
-| `full` | Alle leverte moduler på, P2-plassholdere av | Standard for eksisterende installasjoner |
+| `full` | Alle leverte moduler på | Standard for eksisterende installasjoner |
 | `core` | Bare kjerne | Kjerne-only installasjon og testing |
 
 Første oppstart uten modulrader initialiseres fra `MODULE_PRESET`:
@@ -145,7 +145,7 @@ integrasjonstester og kan kalles fra en fremtidig CLI.
   gamle jobber ikke gjenbrukes.
 - `/sok/analyse` viser aggregert søkestatistikk (populære søk og nulltreff),
   ikke entitetsdata fra avslåtte moduler.
-- P2-modulene (`quotes`, `invoicing`, `inventory`, `fieldExpenses`, `bi`) kan
+- P2-modulene (`quotes`, `invoicing`, `inventory`, `fieldExpenses`, `bi`) er
   slås på i rammeverket, men har ingen leverte sider eller handlinger ennå.
 
 ## Tester

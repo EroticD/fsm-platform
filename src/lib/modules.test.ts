@@ -68,7 +68,7 @@ describe("modulkatalogen", () => {
   it("har core-only og full som presets", () => {
     expect([...moduleKeysForPreset("core")]).toEqual(["core"]);
     expect(moduleKeysForPreset("full").has("calendar")).toBe(true);
-    expect(moduleKeysForPreset("full").has("quotes")).toBe(false);
+    expect(moduleKeysForPreset("full").has("quotes")).toBe(true);
     expect(MODULE_PRESETS.full).toEqual(ACTIVE_MODULE_KEYS);
   });
 

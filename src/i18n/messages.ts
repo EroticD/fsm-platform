@@ -83,6 +83,26 @@ import ssoNb from "../../messages/fragments/sso.nb.json";
 import ssoEn from "../../messages/fragments/sso.en.json";
 import ssoPl from "../../messages/fragments/sso.pl.json";
 import ssoDe from "../../messages/fragments/sso.de.json";
+import quotesNb from "../../messages/fragments/quotes.nb.json";
+import quotesEn from "../../messages/fragments/quotes.en.json";
+import quotesPl from "../../messages/fragments/quotes.pl.json";
+import quotesDe from "../../messages/fragments/quotes.de.json";
+import invoicingNb from "../../messages/fragments/invoicing.nb.json";
+import invoicingEn from "../../messages/fragments/invoicing.en.json";
+import invoicingPl from "../../messages/fragments/invoicing.pl.json";
+import invoicingDe from "../../messages/fragments/invoicing.de.json";
+import inventoryNb from "../../messages/fragments/inventory.nb.json";
+import inventoryEn from "../../messages/fragments/inventory.en.json";
+import inventoryPl from "../../messages/fragments/inventory.pl.json";
+import inventoryDe from "../../messages/fragments/inventory.de.json";
+import fieldExpensesNb from "../../messages/fragments/field-expenses.nb.json";
+import fieldExpensesEn from "../../messages/fragments/field-expenses.en.json";
+import fieldExpensesPl from "../../messages/fragments/field-expenses.pl.json";
+import fieldExpensesDe from "../../messages/fragments/field-expenses.de.json";
+import biNb from "../../messages/fragments/bi.nb.json";
+import biEn from "../../messages/fragments/bi.en.json";
+import biPl from "../../messages/fragments/bi.pl.json";
+import biDe from "../../messages/fragments/bi.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -138,6 +158,11 @@ const nbFragments = mergeAll([
   customerTransferNb,
   fieldAppNb,
   ssoNb,
+  quotesNb,
+  invoicingNb,
+  inventoryNb,
+  fieldExpensesNb,
+  biNb,
 ]);
 
 const enFragments = mergeAll([
@@ -168,6 +193,11 @@ const enFragments = mergeAll([
   customerTransferEn,
   fieldAppEn,
   ssoEn,
+  quotesEn,
+  invoicingEn,
+  inventoryEn,
+  fieldExpensesEn,
+  biEn,
 ]);
 
 /**
@@ -188,6 +218,11 @@ const plFragments = mergeAll([
   customerTransferPl,
   fieldAppPl,
   ssoPl,
+  quotesPl,
+  invoicingPl,
+  inventoryPl,
+  fieldExpensesPl,
+  biPl,
   customersPl,
 ]);
 const deFragments = mergeAll([
@@ -203,6 +238,11 @@ const deFragments = mergeAll([
   customerTransferDe,
   fieldAppDe,
   ssoDe,
+  quotesDe,
+  invoicingDe,
+  inventoryDe,
+  fieldExpensesDe,
+  biDe,
   customersDe,
 ]);
 

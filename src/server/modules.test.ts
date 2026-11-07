@@ -259,6 +259,6 @@ describe("listModuleAdminView", () => {
     const transfer = view.find((row) => row.key === "transfer");
     expect(transfer?.enabled).toBe(true);
     expect(transfer?.enabledDependents).toEqual([]);
-    expect(view.find((row) => row.key === "quotes")?.status).toBe("planned");
+    expect(view.find((row) => row.key === "quotes")?.status).toBe("active");
   });
 });
