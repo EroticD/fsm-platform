@@ -285,6 +285,14 @@ model Customer {
   deletedAt DateTime?
   deletedBy String?
 
+  /// Satt når direkte identifikatorer er anonymisert etter en personvern-
+  /// forespørsel. Idempotensen i slettetjenesten bygger på dette feltet;
+  /// raden, id-ene og tjenestehistorikken beholdes.
+  anonymisedAt DateTime?
+  /// Administrator som utførte anonymiseringen. Selve revisjonsloggen er
+  /// beviset; feltet gjør tilstanden synlig uten å slå opp loggen.
+  anonymisedBy String?
+
   // Valgfri tilhørighet: hvilken avdeling og eventuelt hvilken montør som er
   // ansvarlig for kunden. Brukes blant annet i kundeportalen for å vise riktig
   // lokasjon og direkte kontaktinfo.
@@ -1465,6 +1473,10 @@ model Report {
   deletedBy String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
   legalHold Boolean   @default(false)
+  /// Satt når kundens direkte identifikatorer er fjernet fra rapportens
+  /// strukturerte felt. En allerede signert PDF bevares uendret som
+  /// tjenestebevis og kan derfor fortsatt inneholde opprinnelige data.
+  customerDataRedactedAt DateTime?
 
   units     ReportUnit[]
   revisions ReportRevision[]

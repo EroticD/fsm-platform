@@ -329,7 +329,15 @@ export async function getOrRenderReportPdf(
   );
 
   // Uendret innhold og filen finnes fortsatt: bruk mellomlagringen.
-  if (latest.pdfUrl && latest.pdfHash === pdfHash) {
+  //
+  // En rapport som er personvernbehandlet har `customerDataRedactedAt`, men
+  // den signerte PDF-en er bevisst bevart som tjenestebevis. Da skal cachen
+  // brukes selv om rapportens strukturerte felt er endret, slik at neste
+  // visning ikke stille regenererer en ny PDF og sletter originalen.
+  if (
+    latest.pdfUrl &&
+    (latest.customerDataRedactedAt || latest.pdfHash === pdfHash)
+  ) {
     const filePath = cachedPdfPath(latest.pdfUrl);
     if (filePath) {
       try {

@@ -34,10 +34,11 @@ customer contacts, assigned technicians and the acting user.
 - **SEC-40** — local drafts now expire after 7 days and page caches after 8
   hours; at-rest encryption/PIN is still not implemented.
 
-**Deferred / requires product decision:** mandatory 2FA for admins, customer
-erasure/anonymisation, server-side booking availability enforcement, map
-provider key exposure, and PDF active-content sanitisation. Secure defaults for
-these are documented in `SECURITY.md` (“Standardvalg”).
+**Deferred / requires product decision:** mandatory 2FA for admins, server-side
+booking availability enforcement, map provider key exposure, and PDF
+active-content sanitisation. Secure defaults for these are documented in
+`SECURITY.md` (“Standardvalg”). Customer erasure/anonymisation is implemented
+as DATA-01; see `docs/privacy-erasure.md`.
 
 
 ---

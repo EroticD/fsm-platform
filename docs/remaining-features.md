@@ -19,10 +19,12 @@
 | Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
 | P0 | Ingen åpne P0 funnet på denne commiten |
 
-**Kort status:** P1 består av GDPR-sletting (DATA-01) og en dokumentasjons-/
-policykonflikt i booking (DOC-01). P2 er sju nye produkt-/plattformoppgaver
-pluss seks konkrete restrisiko-/gjeldsposter (to av dem er P3-visuell QA). P3 er
-plattform- og skaleringsarbeid som krever eiergodkjenning.
+**Kort status:** P1 består av en dokumentasjons-/policykonflikt i booking
+(DOC-01). GDPR-sletting (DATA-01) er levert med admin-only forhåndsvisning,
+anonymisering, legal-hold-blokkering, revisjonsspor og tester. P2 er sju nye
+produkt-/plattformoppgaver pluss seks konkrete restrisiko-/gjeldsposter (to av
+dem er P3-visuell QA). P3 er plattform- og skaleringsarbeid som krever
+eiergodkjenning.
 
 ---
 
@@ -112,7 +114,7 @@ størrelse.
 
 | ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
 | --- | --- | --- | --- | --- | --- |
-| **DATA-01** · GDPR-sletting/anonymisering med legal hold | P1 | L | Juridisk/DPO-avklaring; DATA-02-retensjon er levert | **Åpen.** Myk sletting er retensjon, ikke sletting. Det finnes ingen anonymiserings-/slettetjeneste eller UI for PII i kunder, kontakter, oppdrag, rapporter, revisjoner, vedlegg eller revisjonslogger. | Admin-only sletting med grunn og retensjonsmatrise; legal hold blokkerer; direkte identifikatorer anonymiseres irreversibelt; lovpålagte poster/bevis bevares; operasjonen revideres; tester beviser at identitetsfelt og dokumentmetadata fjernes og at hold-bevis beholdes. |
+| **DATA-01** · GDPR-sletting/anonymisering med legal hold | P1 | L | Juridisk/DPO-avklaring; DATA-02-retensjon er levert | **Levert.** Admin-only tjeneste og side på kundekortet med forhåndsvisning, grunn, navnebekreftelse og blokkering ved `WorkOrder.legalHold`, `Report.legalHold` og aktivt `AuditHold`. Direkte identifikatorer anonymiseres i kunde, kontakter, steder, portalbrukere, oppdrag, rapporter/revisjoner/enheter, kommentarer, meldinger, bestillinger og filmetadata; kundens egne vedlegg og dokumentbibliotek slettes. Oppdrag, rapporter, signerte rapport-PDF-er og revisjonsloggen bevares; slettingen er idempotent og revideres uten PII. Residual: signerte rapport-PDF-er og rapportbilder bevares uendret som tjenestebevis og kan fortsatt inneholde opprinnelige data; backuper og eksterne arkiv er utenfor tjenesten. Se [`privacy-erasure.md`](privacy-erasure.md). | Admin-only sletting med grunn og retensjonsmatrise; legal hold blokkerer; direkte identifikatorer anonymiseres irreversibelt; lovpålagte poster/bevis bevares; operasjonen revideres; tester beviser at identitetsfelt og dokumentmetadata fjernes og at hold-bevis beholdes. |
 | **DOC-01** · Policy- og dokumentasjonsavstemming for booking/overlapp | P1 | S | Produkteierbeslutning; service/UI/manual/DECISIONS må oppdateres samlet | **Delvis lukket.** Hovedflyten i manualen er nå datoforespørsel + kontorplanlegging (`manual/nb/00-innledning.md:121-123`, `manual/nb/10-kontor.md:535-539`), men driften gjenstår: `manual/nb/10-kontor.md:702` sier fortsatt «Book en ledig time», `:809` viser til «ledig tid/ledige tidsrom», og `DECISIONS.md` Phase 5A (linje 299–333) beskriver direkte slotbekreftelse og `BookingHold` som gjeldende for nye bestillinger, mens `security-audit-2026-10-29.md:170` sier at bookinger er forespørsler, ikke reservasjoner. I koden settes `confirmedBooking = false` i `src/server/portal.ts`, og `BookingForm.tsx` spør bare om dato; den direkte bekreftelsesgrenen i `createBooking` er dermed ikke nåbar, mens bekreftet ombooking fortsatt bruker `AvailabilityBoard`/hold. | Produkteier velger enten (a) datoforespørsel + kontorplanlegging eller (b) direkte slotbooking. Deretter fjernes den ikke-nåbare grenen eller den gjenopprettes; manual, `DECISIONS.md`, OpenAPI, ordlisten (`Ledig time`, `Reservasjon`) og tester forteller én historie. Ingen uoppnåelig kodevei eller motstridende dokumentasjon. |
 
 ---

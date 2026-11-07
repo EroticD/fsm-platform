@@ -261,6 +261,8 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 
 **Personvern:** Samle bare nødvendige data, bruk avdelings- og kundeomfang, og gi `reports.viewAllDepartments` bare ved behov. Bruk egne portalbrukere og deaktiver ved avslutning. Vurder DPIA før sporing i en ny avdeling; sporing er opt-in, begrenset til `EN_ROUTE`, viser ikke rute eller koordinater og sletter ping etter 24 timer. Innhent SMS-samtykke, og hold omtaler interne. Kundesletting deaktiverer portalbrukere og stenger booking; gjenoppretting krever manuell reaktivering.
 
+**GDPR-sletting:** **Personvern / Slett kundedata** på kundekortet anonymiserer kundens direkte identifikatorer. Forhåndsvisningen viser antall berørte rader og blokkerer hvis et oppdrag, en rapport eller et revisjonshold har bevaringsplikt. Skriv grunn og bekreft med kundens nåværende navn. Oppdrag, rapporter, revisjoner, teknikersignaturer og revisjonslogg bevares; kundens egne vedlegg og dokumentbibliotek slettes. Signerte rapport-PDF-er bevares uendret som tjenestebevis og kan fortsatt inneholde opprinnelige data. Andre kjøring er en no-op. Se `docs/privacy-erasure.md` for retensjonsmatrise og bevis.
+
 **Eksport:** Det finnes ingen automatisk eksportjobb eller selvbetjent GDPR-eksport. Bevis eksporteres via databasebackup eller en administratorstyrt spørring mot `WorkOrder`, `Report`, `ReportRevision` og `AuditLog` for ett oppdrag om gangen. Eksporter ikke rapporter fra klienten eller en offentlig rute.
 
 **Retensjon:** `RETENTION_DAYS` (standard 365) styrer hard sletting av mykt slettede oppdrag uten rapporter. Oppdrag med rapporter beholdes på ubestemt tid. Bevaringsplikt stopper all automatisk sletting. Filer ryddes først når ingen rader refererer til dem.

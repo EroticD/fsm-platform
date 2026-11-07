@@ -257,6 +257,21 @@ describe("getOrRenderReportPdf", () => {
     expect(mockedLoadReportPdf).not.toHaveBeenCalled();
   });
 
+  it("bruker bevart PDF-cache for en personvernbehandlet rapport selv om hashen er ulik", async () => {
+    const cached = workOrderWithCache("annen-hash");
+    Object.assign(cached.reports[0], {
+      customerDataRedactedAt: new Date("2026-11-07T12:00:00.000Z"),
+    });
+    mocked.workOrder.findFirst.mockResolvedValue(cached);
+
+    const result = await getOrRenderReportPdf("wo-1");
+
+    expect(result?.buffer.toString()).toBe("%PDF-cached");
+    expect(result?.url).toBe("/uploads/cache.pdf");
+    expect(mockedLoadReportPdf).not.toHaveBeenCalled();
+    expect(mocked.report.update).not.toHaveBeenCalled();
+  });
+
   it("henter bare ikke-slettede rapporter på ikke-slettede oppdrag", async () => {
     mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(pdfHash));
 

@@ -1068,6 +1068,22 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   andre rader refererer til den (`src/lib/upload-cleanup.ts`). Sjekk volumet
   etter store slettinger.
 
+### Personvern og sletting av kundedata
+
+- Admin-only flyt på kundekortet: **Mer → Personvern / Slett kundedata**.
+  Forhåndsvisningen viser antall berørte rader og blokkerer ved
+  `WorkOrder.legalHold`, `Report.legalHold` eller aktivt `AuditHold`.
+- Slettingen anonymiserer direkte identifikatorer i én databasetransaksjon.
+  Oppdrag, rapporter, revisjoner, signerte rapport-PDF-er, teknikersignaturer
+  og revisjonsloggen bevares. Kundens egne vedlegg og dokumentbibliotek slettes.
+- Signerte rapport-PDF-er bevares uendret som tjenestebevis og kan fortsatt
+  inneholde opprinnelige data. Det er et dokumentert retensjonsvalg, ikke en
+  feil. Se [`privacy-erasure.md`](privacy-erasure.md) for retensjonsmatrise,
+  prosedyre og bevis.
+- Etter store slettinger: kontroller `UPLOAD_DIR` for filer uten `Upload`-rad.
+  Tjenesten forsøker å rydde dem, men filer fra eldre data kan mangle metadata.
+  Sammenlign med `Upload.storedName` før manuell sletting.
+
 ### Kundeoverføring (eksport/import)
 
 - Midlertidige kundepakker og staging ligger i `UPLOAD_DIR/.transfer/<jobbId>/`.
