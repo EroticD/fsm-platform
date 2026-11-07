@@ -4,12 +4,14 @@ import PortalShell from "@/components/portal/PortalShell";
 import ReportHistory from "@/components/portal/ReportHistory";
 import { brandCard } from "@/components/ui/brandStyles";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { requireModulePage } from "@/lib/module-guards";
 
 export default async function PortalReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ side?: string }>;
 }) {
+  await requireModulePage("reports");
   const context = await loadPortalPage();
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");

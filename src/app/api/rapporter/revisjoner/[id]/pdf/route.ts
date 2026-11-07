@@ -4,6 +4,7 @@ import { allowRequestDb } from "@/lib/rate-limit-db";
 import { attachmentDisposition, inlineDisposition } from "@/lib/http";
 import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { getReportRevisionForPdf } from "@/server/report-revisions";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const moduleGuard = await moduleApiGuard("reports");
+  if (moduleGuard) return moduleGuard;
   const viewer = await getCurrentUser();
   if (!viewer?.isActive) {
     return new NextResponse("Forbidden", { status: 403 });

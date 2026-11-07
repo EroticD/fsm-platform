@@ -11,6 +11,7 @@ import {
   TRANSFER_LIMITS,
   type TransferIssue,
 } from "./constants";
+import type { ModuleKey } from "@/lib/modules";
 import { contentAddressedPath } from "./manifest";
 import { compareById } from "./normalise";
 import type {
@@ -1054,7 +1055,7 @@ export async function collectExportDataset(
     auditSnapshot: [],
   } as unknown as TransferDataset;
 
-  const files: TransferFileEntry[] = [...collector.files.values()]
+  let files: TransferFileEntry[] = [...collector.files.values()]
     .map((file) => ({
       path: contentAddressedPath(file.sha256, file.extension),
       sha256: file.sha256,
@@ -1070,6 +1071,15 @@ export async function collectExportDataset(
     }))
     .sort((left, right) => (left.path < right.path ? -1 : 1));
 
+  if (options.modules) {
+    const filtered = filterDatasetForModules(
+      dataset,
+      files,
+      new Set(options.modules),
+    );
+    files = filtered.files;
+  }
+
   return {
     dataset,
     files,
@@ -1080,6 +1090,108 @@ export async function collectExportDataset(
       name: customer.name,
     })),
   };
+}
+
+/**
+ * Fjerner data som tilhører moduler som er slått av. Eksporten skal aldri
+ * inneholde data fra en avslått modul, selv om tabellene fortsatt finnes.
+ * Selve raderingen skjer bare i den bygde pakken – kildedata røres ikke.
+ */
+function filterDatasetForModules(
+  dataset: TransferDataset,
+  files: TransferFileEntry[],
+  enabled: ReadonlySet<ModuleKey>,
+): { files: TransferFileEntry[] } {
+  const moduleKeys: Array<{
+    module: ModuleKey;
+    dataset: Array<keyof TransferDataset>;
+    uploadOwners: string[];
+    entityTypes: string[];
+  }> = [
+    {
+      module: "equipment",
+      dataset: [
+        "equipmentCategories",
+        "products",
+        "equipmentQrCodes",
+        "meterReadings",
+        "maintenancePlans",
+        "maintenanceOccurrences",
+      ],
+      uploadOwners: ["EQUIPMENT"],
+      entityTypes: [
+        "Product",
+        "EquipmentCategory",
+        "EquipmentQrCode",
+        "MeterReading",
+        "MaintenancePlan",
+        "MaintenancePlanOccurrence",
+      ],
+    },
+    {
+      module: "contracts",
+      dataset: ["contracts", "contractLines", "slaPolicies", "priceLists", "priceListItems"],
+      uploadOwners: ["CONTRACT"],
+      entityTypes: ["Contract", "ContractLine", "SlaPolicy", "PriceList"],
+    },
+    {
+      module: "documents",
+      dataset: ["documents", "documentVersions", "documentFolders", "documentTags"],
+      uploadOwners: ["DOCUMENT"],
+      entityTypes: ["Document", "DocumentVersion", "DocumentFolder"],
+    },
+    {
+      module: "reports",
+      dataset: ["reports", "reportUnits", "reportRevisions", "templates"],
+      uploadOwners: [],
+      entityTypes: ["Report", "ReportUnit", "ReportRevision", "Template"],
+    },
+    {
+      module: "portal",
+      dataset: ["portalUsers", "portalDelegations"],
+      uploadOwners: [],
+      entityTypes: ["PortalUser"],
+    },
+  ];
+
+  const removedTypes = new Set<string>();
+  const removedUploadOwners = new Set<string>();
+
+  for (const entry of moduleKeys) {
+    if (enabled.has(entry.module)) continue;
+    for (const key of entry.dataset) {
+      const rows = dataset[key] as unknown;
+      if (Array.isArray(rows)) rows.length = 0;
+    }
+    for (const type of entry.entityTypes) removedTypes.add(type);
+    for (const owner of entry.uploadOwners) removedUploadOwners.add(owner);
+  }
+
+  if (removedUploadOwners.size > 0) {
+    const uploads = dataset.uploads as Array<Record<string, unknown>>;
+    const kept = uploads.filter(
+      (row) => !removedUploadOwners.has(String(row.ownerType ?? "")),
+    );
+    uploads.length = 0;
+    uploads.push(...kept);
+  }
+
+  // Filer som bare refererer til fjernede entiteter skal ikke med. Filer med
+  // minst én gjenværende referanse beholdes (f.eks. et kundelogo).
+  const keptFiles = files
+    .map((file) => {
+      const references = (file.references ?? []).filter(
+        (reference) => !removedTypes.has(reference.sourceEntityType),
+      );
+      return { ...file, references };
+    })
+    .filter(
+      (file) =>
+        file.references.length > 0 ||
+        !removedTypes.has(String(file.sourceEntityType ?? "")),
+    );
+
+  return { files: keptFiles };
 }
 
 export function emptyDataset(): TransferDataset {

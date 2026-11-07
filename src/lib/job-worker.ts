@@ -16,6 +16,7 @@ import {
 import { cleanupVisitLocationPings } from "@/server/tracking";
 import { cleanupTransfers } from "@/server/customer-transfer";
 import { startReminderWorker } from "@/server/reminders";
+import { moduleEnabled } from "@/server/modules";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
  *
@@ -691,6 +692,12 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
 
   for (;;) {
     try {
+      // En avslått dokumentmodul skal stoppe køen også i en prosess som
+      // allerede kjører. Sjekken er cachet og koster ikke en DB-spørring.
+      if (!(await moduleEnabled("documents"))) {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
       const job = await claimNextPdfTextJob();
       if (!job) {
         await sleep(POLL_INTERVAL_MS);
@@ -710,20 +717,32 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
  * Starter jobbkøen i denne prosessen. Kalles fra `instrumentation.ts`, og
  * kjører bare én gang per prosess – også når Next.js laster modulen på nytt.
  */
-export function startJobWorker(): void {
+export async function startJobWorker(): Promise<void> {
   const scope = globalThis as WorkerGlobal;
   if (scope.__fsmPdfJobWorkerStarted) return;
   scope.__fsmPdfJobWorkerStarted = true;
 
-  void requeueStalePdfTextJobs();
-  void Promise.all(
-    Array.from({ length: JOB_WORKER_CONCURRENCY }, (_, index) =>
-      runWorkerLoop(index),
-    ),
-  );
+  const [documents, offline, booking, tracking, transfer, sms] =
+    await Promise.all([
+      moduleEnabled("documents"),
+      moduleEnabled("offline"),
+      moduleEnabled("booking"),
+      moduleEnabled("tracking"),
+      moduleEnabled("transfer"),
+      moduleEnabled("sms"),
+    ]);
+
+  if (documents) {
+    void requeueStalePdfTextJobs();
+    void Promise.all(
+      Array.from({ length: JOB_WORKER_CONCURRENCY }, (_, index) =>
+        runWorkerLoop(index),
+      ),
+    );
+  }
 
   // Rydd utløpte kladder ved oppstart og deretter hvert sjette døgn.
-  startDraftCleanup();
+  if (offline) startDraftCleanup();
 
   // Hard-slett mykt slettede oppdrag når bevaringsperioden er utløpt.
   startWorkOrderRetentionCleanup();
@@ -735,22 +754,27 @@ export function startJobWorker(): void {
   startSearchLogCleanup();
 
   // Frigjør korte bookingreservasjoner og merk utløpte forespørsler.
-  startBookingHoldCleanup();
+  if (booking) startBookingHoldCleanup();
 
   // Posisjonsping har 24 timers levetid og skal aldri bli historikk.
-  startLocationPingCleanup();
+  if (tracking) startLocationPingCleanup();
 
   // Slett utløpte eksport-/importartefakter og forlatte staging-mapper.
-  const pruneTransfers = () => {
-    void cleanupTransfers().catch((error) => {
-      logger.error("Could not clean up customer transfer artifacts", {
-        error: error instanceof Error ? error.message : String(error),
+  if (transfer) {
+    const pruneTransfers = () => {
+      void cleanupTransfers().catch((error) => {
+        logger.error("Could not clean up customer transfer artifacts", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
-  };
-  pruneTransfers();
-  const transferTimer = setInterval(pruneTransfers, TRANSFER_CLEANUP_INTERVAL_MS);
-  transferTimer.unref?.();
+    };
+    pruneTransfers();
+    const transferTimer = setInterval(
+      pruneTransfers,
+      TRANSFER_CLEANUP_INTERVAL_MS,
+    );
+    transferTimer.unref?.();
+  }
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
@@ -781,7 +805,7 @@ export function startJobWorker(): void {
   // Planlegg og send påminnelser fra den vedvarende jobbkøen. SMTP- eller
   // leverandørfeil påvirker derfor aldri request-stien, og hver utsendelse
   // har en egen rad i ReminderDispatch med retry og historikk.
-  startReminderWorker();
+  if (sms) startReminderWorker();
 
   // Én overdue-sjekk ved oppstart og deretter hvert sjette døgn.
   const notifyOverdue = () => {
@@ -797,6 +821,7 @@ export function startJobWorker(): void {
 
   logger.info("Text extraction: job worker started", {
     concurrency: JOB_WORKER_CONCURRENCY,
+    modules: { documents, offline, booking, tracking, transfer, sms },
   });
 }
 

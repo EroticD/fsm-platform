@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { moduleEnabled } from "@/server/modules";
 import { canUseCustomerTransfer, toTransferActor } from "./guard";
 import type { ServiceActor } from "@/server/actor";
 import type { TransferFailure } from "@/server/customer-transfer";
@@ -41,6 +42,15 @@ type GuardResult =
 
 /** Reautoriserer hver rute. Skjulte knapper er ikke tilgangskontroll. */
 export async function guardTransferRoute(): Promise<GuardResult> {
+  if (!(await moduleEnabled("transfer"))) {
+    return {
+      ok: false,
+      response: transferJson(
+        { error: "not_found", messageKey: "errors.api.notFound" },
+        { status: 404 },
+      ),
+    };
+  }
   const user = await getCurrentUser();
   if (!user || !canUseCustomerTransfer(user)) {
     return {

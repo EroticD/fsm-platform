@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { requireModulePage } from "@/lib/module-guards";
 import {
   resolvePortalAccess,
   type PortalAccess,
@@ -27,6 +28,7 @@ export type PortalPageContext = {
  * henter, men identitet, kunde og delegasjon resolves alltid på nytt.
  */
 export async function loadPortalPage(): Promise<PortalPageContext | null> {
+  await requireModulePage("portal");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const access = await resolvePortalAccess(user);

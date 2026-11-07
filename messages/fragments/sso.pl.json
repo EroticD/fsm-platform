@@ -16,7 +16,8 @@
       "customerAccount": "Użytkownicy portalu klienta nie mogą logować się przez SSO.",
       "identityConflict": "Konto jest już powiązane z inną tożsamością. Skontaktuj się z administratorem.",
       "configuration": "SSO nie jest prawidłowo skonfigurowane. Skontaktuj się z administratorem.",
-      "serverError": "Nie udało się zalogować przez SSO. Spróbuj ponownie."
+      "serverError": "Nie udało się zalogować przez SSO. Spróbuj ponownie.",
+      "disabled": "Moduł SSO jest wyłączony. Użyj logowania hasłem lub skontaktuj się z administratorem."
     }
   },
   "settings": {

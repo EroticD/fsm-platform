@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import { formatDateLocalized } from "@/lib/dates";
 import { hasPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
+import { requireModulePage } from "@/lib/module-guards";
 import {
   listBookingQueue,
   type BookingQueueFilter,
@@ -73,6 +74,7 @@ export default async function BookingsPage({
     ok?: string;
   }>;
 }) {
+  await requireModulePage("booking");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");

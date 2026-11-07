@@ -337,6 +337,7 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | Dokument | Innhold |
 | --- | --- |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
+| [`docs/MODULES.md`](docs/MODULES.md) | Modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av |
 | [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, Azure-native backup, øvelser og sjekklister |
 | [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
 | [`docs/NATIVE.md`](docs/NATIVE.md) | Capacitor-skallet for Android/iOS |

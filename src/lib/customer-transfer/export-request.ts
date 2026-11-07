@@ -57,8 +57,11 @@ export function normaliseExportOptions(input: ExportRequestInput): ExportOptions
  */
 export function exportRequestFingerprint(options: ExportOptions): string {
   const canonical = JSON.stringify({
-    version: 1,
+    // Versjon 2 tar med modulsnapshotet, slik at en eksport laget før en modul
+    // ble slått av ikke gjenbrukes etterpå.
+    version: 2,
     customerIds: [...options.customerIds].sort(),
+    modules: [...(options.modules ?? [])].sort(),
     includeFiles: options.includeFiles,
     includeDeleted: options.includeDeleted,
     includeLegalHold: options.includeLegalHold,

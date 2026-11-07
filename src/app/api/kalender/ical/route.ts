@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCalendarFeed } from "@/server/calendar-feed";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ const SECURITY_HEADERS = {
  * Google Calendar/Outlook kan abonnere.
  */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("calendar");
+  if (moduleGuard) return moduleGuard;
   const token = new URL(request.url).searchParams.get("token") ?? "";
   const result = await getCalendarFeed(token);
 

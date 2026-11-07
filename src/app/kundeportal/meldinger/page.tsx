@@ -7,12 +7,14 @@ import PortalShell from "@/components/portal/PortalShell";
 import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import { getPortalMessageThreads } from "@/server/portal-expansion";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { requireModulePage } from "@/lib/module-guards";
 
 export default async function PortalMessagesPage({
   searchParams,
 }: {
   searchParams: Promise<{ side?: string }>;
 }) {
+  await requireModulePage("sms");
   const context = await loadPortalPage();
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");

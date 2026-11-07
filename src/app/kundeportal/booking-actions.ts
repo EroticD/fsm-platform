@@ -17,6 +17,7 @@ import {
   type PortalAvailabilityDay,
 } from "@/server/availability";
 import type { ServiceError } from "@/server/actor";
+import { moduleEnabled } from "@/server/modules";
 
 export type BookingActionState =
   | { status: "idle" }
@@ -49,6 +50,7 @@ export type SlotActionResult<T> =
 export async function loadAvailabilityAction(
   date: string,
 ): Promise<SlotActionResult<PortalAvailabilityDay>> {
+  if (!(await moduleEnabled("booking"))) return { ok: false, reason: "forbidden" };
   const current = await getCurrentUser();
   if (!current) return { ok: false, reason: "forbidden" };
   return getCustomerAvailability(current, { date });
@@ -62,6 +64,7 @@ export async function holdSlotAction(input: {
   technicianId: string;
   siteId?: string | null;
 }): Promise<SlotActionResult<BookingHoldResult>> {
+  if (!(await moduleEnabled("booking"))) return { ok: false, reason: "forbidden" };
   const current = await getCurrentUser();
   if (!current) return { ok: false, reason: "forbidden" };
   return holdBookingSlot(current, input);
@@ -71,6 +74,7 @@ export async function holdSlotAction(input: {
 export async function releaseHoldAction(
   token: string,
 ): Promise<{ ok: boolean }> {
+  if (!(await moduleEnabled("booking"))) return { ok: false };
   const current = await getCurrentUser();
   if (!current) return { ok: false };
   const result = await releaseBookingHold(current, token);
@@ -85,6 +89,9 @@ export async function bookWorkOrderAction(
   _previous: BookingActionState,
   formData: FormData,
 ): Promise<BookingActionState> {
+  if (!(await moduleEnabled("booking"))) {
+    return { status: "error", reason: "forbidden" };
+  }
   const current = await getCurrentUser();
   if (!current) return { status: "error", reason: "forbidden" };
 
@@ -129,6 +136,9 @@ export async function cancelBookingAction(
   _previous: BookingChangeState,
   formData: FormData,
 ): Promise<BookingChangeState> {
+  if (!(await moduleEnabled("booking"))) {
+    return { status: "error", reason: "forbidden" };
+  }
   const current = await getCurrentUser();
   if (!current) return { status: "error", reason: "forbidden" };
 
@@ -151,6 +161,9 @@ export async function rescheduleBookingAction(
   _previous: BookingChangeState,
   formData: FormData,
 ): Promise<BookingChangeState> {
+  if (!(await moduleEnabled("booking"))) {
+    return { status: "error", reason: "forbidden" };
+  }
   const current = await getCurrentUser();
   if (!current) return { status: "error", reason: "forbidden" };
 

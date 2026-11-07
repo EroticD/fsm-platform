@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { moduleEnabled } from "@/server/modules";
 import {
   saveDraft as saveDraftService,
   submitReport as submitReportService,
@@ -25,6 +26,7 @@ import {
 export async function saveDraft(
   formData: FormData,
 ): Promise<{ ok: boolean; savedAt?: string }> {
+  if (!(await moduleEnabled("reports"))) return { ok: false };
   const user = await getCurrentUser();
   if (!user) return { ok: false };
 
@@ -80,6 +82,7 @@ function redirectToFormError(
 }
 
 export async function submitReport(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const user = await getCurrentUser();
   const result = await submitReportService(user, formData);
 

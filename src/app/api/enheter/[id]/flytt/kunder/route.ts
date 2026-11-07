@@ -3,9 +3,12 @@ import { noStoreJson } from "@/lib/http";
 import { internalApiError } from "@/lib/api-errors";
 import { searchMoveCustomers } from "@/server/equipment-move";
 import { moveApiError } from "../_shared";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 /** Serversøk etter målkunde. Tomt søk gir tom liste, aldri hele registeret. */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("equipment");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user) return internalApiError("not_authenticated", 401);
 

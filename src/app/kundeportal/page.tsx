@@ -1,3 +1,5 @@
+import { requireModulePage } from "@/lib/module-guards";
+import { moduleEnabled } from "@/server/modules";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
@@ -95,6 +97,7 @@ export default async function KundeportalPage({
 }: {
   searchParams: Promise<{ u?: string; h?: string; r?: string; b?: string }>;
 }) {
+  await requireModulePage("portal");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const t = await getTranslations("common");
@@ -162,10 +165,15 @@ export default async function KundeportalPage({
   const branding = portalBranding(customer);
   const brandColor = branding.color;
   const customerLogo = branding.logo;
-  const canBook = portalAccess.data.capabilities.canBook;
+  const canBookCapability = portalAccess.data.capabilities.canBook;
   const canViewDocuments = portalAccess.data.capabilities.canViewDocuments;
   const canViewEquipment = portalAccess.data.capabilities.canViewEquipment;
   const canViewContracts = portalAccess.data.capabilities.canViewContracts;
+  const [bookingEnabled, reportsEnabled] = await Promise.all([
+    moduleEnabled("booking"),
+    moduleEnabled("reports"),
+  ]);
+  const canBook = canBookCapability && bookingEnabled;
 
   const todayText = todayInOslo();
   const today = parseDateOnly(todayText) ?? new Date();
@@ -174,9 +182,11 @@ export default async function KundeportalPage({
     addDaysUtc(parseDateOnly(todayText) ?? today, 60),
   );
 
-  const bookingsResult = await getPortalBookingRequests(user, {
-    page: requestedBookingPage,
-  });
+  const bookingsResult = bookingEnabled
+    ? await getPortalBookingRequests(user, {
+        page: requestedBookingPage,
+      })
+    : { ok: true as const, data: { items: [], total: 0, page: 1, totalPages: 1 } };
   const bookingHistory: PortalBookingPage = bookingsResult.ok
     ? bookingsResult.data
     : { items: [], total: 0, page: 1, totalPages: 1 };
@@ -216,18 +226,20 @@ export default async function KundeportalPage({
           scheduledTo: true,
         },
       }),
-      prisma.bookingRequest.count({
-        where: {
-          customerId: customer.id,
-          status: "PENDING",
-          // Kontoret bekrefter ved å flytte selve oppdraget. En bestilling kan
-          // derfor fortsatt stå som PENDING etter at avtalen er bekreftet.
-          workOrder: {
-            deletedAt: null,
-            status: { in: ["OPEN", "PENDING"] },
-          },
-        },
-      }),
+      bookingEnabled
+        ? prisma.bookingRequest.count({
+            where: {
+              customerId: customer.id,
+              status: "PENDING",
+              // Kontoret bekrefter ved å flytte selve oppdraget. En bestilling kan
+              // derfor fortsatt stå som PENDING etter at avtalen er bekreftet.
+              workOrder: {
+                deletedAt: null,
+                status: { in: ["OPEN", "PENDING"] },
+              },
+            },
+          })
+        : Promise.resolve(0),
       prisma.report.count({
         where: {
           deletedAt: null,
@@ -456,7 +468,10 @@ export default async function KundeportalPage({
           </div>
         </section>
 
-        <PortalSectionNav />
+        <PortalSectionNav
+          showBookings={bookingEnabled}
+          showReports={reportsEnabled}
+        />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* VENSTRE: Utstyr & Avtaler */}
@@ -568,6 +583,7 @@ export default async function KundeportalPage({
           {/* HOYRE: Oppdrag & Booking */}
           <div className="space-y-6 lg:col-span-2">
             {/* SEND NY FORESPØRSEL */}
+            {bookingEnabled && (
             <section
               id="bestillinger"
               className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
@@ -619,6 +635,7 @@ export default async function KundeportalPage({
                 className="pt-3"
               />
             </section>
+            )}
 
             {/* KOMMENDE OPPDRAG */}
             <section

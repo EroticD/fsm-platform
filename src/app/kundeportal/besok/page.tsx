@@ -8,6 +8,7 @@ import {
   requestReviewAction,
 } from "../portal-expansion-actions";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { moduleEnabled } from "@/server/modules";
 
 const ERROR_KEYS: Record<string, string> = {
   forbidden: "portal.expansion.visits.errors.forbidden",
@@ -17,7 +18,15 @@ const ERROR_KEYS: Record<string, string> = {
   error: "portal.expansion.visits.errors.generic",
 };
 
-async function VisitCard({ visit }: { visit: PortalVisit }) {
+async function VisitCard({
+  visit,
+  trackingEnabled,
+  reviewsEnabled,
+}: {
+  visit: PortalVisit;
+  trackingEnabled: boolean;
+  reviewsEnabled: boolean;
+}) {
   const t = await getTranslations("common");
   const locale = await getLocale();
   return (
@@ -46,7 +55,7 @@ async function VisitCard({ visit }: { visit: PortalVisit }) {
         </p>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        {visit.canTrack && (
+        {trackingEnabled && visit.canTrack && (
           <form action={openTrackingAction}>
             <input type="hidden" name="visitId" value={visit.id} />
             <button
@@ -59,7 +68,7 @@ async function VisitCard({ visit }: { visit: PortalVisit }) {
             </button>
           </form>
         )}
-        {visit.canReview && (
+        {reviewsEnabled && visit.canReview && (
           <form action={requestReviewAction}>
             <input type="hidden" name="visitId" value={visit.id} />
             <button
@@ -89,6 +98,10 @@ export default async function PortalVisitsPage({
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");
   const params = await searchParams;
+  const [trackingEnabled, reviewsEnabled] = await Promise.all([
+    moduleEnabled("tracking"),
+    moduleEnabled("reviews"),
+  ]);
   const result = await getPortalVisitTimeline(context.user);
 
   return (
@@ -139,7 +152,12 @@ export default async function PortalVisitsPage({
               ) : (
                 <ul className="space-y-3">
                   {result.data.upcoming.map((visit) => (
-                    <VisitCard key={visit.id} visit={visit} />
+                    <VisitCard
+                      key={visit.id}
+                      visit={visit}
+                      trackingEnabled={trackingEnabled}
+                      reviewsEnabled={reviewsEnabled}
+                    />
                   ))}
                 </ul>
               )}
@@ -155,7 +173,12 @@ export default async function PortalVisitsPage({
               ) : (
                 <ul className="space-y-3">
                   {result.data.past.map((visit) => (
-                    <VisitCard key={visit.id} visit={visit} />
+                    <VisitCard
+                      key={visit.id}
+                      visit={visit}
+                      trackingEnabled={trackingEnabled}
+                      reviewsEnabled={reviewsEnabled}
+                    />
                   ))}
                 </ul>
               )}

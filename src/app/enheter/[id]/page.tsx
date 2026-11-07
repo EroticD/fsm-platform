@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -93,6 +94,7 @@ export default async function EquipmentDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireModulePage("equipment");
   const t = await getTranslations("common");
   const locale = await getLocale();
   const user = await getCurrentUser();

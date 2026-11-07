@@ -2143,3 +2143,13 @@ model ReminderDispatch {
   @@index([visitId, status])
   @@index([departmentId, createdAt])
 }
+
+/// Installasjonsnivåmoduler. Én rad per modulnøkkel. Data i modulens tabeller
+/// beholdes når modulen slås av; raden styrer bare om kode, sider, API-er og
+/// arbeidsjobber er tilgjengelige. Kjernen (`core`) har alltid enabled=true.
+model ModuleState {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
+}

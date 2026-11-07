@@ -25,6 +25,7 @@ import {
 } from "@/lib/upload-validation";
 import { readMultipartUpload } from "@/lib/upload-multipart";
 import { checkUploadQuota } from "@/lib/upload-quota";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,8 @@ function jsonError(
 }
 
 export async function POST(request: Request) {
+  const moduleGuard = await moduleApiGuard("documents");
+  if (moduleGuard) return moduleGuard;
   if (!assertSameOrigin(request)) {
     return jsonError("invalid_origin", 403, "errors.api.upload.invalidOrigin");
   }

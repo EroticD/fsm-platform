@@ -5,6 +5,8 @@ import { formatDate } from "@/lib/dates";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
+import { moduleIsOn } from "@/lib/modules";
+import { readModuleStates } from "@/server/modules";
 import { canViewAllDepartmentReports } from "@/lib/report-scope";
 import {
   parseSearchFilters,
@@ -309,11 +311,16 @@ export async function performSearch(
   const selectedTypes = filters.types ? new Set(filters.types) : null;
   const wants = (kind: string) => !selectedTypes || selectedTypes.has(kind);
 
-  // Søket skal bare vise kategorier brukeren faktisk har tilgang til.
+  // Søket skal bare vise kategorier brukeren faktisk har tilgang til – og
+  // bare data fra moduler som er slått på. Direkte /api/search og /sok bruker
+  // samme funksjon, så dette er også vakten for direkte søkekall.
+  const states = await readModuleStates();
   const canCustomers = hasPermission(user, "customers.view");
   const canWorkOrders = hasPermission(user, "workorders.view");
-  const canEquipment = hasPermission(user, "equipment.view");
-  const canReports = hasPermission(user, "reports.view");
+  const canEquipment =
+    hasPermission(user, "equipment.view") && moduleIsOn(states, "equipment");
+  const canReports =
+    hasPermission(user, "reports.view") && moduleIsOn(states, "reports");
   // Uten reports.viewAllDepartments er også rapportsøket avdelingssperret.
   // `undefined` slår av filteret for dem som ser hele organisasjonen.
   const reportDepartmentId = canViewAllDepartmentReports(user)
@@ -321,8 +328,10 @@ export async function performSearch(
     : user.departmentId ?? null;
   const canUsers = hasPermission(user, "users.view");
   // Det finnes ingen egen leservisning for maler; treffene lenker til editoren.
-  const canTemplates = hasPermission(user, "templates.manage");
-  const canDocuments = hasPermission(user, "documents.view");
+  const canTemplates =
+    hasPermission(user, "templates.manage") && moduleIsOn(states, "reports");
+  const canDocuments =
+    hasPermission(user, "documents.view") && moduleIsOn(states, "documents");
 
   if (
     !canCustomers &&

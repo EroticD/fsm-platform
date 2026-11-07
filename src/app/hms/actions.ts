@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { linkHmsTemplateToWorkOrder } from "@/server/hms";
+import { moduleEnabled } from "@/server/modules";
 
 /**
  * Tynn action-wrapper for HMS-siden. All autorisasjon, validering og skriving
  * skjer i tjenestelaget, som igjen bruker oppdragstjenestens `addTemplate`.
  */
 export async function linkHmsTemplate(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) return;
 

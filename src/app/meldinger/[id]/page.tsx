@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -63,6 +64,7 @@ export default async function MessageThreadPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
+  await requireModulePage("sms");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (

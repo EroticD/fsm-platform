@@ -91,6 +91,7 @@ export const TRANSFER_ERROR = {
   export_failed: "customer_transfer.export_failed",
   export_in_progress: "customer_transfer.export_in_progress",
   cleanup_failed: "customer_transfer.cleanup_failed",
+  module_disabled: "customer_transfer.module_disabled",
 } as const;
 
 export type TransferErrorCode =

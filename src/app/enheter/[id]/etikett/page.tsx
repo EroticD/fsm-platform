@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -39,6 +40,7 @@ export default async function EquipmentLabelPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireModulePage("equipment");
   const t = await getTranslations("common");
   const locale = await getLocale();
   const user = await getCurrentUser();

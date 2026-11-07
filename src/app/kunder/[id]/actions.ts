@@ -21,6 +21,7 @@ import {
   updateContract,
 } from "@/server/contracts";
 import { customerErrorParam } from "../feedback";
+import { moduleEnabled } from "@/server/modules";
 
 /** Myksletter kunden fra kundekortet. Bare administrator. */
 export async function deleteCustomerAction(customerId: string) {
@@ -136,6 +137,7 @@ export async function createContractAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -181,6 +183,7 @@ export async function updateContractAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -250,6 +253,7 @@ function contractLifecycleAction(
 }
 
 export async function pauseContractAction(customerId: string, formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   return contractLifecycleAction(
     customerId,
     String(formData.get("id") ?? ""),
@@ -258,6 +262,7 @@ export async function pauseContractAction(customerId: string, formData: FormData
 }
 
 export async function resumeContractAction(customerId: string, formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   return contractLifecycleAction(
     customerId,
     String(formData.get("id") ?? ""),
@@ -269,6 +274,7 @@ export async function terminateContractAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   return contractLifecycleAction(
     customerId,
     String(formData.get("id") ?? ""),
@@ -277,6 +283,7 @@ export async function terminateContractAction(
 }
 
 export async function renewContractAction(customerId: string, formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   return contractLifecycleAction(
     customerId,
     String(formData.get("id") ?? ""),
@@ -288,6 +295,7 @@ export async function addContractLineAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -312,6 +320,7 @@ export async function deleteContractLineAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -332,6 +341,7 @@ export async function deleteContractAction(
   customerId: string,
   formData: FormData,
 ) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

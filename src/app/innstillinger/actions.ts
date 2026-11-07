@@ -15,6 +15,7 @@ import {
   updateTag,
 } from "@/server/settings";
 import { saveMapSettings } from "@/server/map-settings";
+import { moduleEnabled } from "@/server/modules";
 
 function revalidateSettings() {
   revalidatePath("/innstillinger");
@@ -40,6 +41,7 @@ export async function saveBrandingAction(formData: FormData) {
 }
 
 export async function createTemplateAction(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -57,6 +59,7 @@ export async function createTemplateAction(formData: FormData) {
 }
 
 export async function deleteTemplateAction(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -67,6 +70,7 @@ export async function deleteTemplateAction(formData: FormData) {
 }
 
 export async function createTagAction(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -80,6 +84,7 @@ export async function createTagAction(formData: FormData) {
 }
 
 export async function updateTagAction(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -94,6 +99,7 @@ export async function updateTagAction(formData: FormData) {
 }
 
 export async function deleteTagAction(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -104,6 +110,7 @@ export async function deleteTagAction(formData: FormData) {
 }
 
 export async function createDocumentTagAction(formData: FormData) {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -117,6 +124,7 @@ export async function createDocumentTagAction(formData: FormData) {
 }
 
 export async function updateDocumentTagAction(formData: FormData) {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -131,6 +139,7 @@ export async function updateDocumentTagAction(formData: FormData) {
 }
 
 export async function deleteDocumentTagAction(formData: FormData) {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -141,6 +150,7 @@ export async function deleteDocumentTagAction(formData: FormData) {
 }
 
 export async function saveMapSettingsAction(formData: FormData) {
+  if (!(await moduleEnabled("map"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 

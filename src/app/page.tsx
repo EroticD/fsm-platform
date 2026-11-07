@@ -26,6 +26,8 @@ import { reviewSummaryForActor } from "@/server/reviews";
 import { loadDashboardFieldStatus } from "@/server/dashboard-field-status";
 import { loadTechnicianMapLayer } from "@/lib/map-technician-layer";
 import { getMapSettings } from "@/server/map-settings";
+import { moduleIsOn } from "@/lib/modules";
+import { readModuleStates } from "@/server/modules";
 import type { ServiceActor } from "@/server/actor";
 import { homePathForRole } from "@/lib/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -278,6 +280,7 @@ async function DashboardOverview({
   canAssign,
   actor,
   accessUser,
+  modules,
   view,
   sort,
   footer,
@@ -290,6 +293,15 @@ async function DashboardOverview({
   canAssign: boolean;
   actor: ServiceActor;
   accessUser: AccessUser;
+  modules: {
+    calendar: boolean;
+    reports: boolean;
+    equipment: boolean;
+    documents: boolean;
+    map: boolean;
+    tracking: boolean;
+    reviews: boolean;
+  };
   view: DashboardView;
   sort: QueueSort;
   footer?: ReactNode;
@@ -391,11 +403,35 @@ async function DashboardOverview({
       orderBy: { name: "asc" },
       take: 8,
     }),
-    getDispatchExceptionCounts(actor, new Date()),
-    reviewSummaryForActor(actor),
+    modules.calendar
+      ? getDispatchExceptionCounts(actor, new Date())
+      : Promise.resolve({ ok: true as const, data: {
+          unassignedToday: 0,
+          visitsWithoutTechnician: 0,
+          doubleBooked: 0,
+          overdue: 0,
+          missingCoordinates: 0,
+          unsignedReports: 0,
+          staleBookings: 0,
+        } }),
+    modules.reviews
+      ? reviewSummaryForActor(actor)
+      : Promise.resolve({ ok: true as const, data: { average: null, count: 0 } }),
     loadDashboardFieldStatus(accessUser),
-    loadTechnicianMapLayer(accessUser),
-    getMapSettings(),
+    modules.tracking && modules.map
+      ? loadTechnicianMapLayer(accessUser)
+      : Promise.resolve({ enabled: false, markers: [] }),
+    modules.map
+      ? getMapSettings()
+      : Promise.resolve({
+          provider: "osm" as const,
+          apiKey: null,
+          defaultLayer: "osm" as const,
+          defaultZoom: 6,
+          centerLat: null,
+          centerLng: null,
+          scrollWheelZoom: true,
+        }),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -536,19 +572,25 @@ async function DashboardOverview({
         title={t("dashboard.primaryKpisTitle")}
       />
 
-      {exceptionCounts.ok ? (
-        <ExceptionCards counts={exceptionCounts.data} t={t} />
+      {modules.calendar && exceptionCounts.ok ? (
+        <ExceptionCards
+          counts={exceptionCounts.data}
+          t={t}
+          modules={modules}
+        />
       ) : null}
 
-      <DashboardFieldPanel
-        rows={fieldStatus.rows}
-        markers={fieldMarkers}
-        trackingEnabled={technicianLayer.enabled}
-        settings={mapSettings}
-        updatedAt={fieldStatus.generatedAt}
-        locale={locale}
-        t={t}
-      />
+      {modules.map && (
+        <DashboardFieldPanel
+          rows={fieldStatus.rows}
+          markers={fieldMarkers}
+          trackingEnabled={modules.tracking && technicianLayer.enabled}
+          settings={mapSettings}
+          updatedAt={fieldStatus.generatedAt}
+          locale={locale}
+          t={t}
+        />
+      )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
@@ -590,6 +632,7 @@ async function DashboardOverview({
           updatedAt={updatedTime}
           locale={locale}
           canAssign={canAssign}
+          showReviews={modules.reviews}
           t={t}
         />
 
@@ -606,24 +649,30 @@ async function DashboardKeyFigures({
   reportScope,
   organisationScope,
   dateContext,
+  modules,
 }: {
   reportScope: Prisma.WorkOrderWhereInput;
   organisationScope: Prisma.CustomerWhereInput;
   dateContext: DateContext;
+  modules: { reports: boolean; equipment: boolean };
 }) {
   const t = await getTranslations("common");
   const { startOfMonth } = dateContext;
 
   const [reportsThisMonth, customerCount, unitCount] = await Promise.all([
-    prisma.report.count({
-      where: {
-        deletedAt: null,
-        completedAt: { gte: startOfMonth },
-        workOrder: { deletedAt: null, ...reportScope },
-      },
-    }),
+    modules.reports
+      ? prisma.report.count({
+          where: {
+            deletedAt: null,
+            completedAt: { gte: startOfMonth },
+            workOrder: { deletedAt: null, ...reportScope },
+          },
+        })
+      : Promise.resolve(0),
     prisma.customer.count({ where: organisationScope }),
-    prisma.product.count({ where: { customer: organisationScope } }),
+    modules.equipment
+      ? prisma.product.count({ where: { customer: organisationScope } })
+      : Promise.resolve(0),
   ]);
 
   const figures = [
@@ -634,19 +683,23 @@ async function DashboardKeyFigures({
       value: customerCount,
       href: "/kunder",
     },
-    {
+    ...(modules.equipment
+      ? [{
       key: "equipment",
       label: t("dashboard.kpi.equipment"),
       sub: t("dashboard.kpi.equipmentSub"),
       value: unitCount,
-    },
-    {
+    }]
+      : []),
+    ...(modules.reports
+      ? [{
       key: "reports",
       label: t("dashboard.kpi.reports"),
       sub: t("dashboard.kpi.reportsSub"),
       value: reportsThisMonth,
       href: "/rapporter",
-    },
+    }]
+      : []),
   ];
 
   return (
@@ -921,6 +974,17 @@ export default async function AdminDashboard({
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
+  const states = await readModuleStates();
+  const modules = {
+    calendar: moduleIsOn(states, "calendar"),
+    reports: moduleIsOn(states, "reports"),
+    equipment: moduleIsOn(states, "equipment"),
+    documents: moduleIsOn(states, "documents"),
+    map: moduleIsOn(states, "map"),
+    tracking: moduleIsOn(states, "tracking"),
+    reviews: moduleIsOn(states, "reviews"),
+  };
+
   const t = await getTranslations("common");
   const locale = await getLocale();
   const params = (await searchParams) ?? {};
@@ -932,9 +996,9 @@ export default async function AdminDashboard({
   if (!hasPermission(user, "workorders.view")) {
     if (user.role === "CUSTOMER") redirect("/kundeportal");
     if (hasPermission(user, "customers.view")) redirect("/kunder");
-    if (hasPermission(user, "documents.view")) redirect("/dokumenter");
-    if (hasPermission(user, "equipment.view")) redirect("/kunder");
-    if (hasPermission(user, "reports.view")) redirect("/rapporter");
+    if (modules.documents && hasPermission(user, "documents.view")) redirect("/dokumenter");
+    if (modules.equipment && hasPermission(user, "equipment.view")) redirect("/kunder");
+    if (modules.reports && hasPermission(user, "reports.view")) redirect("/rapporter");
     if (hasPermission(user, "users.view")) redirect("/innstillinger?tab=ansatte");
     redirect("/kundeportal");
   }
@@ -960,12 +1024,14 @@ export default async function AdminDashboard({
           emphasis: true,
         }
       : null,
-    {
-      href: "/kalender",
-      icon: "calendar",
-      label: t("dashboard.quickActions.calendar"),
-    },
-    office && canAssign
+    modules.calendar
+      ? {
+          href: "/kalender",
+          icon: "calendar",
+          label: t("dashboard.quickActions.calendar"),
+        }
+      : null,
+    office && canAssign && modules.calendar
       ? {
           href: "/kalender/dispatch",
           icon: "grid",
@@ -990,7 +1056,9 @@ export default async function AdminDashboard({
 
   const secondaryActions: QuickAction[] = [
     { href: "/oppdrag", icon: "clipboard", label: t("dashboard.quickActions.allWorkOrders") },
-    { href: "/kart", icon: "map", label: t("dashboard.quickActions.map") },
+    modules.map
+      ? { href: "/kart", icon: "map", label: t("dashboard.quickActions.map") }
+      : null,
     hasPermission(user, "customers.view")
       ? {
           href: "/kunder",
@@ -998,21 +1066,21 @@ export default async function AdminDashboard({
           label: t("dashboard.quickActions.customers"),
         }
       : null,
-    hasPermission(user, "documents.view")
+    modules.documents && hasPermission(user, "documents.view")
       ? {
           href: "/dokumenter",
           icon: "folder",
           label: t("dashboard.quickActions.documents"),
         }
       : null,
-    hasPermission(user, "templates.manage")
+    modules.reports && hasPermission(user, "templates.manage")
       ? {
           href: "/innstillinger?tab=maler",
           icon: "list",
           label: t("dashboard.quickActions.checklists"),
         }
       : null,
-    hasPermission(user, "reports.view")
+    modules.reports && hasPermission(user, "reports.view")
       ? {
           href: "/innstillinger?tab=statistikk",
           icon: "chart",
@@ -1079,6 +1147,7 @@ export default async function AdminDashboard({
             canAssign={canAssign}
             actor={user}
             accessUser={user}
+            modules={modules}
             view={view}
             sort={sort}
             footer={
@@ -1110,6 +1179,7 @@ export default async function AdminDashboard({
                     reportScope={reportScope}
                     organisationScope={organisationScope}
                     dateContext={dateContext}
+                    modules={modules}
                   />
                 </Suspense>
               </>

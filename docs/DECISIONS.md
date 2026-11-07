@@ -553,3 +553,24 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   gyldig dekning og allerede kansellerte klokker røres ikke. Kansellerte
   klokker ignoreres av sveipingen, dispatch-prioritering og SLA-panelet.
 
+
+## Modulær plattform (2026-11-07)
+
+- **Kjerne og moduler, ikke tenants.** Én installasjon har én database og én
+  kodebase. Kjernen (auth, brukere, avdelinger, kunder, oppdrag,
+  arbeidsdager/tid, revisjon og innstillinger) er alltid på. Øvrige
+  kapabiliteter er installasjonsnivåmoduler med en eksplisitt katalog i
+  `src/lib/modules.ts`.
+- **Av betyr gated kode, ikke slettede data.** `ModuleState` styrer bare om
+  sider, handlinger, API-er og arbeidsjobber er tilgjengelige. Tabeller og rader
+  røres ikke; en avslått modul kan slås på igjen uten datatap.
+- **Avhengigheter valideres i begge retninger.** En modul kan ikke slås på før
+  avhengighetene er på, og kan ikke slås av mens en avhengig modul er på.
+  Kjernen kan aldri slås av.
+- **Eksisterende installasjoner får alt på.** Første oppstart uten
+  `ModuleState` bruker `MODULE_PRESET=full` som standard. Nye kjerne-only
+  installasjoner setter `MODULE_PRESET=core`. Endringer revideres og caches i
+  maks ti sekunder per prosess.
+- **Direkte kall feiler lukket.** Navigasjon og faner skjules, men server
+  actions, API-ruter og direkte URL-er sjekker modulen på nytt. Søk og
+  kundeoverføring filtrerer bort data fra avslåtte moduler.

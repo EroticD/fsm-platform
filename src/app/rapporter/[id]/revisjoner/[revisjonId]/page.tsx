@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -30,6 +31,7 @@ export default async function ReportRevisionPdfViewerPage({
   params: Promise<{ id: string; revisjonId: string }>;
   searchParams: Promise<{ returnTo?: string }>;
 }) {
+  await requireModulePage("reports");
   const t = await getTranslations("common");
   const viewer = await getCurrentUser();
   if (!viewer?.isActive) redirect("/logg-inn");

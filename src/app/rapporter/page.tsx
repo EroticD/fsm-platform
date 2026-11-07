@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
@@ -118,6 +119,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireModulePage("reports");
   const t = await getTranslations("common");
   const locale = await getLocale();
   const user = await getCurrentUser();

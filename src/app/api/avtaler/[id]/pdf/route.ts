@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { attachmentDisposition } from "@/lib/http";
 import { getCurrentUser } from "@/lib/session";
 import { getContractPdf } from "@/server/contracts";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const moduleGuard = await moduleApiGuard("contracts");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(

@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { acknowledgeReport, requestContactUpdate } from "@/server/portal";
 import type { ServiceError } from "@/server/actor";
+import { moduleEnabled } from "@/server/modules";
 
 export type PortalFormState =
   | { status: "idle" }
@@ -18,6 +20,7 @@ export async function requestContactUpdateAction(
   _previous: PortalFormState,
   formData: FormData,
 ): Promise<PortalFormState> {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) return { status: "error", reason: "forbidden" };
 
@@ -36,6 +39,7 @@ export async function acknowledgeReportAction(
   _previous: PortalFormState,
   formData: FormData,
 ): Promise<PortalFormState> {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) return { status: "error", reason: "forbidden" };
 

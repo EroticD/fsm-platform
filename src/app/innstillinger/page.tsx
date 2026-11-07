@@ -22,6 +22,7 @@ import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
 import WorkforceSettingsTab from "@/components/settings/WorkforceSettingsTab";
+import ModulesTab from "@/components/settings/ModulesTab";
 import EquipmentCategoriesTab from "@/components/settings/EquipmentCategoriesTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
@@ -51,6 +52,10 @@ import { getWorkforceAdminView } from "@/server/workforce-admin";
 import { listPriceLists } from "@/server/contracts";
 import { listEquipmentCategories } from "@/server/equipment";
 import { listTransferCustomers } from "@/server/customer-transfer";
+import {
+  listEnabledModules,
+  listModuleAdminView,
+} from "@/server/modules";
 import { toTransferActor } from "@/lib/customer-transfer/guard";
 import {
   createDocumentTagAction,
@@ -69,6 +74,7 @@ import {
   deleteEquipmentCategoryAction,
   updateEquipmentCategoryAction,
 } from "./equipment-category-actions";
+import { setModuleEnabledAction } from "./module-actions";
 import {
   createApiKeyAction,
   revokeApiKeyAction,
@@ -172,6 +178,8 @@ export default async function SettingsPage({
     hasPermission(user, "settings.manage");
   const canCustomerTransfer =
     isAdmin && hasPermission(user, "settings.manage");
+  const enabledModules = await listEnabledModules();
+  const canModules = isAdmin;
   const canUseSettings =
     canBranding ||
     canMap ||
@@ -185,6 +193,7 @@ export default async function SettingsPage({
     canSla ||
     canSms ||
     canDispatch ||
+    canModules ||
     isAdmin;
   // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
   // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
@@ -223,7 +232,7 @@ export default async function SettingsPage({
     canDispatch,
     isAdmin,
     canCustomerTransfer,
-  });
+  }, enabledModules);
   const searchQuery = resolvedParams.search || "";
   const dateFrom = resolvedParams.dateFrom || "";
   const dateTo = resolvedParams.dateTo || "";
@@ -321,6 +330,20 @@ export default async function SettingsPage({
       ? await getDispatchSettings(user, resolvedParams.department)
       : null;
 
+  const moduleRows =
+    currentTab === "moduler" && canModules ? await listModuleAdminView() : null;
+  const moduleLabels = moduleRows
+    ? Object.fromEntries(
+        moduleRows.map((module) => [
+          module.key,
+          {
+            label: t(`settings.modules.items.${module.key}.label`),
+            description: t(`settings.modules.items.${module.key}.description`),
+          },
+        ]),
+      )
+    : {};
+
   const workforceSettings =
     currentTab === "kompetanse" && canWorkforce
       ? await getWorkforceAdminView(user, {
@@ -369,6 +392,7 @@ export default async function SettingsPage({
           canDispatch={canDispatch}
           isAdmin={isAdmin}
           canCustomerTransfer={canCustomerTransfer}
+          canModules={canModules}
         />
 
         {currentTab === "kart" && canMap && mapSettings?.ok && (
@@ -388,7 +412,7 @@ export default async function SettingsPage({
               error={error}
               saveBranding={saveBrandingAction}
             />
-            <CalendarFeedSettings />
+            {enabledModules.includes("calendar") && <CalendarFeedSettings />}
           </div>
         )}
 
@@ -674,6 +698,17 @@ export default async function SettingsPage({
             createToken={createScimTokenAction}
             rotateToken={rotateScimTokenAction}
             revokeToken={revokeScimTokenAction}
+          />
+        )}
+
+        {currentTab === "moduler" && canModules && moduleRows && (
+          <ModulesTab
+            modules={moduleRows}
+            labels={moduleLabels}
+            action={setModuleEnabledAction}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok === "saved"}
+            canManage={isAdmin}
           />
         )}
 

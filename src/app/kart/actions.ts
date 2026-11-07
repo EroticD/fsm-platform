@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { moduleEnabled } from "@/server/modules";
 import {
   addressHash,
   effectiveAddress,
@@ -25,6 +26,7 @@ const BATCH_SIZE = 3;
  * var på plass, eller der første geokodingsforsøk feilet.
  */
 export async function geocodeMissingAction() {
+  if (!(await moduleEnabled("map"))) redirect("/");
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "workorders.edit")) redirect("/kart");
 

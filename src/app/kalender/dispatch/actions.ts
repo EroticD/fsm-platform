@@ -19,6 +19,7 @@ import {
 import { autoAssign } from "@/server/dispatch";
 import type { VisitStatus } from "@prisma/client";
 import type { DispatchActionResult } from "./types";
+import { moduleEnabled } from "@/server/modules";
 
 const DISPATCH_PATH = "/kalender/dispatch";
 
@@ -57,6 +58,7 @@ function readTechnicianIds(formData: FormData): string[] {
 export async function assignTechnicianAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const technicianId = readId(formData, "technicianId");
   if (!workOrderId || !technicianId) return fail("ugyldig-data");
@@ -87,6 +89,7 @@ export async function assignTechnicianAction(
 export async function moveTechnicianAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const rawFromTechnicianId = readId(formData, "fromTechnicianId");
   const fromTechnicianId =
@@ -118,6 +121,7 @@ export async function moveTechnicianAction(
 export async function unassignTechnicianAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const technicianId = readId(formData, "technicianId");
   if (!workOrderId || !technicianId) return fail("ugyldig-data");
@@ -148,6 +152,7 @@ export async function unassignTechnicianAction(
 export async function updateStatusAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const status = cleanStatus(formData.get("status"));
   if (!workOrderId || !status) return fail("ugyldig-data");
@@ -180,6 +185,7 @@ export async function updateStatusAction(
 export async function assignVisitTechniciansAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const visitId = readId(formData, "visitId");
   const technicianIds = readTechnicianIds(formData);
@@ -205,6 +211,7 @@ export async function assignVisitTechniciansAction(
 export async function unassignVisitTechnicianAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const visitId = readId(formData, "visitId");
   const technicianId = readId(formData, "technicianId");
@@ -230,6 +237,7 @@ export async function unassignVisitTechnicianAction(
 export async function updateVisitStatusAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const workOrderId = readId(formData, "workOrderId");
   const visitId = readId(formData, "visitId");
   const status = cleanText(formData.get("status"), {
@@ -259,6 +267,7 @@ export async function updateVisitStatusAction(
 export async function autoAssignAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
+  if (!(await moduleEnabled("calendar"))) return fail("ikke-tilgang");
   const visitIds = Array.from(
     new Set(
       formData

@@ -3,6 +3,23 @@
 > Azure-oppsett med VM, Docker Compose og PostgreSQL Flexible Server er
 > beskrevet i [`AZURE.md`](AZURE.md).
 
+## Moduler og presets
+
+Installasjonsnivåmoduler (kalender, rapporter, utstyr, avtaler, portal,
+dokumenter, SMS, kart, sporing, omtaler, API, SSO, offline med mer) styres i
+**Innstillinger → Moduler** av administrator. Data beholdes når en modul slås
+av; bare sider, handlinger, API-er og arbeidsjobber stenges.
+
+Første oppstart uten modulrader bruker `MODULE_PRESET`:
+
+- `full` (standard) – alle leverte moduler på. Eksisterende installasjoner som
+  oppgraderer får denne automatisk når variabelen ikke er satt.
+- `core` – bare kjerne (auth, brukere, avdelinger, kunder, oppdrag,
+  arbeidsdager/tid, revisjon og innstillinger).
+
+Se [`MODULES.md`](MODULES.md) for katalog, avhengighetsgraf, presets,
+oppgraderingsløp og kjente begrensninger.
+
 ## Produksjonssett: image-pinning
 
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:

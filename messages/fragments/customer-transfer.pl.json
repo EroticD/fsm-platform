@@ -148,7 +148,8 @@
       "symlink": "Dowiązania symboliczne w archiwum nie są obsługiwane.",
       "unknownEntry": "Nieznany plik najwyższego poziomu został zignorowany z ostrzeżeniem.",
       "rateLimitedRetry": "Zbyt wiele prób eksportu. Spróbuj ponownie za {minutes} minut.",
-      "exportInProgress": "Eksport nadal trwa. Spróbuj ponownie za chwilę."
+      "exportInProgress": "Eksport nadal trwa. Spróbuj ponownie za chwilę.",
+      "moduleDisabled": "Pakiet zawiera dane z wyłączonego modułu. Włącz moduł lub utwórz nowy eksport."
     }
   },
   "auditActions": {

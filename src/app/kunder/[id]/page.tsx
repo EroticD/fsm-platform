@@ -57,6 +57,7 @@ import {
   updateContractAction,
 } from "./actions";
 import { createUnit, deleteUnit, updateUnit } from "./unit-actions";
+import { moduleEnabled } from "@/server/modules";
 import {
   createPortalUser,
   resendPortalInvite,
@@ -103,12 +104,19 @@ export default async function CustomerDetailPage({
 
   const canManageCustomers = hasPermission(user, "customers.manage");
   const canManageEquipment = hasPermission(user, "equipment.manage");
+  const [contractsEnabled, equipmentEnabled] = await Promise.all([
+    moduleEnabled("contracts"),
+    moduleEnabled("equipment"),
+  ]);
   const canViewContracts =
-    hasPermission(user, "contracts.view") ||
-    hasPermission(user, "contracts.manage");
-  const canManageContracts = hasPermission(user, "contracts.manage");
+    contractsEnabled &&
+    (hasPermission(user, "contracts.view") ||
+      hasPermission(user, "contracts.manage"));
+  const canManageContracts =
+    contractsEnabled && hasPermission(user, "contracts.manage");
   const canCreateWorkOrders = hasPermission(user, "workorders.create");
-  const canViewEquipment = hasPermission(user, "equipment.view");
+  const canViewEquipment =
+    equipmentEnabled && hasPermission(user, "equipment.view");
   const canViewReports = hasPermission(user, "reports.view");
   const isAdmin = user.role === "ADMIN";
   const office = canManageCustomers;

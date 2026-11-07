@@ -1,6 +1,8 @@
 // i18n-ignore-file: OpenAPI-titler og -beskrivelser er utviklerdokumentasjon,
 // ikke UI-tekst. Selve API-et returnerer stabile koder og messageKey.
 import { NextResponse } from "next/server";
+import { moduleForPath, moduleIsOn } from "@/lib/modules";
+import { readModuleStates } from "@/server/modules";
 
 /**
  * Maskinlesbar kontrakt for REST-API-et.
@@ -9,7 +11,7 @@ import { NextResponse } from "next/server";
  * kan generere klienter før de har fått tilgang. Selve API-et under
  * `/api/v1` krever `Authorization: Bearer fsm_...`.
  */
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const nullableString = { type: ["string", "null"] } as const;
 const nullableDateTime = {
@@ -2989,8 +2991,26 @@ export const openApiDocument = {
   },
 } as const;
 
-export function GET() {
-  return NextResponse.json(openApiDocument, {
+export async function GET() {
+  const states = await readModuleStates();
+  if (!moduleIsOn(states, "api")) {
+    return NextResponse.json(
+      { error: { code: "not_found", messageKey: "errors.api.notFound" } },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  // Bare endepunkter for moduler som er på. Kjernen og /api/v1 selv er alltid
+  // med når API-modulen er på.
+  const paths = Object.fromEntries(
+    Object.entries(openApiDocument.paths).filter(([path]) => {
+      const owner = moduleForPath(`/api/v1${path}`);
+      return !owner || owner === "api" || moduleIsOn(states, owner);
+    }),
+  );
+  const document = { ...openApiDocument, paths };
+
+  return NextResponse.json(document, {
     headers: {
       // Kontrakten endres bare ved deploy, og er trygg å bufre offentlig.
       "Cache-Control": "public, max-age=300",
