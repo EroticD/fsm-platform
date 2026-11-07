@@ -1,0 +1,165 @@
+{
+  "quotes": {
+    "status": {
+      "DRAFT": "Draft",
+      "SENT": "Sent",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected",
+      "EXPIRED": "Expired"
+    },
+    "lines": {
+      "line": "Line {number}",
+      "description": "Description",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "unitPrice": "Price",
+      "vatRate": "VAT %",
+      "total": "Total",
+      "add": "Add line",
+      "remove": "Remove"
+    },
+    "list": {
+      "title": "Quotes",
+      "subtitle": "Customer quotes with versions, approval and conversion to work orders.",
+      "new": "New quote",
+      "search": "Search",
+      "searchPlaceholder": "Quote number, title or customer",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "emptyTitle": "No quotes yet",
+      "emptyDescription": "Create the first quote and send the approval link to the customer.",
+      "noNumber": "No quote number",
+      "noCustomer": "No customer",
+      "validUntil": "Valid until {date}",
+      "version": "Version {version}",
+      "updated": "Updated {date}",
+      "versioned": "A new version has been saved."
+    },
+    "new": {
+      "title": "New quote",
+      "subtitle": "Amounts are calculated on the server. Save a draft and send it when ready.",
+      "back": "Back to quotes",
+      "submit": "Create quote"
+    },
+    "edit": {
+      "title": "Edit quote",
+      "back": "Back to quote",
+      "submit": "Save changes"
+    },
+    "form": {
+      "details": "Quote details",
+      "title": "Title",
+      "customer": "Customer",
+      "chooseCustomer": "Choose customer",
+      "contact": "Contact",
+      "noContact": "No contact",
+      "workOrder": "Work order",
+      "noWorkOrder": "Not linked to a work order",
+      "contract": "Service contract",
+      "noContract": "No contract",
+      "equipment": "Equipment",
+      "noEquipment": "Not linked to equipment",
+      "department": "Department",
+      "defaultDepartment": "Default department",
+      "validUntil": "Valid until",
+      "vatRate": "VAT rate",
+      "notes": "Notes",
+      "linesTitle": "Lines",
+      "linesHint": "Describe what is offered. Each line may use a different VAT rate.",
+      "saving": "Saving …"
+    },
+    "detail": {
+      "noNumber": "No quote number",
+      "version": "Version {version}",
+      "back": "Back to quotes",
+      "linkTitle": "Approval link",
+      "linkHint": "The link is short-lived and can be used once. Share it only with the customer.",
+      "openLink": "Open link",
+      "customer": "Customer",
+      "openCustomer": "Open customer",
+      "contact": "Contact",
+      "noContact": "No contact",
+      "validUntil": "Valid until",
+      "noDate": "Not set",
+      "department": "Department",
+      "workOrder": "Work order",
+      "contract": "Service contract",
+      "equipment": "Equipment",
+      "converted": "Converted",
+      "openWorkOrder": "Open work order",
+      "lines": "Quote lines",
+      "subtotal": "Net",
+      "vat": "VAT ({rate} %)",
+      "vatTotal": "VAT",
+      "total": "Total",
+      "actions": "Actions",
+      "edit": "Edit",
+      "send": "Send to customer",
+      "sending": "Sending …",
+      "saveVersion": "Save new version",
+      "newLink": "New approval link",
+      "convert": "Convert to work order",
+      "converting": "Converting …",
+      "clone": "Clone quote",
+      "history": "Version history",
+      "noHistory": "No versions have been saved yet.",
+      "rejectedReason": "The customer rejected it: {reason}",
+      "invoices": "Invoices",
+      "draftInvoice": "Draft invoice"
+    },
+    "approval": {
+      "title": "Approve quote",
+      "eyebrow": "Quote for approval",
+      "accepted": "The quote has been accepted. Thank you.",
+      "rejected": "The quote has been rejected.",
+      "expired": "The link or quote has expired. Contact the supplier for a new quote.",
+      "validUntil": "Valid until",
+      "contact": "Contact",
+      "acceptTitle": "Accept",
+      "acceptHint": "By accepting you confirm the quote with the amounts above.",
+      "name": "Name",
+      "comment": "Comment (optional)",
+      "accept": "Accept quote",
+      "accepting": "Accepting …",
+      "rejectTitle": "Reject",
+      "rejectHint": "Briefly explain why the quote does not fit.",
+      "reason": "Reason",
+      "reject": "Reject quote",
+      "rejecting": "Rejecting …",
+      "home": "Go to home page",
+      "errors": {
+        "generic": "The action could not be completed.",
+        "forbidden": "You do not have access to do this.",
+        "invalid": "The fields are invalid.",
+        "not_found": "The quote or link was not found.",
+        "conflict": "The quote has already been handled.",
+        "token": {
+          "expired": "The link has expired.",
+          "used": "The link has already been used."
+        },
+        "quote": {
+          "expired": "The quote has expired."
+        }
+      }
+    },
+    "errors": {
+      "generic": "The action could not be completed.",
+      "forbidden": "You do not have access to do this.",
+      "invalid": "The fields are invalid.",
+      "not_found": "The quote was not found.",
+      "conflict": "The quote is in a state that does not allow this action.",
+      "quote": {
+        "locked": "Sent quotes cannot be edited.",
+        "expired": "The quote has expired.",
+        "notDraft": "Only drafts can be sent.",
+        "notSent": "Only sent quotes can get a new link.",
+        "notAccepted": "Only accepted quotes can be converted.",
+        "conversionRace": "The quote changed. Refresh the page and try again."
+      },
+      "token": {
+        "expired": "The link has expired.",
+        "used": "The link has already been used."
+      }
+    }
+  }
+}

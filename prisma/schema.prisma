@@ -47,6 +47,8 @@ model Department {
   smsMessages        SmsMessage[]
   reminderRules      ReminderRule[]
   reminderDispatches ReminderDispatch[]
+  quotes             Quote[]
+  invoices           Invoice[]
 
   @@index([isActive])
 }
@@ -314,6 +316,8 @@ model Customer {
   maintenancePlans MaintenancePlan[]
   messageThreads   MessageThread[]
   documents        Document[]
+  quotes           Quote[]
+  invoices         Invoice[]
 
   users User[]
 
@@ -376,6 +380,8 @@ model Contact {
   smsMessages        SmsMessage[]
   channelPreferences ChannelPreference[]
   portalDelegation   PortalDelegation?
+  quotes              Quote[]
+  invoices            Invoice[]
 
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
@@ -443,6 +449,7 @@ model Product {
   workOrder     WorkOrder[]
   reportUnits   ReportUnit[]
   contractLines ContractLine[]
+  quotes        Quote[]
 
   /// Fysisk sted der utstyret står. Tomt betyr kundens primære adresse.
   siteId String?
@@ -668,6 +675,7 @@ model Contract {
 
   lines      ContractLine[]
   workOrders WorkOrder[]
+  quotes     Quote[]
 
   @@index([customerId])
   @@index([departmentId])
@@ -965,6 +973,8 @@ model WorkOrder {
   reviews           Review[]
   messageThreads    MessageThread[]
   smsMessages       SmsMessage[]
+  quotes            Quote[]
+  invoices          Invoice[]
 
   /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
   maintenanceOccurrence MaintenancePlanOccurrence?
@@ -1499,6 +1509,7 @@ model Report {
 
   units     ReportUnit[]
   revisions ReportRevision[]
+  invoices  Invoice[]
 
   @@unique([workOrderId, templateId])
   @@index([workOrderId])
@@ -2183,4 +2194,281 @@ model ModuleState {
   enabled   Boolean  @default(true)
   updatedAt DateTime @default(now()) @updatedAt
   updatedBy String?
+}
+
+// ---------------------------------------------------------------------------
+// Tilbud og fakturering (modulene `quotes` og `invoicing`)
+//
+// Modellene er bevisst selvstendige: en faktura kan peke på et tilbud, et
+// oppdrag eller en rapport, men beløpene ligger alltid lagret på fakturaen.
+// Det gjør historikken lesbar selv om kilden senere endres.
+// ---------------------------------------------------------------------------
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CREDITED
+}
+
+/// Hvordan en manuell betaling ble mottatt. Systemet har ingen PSP-integrasjon;
+/// alle betalinger registreres av et menneske.
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+/// Ett tilbud med linjer og en revisjonshistorikk. Versjonen økes hver gang
+/// tilbudet sendes eller klones, slik at kunden alltid kan knyttes til en
+/// bestemt utgave.
+model Quote {
+  id      String      @id @default(cuid())
+  /// Menneskelig tilbudsnummer. Tildeles når tilbudet opprettes.
+  quoteNumber String?  @unique
+  title       String
+  status      QuoteStatus @default(DRAFT)
+  version     Int         @default(1)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Navn som brukes dersom tilbudet ikke er knyttet til en kundekort ennå.
+  /// Konvertering oppretter da kunden.
+  customerName String?
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  /// Utstyret tilbudet gjelder. Kobles til oppdraget ved konvertering.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  currency String @default("NOK")
+  subtotal Decimal @db.Decimal(12, 2) @default(0)
+  vatTotal Decimal @db.Decimal(12, 2) @default(0)
+  total    Decimal @db.Decimal(12, 2) @default(0)
+  vatRate  Decimal @db.Decimal(5, 2) @default(25)
+
+  validUntil DateTime? @db.Date
+  notes      String?
+
+  createdById   String?
+  createdByName String?
+
+  /// Portalgodkjenning. Bare SHA-256-hashen lagres. Tokenet er kortlivet og
+  /// kan brukes én gang.
+  tokenHash      String?   @unique
+  tokenExpiresAt DateTime?
+  tokenUsedAt    DateTime?
+
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+  rejectedReason String?
+
+  /// Satt når et akseptert tilbud er konvertert til oppdrag. Unik hindrer at
+  /// to samtidige konverteringer lager hvert sitt oppdrag.
+  convertedWorkOrderId String?   @unique
+  convertedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines    QuoteLine[]
+  versions QuoteVersion[]
+  invoices Invoice[]
+
+  @@index([customerId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([validUntil])
+  @@index([workOrderId])
+  @@index([createdAt])
+}
+
+model QuoteLine {
+  id          String @id @default(cuid())
+  quoteId     String
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sortOrder   Int    @default(0)
+  description String
+  quantity    Decimal @db.Decimal(12, 2) @default(1)
+  unit        String  @default("stk")
+  unitPrice   Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+  lineTotal   Decimal @db.Decimal(12, 2) @default(0)
+  lineVat     Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([quoteId, sortOrder])
+}
+
+/// Uforanderlig snapshot av et tilbud ved innsending eller kloning. Linjene
+/// ligger i JSON fordi historikken skal være lesbar uten å følge relasjoner.
+model QuoteVersion {
+  id             String      @id @default(cuid())
+  quoteId        String
+  quote          Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  version        Int
+  status         QuoteStatus
+  title          String
+  snapshotJson   String
+  subtotal       Decimal @db.Decimal(12, 2)
+  vatTotal       Decimal @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+  vatRate        Decimal @db.Decimal(5, 2)
+  validUntil     DateTime? @db.Date
+  notes          String?
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime @default(now())
+
+  @@unique([quoteId, version])
+  @@index([quoteId, createdAt])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  /// Tildeles når fakturaen sendes. Unik på tvers av installasjonen.
+  invoiceNumber String?       @unique
+  status        InvoiceStatus @default(DRAFT)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  contactId  String?
+  contact    Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  reportId    String?
+  report      Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  quoteId     String?
+  quote       Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  currency String @default("NOK")
+  subtotal    Decimal @db.Decimal(12, 2) @default(0)
+  vatTotal    Decimal @db.Decimal(12, 2) @default(0)
+  total       Decimal @db.Decimal(12, 2) @default(0)
+  paidTotal   Decimal @db.Decimal(12, 2) @default(0)
+  creditedTotal Decimal @db.Decimal(12, 2) @default(0)
+  outstanding Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+
+  issueDate DateTime? @db.Date
+  dueDate   DateTime? @db.Date
+  notes     String?
+
+  sentAt     DateTime?
+  paidAt     DateTime?
+  creditedAt DateTime?
+  createdById   String?
+  createdByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines       InvoiceLine[]
+  payments    Payment[]
+  creditNotes CreditNote[]
+
+  @@index([customerId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([workOrderId])
+  @@index([quoteId])
+  @@index([createdAt])
+}
+
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  sortOrder   Int     @default(0)
+  description String
+  quantity    Decimal @db.Decimal(12, 2) @default(1)
+  unit        String  @default("stk")
+  unitPrice   Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+  lineTotal   Decimal @db.Decimal(12, 2) @default(0)
+  lineVat     Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([invoiceId, sortOrder])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Decimal       @db.Decimal(12, 2)
+  paidAt    DateTime      @db.Date
+  method    PaymentMethod @default(BANK_TRANSFER)
+  reference String?
+  note      String?
+  /// Klientens idempotensnøkkel. Samme nøkkel på samme faktura gir samme
+  /// betalingsrad, aldri et dobbeltbeløp.
+  idempotencyKey String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@unique([invoiceId, idempotencyKey])
+  @@index([invoiceId, paidAt])
+}
+
+model CreditNote {
+  id               String  @id @default(cuid())
+  creditNoteNumber String  @unique
+  invoiceId        String
+  invoice          Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount           Decimal @db.Decimal(12, 2)
+  vatAmount        Decimal @db.Decimal(12, 2)
+  total            Decimal @db.Decimal(12, 2)
+  reason           String?
+  issuedAt         DateTime @db.Date
+  createdById      String?
+  createdByName    String?
+  createdAt        DateTime @default(now())
+
+  @@index([invoiceId, issuedAt])
+}
+
+/// Én rad med faktureringsinnstillinger. MVA-satsen er redigerbar, men
+/// beløpene på en faktura fryses når den sendes.
+model BillingSettings {
+  id                  String @id @default("default")
+  vatRate             Decimal @db.Decimal(5, 2) @default(25)
+  invoiceDueDays      Int     @default(14)
+  quoteValidityDays   Int     @default(30)
+  approvalTokenTtlHours Int   @default(72)
+  invoicePrefix       String  @default("F")
+  nextInvoiceNumber   Int     @default(1)
+  creditNotePrefix    String  @default("K")
+  nextCreditNoteNumber Int    @default(1)
+  updatedAt           DateTime @default(now()) @updatedAt
+  updatedById         String?
 }
