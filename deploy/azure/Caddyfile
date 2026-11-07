@@ -1,0 +1,59 @@
+# Caddy for FSM-plattformen på Azure.
+#
+# Filen er en variant av deploy/proxy/Caddyfile. Forskjellen er at appen nås
+# på `app:3000` i Compose-nettverket i stedet for `127.0.0.1:3000`, og at
+# domenet leses fra FSM_DOMAIN. X-Forwarded-* overskrives fortsatt, slik at en
+# klient ikke kan spoofe IP eller protokoll.
+#
+# I env-filen:
+#   FSM_DOMAIN=fsm.example.no
+#   TRUST_PROXY_HOPS=1
+#
+# Body-grensen er 55 MB for vanlige opplastinger (50 MB PDF + multipart), og
+# 520 MB for kundeimport, som har en egen grense på 512 MiB i next.config.ts.
+# Appen håndhever sine egne grenser og svarer 413/507 der den skal.
+
+(fsm_proxy) {
+	reverse_proxy app:3000 {
+		# Overskriv, ikke append. Bare kantsonen skal bestemme disse.
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 300s
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}
+
+{$FSM_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	# Kundeimport kan være opptil 512 MiB (se next.config.ts). Uten dette ville
+	# den globale 55 MB-grensen stoppet en gyldig import med 413.
+	handle /api/innstillinger/kunder/import* {
+		request_body {
+			max_size 520MB
+		}
+		import fsm_proxy
+	}
+
+	# Alt annet: litt over appens 50 MB-grense for PDF, slik at appen selv kan
+	# svare med en tydelig 413.
+	handle {
+		request_body {
+			max_size 55MB
+		}
+		import fsm_proxy
+	}
+}

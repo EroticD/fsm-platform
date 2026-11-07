@@ -178,6 +178,8 @@ nginx-eksempel, feilsøking av 502 og flere proxy-detaljer står i
 [`deploy/proxy/README.md`](deploy/proxy/README.md) og
 [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
+Azure-drift med VM, Docker Compose og PostgreSQL Flexible Server: se [`docs/AZURE.md`](docs/AZURE.md).
+
 ## Flytte database og data
 
 Produksjons-Compose bruker to navngitte volumer:
