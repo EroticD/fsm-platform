@@ -67,7 +67,7 @@ test("kundebestilling ender i kontorets bookingkø og kan avlyses", async ({
 
   const submit = page
     .locator("#booking-form")
-    .getByRole("button", { name: /Bekreft bookingen|Confirm booking/ });
+    .getByRole("button", { name: /Send forespørselen|Send request/ });
   await expect(submit).toBeEnabled();
   await submit.click();
 
