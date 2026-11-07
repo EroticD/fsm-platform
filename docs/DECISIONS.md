@@ -546,4 +546,10 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   notater, tidsstempler og montører; nye dager blir `PLANNED` uten kopiert
   tid. Eksisterende visiter får `travelFromEndedAt = null` til de lukkes
   manuelt eller av neste `EN_ROUTE`.
+- **Eldre SLA-klokker ryddes, ikke slettes.** `npm run sla:cleanup` finner
+  ikke-kansellerte klokker uten aktiv, datogyldig avtale med aktiv policy –
+  eller der avtalen nå gir en annen policy – og setter dem til `CANCELLED` i
+  en transaksjon med revisjonslogg. Tørrkjøring er standard. Klokker med
+  gyldig dekning og allerede kansellerte klokker røres ikke. Kansellerte
+  klokker ignoreres av sveipingen, dispatch-prioritering og SLA-panelet.
 

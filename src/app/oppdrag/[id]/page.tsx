@@ -463,6 +463,7 @@ export default async function AdminWorkOrderPage({
         orderBy: [{ startsAt: "asc" }, { sequence: "asc" }],
       },
       slaClocks: {
+        where: { state: { not: "CANCELLED" } },
         orderBy: { startedAt: "desc" },
         take: 5,
         include: { policy: { select: { id: true, name: true } } },

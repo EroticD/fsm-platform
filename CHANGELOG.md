@@ -5,6 +5,32 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Arbeidsdager, tid og SLA
+- Oppdrag planlegges nå som rene datoer: **Dato for utførelse** og eventuell
+  **Til dato**. Hver dato blir én arbeidsdag med egen intern økt, også når
+  oppdraget strekker seg over flere dager. Kontoret oppretter, flytter eller
+  sletter ikke enkeltdager; datoperioden avstemmes automatisk, og dager med
+  startet eller registrert tid gir en tydelig konflikt i stedet for sletting.
+- Kontorsiden har fått skrivebeskyttet **Dager og tid** med én rad per
+  arbeidsdag, status, tidsstempler og summer for arbeid, kjøring til, kjøring
+  fra og totalt. Den gamle visittplanleggingen er fjernet fra oppdragsdetaljen.
+- Feltkortet følger **På vei → På stedet → Ferdig**, deretter **Avslutt
+  kjøring**. Tiden registreres per dag. Neste dags økt kan startes selv om en
+  tidligere dag venter på avsluttet kjøring; neste `EN_ROUTE` lukker forrige
+  reisesegment, slik at flere jobber samme dag deler reisetid uten dobbelttelling.
+- Summeringen inkluderer all reisetid. Kalenderen tegner hver arbeidsdag som
+  egen hendelse med faktisk start, slutt og varighet når tid er registrert.
+- SLA starter bare når oppdraget har en aktiv, datogyldig avtale med en aktiv
+  SLA-policy. Det er ikke lenger fallback til avdelingens standardpolicy eller
+  en global policy. Respons registreres på `EN_ROUTE`/`ON_SITE`, løsning på
+  `DONE`; returkjøring flytter ikke klokken.
+- Ny opprydding `npm run sla:cleanup` (tørrkjøring som standard, `--apply` for
+  å skrive) kansellerer ikke-kansellerte SLA-klokker uten gyldig avtaledekning
+  eller med en annen policy enn avtalen gir. Hver endring revisjonslogges, og
+  kansellerte klokker ignoreres av sveiping, dispatch og SLA-panelet.
+- Engangsbackfill `npm run visits:backfill:daily` splitter eldre flerdagers
+  heldagsvisiter til én økt per dag uten å kopiere tidsstempler.
+
 ### Kalender: FullCalendar 7
 - Kalenderen bruker nå `fullcalendar` 7.1.4 og `temporal-polyfill` i stedet for
   de fire `@fullcalendar/*` v6-pakkene. Klassisk tema registreres som

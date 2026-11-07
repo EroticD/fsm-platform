@@ -95,7 +95,7 @@ Fornyelse er `AUTO` (automatisk) eller `MANUAL` (kontoret fornyer). `Neste servi
 | `MET` | Oppfylt | Respons og løsning er registrert innenfor fristen. |
 | `CANCELLED` | Kansellert | Oppdraget ble kansellert, og klokken er avsluttet. |
 
-SLA-frister regnes med avdelingens åpningstider og helligdager. Første «På vei» eller «På stedet» registrerer respons; «Fullført» registrerer løsning. Mangler aktiv SLA-policy, vises ingen SLA.
+SLA-frister regnes med avdelingens åpningstider og helligdager. Første «På vei» eller «På stedet» registrerer respons; «Ferdig» registrerer løsning, og «Avslutt kjøring» flytter ikke klokken. En SLA-klokke finnes bare når oppdraget har en aktiv, datogyldig avtale med en aktiv SLA-policy. Uten en slik avtale vises ingen SLA.
 
 > **Merk:** Systemet beregner ikke priser eller faktura. Prislister og avtalebeløp er referansedata.
 
