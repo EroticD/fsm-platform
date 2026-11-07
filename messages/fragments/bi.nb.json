@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "routes": {
+      "lonnsomhet": "Lønnsomhet"
+    }
+  },
+  "bi": {
+    "title": "Lønnsomhet",
+    "subtitle": "Oppdrag, tid, first-time-fix og estimert inntekt per avdeling, kunde og montør.",
+    "export": "Eksporter CSV",
+    "errors": {
+      "invalid": "Filterne er ugyldige. Kontroller perioden og prøv igjen.",
+      "forbidden": "Du har ikke tilgang til lønnsomhetsrapporten.",
+      "tooLarge": "Datasettet er for stort. Velg en kortere periode eller et smalere filter."
+    },
+    "filters": {
+      "title": "Filtre",
+      "from": "Fra",
+      "to": "Til",
+      "department": "Avdeling",
+      "customer": "Kunde",
+      "technician": "Montør",
+      "allDepartments": "Alle avdelinger",
+      "allCustomers": "Alle kunder",
+      "allTechnicians": "Alle montører",
+      "apply": "Vis",
+      "reset": "Nullstill"
+    },
+    "estimate": {
+      "title": "Inntekt og resultat er estimater",
+      "description": "Faktisk omsetning finnes ikke før faktureringsmodulen (REV-02) er installert. Inntekten beregnes fra timepris i avtalens prisliste og arbeidstid fra visittene. Reisetid vises separat og inngår ikke i inntektsestimatet.",
+      "basis": "Grunnlag: {basis}. {coverage} av oppdragene har en timepris.",
+      "costMissing": "Resultat er ikke beregnet fordi intern kostnadssats mangler.",
+      "costConfigured": "Resultat er beregnet med intern kostnadssats {rate} per time."
+    },
+    "basis": {
+      "contract_price_list": "timepris fra avtalens prisliste",
+      "partial": "timepris mangler for noen oppdrag",
+      "missing": "ingen timepris funnet"
+    },
+    "capacityBasis": {
+      "capacity_plan": "eksplisitte kapasitetsplaner",
+      "availability": "registrert arbeidstid",
+      "business_hours": "avdelingens åpningstider",
+      "default_8h": "standard 8-timersdag",
+      "mixed": "en blanding av kapasitetsplaner og arbeidstid",
+      "none": "ingen tilgjengelighet"
+    },
+    "kpis": {
+      "title": "Nøkkeltall",
+      "orders": "Oppdrag",
+      "ordersSub": "{completed} fullført · {cancelled} kansellert",
+      "completionRate": "Fullføringsgrad",
+      "completionRateSub": "Fullførte oppdrag av alle i perioden",
+      "firstTimeFix": "First-time-fix",
+      "firstTimeFixSub": "{fixed} av {eligible} målbare oppdrag",
+      "hours": "Totaltimer",
+      "hoursSub": "{work} t arbeid · {travel} t reise",
+      "utilisation": "Utnyttelse",
+      "utilisationSub": "av {available} t tilgjengelig tid",
+      "revenue": "Estimert inntekt",
+      "revenueSub": "fra {orders} oppdrag med timepris",
+      "profit": "Estimert resultat",
+      "profitSub": "etter intern kostnadssats {rate}/t",
+      "profitMissing": "ikke beregnet – mangler kostnadssats"
+    },
+    "chart": {
+      "title": "Timer per montør",
+      "description": "Søylene viser total arbeids- og reisetid. Tilgjengelighet er basert på {basis}.",
+      "hoursOf": "{hours} t · {utilisation} utnyttelse",
+      "hoursAria": "{name}: {hours} timer, {utilisation} utnyttelse",
+      "utilisationAria": "{name}: {percent} utnyttelse",
+      "note": "Arbeid {work} t og reise {travel} t er inkludert i totalen. Delt visitt telles for hver montør i tabellen, men bare én gang i totalen."
+    },
+    "empty": {
+      "period": "Ingen data i perioden.",
+      "title": "Ingen oppdrag i perioden",
+      "description": "Juster perioden eller velg en annen avdeling, kunde eller montør."
+    },
+    "tables": {
+      "technicians": "Per montør",
+      "techniciansDescription": "Oppdrag, timer, utnyttelse og estimert inntekt.",
+      "customers": "Per kunde",
+      "customersDescription": "Oppdrag, timer og estimert inntekt per kunde.",
+      "orders": "Per oppdrag",
+      "ordersDescription": "{count} oppdrag i perioden med tid, first-time-fix og estimert inntekt."
+    },
+    "table": {
+      "technician": "Montør",
+      "customer": "Kunde",
+      "order": "Oppdrag",
+      "orders": "Oppdrag",
+      "work": "Arbeid",
+      "travel": "Reise",
+      "total": "Totalt",
+      "available": "Tilgjengelig",
+      "utilisation": "Utnyttelse",
+      "firstTimeFix": "First-time-fix",
+      "estimatedRevenue": "Estimert inntekt",
+      "completedOf": "{completed} av {total} fullført",
+      "status": "Status"
+    },
+    "status": {
+      "PLANNED": "Planlagt",
+      "IN_PROGRESS": "Pågår",
+      "WAITING": "Venter",
+      "COMPLETED": "Fullført",
+      "PENDING": "Avventer",
+      "CANCELLED": "Kansellert",
+      "OPEN": "Åpen"
+    },
+    "firstTimeFix": {
+      "fixed": "Fikset første gang",
+      "not_fixed": "Avvik – ikke første gang",
+      "not_measurable": "Ikke målbar"
+    }
+  }
+}

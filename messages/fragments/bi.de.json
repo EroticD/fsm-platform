@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "routes": {
+      "lonnsomhet": "Wirtschaftlichkeit"
+    }
+  },
+  "bi": {
+    "title": "Wirtschaftlichkeit",
+    "subtitle": "Arbeitsaufträge, Zeit, First-Time-Fix und geschätzter Umsatz nach Abteilung, Kunde und Techniker.",
+    "export": "CSV exportieren",
+    "errors": {
+      "invalid": "Die Filter sind ungültig. Prüfen Sie den Zeitraum und versuchen Sie es erneut.",
+      "forbidden": "Sie haben keinen Zugriff auf den Wirtschaftlichkeitsbericht.",
+      "tooLarge": "Der Datensatz ist zu groß. Wählen Sie einen kürzeren Zeitraum oder einen engeren Filter."
+    },
+    "filters": {
+      "title": "Filter",
+      "from": "Von",
+      "to": "Bis",
+      "department": "Abteilung",
+      "customer": "Kunde",
+      "technician": "Techniker",
+      "allDepartments": "Alle Abteilungen",
+      "allCustomers": "Alle Kunden",
+      "allTechnicians": "Alle Techniker",
+      "apply": "Anzeigen",
+      "reset": "Zurücksetzen"
+    },
+    "estimate": {
+      "title": "Umsatz und Ergebnis sind Schätzungen",
+      "description": "Tatsächlicher Umsatz ist erst verfügbar, wenn das Fakturierungsmodul (REV-02) installiert ist. Der Umsatz wird aus dem Stundensatz der Vertragspreisliste und der Arbeitszeit aus den Besuchen berechnet. Fahrzeit wird separat angezeigt und nicht in die Umsatzschätzung einbezogen.",
+      "basis": "Grundlage: {basis}. {coverage} der Arbeitsaufträge haben einen Stundensatz.",
+      "costMissing": "Das Ergebnis wird nicht berechnet, weil der interne Kostensatz fehlt.",
+      "costConfigured": "Das Ergebnis wird mit einem internen Kostensatz von {rate} pro Stunde berechnet."
+    },
+    "basis": {
+      "contract_price_list": "Stundensatz aus der Vertragspreisliste",
+      "partial": "Stundensatz fehlt für einige Arbeitsaufträge",
+      "missing": "kein Stundensatz gefunden"
+    },
+    "capacityBasis": {
+      "capacity_plan": "explizite Kapazitätspläne",
+      "availability": "erfasste Arbeitszeit",
+      "business_hours": "Öffnungszeiten der Abteilung",
+      "default_8h": "ein Standard-8-Stunden-Tag",
+      "mixed": "eine Mischung aus Kapazitätsplänen und Arbeitszeit",
+      "none": "keine Verfügbarkeit"
+    },
+    "kpis": {
+      "title": "Kennzahlen",
+      "orders": "Arbeitsaufträge",
+      "ordersSub": "{completed} abgeschlossen · {cancelled} storniert",
+      "completionRate": "Abschlussquote",
+      "completionRateSub": "Abgeschlossene Arbeitsaufträge von allen im Zeitraum",
+      "firstTimeFix": "First-Time-Fix",
+      "firstTimeFixSub": "{fixed} von {eligible} messbaren Arbeitsaufträgen",
+      "hours": "Gesamtstunden",
+      "hoursSub": "{work} Std. Arbeit · {travel} Std. Fahrt",
+      "utilisation": "Auslastung",
+      "utilisationSub": "von {available} Std. verfügbarer Zeit",
+      "revenue": "Geschätzter Umsatz",
+      "revenueSub": "aus {orders} Arbeitsaufträgen mit Stundensatz",
+      "profit": "Geschätztes Ergebnis",
+      "profitSub": "nach internem Kostensatz von {rate}/Std.",
+      "profitMissing": "nicht berechnet – Kostensatz fehlt"
+    },
+    "chart": {
+      "title": "Stunden pro Techniker",
+      "description": "Die Balken zeigen die gesamte Arbeits- und Fahrzeit. Die Verfügbarkeit basiert auf: {basis}.",
+      "hoursOf": "{hours} Std. · {utilisation} Auslastung",
+      "hoursAria": "{name}: {hours} Stunden, {utilisation} Auslastung",
+      "utilisationAria": "{name}: {percent} Auslastung",
+      "note": "Arbeit {work} Std. und Fahrt {travel} Std. sind in der Summe enthalten. Ein geteilter Besuch zählt in der Tabelle für jeden Techniker, in der Summe aber nur einmal."
+    },
+    "empty": {
+      "period": "Keine Daten im Zeitraum.",
+      "title": "Keine Arbeitsaufträge im Zeitraum",
+      "description": "Passen Sie den Zeitraum an oder wählen Sie eine andere Abteilung, einen anderen Kunden oder Techniker."
+    },
+    "tables": {
+      "technicians": "Pro Techniker",
+      "techniciansDescription": "Arbeitsaufträge, Stunden, Auslastung und geschätzter Umsatz.",
+      "customers": "Pro Kunde",
+      "customersDescription": "Arbeitsaufträge, Stunden und geschätzter Umsatz pro Kunde.",
+      "orders": "Pro Arbeitsauftrag",
+      "ordersDescription": "{count} Arbeitsaufträge im Zeitraum mit Zeit, First-Time-Fix und geschätztem Umsatz."
+    },
+    "table": {
+      "technician": "Techniker",
+      "customer": "Kunde",
+      "order": "Arbeitsauftrag",
+      "orders": "Arbeitsaufträge",
+      "work": "Arbeit",
+      "travel": "Fahrt",
+      "total": "Gesamt",
+      "available": "Verfügbar",
+      "utilisation": "Auslastung",
+      "firstTimeFix": "First-Time-Fix",
+      "estimatedRevenue": "Geschätzter Umsatz",
+      "completedOf": "{completed} von {total} abgeschlossen",
+      "status": "Status"
+    },
+    "status": {
+      "PLANNED": "Geplant",
+      "IN_PROGRESS": "Läuft",
+      "WAITING": "Wartet",
+      "COMPLETED": "Abgeschlossen",
+      "PENDING": "Ausstehend",
+      "CANCELLED": "Storniert",
+      "OPEN": "Offen"
+    },
+    "firstTimeFix": {
+      "fixed": "Beim ersten Mal behoben",
+      "not_fixed": "Abweichung – nicht beim ersten Mal",
+      "not_measurable": "Nicht messbar"
+    }
+  }
+}
