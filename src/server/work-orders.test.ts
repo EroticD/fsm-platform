@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessUser } from "@/lib/access";
-import { osloDayStart } from "@/lib/dates";
 import { defaultVisitWindow } from "@/lib/visit-window";
 
 const mocks = vi.hoisted(() => ({
@@ -33,13 +32,25 @@ const mocks = vi.hoisted(() => ({
   },
   getDefaultDepartmentId: vi.fn(),
   createDefaultVisit: vi.fn(),
+  ensureDailyVisits: vi.fn(),
+  reconcileDailyVisits: vi.fn(),
   recomputeWorkOrderSchedule: vi.fn(),
+  DailyVisitConflictError: class DailyVisitConflictError extends Error {
+    detail: string;
+    constructor(detail: string) {
+      super(detail);
+      this.detail = detail;
+    }
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("./visits", () => ({
   createDefaultVisit: mocks.createDefaultVisit,
+  ensureDailyVisits: mocks.ensureDailyVisits,
+  reconcileDailyVisits: mocks.reconcileDailyVisits,
   recomputeWorkOrderSchedule: mocks.recomputeWorkOrderSchedule,
+  DailyVisitConflictError: mocks.DailyVisitConflictError,
 }));
 vi.mock("./sla", () => ({
   startClock: vi.fn(async () => null),
@@ -143,6 +154,18 @@ describe("work-orders-tjenesten", () => {
     vi.clearAllMocks();
     mocks.getDefaultDepartmentId.mockResolvedValue("dep-default");
     mocks.createDefaultVisit.mockResolvedValue(undefined);
+    mocks.ensureDailyVisits.mockResolvedValue({
+      created: 0,
+      removed: 0,
+      preserved: 0,
+      dates: [],
+    });
+    mocks.reconcileDailyVisits.mockResolvedValue({
+      created: 0,
+      removed: 0,
+      preserved: 0,
+      dates: [],
+    });
     mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
     mocks.prisma.workOrder.count.mockResolvedValue(0);
     mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
@@ -1835,12 +1858,24 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     vi.clearAllMocks();
     mocks.getDefaultDepartmentId.mockResolvedValue("dep-default");
     mocks.createDefaultVisit.mockResolvedValue(undefined);
+    mocks.ensureDailyVisits.mockResolvedValue({
+      created: 0,
+      removed: 0,
+      preserved: 0,
+      dates: [],
+    });
+    mocks.reconcileDailyVisits.mockResolvedValue({
+      created: 0,
+      removed: 0,
+      preserved: 0,
+      dates: [],
+    });
     mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
     mocks.prisma.workOrder.count.mockResolvedValue(0);
     mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
   });
 
-  it("oppretter en firetimers standardvisitt med montører når oppdraget får dato", async () => {
+  it("oppretter én heldags arbeidsøkt per dag med montører når oppdraget får dato", async () => {
     mocks.prisma.user.findMany.mockResolvedValue([{ id: "tech-1" }]);
     const tx = withTransaction();
 
@@ -1858,18 +1893,16 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
 
     expect(result).toEqual({ ok: true, id: "wo-new" });
-    const createWindow = defaultVisitWindow(new Date("2026-10-24"));
-    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
+    expect(mocks.ensureDailyVisits).toHaveBeenCalledWith(tx, {
       workOrderId: "wo-new",
-      startsAt: createWindow.startsAt,
-      endsAt: createWindow.endsAt,
-      allDay: false,
+      scheduledFor: new Date("2026-10-24T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-25T00:00:00.000Z"),
       technicianIds: ["tech-1"],
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
   });
 
-  it("flytter den ene visiten når kalenderdatoen endres", async () => {
+  it("avstemmer dagøktene når kalenderdatoen endres", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       status: "OPEN",
@@ -1896,18 +1929,17 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(tx.visit.update).toHaveBeenCalledWith({
-      where: { id: "visit-1" },
-      data: {
-        startsAt: osloDayStart("2026-11-02"),
-        endsAt: osloDayStart("2026-11-05"),
-        allDay: true,
-      },
+    expect(mocks.reconcileDailyVisits).toHaveBeenCalledWith(tx, {
+      workOrderId: "wo-1",
+      scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
+      scheduledTo: new Date("2026-11-04T00:00:00.000Z"),
+      technicianIds: ["tech-1"],
     });
+    expect(tx.visit.update).not.toHaveBeenCalled();
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-1");
   });
 
-  it("avviser datoflytting når oppdraget har flere visiter", async () => {
+  it("beholder søskendager når oppdraget allerede har flere visiter", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       status: "OPEN",
@@ -1934,16 +1966,13 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
       newDate: "2026-11-02",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: "ugyldig-dato",
-      detail: "visits.errors.multipleVisits",
-    });
-    expect(tx.workOrder.updateMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
+    expect(mocks.reconcileDailyVisits).toHaveBeenCalledTimes(1);
+    expect(tx.visit.delete).not.toHaveBeenCalled();
     expect(tx.visit.update).not.toHaveBeenCalled();
   });
 
-  it("avviser datoflytting når en visitt er på vei eller på stedet", async () => {
+  it("avviser datoflytting når en dag er på vei eller på stedet", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       status: "OPEN",
@@ -1964,6 +1993,9 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     tx.visit.findMany.mockResolvedValue([
       { id: "visit-1", status: "EN_ROUTE" },
     ]);
+    mocks.reconcileDailyVisits.mockRejectedValue(
+      new mocks.DailyVisitConflictError("visits.errors.visitInProgress"),
+    );
 
     const result = await updateWorkOrderDate(actor(), "wo-1", {
       newDate: "2026-11-02",
@@ -2086,7 +2118,7 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
   });
 
-  it("oppdaterer den ene visiten når redigeringen endrer datoene", async () => {
+  it("avstemmer dagøktene når redigeringen endrer datoene", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -2119,17 +2151,16 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(tx.visit.update).toHaveBeenCalledWith({
-      where: { id: "visit-1" },
-      data: {
-        startsAt: osloDayStart("2026-11-02"),
-        endsAt: osloDayStart("2026-11-03"),
-        allDay: true,
-      },
+    expect(mocks.reconcileDailyVisits).toHaveBeenCalledWith(tx, {
+      workOrderId: "wo-1",
+      scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
+      scheduledTo: null,
+      technicianIds: [],
     });
+    expect(tx.visit.update).not.toHaveBeenCalled();
   });
 
-  it("avviser datoredigering når oppdraget har flere visiter", async () => {
+  it("beholder eksisterende dager når datoredigeringen bare legger til nye", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -2165,12 +2196,9 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
       tagNames: [],
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: "ugyldig-data",
-      detail: "visits.errors.multipleVisits",
-    });
-    expect(tx.workOrder.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
+    expect(mocks.reconcileDailyVisits).toHaveBeenCalledTimes(1);
+    expect(tx.visit.delete).not.toHaveBeenCalled();
   });
 
   it("kopierer visiter og visittmontører ved kloning", async () => {

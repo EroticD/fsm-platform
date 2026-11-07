@@ -376,6 +376,9 @@ export default async function AdminCreateWorkOrderPage({
                 )}
               </div>
             </div>
+            <p className="mt-3 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-medium leading-5 text-[#5e6356]">
+              {t("orders.new.workdayHint")}
+            </p>
           </section>
 
           {/* RESSURSER */}

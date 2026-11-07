@@ -117,6 +117,11 @@ type VisitForCalendar = {
   endsAt: Date;
   allDay: boolean;
   status: string;
+  /** Faktiske arbeidstider fra feltflyten. */
+  enRouteAt?: Date | null;
+  onSiteAt?: Date | null;
+  doneAt?: Date | null;
+  travelFromEndedAt?: Date | null;
   technicians: Array<{
     user: { name: string | null; email?: string | null };
   }>;
@@ -144,9 +149,14 @@ function isClosedWorkOrderStatus(status: string): boolean {
 /**
  * Gjør en visitt om til én FullCalendar-hendelse.
  *
- * Tidsstyrte visiter beholder klokkeslettet (`allDay: false`) og sendes som
- * ISO-tidspunkt, slik at nettleseren viser dem i sin lokale tidssone.
- * Heldagsvisiter sendes som rene datoer med eksklusiv sluttdato, slik
+ * Når montøren har registrert faktisk arbeid (`onSiteAt` og/eller `doneAt`),
+ * vises dagen som en tidsstyrt hendelse med reell varighet. Da ser kontoret
+ * hvor lenge arbeidet faktisk varte, ikke bare den planlagte arbeidsdagen.
+ * En dag som ennå ikke er startet, vises som heldagsdato.
+ *
+ * Tidsstyrte planlagte visiter beholder klokkeslettet (`allDay: false`) og
+ * sendes som ISO-tidspunkt, slik at nettleseren viser dem i sin lokale
+ * tidssone. Heldagsvisiter sendes som rene datoer med eksklusiv sluttdato, slik
  * FullCalendar forventer. Datoene regnes i Europe/Oslo, fordi visittene lagres
  * som Oslo-midnatt og sommertid ellers kan flytte en dag.
  *
@@ -155,6 +165,7 @@ function isClosedWorkOrderStatus(status: string): boolean {
  */
 export function toVisitCalendarEvent(
   visit: VisitForCalendar,
+  options: { now?: Date } = {},
 ): CalendarEventData | null {
   if (
     !(visit.startsAt instanceof Date) ||
@@ -166,10 +177,31 @@ export function toVisitCalendarEvent(
     return null;
   }
 
+  const now = options.now ?? new Date();
+  const hasActualTime = Boolean(
+    visit.enRouteAt || visit.onSiteAt || visit.doneAt || visit.travelFromEndedAt,
+  );
   let start: string;
   let end: string;
+  let allDay = visit.allDay;
 
-  if (visit.allDay) {
+  if (hasActualTime) {
+    // Fullført jobb viser total tid: tilkjøring, arbeid og retur/viderekjøring.
+    // Er returkjøringen ikke avsluttet ennå, stopper hendelsen ved doneAt.
+    const actualStart = visit.enRouteAt ?? visit.onSiteAt ?? visit.startsAt;
+    const actualEnd =
+      visit.travelFromEndedAt ?? visit.doneAt ?? now;
+    if (
+      Number.isNaN(actualStart.getTime()) ||
+      Number.isNaN(actualEnd.getTime()) ||
+      actualEnd.getTime() <= actualStart.getTime()
+    ) {
+      return null;
+    }
+    start = actualStart.toISOString();
+    end = actualEnd.toISOString();
+    allDay = false;
+  } else if (visit.allDay) {
     start = dateOnlyInOslo(visit.startsAt);
     const lastDay = dateOnlyInOslo(
       new Date(visit.endsAt.getTime() - 1),
@@ -198,7 +230,7 @@ export function toVisitCalendarEvent(
     title: visit.workOrder.title,
     start,
     end,
-    allDay: visit.allDay,
+    allDay,
     color: workOrderStatusColor(visit.workOrder.status),
     editable: movable,
     startEditable: movable,

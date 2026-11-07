@@ -97,7 +97,7 @@ The renewal mode is `AUTO` (renews automatically) or `MANUAL` (must be renewed b
 | `MET` | Met | Response and resolution were recorded within the deadline. |
 | `CANCELLED` | Cancelled | The work order was cancelled and the clock stopped. |
 
-SLA deadlines are calculated using the department's business hours and holidays. The first "On the way" or "On site" records the response. "Completed" on the visit or work order records the resolution. If there is no active SLA policy, no SLA is shown.
+SLA deadlines are calculated using the department's business hours and holidays. The first "En route" or "On site" records the response. "Done" on the workday records the resolution; "Finish travel" does not move the clock. An SLA clock exists only when the work order has an active, date-valid agreement with an active SLA policy. Without that agreement, no SLA is shown.
 
 > **Note:** The system does not calculate prices or invoices. Price lists and contract amounts are reference data.
 

@@ -68,6 +68,9 @@ export type TechnicianMapPoint = {
   updatedAt: string;
   lat: number;
   lng: number;
+  /** Valgfri lenke fra markøren, f.eks. til montørens oppdrag. */
+  href?: string;
+  linkLabel?: string;
 };
 
 /**
@@ -91,6 +94,7 @@ export default function WorkOrderMap({
   listHint,
   layerLabels,
   settings,
+  mapClassName,
 }: {
   points: WorkOrderMapPoint[];
   technicians?: TechnicianMapPoint[];
@@ -103,6 +107,8 @@ export default function WorkOrderMap({
   listId: string;
   /** Kort skjermleserhint om forholdet mellom kartet og listen. */
   listHint: string;
+  /** Overstyrer høyden når kartet brukes i en kompakt dashbordflate. */
+  mapClassName?: string;
   layerLabels: {
     osm: string;
     topo: string;
@@ -364,9 +370,29 @@ export default function WorkOrderMap({
             fillColor: "#d8ff3e",
             fillOpacity: 1,
           });
-          marker.bindPopup(
-            `${technician.name} · ${technician.status} · ${technician.updatedAt}`,
-          );
+
+          // Popupen bygges som DOM med textContent, ikke som HTML-streng, slik
+          // at navn fra databasen aldri kan tolkes som markup.
+          const popup = document.createElement("div");
+          popup.className = "work-order-map-popup";
+          const name = document.createElement("strong");
+          name.textContent = technician.name;
+          popup.appendChild(name);
+
+          const status = document.createElement("div");
+          status.className = "work-order-map-popup-meta";
+          status.textContent = `${technician.status} · ${technician.updatedAt}`;
+          popup.appendChild(status);
+
+          if (technician.href) {
+            const link = document.createElement("a");
+            link.href = technician.href;
+            link.className = "work-order-map-popup-link";
+            link.textContent = `${technician.linkLabel ?? openLabel} →`;
+            popup.appendChild(link);
+          }
+
+          marker.bindPopup(popup);
           marker.bindTooltip(technician.name, { direction: "top" });
           technicianLayer.addLayer(marker);
         }
@@ -456,9 +482,12 @@ export default function WorkOrderMap({
         aria-describedby={`${listId}-hint`}
         aria-controls={listId}
         tabIndex={0}
-        className="z-0 h-[420px] w-full overflow-hidden rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] sm:h-[520px]"
+        className={
+          mapClassName ??
+          "z-0 h-[420px] w-full overflow-hidden rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] sm:h-[520px]"
+        }
       />
-      {points.length === 0 && (
+      {points.length === 0 && technicians.length === 0 && (
         <p className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 text-sm text-[var(--muted,#62685f)]">
           {noPointsLabel}
         </p>

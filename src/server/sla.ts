@@ -22,6 +22,7 @@ import {
   slaStateAt,
 } from "@/lib/sla";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { todayUtc } from "@/lib/dates";
 import { notifyWorkOrderEvent } from "@/server/notifications";
 import {
   can,
@@ -72,12 +73,16 @@ function deadlineFor(
 }
 
 /**
- * Finner policyen som gjelder for et oppdrag: avtalens policy først, deretter
- * en aktiv avtale for kunden, og til slutt avdelingens standardpolicy.
+ * Finner policyen som gjelder for et oppdrag.
+ *
+ * En SLA-klokke kan bare starte når oppdraget har en aktiv avtale med en aktiv
+ * SLA-policy. Det finnes bevisst ingen fallback til avdelingens eller en global
+ * standardpolicy: kunder uten serviceavtale skal ikke få en klokke.
  */
 export async function resolveSlaPolicyId(
   tx: Tx,
   workOrderId: string,
+  now = new Date(),
 ): Promise<{ policyId: string; calendarDepartmentId: string | null } | null> {
   const workOrder = await tx.workOrder.findUnique({
     where: { id: workOrderId },
@@ -89,6 +94,8 @@ export async function resolveSlaPolicyId(
         select: {
           id: true,
           status: true,
+          startDate: true,
+          endDate: true,
           slaPolicyId: true,
         },
       },
@@ -96,17 +103,27 @@ export async function resolveSlaPolicyId(
   });
   if (!workOrder) return null;
 
-  const isUsable = async (policyId: string | null) => {
+  const today = todayUtc(now);
+  const contractIsActive = (contract: {
+    status: string;
+    startDate: Date;
+    endDate: Date | null;
+  }) =>
+    contract.status === "ACTIVE" &&
+    contract.startDate <= today &&
+    (!contract.endDate || contract.endDate >= today);
+
+  const usablePolicy = async (policyId: string | null) => {
     if (!policyId) return null;
-    const policy = await tx.slaPolicy.findFirst({
+    return tx.slaPolicy.findFirst({
       where: { id: policyId, isActive: true },
       select: { id: true, departmentId: true },
     });
-    return policy;
   };
 
-  if (workOrder.contract?.status === "ACTIVE") {
-    const policy = await isUsable(workOrder.contract.slaPolicyId);
+  // Oppdragets egen avtale er sterkest. Datoene må fortsatt være gyldige.
+  if (workOrder.contract && contractIsActive(workOrder.contract)) {
+    const policy = await usablePolicy(workOrder.contract.slaPolicyId);
     if (policy) {
       return {
         policyId: policy.id,
@@ -115,9 +132,11 @@ export async function resolveSlaPolicyId(
     }
   }
 
+  // Manuelt opprettede oppdrag for en kunde med aktiv avtale arver avtalens
+  // policy. Vi prøver alle gyldige avtaler, slik at én deaktivert policy ikke
+  // skjuler en annen gyldig avtale for samme kunde.
   if (workOrder.customerId) {
-    const today = new Date();
-    const contract = await tx.contract.findFirst({
+    const contracts = await tx.contract.findMany({
       where: {
         customerId: workOrder.customerId,
         status: "ACTIVE",
@@ -127,35 +146,78 @@ export async function resolveSlaPolicyId(
       },
       orderBy: { startDate: "desc" },
       select: { slaPolicyId: true },
+      take: 20,
     });
-    const policy = await isUsable(contract?.slaPolicyId ?? null);
-    if (policy) {
-      return {
-        policyId: policy.id,
-        calendarDepartmentId: policy.departmentId ?? workOrder.departmentId,
-      };
+    for (const contract of contracts) {
+      const policy = await usablePolicy(contract.slaPolicyId);
+      if (policy) {
+        return {
+          policyId: policy.id,
+          calendarDepartmentId: policy.departmentId ?? workOrder.departmentId,
+        };
+      }
     }
   }
 
-  // Avdelingens egen policy går foran en global standardpolicy.
-  const departmentPolicy =
-    (await tx.slaPolicy.findFirst({
-      where: { isActive: true, departmentId: workOrder.departmentId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, departmentId: true },
-    })) ??
-    (await tx.slaPolicy.findFirst({
-      where: { isActive: true, departmentId: null },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, departmentId: true },
-    }));
-  if (!departmentPolicy) return null;
+  return null;
+}
 
-  return {
-    policyId: departmentPolicy.id,
-    calendarDepartmentId:
-      departmentPolicy.departmentId ?? workOrder.departmentId,
-  };
+/**
+ * Er den eksplisitte policyen faktisk dekket av en aktiv avtale på oppdraget?
+ * Brukes når en anroper (f.eks. serviceavtale-jobben) kjenner policyen på
+ * forhånd, men ikke skal kunne starte en klokke uten avtaledekning.
+ */
+async function policyCoveredByActiveContract(
+  tx: Tx,
+  workOrderId: string,
+  policyId: string,
+  now: Date,
+): Promise<boolean> {
+  const workOrder = await tx.workOrder.findUnique({
+    where: { id: workOrderId },
+    select: {
+      customerId: true,
+      contract: {
+        select: {
+          status: true,
+          startDate: true,
+          endDate: true,
+          slaPolicyId: true,
+        },
+      },
+    },
+  });
+  if (!workOrder) return false;
+
+  const today = todayUtc(now);
+  const active = (contract: {
+    status: string;
+    startDate: Date;
+    endDate: Date | null;
+  }) =>
+    contract.status === "ACTIVE" &&
+    contract.startDate <= today &&
+    (!contract.endDate || contract.endDate >= today);
+
+  if (
+    workOrder.contract &&
+    active(workOrder.contract) &&
+    workOrder.contract.slaPolicyId === policyId
+  ) {
+    return true;
+  }
+
+  if (!workOrder.customerId) return false;
+  const matching = await tx.contract.count({
+    where: {
+      customerId: workOrder.customerId,
+      status: "ACTIVE",
+      startDate: { lte: today },
+      OR: [{ endDate: null }, { endDate: { gte: today } }],
+      slaPolicyId: policyId,
+    },
+  });
+  return matching > 0;
 }
 
 /**
@@ -178,9 +240,16 @@ export async function startClock(
       select: { id: true, departmentId: true },
     });
     if (!policy) return null;
+    // En eksplisitt policy er ikke nok: oppdraget må ha en aktiv avtale som
+    // faktisk dekker den. Uten avtale skal ingen klokke starte.
+    if (
+      !(await policyCoveredByActiveContract(tx, workOrderId, policyId, now))
+    ) {
+      return null;
+    }
     calendarDepartmentId = policy.departmentId;
   } else {
-    const resolved = await resolveSlaPolicyId(tx, workOrderId);
+    const resolved = await resolveSlaPolicyId(tx, workOrderId, now);
     if (!resolved) return null;
     policyId = resolved.policyId;
     calendarDepartmentId = resolved.calendarDepartmentId;

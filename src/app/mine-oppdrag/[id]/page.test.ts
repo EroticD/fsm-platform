@@ -47,6 +47,7 @@ vi.mock("./actions", () => ({
   addComment: vi.fn(),
   addTechnician: vi.fn(),
   addTemplate: vi.fn(),
+  finishVisitTravelFrom: vi.fn(),
   setVisitStatus: vi.fn(),
   updateStatus: vi.fn(),
 }));
@@ -110,11 +111,13 @@ function makeReport(overrides: Record<string, unknown> = {}) {
 function makeVisit(overrides: Record<string, unknown> = {}) {
   return {
     id: "visit-1",
-    startsAt: new Date("2026-10-30T08:00:00.000Z"),
-    endsAt: new Date("2026-10-30T10:00:00.000Z"),
-    allDay: false,
+    startsAt: new Date("2026-10-30T00:00:00.000Z"),
     status: "PLANNED",
     notes: null,
+    enRouteAt: null,
+    onSiteAt: null,
+    doneAt: null,
+    travelFromEndedAt: null,
     technicians: [
       {
         visitId: "visit-1",
@@ -343,42 +346,23 @@ describe("feltdetalj – framdrift og CTA", () => {
   });
 });
 
-describe("feltdetalj – visitt", () => {
-  it("viser dagens visitt med ekte start–slutt, sted, status og montører", async () => {
+describe("feltdetalj – dagens arbeidsøkt", () => {
+  it("viser dagens økt med dato, status, sted, montører og «På vei»", async () => {
     // Datoen må være relativ til «nå», ellers slutter testen å være en
-    // dagens-visitt-test dagen etter at den ble skrevet.
+    // dagens-økt-test dagen etter at den ble skrevet.
     const today = dateOnlyInOslo(new Date());
-    const dayStart = osloDayStart(today).getTime();
-    const startsAt = new Date(dayStart + 9 * 60 * 60_000);
-    const endsAt = new Date(dayStart + 11 * 60 * 60_000);
-    const html = await render({ visits: [makeVisit({ startsAt, endsAt })] });
+    const startsAt = osloDayStart(today);
+    const html = await render({ visits: [makeVisit({ startsAt })] });
 
     expect(html).toContain("orders.fieldDetail.visits.todayTitle");
-    expect(html).toContain("09:00");
-    expect(html).toContain("11:00");
+    expect(html).toContain("visits.status.planned");
     expect(html).toContain("Storgata 1, 6002, Ålesund");
     expect(html).toContain("Ola Montør");
-    expect(html).toContain("visits.status.planned");
     expect(html).toContain('name="status" value="EN_ROUTE"');
     expect(html).toContain('aria-live="polite"');
   });
 
-  it("viser «Hele dagen» for heldagsvisitt", async () => {
-    const html = await render({
-      visits: [
-        makeVisit({
-          allDay: true,
-          startsAt: new Date("2026-10-30T00:00:00.000Z"),
-          endsAt: new Date("2026-10-31T00:00:00.000Z"),
-        }),
-      ],
-    });
-
-    expect(html).toContain("orders.fieldDetail.visits.allDay");
-    expect(html).not.toContain("09:00");
-  });
-
-  it("viser tomtilstand når oppdraget mangler visitt", async () => {
+  it("viser tomtilstand når oppdraget mangler arbeidsdager", async () => {
     const html = await render({ visits: [] });
 
     expect(html).toContain("orders.fieldDetail.visits.empty");
@@ -397,7 +381,7 @@ describe("feltdetalj – visitt", () => {
     expect(html).not.toContain('name="status" value="DONE"');
   });
 
-  it("fullfører bare en visitt som er på stedet", async () => {
+  it("fullfører bare en økt som er på stedet", async () => {
     const html = await render({
       visits: [makeVisit({ status: "ON_SITE" })],
     });
@@ -407,14 +391,92 @@ describe("feltdetalj – visitt", () => {
     expect(html).not.toContain('name="status" value="EN_ROUTE"');
   });
 
-  it("skjuler statusknapper på en avsluttet visitt", async () => {
+  it("viser «Avslutt kjøring» etter fullført dag til kjøringen er avsluttet", async () => {
     const html = await render({
-      visits: [makeVisit({ status: "DONE" })],
+      visits: [
+        makeVisit({
+          status: "DONE",
+          doneAt: new Date("2026-10-30T10:00:00.000Z"),
+          travelFromEndedAt: null,
+        }),
+      ],
     });
 
+    expect(html).toContain("orders.fieldDetail.visits.finishTravelFrom");
     expect(html).toContain("visits.status.done");
-    expect(html).toContain("orders.fieldDetail.visits.locked");
     expect(html).not.toContain('name="status" value="DONE"');
+  });
+
+  it("viser låst dag når kjøringen også er avsluttet", async () => {
+    const html = await render({
+      visits: [
+        makeVisit({
+          status: "DONE",
+          doneAt: new Date("2026-10-30T10:00:00.000Z"),
+          travelFromEndedAt: new Date("2026-10-30T10:30:00.000Z"),
+        }),
+      ],
+    });
+
+    expect(html).toContain("orders.fieldDetail.visits.locked");
+    expect(html).not.toContain("orders.fieldDetail.visits.finishTravelFrom");
+  });
+
+  it("holder neste dag åpen etter at én dag er fullført", async () => {
+    const tomorrow = dateOnlyInOslo(
+      new Date(Date.now() + 24 * 60 * 60 * 1000),
+    );
+    const html = await render({
+      visits: [
+        makeVisit({
+          id: "day-1",
+          status: "DONE",
+          doneAt: new Date("2026-10-30T10:00:00.000Z"),
+          travelFromEndedAt: null,
+        }),
+        makeVisit({
+          id: "day-2",
+          startsAt: osloDayStart(tomorrow),
+          status: "PLANNED",
+        }),
+      ],
+    });
+
+    expect(html).toContain('name="visitId" value="day-2"');
+    expect(html).toContain('name="status" value="EN_ROUTE"');
+    expect(html).toContain("orders.fieldDetail.visits.time.days");
+    expect(html).toContain("orders.fieldDetail.visits.finishTravelFrom");
+    expect(html).not.toContain("orders.fieldDetail.visits.locked");
+  });
+
+  it("viser reisetid, arbeidstid og total tid for dagen og oppdraget", async () => {
+    const today = dateOnlyInOslo(new Date());
+    const dayStart = osloDayStart(today).getTime();
+    const html = await render({
+      visits: [
+        makeVisit({
+          startsAt: new Date(dayStart),
+          status: "DONE",
+          enRouteAt: new Date(dayStart + 8 * 60 * 60_000),
+          onSiteAt: new Date(dayStart + 8.5 * 60 * 60_000),
+          doneAt: new Date(dayStart + 10 * 60 * 60_000),
+          travelFromEndedAt: new Date(dayStart + 10.5 * 60 * 60_000),
+        }),
+      ],
+    });
+
+    expect(html).toContain("orders.fieldDetail.visits.time.dayTitle");
+    expect(html).toContain("orders.fieldDetail.visits.time.travelTo");
+    expect(html).toContain("orders.fieldDetail.visits.time.work");
+    expect(html).toContain("orders.fieldDetail.visits.time.travelFrom");
+    expect(html).toContain("orders.fieldDetail.visits.time.orderTotal");
+    expect(html).toContain("orders.fieldDetail.visits.time.enRouteAt");
+    expect(html).toContain("orders.fieldDetail.visits.time.travelFromEndedAt");
+    expect(html).toContain("30 min");
+    expect(html).toContain("1 t 30 min");
+    expect(html).toContain("2 t 30 min");
+    expect(html).toContain("08:30");
+    expect(html).toContain("10:30");
   });
 
   it("viser resultatet av statusendringen i en aria-live-sone", async () => {

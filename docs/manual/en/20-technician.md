@@ -93,7 +93,7 @@ The search field searches title, description, order number, customer name, city,
 
 ### Next job
 
-The **Next job** card shows the first remaining job today, or the next upcoming job if today is empty. It shows date and time, or **Time not set** / **All day**, title, customer, order number, address, contact person, **Job 1 of N**, and **Start form**, **Continue form** or **Open job**, **Call** and **Map**.
+The **Next job** card shows the first remaining job today, or the next upcoming job if today is empty. It shows the date and the status of today's session, title, customer, order number, address, contact person, **Job 1 of N**, and **Start form**, **Continue form** or **Open job**, **Call** and **Map**.
 
 **Start form** opens the first checklist without a locked report. **Continue form** is used when a draft or unlocked report exists. If the work order has no template, the button says **Open job**.
 
@@ -105,13 +105,13 @@ The **Next job** card shows the first remaining job today, or the next upcoming 
 
 ### Job cards and status chips
 
-The card shows title, status chip, customer, order number, contact, address, tags, date and time. A draft shows **Draft 14:32 · Continue**. **Call** and **Map** start the phone or Google Maps without opening the work order.
+The card shows title, status chip, customer, order number, contact, address, tags and date. A draft shows **Draft 14:32 · Continue**. **Call** and **Map** start the phone or Google Maps without opening the work order.
 
 | Chip | Meaning |
 | --- | --- |
 | **Open / New** | Created, not planned or started |
 | **Waiting to be planned** | The system's starting status; not selected manually |
-| **Planned** | Has a planned date or visit |
+| **Planned** | Has a planned date and workday |
 | **In progress** | Work is underway |
 | **Waiting for customer** | Work is waiting for the customer |
 | **Completed** | Closed and locked |
@@ -141,9 +141,13 @@ Open a card to reach `/mine-oppdrag/<work-order-id>`. At the top is a dark job p
 
 **Copy address** puts the full address on the clipboard. **Location and contact** shows the full address, company phone, the work order contact and the customer's other contacts with phone and email. If data is missing, it says **Not provided** or **No specific contact person is registered on this work order or customer.**
 
-### Visit: start driving, on site, complete
+### Today's session: en route, on site, done
 
-The visit card shows **Today's visit** or **Next visit**, time range, status and technicians. The flow is: **Start driving** → **En route**, **On site** → **On site**, **Complete** → **Done**. Each tap records the time on the server. Tap only when you actually start driving, arrive or finish. After **Done** the visit is locked and it says **The visit is finished.**
+The session card shows **Today's session** or **Next session** with date, status and technicians. Each calendar day is one session; a multi-day work order continues on the next day even when today is done. The flow is **En route** → **On site** → **Done**. Each tap records the time on the server. Tap only when you actually start driving, arrive or finish.
+
+After **Done** the card shows **Finish travel** until the return travel is finished. Then the day is locked and it says **The day is finished.** The next day's session can be started with **En route** even while an earlier day is still waiting for **Finish travel**; the previous travel segment is then closed automatically.
+
+The card shows today's **Travel to**, **Work**, **Travel from** and **Total** time, plus total time for the whole work order with the breakdown. **Days** lists every workday in the work order with status and time, so you can see which days are completed and which remain. A completed day that still needs **Finish travel** has the button in the day list.
 
 With live tracking enabled, you can share your position while **En route**: **Share position** / **Stop sharing**. The position is deleted after 24 hours.
 
@@ -352,7 +356,7 @@ A 401/403 means the session or access is gone, not that the draft is broken. The
 | **Cannot submit** | Missing unit, assessment, required answer, photo, checkbox or name; locked; offline; no checklist | Read the message, correct the field, try again. **Missing assessment** means **Approved** or **Deviation** per unit |
 | **Cannot complete with swipe** | No name, deviation, or missing required field | Fill in the field, upload the photo, or use **Deviation found** |
 | **2FA code fails** | Wrong code, clock drift, used code | Wait for a new code, check the clock, use an unused recovery code, or ask for a reset |
-| **Visit buttons missing / status locked** | Visit or work order closed, or no permission | Contact the office; only open visits and work orders can be changed |
+| **Session buttons missing / status locked** | Day or work order closed, or no permission | Contact the office; only open days and work orders can be changed |
 | **PDF or offline page missing** | No network, report, access, cache, or active content that cannot be sanitised | Get online, open **View report (PDF)**, download the file, reopen the job online |
 | **Image missing from the PDF** | File deleted, missing metadata, or owned by another work order | Re-upload the image from the report and generate the PDF again |
 

@@ -411,6 +411,49 @@ npx prisma migrate diff --from-config-datasource \
   --to-schema prisma/schema.prisma --exit-code
 ```
 
+### Arbeidsdager: engangsbackfill
+
+Eldre oppdrag kan ha én heldagsvisitt som strekker seg over flere dager. Den
+nye modellen har én intern `Visit` per kalenderdag. Kjør derfor engangsjobben
+mot en kopi/testdatabase først, ta backup, og deretter mot produksjon:
+
+```bash
+# Tørrkjøring: viser hvor mange visiter som deles, uten å skrive
+npm run visits:backfill:daily
+
+# Anvend når resultatet ser riktig ut
+npm run visits:backfill:daily -- --apply
+```
+
+Skriptet er idempotent. Originalraden blir første dag og beholder status,
+notater, tidsstempler (`enRouteAt`, `onSiteAt`, `doneAt`), `travelFromEndedAt`
+og montører. Nye dager opprettes som `PLANNED` med samme montører og uten
+kopierte tidsstempler, slik at fullført tid aldri dupliseres. Eksisterende
+visiter beholder `travelFromEndedAt = null` til kjøringen lukkes manuelt med
+«Avslutt kjøring» eller automatisk når montøren starter `EN_ROUTE` på neste
+jobb. Skriptet rører ikke visiter som allerede dekker én dag, og skal ikke
+kjøres automatisk av appen eller i CI mot produksjon.
+
+### SLA-klokker uten aktiv avtale
+
+SLA-klokker skal bare finnes for oppdrag med en aktiv, datogyldig avtale og en
+aktiv SLA-policy. Eldre data kan ha klokker uten slik dekning, eller klokker som
+peker på en annen policy enn avtalen nå gir. Rydd dem med:
+
+```bash
+# Tørrkjøring: viser kandidatene uten å skrive
+npm run sla:cleanup
+
+# Anvend når listen ser riktig ut
+npm run sla:cleanup -- --apply
+```
+
+Klokker som allerede er `CANCELLED` røres ikke, og klokker med gyldig aktiv
+avtale og samme policy beholdes uendret. Hver kansellering skrives i samme
+transaksjon som revisjonsloggen. `sweepSlaClocks` og oppdragsdetaljen ignorerer
+kansellerte klokker, så de verken varsler eller vises i SLA-panelet. Ta backup
+og kjør mot en kopi/testdatabase før `--apply` i produksjon.
+
 ### Databaseroller (minste privilegium)
 
 Produksjon skal ha to roller:

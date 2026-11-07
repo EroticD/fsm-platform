@@ -18,6 +18,9 @@ export type TechnicianMapMarker = {
   status: string;
   updatedAt: Date;
   point: Coordinates;
+  workOrderId: string;
+  workOrderTitle: string;
+  customerName: string | null;
 };
 
 export type TechnicianMapLayer = {
@@ -47,6 +50,13 @@ export async function loadTechnicianMapLayer(
       select: {
         id: true,
         status: true,
+        workOrder: {
+          select: {
+            id: true,
+            title: true,
+            customer: { select: { name: true } },
+          },
+        },
         technicians: {
           select: {
             userId: true,
@@ -97,6 +107,9 @@ export async function loadTechnicianMapLayer(
         status: visit.status,
         updatedAt: ping.recordedAt,
         point: { latitude: ping.latitude, longitude: ping.longitude },
+        workOrderId: visit.workOrder.id,
+        workOrderTitle: visit.workOrder.title,
+        customerName: visit.workOrder.customer?.name ?? null,
       },
     ];
   });

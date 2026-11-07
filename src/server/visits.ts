@@ -13,6 +13,10 @@ import {
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
+import {
+  enumerateWorkDays,
+  MAX_WORK_ORDER_DAYS,
+} from "@/lib/work-days";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { isClosedStatus } from "@/lib/work-order-status";
 import {
@@ -139,6 +143,10 @@ const visitContextSelect = {
   allDay: true,
   status: true,
   notes: true,
+  enRouteAt: true,
+  onSiteAt: true,
+  doneAt: true,
+  travelFromEndedAt: true,
   technicians: {
     select: {
       userId: true,
@@ -185,7 +193,102 @@ export const VISIT_ERROR_CODES = {
   statusTransition: "visits.errors.statusTransition",
   noChange: "visits.errors.noChange",
   invalidSequence: "visits.errors.invalidSequence",
+  invalidDateRange: "visits.errors.invalidDateRange",
+  visitInProgress: "visits.errors.visitInProgress",
+  loggedDayConflict: "visits.errors.loggedDayConflict",
+  pastDayConflict: "visits.errors.pastDayConflict",
+  travelFromNotAvailable: "visits.errors.travelFromNotAvailable",
 } as const;
+
+/**
+ * Konflikt når en datoperiode ikke kan avstemmes uten å fjerne en dag som
+ * allerede er startet, fullført eller har tidsregistrering. `detail` er en
+ * stabil i18n-nøkkel som API/UI kan oversette.
+ */
+export class DailyVisitConflictError extends Error {
+  readonly detail: string;
+  readonly date: string | null;
+
+  constructor(detail: string, date: string | null = null) {
+    super(detail);
+    this.name = "DailyVisitConflictError";
+    this.detail = detail;
+    this.date = date;
+  }
+}
+
+export type DailyVisitRangeInput = {
+  workOrderId: string;
+  /** Første arbeidsdag. Tom betyr at oppdraget ikke har datoperiode. */
+  scheduledFor: Date | null;
+  /** Siste arbeidsdag, inklusiv. Tom betyr éndagsoppdrag. */
+  scheduledTo?: Date | null;
+  technicianIds?: string[];
+  /** Injiseres i tester; ellers brukes dagens dato i Europe/Oslo. */
+  now?: Date;
+};
+
+export type DailyVisitReconcileResult = {
+  created: number;
+  removed: number;
+  preserved: number;
+  /** Kalenderdatoene oppdraget skal ha etter avstemmingen. */
+  dates: string[];
+};
+
+type DailyVisitRow = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  allDay: boolean;
+  status: VisitStatus;
+  sequence: number;
+  enRouteAt: Date | null;
+  onSiteAt: Date | null;
+  doneAt: Date | null;
+};
+
+const dailyVisitSelect = {
+  id: true,
+  startsAt: true,
+  endsAt: true,
+  allDay: true,
+  status: true,
+  sequence: true,
+  enRouteAt: true,
+  onSiteAt: true,
+  doneAt: true,
+} satisfies Prisma.VisitSelect;
+
+function hasTimeLog(visit: Pick<DailyVisitRow, "enRouteAt" | "onSiteAt" | "doneAt">): boolean {
+  return Boolean(visit.enRouteAt || visit.onSiteAt || visit.doneAt);
+}
+
+/**
+ * Én arbeidsdag kan bare fjernes automatisk når den fortsatt er ren plan.
+ * Pågående og loggede dager er historikk og skal aldri forsvinne stille.
+ */
+function removalConflict(
+  visit: DailyVisitRow,
+  today: string,
+): DailyVisitConflictError | null {
+  const date = dateOnlyInOslo(visit.startsAt);
+  if (visit.status === "EN_ROUTE" || visit.status === "ON_SITE") {
+    return new DailyVisitConflictError(VISIT_ERROR_CODES.visitInProgress, date);
+  }
+  if (visit.status === "DONE" || hasTimeLog(visit)) {
+    return new DailyVisitConflictError(VISIT_ERROR_CODES.loggedDayConflict, date);
+  }
+  if (!["PLANNED", "ASSIGNED", "CANCELLED"].includes(visit.status)) {
+    return new DailyVisitConflictError(VISIT_ERROR_CODES.loggedDayConflict, date);
+  }
+  // Bare planlagte dager fram i tid kan fjernes. En gammel plannedag uten
+  // tidsregistrering er fortsatt historikk og krever bevisst opprydding.
+  if (date < today) {
+    return new DailyVisitConflictError(VISIT_ERROR_CODES.pastDayConflict, date);
+  }
+  return null;
+}
 
 function requirePermission(
   actor: ServiceActor,
@@ -600,7 +703,16 @@ export async function assignVisitInTransaction(
   actor: ServiceActor,
   visitId: string,
   userIds: string[],
-  options: { scoreSnapshot?: Prisma.InputJsonValue } = {},
+  options: {
+    scoreSnapshot?: Prisma.InputJsonValue;
+    /**
+     * Dispatch tildeler en hel arbeidsdag. Standard er å speile montørlisten
+     * til de øvrige rene, planlagte dagene i samme oppdrag, slik at en
+     * tildeling i én kolonne ikke stille etterlater søskendager uten montør.
+     * Automatisk dispatch slår dette av fordi den planlegger hver dag for seg.
+     */
+    syncSiblings?: boolean;
+  } = {},
 ): Promise<ServiceResult<Visit>> {
   const id = cleanId(visitId);
   const technicianIds = cleanTechnicianIds(userIds);
@@ -634,6 +746,31 @@ export async function assignVisitInTransaction(
     },
   });
 
+  let siblingVisitIds: string[] = [];
+  if (options.syncSiblings !== false) {
+    const siblings = await tx.visit.findMany({
+      where: {
+        workOrderId: current.workOrderId,
+        id: { not: id },
+        status: { in: ["PLANNED", "ASSIGNED"] },
+      },
+      select: { id: true },
+    });
+    siblingVisitIds = siblings.map((sibling) => sibling.id);
+
+    if (siblingVisitIds.length > 0) {
+      await tx.visitTechnician.deleteMany({
+        where: { visitId: { in: siblingVisitIds } },
+      });
+      await tx.visitTechnician.createMany({
+        data: siblingVisitIds.flatMap((visitId) =>
+          technicianIds.map((userId) => ({ visitId, userId })),
+        ),
+        skipDuplicates: true,
+      });
+    }
+  }
+
   await audit(tx, {
     entityType: "Visit",
     entityId: id,
@@ -648,6 +785,9 @@ export async function assignVisitInTransaction(
       workOrderId: current.workOrderId,
       workOrderTitle: current.workOrder.title,
       technicianIds: { from: previousIds, to: technicianIds },
+      ...(siblingVisitIds.length > 0
+        ? { siblingVisitIds }
+        : {}),
       ...(options.scoreSnapshot === undefined
         ? {}
         : { dispatch: options.scoreSnapshot }),
@@ -706,6 +846,26 @@ export async function unassignVisit(
       },
     });
 
+    // Samme regel som ved tildeling: fjerningen gjelder hele oppdragets rene,
+    // planlagte dager, ikke bare den ene dagen dispatch-kortet representerer.
+    const siblings = await tx.visit.findMany({
+      where: {
+        workOrderId: current.workOrderId,
+        id: { not: id },
+        status: { in: ["PLANNED", "ASSIGNED"] },
+      },
+      select: { id: true },
+    });
+    const siblingVisitIds = siblings.map((sibling) => sibling.id);
+    if (siblingVisitIds.length > 0) {
+      await tx.visitTechnician.deleteMany({
+        where: {
+          visitId: { in: siblingVisitIds },
+          userId: { in: removedIds },
+        },
+      });
+    }
+
     await audit(tx, {
       entityType: "Visit",
       entityId: id,
@@ -715,11 +875,69 @@ export async function unassignVisit(
         workOrderId: current.workOrderId,
         workOrderTitle: current.workOrder.title,
         removedTechnicianIds: removedIds,
+        ...(siblingVisitIds.length > 0 ? { siblingVisitIds } : {}),
       },
     });
 
     return ok(visit);
   });
+}
+
+/**
+ * Lukker returkjøringen på forrige fullførte visitt når montøren starter på
+ * neste jobb. Samme tidssegment blir dermed returkjøring for den forrige
+ * visitten og tilkjøring for den nye. Bare én åpen, fullført visitt per montør
+ * lukkes, slik at gamle, glemte dager ikke blir skrevet over.
+ */
+async function closePreviousTravelFrom(
+  tx: Prisma.TransactionClient,
+  current: VisitContext,
+  at: Date,
+): Promise<string[]> {
+  const technicianIds = current.technicians.map(
+    (technician) => technician.userId,
+  );
+  if (technicianIds.length === 0) return [];
+
+  // Bare samme arbeidsdag regnes som «neste jobb». En fullført jobb fra i går
+  // skal ikke få nattens timer som returkjøring; den lukkes bevisst for seg.
+  const dayStart = osloDayStart(dateOnlyInOslo(at));
+
+  const candidates = await tx.visit.findMany({
+    where: {
+      id: { not: current.id },
+      status: "DONE",
+      travelFromEndedAt: null,
+      doneAt: { not: null, gte: dayStart, lte: at },
+      technicians: { some: { userId: { in: technicianIds } } },
+    },
+    orderBy: [{ doneAt: "desc" }],
+    select: {
+      id: true,
+      technicians: { select: { userId: true } },
+    },
+    take: 100,
+  });
+
+  const covered = new Set<string>();
+  const closed: string[] = [];
+  for (const candidate of candidates) {
+    const overlap = candidate.technicians
+      .map((technician) => technician.userId)
+      .filter(
+        (userId) => technicianIds.includes(userId) && !covered.has(userId),
+      );
+    if (overlap.length === 0) continue;
+
+    await tx.visit.update({
+      where: { id: candidate.id },
+      data: { travelFromEndedAt: at },
+    });
+    closed.push(candidate.id);
+    for (const userId of overlap) covered.add(userId);
+    if (covered.size === technicianIds.length) break;
+  }
+  return closed;
 }
 
 /** Bytter visittens status etter den felles tilstandsmaskinen. */
@@ -755,15 +973,28 @@ export async function setVisitStatus(
       });
     }
 
+    const at = new Date();
+    // Når montøren reiser til en ny jobb, er samme segment returkjøring for
+    // den forrige fullførte jobben. Dette skjer i samme transaksjon som
+    // statusovergangen.
+    const closedTravelFromVisitIds =
+      status === "EN_ROUTE"
+        ? await closePreviousTravelFrom(tx, current, at)
+        : [];
+
     const visit = await tx.visit.update({
       where: { id },
       data: {
         status,
         // Statustidspunktene settes i samme UPDATE som statusen. Det gjør
         // rapportering og ETA entydig, uavhengig av senere notatendringer.
-        ...(status === "EN_ROUTE" ? { enRouteAt: new Date() } : {}),
-        ...(status === "ON_SITE" ? { onSiteAt: new Date() } : {}),
-        ...(status === "DONE" ? { doneAt: new Date() } : {}),
+        // Første gang vinner: en gjentatt/parallell overgang kan aldri flytte
+        // et allerede registrert tidspunkt.
+        ...(status === "EN_ROUTE" && !current.enRouteAt
+          ? { enRouteAt: at }
+          : {}),
+        ...(status === "ON_SITE" && !current.onSiteAt ? { onSiteAt: at } : {}),
+        ...(status === "DONE" && !current.doneAt ? { doneAt: at } : {}),
       },
     });
 
@@ -775,7 +1006,8 @@ export async function setVisitStatus(
       await tx.visitLocationPing.deleteMany({ where: { visitId: id } });
     }
 
-    // SLA: første EN_ROUTE/ON_SITE er responsen, DONE er løsningen.
+    // SLA: første EN_ROUTE/ON_SITE er responsen, og DONE er løsningen.
+    // Returkjøring er etterspill og gjenåpner aldri klokken.
     if (status === "EN_ROUTE" || status === "ON_SITE") {
       await markResponded(tx, current.workOrderId);
     } else if (status === "DONE") {
@@ -792,11 +1024,72 @@ export async function setVisitStatus(
         workOrderTitle: current.workOrder.title,
         from: current.status,
         to: status,
+        ...(closedTravelFromVisitIds.length > 0
+          ? { closedTravelFromVisitIds }
+          : {}),
       },
     });
 
     // En kansellert visitt skal ikke lenger holde oppdragets datoperiode åpen.
     await recomputeWorkOrderSchedule(tx, current.workOrderId);
+    return ok(visit);
+  });
+}
+
+/**
+ * Avslutter retur-/viderekjøringen etter at arbeidet er fullført.
+ *
+ * Dette er en egen, sekundær handling etter DONE, slik at de tre primære
+ * arbeidshandlingene (På vei / På stedet / Ferdig) forblir uendret. Når neste
+ * jobb starter EN_ROUTE, lukkes samme segment automatisk; denne funksjonen
+ * brukes for siste jobb på dagen. Idempotent: en allerede avsluttet kjøring
+ * returneres uten å flytte tidspunktet.
+ */
+export async function finishTravelFrom(
+  actor: ServiceActor,
+  visitId: string,
+): Promise<ServiceResult<Visit>> {
+  const denied = requirePermission(actor, "workorders.update");
+  if (denied) return denied;
+
+  const id = cleanId(visitId);
+  if (!id) return fail("invalid", { code: VISIT_ERROR_CODES.invalidInput });
+
+  return prisma.$transaction(async (tx) => {
+    const current = await findVisitContext(tx, actor, id);
+    if (!current) return fail("not_found");
+    if (current.workOrder.legalHold) {
+      return fail("conflict", { code: VISIT_ERROR_CODES.legalHold });
+    }
+    if (current.status !== "DONE" || !current.doneAt) {
+      return fail("invalid", {
+        code: VISIT_ERROR_CODES.travelFromNotAvailable,
+      });
+    }
+    if (current.travelFromEndedAt) {
+      return ok(
+        await tx.visit.findUniqueOrThrow({ where: { id } }),
+      );
+    }
+
+    const at = new Date();
+    const visit = await tx.visit.update({
+      where: { id },
+      data: { travelFromEndedAt: at },
+    });
+
+    await audit(tx, {
+      entityType: "Visit",
+      entityId: id,
+      action: `Avsluttet kjøring: ${current.workOrder.title}`,
+      actor: toAuditActor(actor),
+      metadata: {
+        workOrderId: current.workOrderId,
+        workOrderTitle: current.workOrder.title,
+        travelFromEndedAt: at.toISOString(),
+      },
+    });
+
     return ok(visit);
   });
 }
@@ -953,6 +1246,141 @@ function allDayPeriod(startsAt: Date, endsAt: Date): {
   return {
     startsAt: osloDayStart(startDay),
     endsAt: osloDayStart(endDay),
+  };
+}
+
+function dailyRangeDays(input: DailyVisitRangeInput) {
+  if (!input.scheduledFor) return [];
+  const days = enumerateWorkDays(input.scheduledFor, input.scheduledTo ?? null);
+  if (days.length > MAX_WORK_ORDER_DAYS) {
+    throw new DailyVisitConflictError(VISIT_ERROR_CODES.invalidDateRange);
+  }
+  return days;
+}
+
+async function loadDailyVisits(
+  tx: Prisma.TransactionClient,
+  workOrderId: string,
+): Promise<DailyVisitRow[]> {
+  return tx.visit.findMany({
+    where: { workOrderId },
+    select: dailyVisitSelect,
+    orderBy: [{ startsAt: "asc" }, { sequence: "asc" }, { id: "asc" }],
+  });
+}
+
+async function createDailyVisit(
+  tx: Prisma.TransactionClient,
+  workOrderId: string,
+  day: { sequence: number; startsAt: Date; endsAt: Date },
+  technicianIds: string[],
+): Promise<void> {
+  await tx.visit.create({
+    data: {
+      workOrderId,
+      sequence: day.sequence,
+      startsAt: day.startsAt,
+      endsAt: day.endsAt,
+      allDay: true,
+      status: "PLANNED",
+      technicians: {
+        create: technicianIds.map((userId) => ({ userId })),
+      },
+    },
+    select: { id: true },
+  });
+}
+
+/**
+ * Sørger for at hver dato i oppdragets periode har nøyaktig én arbeidsøkt.
+ *
+ * Idempotent: eksisterende dager røres ikke, og en dag som allerede finnes
+ * opprettes ikke på nytt. Brukes ved opprettelse og av import/backfill.
+ */
+export async function ensureDailyVisits(
+  tx: Prisma.TransactionClient,
+  input: DailyVisitRangeInput,
+): Promise<DailyVisitReconcileResult> {
+  const workOrderId = cleanId(input?.workOrderId);
+  if (!workOrderId) throw new DailyVisitConflictError(VISIT_ERROR_CODES.invalidInput);
+
+  const days = dailyRangeDays(input);
+  const existing = await loadDailyVisits(tx, workOrderId);
+  const existingDates = new Set(
+    existing.map((visit) => dateOnlyInOslo(visit.startsAt)),
+  );
+  const technicianIds = cleanTechnicianIds(input.technicianIds);
+
+  let created = 0;
+  for (const day of days) {
+    if (existingDates.has(day.date)) continue;
+    await createDailyVisit(tx, workOrderId, day, technicianIds);
+    existingDates.add(day.date);
+    created += 1;
+  }
+
+  return {
+    created,
+    removed: 0,
+    preserved: existing.length,
+    dates: days.map((day) => day.date),
+  };
+}
+
+/**
+ * Avstemmer arbeidsøktene mot oppdragets datoperiode.
+ *
+ * - manglende dager legges til som rene, planlagte heldagsøkter,
+ * - eksisterende dager beholdes uendret (de flyttes aldri),
+ * - bare rene, planlagte dager fram i tid kan fjernes,
+ * - en dag som er på vei, på stedet, fullført eller har tidsregistrering gir
+ *   en tydelig konflikt i stedet for stille tap av historikk.
+ *
+ * Funksjonen er idempotent og kaller ikke `recomputeWorkOrderSchedule` selv;
+ * den som eier transaksjonen oppdaterer de avledede datofeltene til slutt.
+ */
+export async function reconcileDailyVisits(
+  tx: Prisma.TransactionClient,
+  input: DailyVisitRangeInput,
+): Promise<DailyVisitReconcileResult> {
+  const workOrderId = cleanId(input?.workOrderId);
+  if (!workOrderId) throw new DailyVisitConflictError(VISIT_ERROR_CODES.invalidInput);
+
+  const days = dailyRangeDays(input);
+  const targetDates = new Set(days.map((day) => day.date));
+  const today = dateOnlyInOslo(input.now ?? new Date());
+  const existing = await loadDailyVisits(tx, workOrderId);
+  const technicianIds = cleanTechnicianIds(input.technicianIds);
+
+  let removed = 0;
+  const kept: DailyVisitRow[] = [];
+  for (const visit of existing) {
+    const date = dateOnlyInOslo(visit.startsAt);
+    if (targetDates.has(date)) {
+      kept.push(visit);
+      continue;
+    }
+    const conflict = removalConflict(visit, today);
+    if (conflict) throw conflict;
+    await tx.visit.delete({ where: { id: visit.id } });
+    removed += 1;
+  }
+
+  const keptDates = new Set(
+    kept.map((visit) => dateOnlyInOslo(visit.startsAt)),
+  );
+  let created = 0;
+  for (const day of days) {
+    if (keptDates.has(day.date)) continue;
+    await createDailyVisit(tx, workOrderId, day, technicianIds);
+    created += 1;
+  }
+
+  return {
+    created,
+    removed,
+    preserved: kept.length,
+    dates: days.map((day) => day.date),
   };
 }
 

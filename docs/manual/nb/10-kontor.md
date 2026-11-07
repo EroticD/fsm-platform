@@ -37,6 +37,41 @@ på kortet.
 er **Eldste først**. Høyrekolonnen viser **Neste handling** med **Tildel montør**
 eller **Åpne oppdrag**, **Dagens fremdrift** og **Team i dag**.
 
+### Feltstatus og livekart
+
+Under unntakene viser **Felt nå** dagens status for feltstaben. Hver montør har
+én status:
+
+| Status | Betyr |
+| --- | --- |
+| **På stedet** | En visitt er startet og montøren er på stedet |
+| **På vei** | Montøren har startet kjøring til en visitt |
+| **Tildelt** | Montøren har en visitt i dag, men den er ikke startet |
+| **Ferdig for dagen** | Alle dagens visiter er fullført |
+| **Ledig** | Ingen visiter i dag |
+| **Fravær** | Heldagsfravær uten aktiv visitt |
+
+Statusen følger rekkefølgen **På stedet** → **På vei** → **Tildelt** →
+**Ferdig for dagen** → **Ledig**. Har montøren flere oppdrag i dag, velges den
+aktive visitten; ellers vises den som starter nærmest nå. **Fravær** vises bare
+når fraværet dekker hele dagen og montøren ikke er på vei eller på stedet.
+Raden viser oppdragets tittel og kunde, og **Sist delt** når montøren har delt
+posisjon. De samme statusmerkene vises i **Team i dag**.
+
+Kartpanelet **Montører som deler posisjon** viser bare montører som aktivt har
+startet posisjonsdeling på en visitt som er **På vei** eller **På stedet**.
+Posisjoner er korte levende punkt, ikke historikk: ping eldre enn 24 timer
+brukes ikke, og kartet viser siste kjente punkt. Er sporing ikke slått på for
+avdelingen, står det **Posisjonsdeling er ikke slått på**. Deler ingen posisjon
+akkurat nå, står det **Ingen montører deler posisjon nå**. Begge tilstandene har
+lenke til **Kart** (`/kart`), og hver markør har en tilsvarende lenke i listen
+under kartet. Listen gjør kartet tilgjengelig med tastatur og skjermleser.
+
+Du ser bare montører, oppdrag og posisjoner i din egen avdeling; administrator
+ser alle avdelinger. Navn og koordinater vises aldri til kundeportalbrukere
+eller andre uten oppdragstilgang. Posisjonsdeling er frivillig og styres av
+montøren på oppdraget; avdelingen må i tillegg ha sporing slått på.
+
 ### Unntak, hurtighandlinger og aktivitet
 
 Øverst på dashbordet ligger **Unntak som krever handling** med kortene **Uten
@@ -54,8 +89,8 @@ aktivitet**.
 2. Finn raden med **Ikke tildelt montør**.
 3. Velg montør i **Velg montør** og trykk **Tildel**.
 
-Montøren vises i raden. Tildelingen gjelder oppdraget; skal bare én visitt ha en
-annen montør, gjør du det i **Planlegging**.
+Montøren vises i raden. Tildelingen gjelder oppdraget og speiles til de øvrige
+planlagte dagene. Dispatch kan planlegge én arbeidsdag om gangen.
 
 ### Dra og slipp
 
@@ -63,7 +98,7 @@ Dra et kort fra tavlen til en montør i **Team i dag**, eller fra
 **Ressursoversikt** til montørens kolonne. Slippet tildeler montør og oppdaterer
 siden. Ved feil vises en forklaring: manglende tilgang, ugyldig data, låst
 oppdrag eller bevaringsplikt. Dra og slipp tildeler **ikke** dato; bruk
-kalenderen eller **Planlegging** for å flytte tid.
+kalenderen for å flytte en arbeidsdag.
 
 ### Globalt søk
 
@@ -86,8 +121,9 @@ startet**, **Påbegynt**, **I dag**, **Forfalte**, **Ikke tildelt**,
 2. Skriv **Beskrivelse / Instrukser**; Markdown støttes.
 3. Velg **Kunde** og **Kontaktperson**, eller la kunden stå tom for et **Internt
    oppdrag**. **Adresse**, **Postnummer** og **By** overstyrer kundens adresse.
-4. Sett **Dato for utførelse** og eventuelt **Til dato (valgfritt)**. Tom
-   sluttdato betyr éndagsoppdrag.
+4. Sett **Dato for utførelse** og eventuelt **Til dato (valgfritt)**. Hver
+   dato blir en egen arbeidsdag. Tom sluttdato betyr éndagsoppdrag, og et
+   flerdagers oppdrag fortsetter på neste dag.
 5. Velg montører under **Tildel montører** og maler under **Legg til
    sjekklister / skjemaer**, og legg eventuelt på **Tags**.
 6. Trykk **Lagre oppdrag**. Du kommer tilbake til **Kalender**.
@@ -110,22 +146,21 @@ På opprettelsessiden er malene delt i **Service / sjekklister** og
 kan legge til flere under **Sjekklister og rapporter** med **Krev flere
 sjekklister på oppdraget**, **-- Velg sjekklistemal --** og **+ Legg til**.
 
-Du kan tildele flere montører; **Fjern** tar en av. Den faktiske bemanningen av
-en tidsblokk ligger på visitten. Oppdraget har dato; klokkeslettet settes på
-visitten:
+Du kan tildele flere montører; **Fjern** tar en av. Tildelingen gjelder hele
+oppdraget. Kontoret planlegger bare datoene; hver dato blir én arbeidsdag i
+feltportalen.
 
-1. Åpne **Planlegging** og trykk **Legg til visitt**.
-2. Velg **Fra dato**, eventuelt **Til og med**, og skriv **Starttid** og
-   **Sluttid** i 24-timersformat, for eksempel `09:00` og `11:30`.
-3. Kryss av **Hele dagen** om jobben ikke har fast klokkeslett, velg **Montører
-   på visitten**, og skriv eventuelt **Notat**.
-4. Trykk **Lagre visitt**.
+På oppdragssiden viser **Dager og tid** én rad per arbeidsdag med status,
+**På vei**, **På stedet**, **Ferdig** og **Kjøring avsluttet**, og tid for
+arbeid, kjøring til, kjøring fra og totalt. Øverst står total tid for oppdraget
+med fordeling. Har oppdraget ingen arbeidsdager, viser flaten datoperioden og
+**Endre datoer**.
 
-En visitt varer i maksimalt 31 dager, og sluttid må være etter starttid.
-Overlappende visiter er tillatt. Montøren vises som opptatt, men kan fortsatt
-tildeles et nytt oppdrag; bruk kalenderen og kapasitetsvisningen til å vurdere
-belastningen. Fullførte og kansellerte visiter er låst. Endre med **Rediger visitt**
-→ **Flytt visitt**, **Tildel montører** eller **Notat og rekkefølge**.
+Kontoret oppretter ikke, flytter eller sletter enkeltdager her. Endre
+datoperioden på oppdraget, så avstemmes dagene automatisk. En dag som er
+startet, fullført eller har tidsregistrering kan ikke fjernes uten videre – da
+må historikken ryddes bevisst. **Dispatch** og **Kalender** åpner
+planleggingsflatene for å tildele montører per dag og se faktisk tid.
 
 ### HMS-bibliotek og QR-etiketter
 
@@ -172,7 +207,7 @@ ikke.
 | Kunde/kontakt | Header og **Lokasjon og kontakt** | Låses når rapport eller bestilling finnes |
 | Utstyr | Kundekortet → **Utstyr** | Rapporten husker kontrollerte enheter |
 | Rapporter | **Sjekklister og rapporter** | Låses når de sendes inn |
-| Visiter | **Planlegging** | Styrer datoperioden |
+| Arbeidsdager | **Dager og tid** | Hver dato på oppdraget blir én arbeidsdag |
 | Avtale/bestilling | Avtalens siste oppdrag / bookingkøen | Én bestilling per oppdrag |
 
 **Flytt til papirkurv** er forbeholdt administrator som standard; knappen vises
@@ -359,10 +394,12 @@ filter** og **Nullstill** gjelder alle datavisningene.
 
 ### Visiter og dra/slipp
 
-Kalenderen viser visiter med status **Planlagt**, **Tildelt**, **På vei**, **På
-stedet**, **Fullført** eller **Kansellert**. Dra en visitt til en annen dag
-eller et annet tidsrom for å flytte den. Ved konflikt lagres ikke flyttingen, og
-du får beskjed om overlappet. Fullførte og kansellerte visiter er låst.
+Kalenderen viser én hendelse per arbeidsdag med status **Planlagt**,
+**Tildelt**, **På vei**, **På stedet**, **Fullført** eller **Kansellert**. Når
+montøren har registrert tid, viser hendelsen faktisk start, slutt og varighet i
+stedet for bare datoen. Dra en dag til en annen dato for å flytte den. Ved
+konflikt lagres ikke flyttingen, og du får beskjed om overlappet. Fullførte og
+kansellerte dager er låst.
 
 **Ressursoversikt** viser montører, aktive oppdrag, oppdrag uten montør og nylig
 fullførte. **Ufordelte oppdrag** har **Tildel montør**. Du kan dra kort mellom
@@ -372,7 +409,7 @@ montører for å tildele.
 
 **Dispatch** (`/kalender/dispatch`) fordeler montører på visiter, med egen
 kolonne **Uten montør**. **Forfalte / Ufordelte** vises alltid, uavhengig av
-dato. Dra en visitt til en montørs kolonne for å flytte den. Slipp på **Uten
+dato. Dra en arbeidsdag til en montørs kolonne for å tildele den. Slipp på **Uten
 montør** for å fjerne kilden montør; andre montører beholdes. **Legg til**
 setter på en ekstra montør, **Fjern {name}** tar en av, og **Se detaljer** åpner
 oppdraget.
@@ -457,10 +494,12 @@ går; uten lagrede åpningstider brukes hverdager 08–16. Policyer, åpningstid
 helligdager og prislister vedlikeholdes av administrator under **Innstillinger →
 SLA og åpningstider**.
 
-Avtalen kan peke på en policy; ellers brukes avdelingens standard. På oppdraget
-vises **SLA** med **Svar innen**, **Løs innen** og **I rute**, **I fare**,
-**Brutt**, **Oppfylt** eller **Kansellert**. Første **På vei** eller **På
-stedet** registrerer respons; **Fullført** registrerer løsning.
+SLA krever en **aktiv serviceavtale** med gyldig dato og en aktiv SLA-policy.
+Kunder uten aktiv avtale får ingen SLA-klokke, og oppdraget viser ingen
+SLA-panel. På oppdraget vises **SLA** med **Svar innen**, **Løs innen** og
+**I rute**, **I fare**, **Brutt**, **Oppfylt** eller **Kansellert**. Første
+**På vei** eller **På stedet** registrerer respons; **Ferdig** registrerer
+løsning.
 
 ### Prislister
 
@@ -471,7 +510,7 @@ ikke beløp.
 
 Ved hvert intervall opprettes et nytt oppdrag med avtalens tittel, kunde,
 kontaktperson, avdeling og sjekklistemal. Det får status **Planlagt**, en
-firetimers standardvisitt uten montører (08:00–12:00), og SLA-klokken starter. Rapporten er ny og tom;
+én arbeidsdag uten montører, og SLA-klokken starter når avtalen er aktiv. Rapporten er ny og tom;
 forrige rapport legges ved som PDF. Har jobben vært nede, brukes siste forfalte
 forekomst. Utløpte avtaler genererer ikke nye oppdrag.
 
@@ -671,12 +710,12 @@ kundekortet.
 det som er **Uten montør i dag**, sjekk **Dobbelbooking** og **Visiter uten
 montør**, og sjekk **Bookinger** og **Meldinger**.
 
-**I løpet av dagen:** Følg **Pågår** og **Forfalt**. Flytt visiter i kalenderen,
+**I løpet av dagen:** Følg **Pågår** og **Forfalt**. Flytt arbeidsdager i kalenderen,
 bruk dispatch ved sykdom eller hastverk, og svar kunder i **Meldinger**.
 Registrer samtykke før SMS.
 
 **Slutten av dagen:** Kontroller at dagens oppdrag er **Fullført** eller har en
-oppfølging. Se **Usignerte rapporter**, kontroller morgendagens visiter, og rydd
+oppfølging. Se **Usignerte rapporter**, kontroller morgendagens arbeidsdager, og rydd
 **Bookinger** og **Varsler**.
 
 **Ukentlig:** Gå gjennom **Forfalte** og **Ikke tildelt**, neste ukes
@@ -747,7 +786,7 @@ for full liste.
 | Kontoret gjør | Teknikeren gjør | Hvor det står |
 | --- | --- | --- |
 | Oppretter oppdrag med kunde, kontakt, utstyr og sjekklister | Tar oppdraget, åpner skjema og fyller ut sjekkpunkter | Teknikerdelen (del 2) |
-| Planlegger visitt med dato, tid og montør | Starter kjøring, markerer **På stedet**, fullfører | Teknikerdelen |
+| Planlegger dato og montør per arbeidsdag | Starter **På vei**, markerer **På stedet**, **Ferdig** og **Avslutt kjøring** | Teknikerdelen |
 | Leser rapport, avvik og signaturer | Signerer, legger ved bilder, sender rapport | Teknikerdelen |
 | Følger opp utbedringsoppdrag | Utfører utbedringen og ny rapport | Teknikerdelen |
 
@@ -762,14 +801,14 @@ administratordelen (del 3).
 | --- | --- | --- |
 | Finner ikke oppdraget | Feil avdeling, fane eller filter | Nullstill søk/filter, kontroller avdeling |
 | Får ikke tildelt | Mangler **Tildele montører**, låst eller bevaringsplikt | Be om rettighet, eller gjenåpne som administrator |
-| Dra og slipp endret ikke dato | Dra og slipp tildeler montør | Flytt visitten i kalenderen |
-| Kalenderen er tom | Ingen visiter, filter eller utenfor ±6 måneder | Nullstill filter, velg **I dag**, kontroller visitt |
-| Overlappende visitt | Montøren har flere oppdrag samtidig | Vurder kapasiteten og flytt en visitt ved behov |
+| Dra og slipp endret ikke dato | Dra og slipp tildeler montør | Flytt dagen i kalenderen |
+| Kalenderen er tom | Ingen arbeidsdager, filter eller utenfor ±6 måneder | Nullstill filter, velg **I dag**, kontroller datoperioden |
+| Overlappende arbeidsdag | Montøren har flere oppdrag samtidig | Vurder kapasiteten og flytt en dag ved behov |
 | Rapporten er låst | Innsendt rapport | Be administrator **Lås opp for retting** |
 | Kunden ser ikke rapporten | Ikke låst, eller mangler portal-/dokumenttilgang | Lås rapporten, kontroller portalbruker |
 | Kunden kan ikke booke | Mangler kontakt, aktiv bruker eller ledig tid | Sjekk kontakt, bruker, 24 timer og ledige tidsrom |
 | SMS sendes ikke | Mangler samtykke, telefon, kvote eller tørrkjøring | Registrer samtykke, kontroller nummer/innstillinger |
 | Avtalen lager ingen oppdrag | Pauset/utløpt, fremtidig start eller jobben kjører ikke | Aktiver, kontroller startdato og jobb |
-| SLA vises ikke | Ingen aktiv policy | Knytt policy til avtalen eller avdelingen |
+| SLA vises ikke | Ingen aktiv avtale med aktiv policy | Aktiver avtalen og knytt policy til den |
 | Prislisten fakturerer ikke | Referansedata | Fakturer utenfor plattformen |
 | Vedlegg vises ikke i portalen | Oppdragsvedlegg er interne | Legg filen på kundekortet → **Mer** → **Vedlegg** |

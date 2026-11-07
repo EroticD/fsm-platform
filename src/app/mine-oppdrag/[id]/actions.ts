@@ -155,3 +155,30 @@ export async function setVisitStatus(formData: FormData) {
   revalidatePath("/kart");
   redirect(`/mine-oppdrag/${workOrderId}?visitOk=1`);
 }
+
+/**
+ * Sekundær felt handling etter DONE: avslutter retur-/viderekjøringen.
+ * De tre primære statusknappene er uendret.
+ */
+export async function finishVisitTravelFrom(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/mine-oppdrag?error=ugyldig-data");
+  if (!visitId) {
+    redirect(`/mine-oppdrag/${workOrderId}?visitError=invalidInput`);
+  }
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.finishTravelFrom(user, visitId);
+  if (!result.ok) {
+    redirect(
+      `/mine-oppdrag/${workOrderId}?visitError=${encodeURIComponent(visitFailureSlug(result))}`,
+    );
+  }
+
+  revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  revalidatePath("/mine-oppdrag");
+  redirect(`/mine-oppdrag/${workOrderId}?visitOk=1`);
+}

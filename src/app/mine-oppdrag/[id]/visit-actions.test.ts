@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   getCurrentUser: vi.fn(),
   setVisitStatus: vi.fn(),
+  finishTravelFrom: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
@@ -15,9 +16,10 @@ vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/server/work-orders", () => ({}));
 vi.mock("@/server/visits", () => ({
   setVisitStatus: mocks.setVisitStatus,
+  finishTravelFrom: mocks.finishTravelFrom,
 }));
 
-import { setVisitStatus } from "./actions";
+import { finishVisitTravelFrom, setVisitStatus } from "./actions";
 
 const technician = {
   id: "tech-1",
@@ -118,5 +120,37 @@ describe("setVisitStatus på feltdetaljen", () => {
     ).rejects.toThrow("NEXT_REDIRECT:/api/auth/signin");
 
     expect(mocks.setVisitStatus).not.toHaveBeenCalled();
+  });
+
+  it("avslutter kjøringen etter fullført dag", async () => {
+    mocks.finishTravelFrom.mockResolvedValue({
+      ok: true,
+      data: { id: "visit-1" },
+    });
+
+    await expect(
+      finishVisitTravelFrom(
+        form({ workOrderId: "wo-1", visitId: "visit-1" }),
+      ),
+    ).rejects.toThrow("NEXT_REDIRECT:/mine-oppdrag/wo-1?visitOk=1");
+
+    expect(mocks.finishTravelFrom).toHaveBeenCalledWith(technician, "visit-1");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/mine-oppdrag/wo-1");
+  });
+
+  it("viser tjenestefeil når kjøringen ikke kan avsluttes", async () => {
+    mocks.finishTravelFrom.mockResolvedValue({
+      ok: false,
+      reason: "invalid",
+      details: { code: "visits.errors.travelFromNotAvailable" },
+    });
+
+    await expect(
+      finishVisitTravelFrom(
+        form({ workOrderId: "wo-1", visitId: "visit-1" }),
+      ),
+    ).rejects.toThrow(
+      "NEXT_REDIRECT:/mine-oppdrag/wo-1?visitError=travelFromNotAvailable",
+    );
   });
 });

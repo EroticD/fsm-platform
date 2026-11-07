@@ -114,6 +114,8 @@ type VisitRow = Prisma.VisitGetPayload<{
           select: { skillId: true; mandatory: true };
         };
         slaClocks: {
+          where: { state: { not: "CANCELLED" } };
+          orderBy: { startedAt: "desc" };
           select: {
             startedAt: true;
             respondBy: true;
@@ -146,6 +148,8 @@ const visitSelect = {
       longitude: true,
       skillRequirements: { select: { skillId: true, mandatory: true } },
       slaClocks: {
+        where: { state: { not: "CANCELLED" } },
+        orderBy: { startedAt: "desc" },
         select: {
           startedAt: true,
           respondBy: true,
@@ -710,6 +714,9 @@ export async function autoAssign(
               score: plan.score,
               breakdown: plan.breakdown,
             },
+            // Automatisk dispatch planlegger hver dag for seg og skal ikke
+            // overskrive en tidligere dags forslag i samme kjøring.
+            syncSiblings: false,
           },
         );
         if (!result.ok) {

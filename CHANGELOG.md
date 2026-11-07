@@ -3,6 +3,53 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## Unreleased (dev)
+
+### Arbeidsdager, tid og SLA
+- Oppdrag planlegges nå som rene datoer: **Dato for utførelse** og eventuell
+  **Til dato**. Hver dato blir én arbeidsdag med egen intern økt, også når
+  oppdraget strekker seg over flere dager. Kontoret oppretter, flytter eller
+  sletter ikke enkeltdager; datoperioden avstemmes automatisk, og dager med
+  startet eller registrert tid gir en tydelig konflikt i stedet for sletting.
+- Kontorsiden har fått skrivebeskyttet **Dager og tid** med én rad per
+  arbeidsdag, status, tidsstempler og summer for arbeid, kjøring til, kjøring
+  fra og totalt. Den gamle visittplanleggingen er fjernet fra oppdragsdetaljen.
+- Feltkortet følger **På vei → På stedet → Ferdig**, deretter **Avslutt
+  kjøring**. Tiden registreres per dag. Neste dags økt kan startes selv om en
+  tidligere dag venter på avsluttet kjøring; neste `EN_ROUTE` lukker forrige
+  reisesegment, slik at flere jobber samme dag deler reisetid uten dobbelttelling.
+- Summeringen inkluderer all reisetid. Kalenderen tegner hver arbeidsdag som
+  egen hendelse med faktisk start, slutt og varighet når tid er registrert.
+- SLA starter bare når oppdraget har en aktiv, datogyldig avtale med en aktiv
+  SLA-policy. Det er ikke lenger fallback til avdelingens standardpolicy eller
+  en global policy. Respons registreres på `EN_ROUTE`/`ON_SITE`, løsning på
+  `DONE`; returkjøring flytter ikke klokken.
+- Ny opprydding `npm run sla:cleanup` (tørrkjøring som standard, `--apply` for
+  å skrive) kansellerer ikke-kansellerte SLA-klokker uten gyldig avtaledekning
+  eller med en annen policy enn avtalen gir. Hver endring revisjonslogges, og
+  kansellerte klokker ignoreres av sveiping, dispatch og SLA-panelet.
+- Engangsbackfill `npm run visits:backfill:daily` splitter eldre flerdagers
+  heldagsvisiter til én økt per dag uten å kopiere tidsstempler.
+
+### Kalender: FullCalendar 7
+- Kalenderen bruker nå `fullcalendar` 7.1.4 og `temporal-polyfill` i stedet for
+  de fire `@fullcalendar/*` v6-pakkene. Klassisk tema registreres som
+  v7-plugin, og skeleton-, tema- og palett-CSS importeres én gang i
+  `globals.css`.
+- Verktøylinjen bruker v7s `start`/`center`/`end` og `buttons` (tekst, hint og
+  klasse) i stedet for `buttonText`/`buttonHints`. Hendelser og dager styles
+  gjennom v7s offentlige klassehooks (`eventClass`, `rowEventClass`,
+  `dayCellClass`, `dayLaneClass` …) og `--fc-classic-*`-variabler. Gamle
+  v6-selektorer som `.fc-daygrid-*` og `.fc-toolbar-*` er fjernet.
+- Hendelsesfarger bruker `color`/`contrastColor` og statusprikk i tillegg til
+  farge. Dato- og ukenummerformatering er flyttet til `calendar-format.ts`
+  fordi v7 kollapser overskrifter på smale kolonner og sender feil dato til
+  `dayHeaderContent` i to-ukersvisningen.
+- E2E-testene bruker `data-testid="calendar-event"` og `.kal-day-cell[data-date]`
+  i stedet for v6-klasser, og dra-og-slipp venter til v7s første `datesSet` er
+  ferdig. Uke- og to-ukersvisningene beholder høyde og ukenumre også etter
+  v7s `min-height: 0 !important` på dagnettet.
+
 ## 0.8.10 — 2026-11-04
 
 ### Geokoding
