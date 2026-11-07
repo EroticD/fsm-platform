@@ -516,9 +516,11 @@ export default async function AdminWorkOrderPage({
   const canAssign = hasPermission(user, "workorders.assign") && !isClosed;
   const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
   const canCreate = hasPermission(user, "workorders.create");
-  const [reportsEnabled, smsEnabled] = await Promise.all([
+  const [reportsEnabled, smsEnabled, inventoryEnabled, expensesEnabled] = await Promise.all([
     moduleEnabled("reports"),
     moduleEnabled("sms"),
+    moduleEnabled("inventory"),
+    moduleEnabled("fieldExpenses"),
   ]);
   const canWriteReports =
     reportsEnabled && hasPermission(user, "reports.write");
@@ -939,6 +941,16 @@ export default async function AdminWorkOrderPage({
                     {t("orders.detail.deleteWorkOrder")}
                   </button>
                 </ConfirmSubmitForm>
+              )}
+              {inventoryEnabled && hasPermission(user, "equipment.view") && (
+                <Link href={`/lager/oppdrag/${workOrder.id}`} className={INK_BUTTON}>
+                  {t("inventory.workOrderLink")}
+                </Link>
+              )}
+              {expensesEnabled && hasPermission(user, "workorders.view") && (
+                <Link href={`/utlegg?oppdrag=${workOrder.id}`} className={INK_BUTTON}>
+                  {t("expenses.workOrderLink")}
+                </Link>
               )}
               <Link href="/" className={INK_BUTTON}>
                 {t("orders.detail.back")}

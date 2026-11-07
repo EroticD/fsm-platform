@@ -1,0 +1,89 @@
+{
+  "expenses": {
+    "title": "Utlegg",
+    "eyebrow": "FLD-01 · Kjøreturer og utlegg",
+    "description": "Registrer kjøreturer og utlegg med kvittering. Kontoret godkjenner og eksporterer lønnsgrunnlag per periode.",
+    "officeLink": "Kontor og godkjenning",
+    "linkedWorkOrder": "Knyttet til oppdrag",
+    "workOrderLink": "Utlegg og kjøretur",
+    "date": "Dato",
+    "amount": "Beløp",
+    "vat": "Mva",
+    "receipt": "Kvittering",
+    "document": "Dokument",
+    "statusLabel": "Status",
+    "actions": "Handlinger",
+    "openWorkOrder": "Oppdrag",
+    "submitToApproval": "Send til godkjenning",
+    "approve": "Godkjenn",
+    "reject": "Avvis",
+    "rejectReason": "Årsak til avvisning",
+    "feedback": {
+      "saved": "Lagret.",
+      "error": "Handlingen kunne ikke gjennomføres. Sjekk feltene, kvitteringen og tilgangen."
+    },
+    "totals": {
+      "pending": "Til godkjenning",
+      "approved": "Godkjent"
+    },
+    "status": {
+      "draft": "Kladd",
+      "pending": "Til godkjenning",
+      "approved": "Godkjent",
+      "rejected": "Avvist"
+    },
+    "trip": {
+      "title": "Kjøretur",
+      "km": "Kilometer",
+      "from": "Fra",
+      "to": "Til",
+      "rate": "Sats per km",
+      "purpose": "Formål",
+      "submit": "Registrer kjøretur",
+      "listTitle": "Mine kjøreturer",
+      "empty": "Ingen kjøreturer er registrert.",
+      "route": "Rute",
+      "approvalTitle": "Kjøreturer til godkjenning"
+    },
+    "expense": {
+      "title": "Utlegg",
+      "category": "Kategori",
+      "amount": "Beløp inkl. mva",
+      "vatRate": "Mva-sats",
+      "description": "Beskrivelse",
+      "receipt": "Kvittering",
+      "uploading": "Laster opp …",
+      "uploadError": "Kunne ikke laste opp kvitteringen.",
+      "submit": "Registrer utlegg",
+      "listTitle": "Mine utlegg",
+      "empty": "Ingen utlegg er registrert.",
+      "approvalTitle": "Utlegg til godkjenning"
+    },
+    "office": {
+      "title": "Utlegg og lønn",
+      "description": "Godkjenn kjøreturer og utlegg, og lås lønnsgrunnlaget for en periode. Avviste rader eksporteres aldri.",
+      "myExpenses": "Mine utlegg",
+      "pendingSummary": "{count} rader til godkjenning · {amount}",
+      "empty": "Ingen rader i denne statusen.",
+      "noReceipt": "Ingen kvittering"
+    },
+    "payroll": {
+      "title": "Lønnsgrunnlag",
+      "description": "Eksporten bruker eksisterende visitt-tid og reisetid, godkjente kjøreturer og godkjente utlegg. Samme periode gir samme fil.",
+      "from": "Fra",
+      "to": "Til",
+      "preview": "Forhåndsvis",
+      "export": "Last ned CSV",
+      "workHours": "Arbeidstimer",
+      "travelHours": "Reisetimer",
+      "mileageKm": "Kilometer",
+      "mileageAmount": "Kjøregodtgjørelse",
+      "expenseAmount": "Utlegg",
+      "rows": "Rader",
+      "period": "Periode",
+      "created": "Låst",
+      "checksum": "Kontrollsum",
+      "download": "Last ned"
+    }
+  }
+}
