@@ -2,6 +2,11 @@ import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { uploadDir } from "@/lib/uploads";
+import {
+  slaCleanupEnabled,
+  slaCleanupIntervalMs,
+  slaCleanupMaxAgeMs,
+} from "@/lib/sla-cleanup-config";
 
 /**
  * Driftsmålinger for Prometheus/eksterne prober. Endepunktet som bruker
@@ -21,6 +26,19 @@ export type BackupStatus = {
   maxAgeSeconds: number;
 };
 
+export type SlaCleanupStatus = {
+  enabled: boolean;
+  intervalSeconds: number;
+  lastRunAt: string | null;
+  ageSeconds: number | null;
+  lastStatus: "never" | "running" | "succeeded" | "failed";
+  lastScanned: number;
+  lastCancelled: number;
+  failedRuns24h: number;
+  /** Sann når oppryddingen er på og siste kjøring er eldre enn toleransen. */
+  stale: boolean;
+};
+
 export type MetricsSnapshot = {
   time: string;
   ok: boolean;
@@ -35,6 +53,7 @@ export type MetricsSnapshot = {
     smsFailed: number;
     notificationEmailFailed: number;
   };
+  slaCleanup: SlaCleanupStatus;
   backup: BackupStatus;
   process: {
     uptimeSeconds: number;
@@ -54,6 +73,25 @@ export type MetricsPrisma = {
     count(args: { where: Record<string, unknown> }): Promise<number>;
   };
   notification: {
+    count(args: { where: Record<string, unknown> }): Promise<number>;
+  };
+  slaCleanupRun: {
+    findFirst(args: {
+      orderBy: { startedAt: "desc" };
+      select: {
+        startedAt: true;
+        finishedAt: true;
+        status: true;
+        scanned: true;
+        cancelled: true;
+      };
+    }): Promise<{
+      startedAt: Date;
+      finishedAt: Date | null;
+      status: string;
+      scanned: number;
+      cancelled: number;
+    } | null>;
     count(args: { where: Record<string, unknown> }): Promise<number>;
   };
 };
@@ -183,6 +221,59 @@ async function safeCount(
   }
 }
 
+async function safeLatestSlaCleanup(
+  findFirst: MetricsPrisma["slaCleanupRun"]["findFirst"],
+): Promise<Awaited<ReturnType<MetricsPrisma["slaCleanupRun"]["findFirst"]>>> {
+  try {
+    return await findFirst({
+      orderBy: { startedAt: "desc" },
+      select: {
+        startedAt: true,
+        finishedAt: true,
+        status: true,
+        scanned: true,
+        cancelled: true,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+function slaCleanupStatus(
+  last: Awaited<ReturnType<MetricsPrisma["slaCleanupRun"]["findFirst"]>>,
+  failedRuns24h: number,
+  env: Record<string, string | undefined>,
+  now: Date,
+): SlaCleanupStatus {
+  const enabled = slaCleanupEnabled(env);
+  const lastStatus: SlaCleanupStatus["lastStatus"] = !last
+    ? "never"
+    : last.status === "SUCCEEDED"
+      ? "succeeded"
+      : last.status === "FAILED"
+        ? "failed"
+        : "running";
+  const ageSeconds = last
+    ? Math.max(0, Math.floor((now.getTime() - last.startedAt.getTime()) / 1000))
+    : null;
+  const stale =
+    enabled &&
+    (ageSeconds === null || ageSeconds * 1000 > slaCleanupMaxAgeMs(env));
+
+  return {
+    enabled,
+    intervalSeconds: Math.round(slaCleanupIntervalMs(env) / 1000),
+    lastRunAt: last?.startedAt.toISOString() ?? null,
+    ageSeconds,
+    lastStatus,
+    lastScanned: last?.scanned ?? 0,
+    lastCancelled: last?.cancelled ?? 0,
+    failedRuns24h,
+    stale,
+  };
+}
+
 export async function collectMetrics({
   prisma,
   env = process.env,
@@ -212,20 +303,32 @@ export async function collectMetrics({
     uploads = "unwritable";
   }
 
-  const [documentPending, documentFailed, smsDeadLetter, smsFailed, notificationEmailFailed] =
-    await Promise.all([
-      safeCount(prisma.documentJob.count, { status: "PENDING" }),
-      safeCount(prisma.documentJob.count, { status: "FAILED" }),
-      safeCount(prisma.smsMessage.count, { status: "DEAD_LETTER" }),
-      safeCount(prisma.smsMessage.count, { status: "FAILED" }),
-      // Etter fem forsøk gir varselworkeren opp og lar emailSentAt være null.
-      // Det er en permanent feil, ikke en forbigående SMTP-blip.
-      safeCount(prisma.notification.count, {
-        emailSentAt: null,
-        emailError: { not: null },
-        emailAttempts: { gte: 5 },
-      }),
-    ]);
+  const [
+    documentPending,
+    documentFailed,
+    smsDeadLetter,
+    smsFailed,
+    notificationEmailFailed,
+    lastSlaCleanup,
+    slaCleanupFailures,
+  ] = await Promise.all([
+    safeCount(prisma.documentJob.count, { status: "PENDING" }),
+    safeCount(prisma.documentJob.count, { status: "FAILED" }),
+    safeCount(prisma.smsMessage.count, { status: "DEAD_LETTER" }),
+    safeCount(prisma.smsMessage.count, { status: "FAILED" }),
+    // Etter fem forsøk gir varselworkeren opp og lar emailSentAt være null.
+    // Det er en permanent feil, ikke en forbigående SMTP-blip.
+    safeCount(prisma.notification.count, {
+      emailSentAt: null,
+      emailError: { not: null },
+      emailAttempts: { gte: 5 },
+    }),
+    safeLatestSlaCleanup(prisma.slaCleanupRun.findFirst),
+    safeCount(prisma.slaCleanupRun.count, {
+      status: "FAILED",
+      startedAt: { gte: new Date(now.getTime() - 24 * 60 * 60_000) },
+    }),
+  ]);
 
   const ready = database === "up" && uploads === "writable";
   return {
@@ -242,6 +345,12 @@ export async function collectMetrics({
       smsFailed,
       notificationEmailFailed,
     },
+    slaCleanup: slaCleanupStatus(
+      lastSlaCleanup,
+      slaCleanupFailures,
+      env,
+      now,
+    ),
     backup: await readBackupStatus(env, now, readFile),
     process: {
       uptimeSeconds: Math.round(process.uptime()),
@@ -287,6 +396,25 @@ export function serializePrometheus(snapshot: MetricsSnapshot): string {
     "# HELP fsm_notification_email_failures Varsler som har gitt opp e-postutsending.",
     "# TYPE fsm_notification_email_failures gauge",
     `fsm_notification_email_failures ${snapshot.queue.notificationEmailFailed}`,
+    "# HELP fsm_sla_cleanup_enabled Automatisk SLA-opprydding er slått på.",
+    "# TYPE fsm_sla_cleanup_enabled gauge",
+    `fsm_sla_cleanup_enabled ${snapshot.slaCleanup.enabled ? 1 : 0}`,
+    "# HELP fsm_sla_cleanup_last_run_timestamp_seconds Når siste opprydding startet (unix-tid, 0 = aldri).",
+    "# TYPE fsm_sla_cleanup_last_run_timestamp_seconds gauge",
+    `fsm_sla_cleanup_last_run_timestamp_seconds ${num(
+      snapshot.slaCleanup.lastRunAt
+        ? Math.floor(Date.parse(snapshot.slaCleanup.lastRunAt) / 1000)
+        : null,
+    )}`,
+    "# HELP fsm_sla_cleanup_last_cancelled Klokker kansellert i siste opprydding.",
+    "# TYPE fsm_sla_cleanup_last_cancelled gauge",
+    `fsm_sla_cleanup_last_cancelled ${snapshot.slaCleanup.lastCancelled}`,
+    "# HELP fsm_sla_cleanup_failed_runs Feilede oppryddinger siste 24 timer.",
+    "# TYPE fsm_sla_cleanup_failed_runs gauge",
+    `fsm_sla_cleanup_failed_runs{window="24h"} ${snapshot.slaCleanup.failedRuns24h}`,
+    "# HELP fsm_sla_cleanup_stale Siste opprydding er eldre enn toleransen.",
+    "# TYPE fsm_sla_cleanup_stale gauge",
+    `fsm_sla_cleanup_stale ${snapshot.slaCleanup.stale ? 1 : 0}`,
     "# HELP fsm_backup_age_seconds Alder på siste vellykkede backup.",
     "# TYPE fsm_backup_age_seconds gauge",
     `fsm_backup_age_seconds ${num(snapshot.backup.ageSeconds)}`,

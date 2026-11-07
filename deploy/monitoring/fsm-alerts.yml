@@ -81,3 +81,21 @@ groups:
         annotations:
           summary: "Varsler har gitt opp e-postutsending"
           description: "Fem forsøk er brukt opp. Sjekk SMTP, Notification.emailError og varselinnstillingene."
+
+      - alert: FsmSlaCleanupStale
+        expr: fsm_sla_cleanup_enabled == 1 and fsm_sla_cleanup_stale == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automatisk SLA-opprydding har ikke kjørt"
+          description: "Siste kjøring er eldre enn to intervaller (SLA_CLEANUP_INTERVAL_HOURS) pluss én time, eller mangler. Sjekk scheduleren, SlaCleanupRun og logger."
+
+      - alert: FsmSlaCleanupFailed
+        expr: fsm_sla_cleanup_enabled == 1 and fsm_sla_cleanup_failed_runs{window="24h"} > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA-oppryddingen har feilet"
+          description: "En eller flere kjøringer siste 24 timer har status FAILED. Se SlaCleanupRun.error og logger; oppryddingen er idempotent og prøver igjen ved neste intervall."

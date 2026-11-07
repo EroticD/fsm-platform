@@ -336,13 +336,13 @@ const BOOKING_EMAIL_COPY: Record<
   }
 > = {
   nb: {
-    customerHeading: "Bestilling mottatt",
-    customerSubject: "Vi har mottatt bestillingen din: {title}",
+    customerHeading: "Datoforespørsel mottatt",
+    customerSubject: "Vi har mottatt datoforespørselen din: {title}",
     customerIntro:
-      "Takk for bestillingen. Vi tar kontakt for å avtale dato.",
-    officeHeading: "Ny bestilling fra kundeportal",
+      "Takk for forespørselen. Vi tar kontakt for å bekrefte dato og klokkeslett.",
+    officeHeading: "Ny datoforespørsel fra kundeportal",
     officeIntro:
-      "En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».",
+      "En kunde har sendt en datoforespørsel. Den ligger klar for planlegging under «Oppdrag».",
     labels: {
       order: "Oppdrag",
       customer: "Kunde",
@@ -355,13 +355,13 @@ const BOOKING_EMAIL_COPY: Record<
     footer: "Dette er en automatisk generert e-post fra",
   },
   en: {
-    customerHeading: "Booking received",
-    customerSubject: "We have received your booking: {title}",
+    customerHeading: "Date request received",
+    customerSubject: "We have received your date request: {title}",
     customerIntro:
-      "Thank you for your booking. We will contact you to agree on a date.",
-    officeHeading: "New booking from the customer portal",
+      "Thank you for your request. We will contact you to confirm the date and time.",
+    officeHeading: "New date request from the customer portal",
     officeIntro:
-      "A customer has booked a new job. It is ready for planning under Work orders.",
+      "A customer has sent a date request. It is ready for planning under Work orders.",
     labels: {
       order: "Job",
       customer: "Customer",
@@ -374,13 +374,13 @@ const BOOKING_EMAIL_COPY: Record<
     footer: "This is an automatically generated e-mail from",
   },
   pl: {
-    customerHeading: "Otrzymano rezerwację",
-    customerSubject: "Otrzymaliśmy Twoją rezerwację: {title}",
+    customerHeading: "Otrzymano zapytanie o termin",
+    customerSubject: "Otrzymaliśmy Twoje zapytanie o termin: {title}",
     customerIntro:
-      "Dziękujemy za rezerwację. Skontaktujemy się, aby ustalić termin.",
-    officeHeading: "Nowa rezerwacja z portalu klienta",
+      "Dziękujemy za zapytanie. Skontaktujemy się, aby potwierdzić datę i godzinę.",
+    officeHeading: "Nowe zapytanie o termin z portalu klienta",
     officeIntro:
-      "Klient zarezerwował nowe zlecenie. Jest gotowe do zaplanowania w sekcji Zlecenia.",
+      "Klient wysłał zapytanie o termin. Jest gotowe do zaplanowania w sekcji Zlecenia.",
     labels: {
       order: "Zlecenie",
       customer: "Klient",
@@ -393,13 +393,13 @@ const BOOKING_EMAIL_COPY: Record<
     footer: "To jest automatycznie wygenerowana wiadomość od",
   },
   de: {
-    customerHeading: "Buchung erhalten",
-    customerSubject: "Wir haben Ihre Buchung erhalten: {title}",
+    customerHeading: "Terminanfrage erhalten",
+    customerSubject: "Wir haben Ihre Terminanfrage erhalten: {title}",
     customerIntro:
-      "Vielen Dank für Ihre Buchung. Wir melden uns, um einen Termin zu vereinbaren.",
-    officeHeading: "Neue Buchung aus dem Kundenportal",
+      "Vielen Dank für Ihre Anfrage. Wir melden uns, um Datum und Uhrzeit zu bestätigen.",
+    officeHeading: "Neue Terminanfrage aus dem Kundenportal",
     officeIntro:
-      "Ein Kunde hat einen neuen Auftrag gebucht. Er steht unter Aufträge zur Planung bereit.",
+      "Ein Kunde hat eine Terminanfrage gesendet. Sie steht unter Aufträge zur Planung bereit.",
     labels: {
       order: "Auftrag",
       customer: "Kunde",

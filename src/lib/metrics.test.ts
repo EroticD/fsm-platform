@@ -22,6 +22,16 @@ function fakePrisma(overrides: Partial<MetricsPrisma> = {}): MetricsPrisma {
       ),
     },
     notification: { count: vi.fn(async () => 5) },
+    slaCleanupRun: {
+      findFirst: vi.fn(async () => ({
+        startedAt: new Date("2026-11-02T11:00:00.000Z"),
+        finishedAt: new Date("2026-11-02T11:00:02.000Z"),
+        status: "SUCCEEDED",
+        scanned: 4,
+        cancelled: 1,
+      })),
+      count: vi.fn(async () => 0),
+    },
     ...overrides,
   };
 }
@@ -97,12 +107,22 @@ describe("metrics", () => {
         notificationEmailFailed: 5,
       },
       backup: { fresh: true, ageSeconds: 3600 },
+      slaCleanup: {
+        enabled: true,
+        lastStatus: "succeeded",
+        lastCancelled: 1,
+        failedRuns24h: 0,
+        stale: false,
+      },
     });
 
     const text = serializePrometheus(snapshot);
     expect(text).toContain('fsm_document_jobs{status="failed"} 2');
     expect(text).toContain('fsm_sms_messages{status="dead_letter"} 3');
     expect(text).toContain("fsm_notification_email_failures 5");
+    expect(text).toContain("fsm_sla_cleanup_enabled 1");
+    expect(text).toContain("fsm_sla_cleanup_last_cancelled 1");
+    expect(text).toContain("fsm_sla_cleanup_stale 0");
     expect(text).toContain("fsm_backup_fresh 1");
     expect(text).toContain("fsm_disk_used_ratio 0.8");
   });
@@ -123,5 +143,51 @@ describe("metrics", () => {
     });
     expect(snapshot.ready).toBe(false);
     expect(snapshot.database).toBe("down");
+  });
+
+  it("flagger SLA-oppryddingen som utdatert når den aldri har kjørt", async () => {
+    const snapshot = await collectMetrics({
+      prisma: fakePrisma({
+        slaCleanupRun: {
+          findFirst: vi.fn(async () => null),
+          count: vi.fn(async () => 2),
+        },
+      }),
+      env: { SLA_CLEANUP_INTERVAL_HOURS: "6" },
+      now,
+      uploadDir: "/tmp/uploads",
+      mkdir: async () => undefined,
+      access: async () => undefined,
+      statfs: async () => ({ bsize: 1, blocks: 1, bfree: 1, bavail: 1 }),
+      readFile: async () => "{}",
+    });
+
+    expect(snapshot.slaCleanup).toMatchObject({
+      enabled: true,
+      lastStatus: "never",
+      lastRunAt: null,
+      failedRuns24h: 2,
+      stale: true,
+      intervalSeconds: 21600,
+    });
+  });
+
+  it("viser siste SLA-kjøring som fersk og respekterer av-bryteren", async () => {
+    const snapshot = await collectMetrics({
+      prisma: fakePrisma(),
+      env: { SLA_CLEANUP_ENABLED: "false" },
+      now,
+      uploadDir: "/tmp/uploads",
+      mkdir: async () => undefined,
+      access: async () => undefined,
+      statfs: async () => ({ bsize: 1, blocks: 1, bfree: 1, bavail: 1 }),
+      readFile: async () => "{}",
+    });
+
+    expect(snapshot.slaCleanup).toMatchObject({
+      enabled: false,
+      lastStatus: "succeeded",
+      stale: false,
+    });
   });
 });

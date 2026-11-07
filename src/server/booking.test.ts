@@ -180,6 +180,34 @@ describe("createBooking", () => {
     expect(mocks.notifyWorkOrderEvent).toHaveBeenCalled();
   });
 
+  it("ignorerer klientfelter som ville ha bekreftet en slot direkte", async () => {
+    const result = await createBooking(customer(), {
+      ...booking,
+      technicianId: "tech-1",
+      preferredTechnicianId: "tech-1",
+      // Eldre klienter kan fortsatt sende tokenet; det skal ikke gi en
+      // bekreftet tid eller en visitt.
+      holdToken: "hold-1",
+    } as typeof booking & {
+      technicianId: string;
+      preferredTechnicianId: string;
+      holdToken: string;
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { status: "PENDING" },
+    });
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "OPEN" }),
+      }),
+    );
+    expect(mocks.createDefaultVisit).not.toHaveBeenCalled();
+    expect(mocks.recomputeWorkOrderSchedule).not.toHaveBeenCalled();
+    expect(mocks.trySendBookingConfirmedSms).not.toHaveBeenCalled();
+  });
+
   it("avviser den sjette bestillingen innenfor en time", async () => {
     let customerAttempts = 0;
     mocks.allowRequestDb.mockImplementation(async (key: string) => {

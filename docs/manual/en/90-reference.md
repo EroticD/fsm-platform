@@ -34,7 +34,7 @@ Deletion is deliberately not a normal permission. An administrator can delete cu
 
 | Status | Displayed as | Meaning | Set by |
 | --- | --- | --- | --- |
-| `OPEN` | Open / New | Created but not planned. Used for bookings without an available slot, among other things. | System, office |
+| `OPEN` | Open / New | Created but not planned. Used for the customer's date request before the office plans it. | System, office |
 | `PENDING` | Waiting to be planned | Starting status for new and cloned work orders. Not selectable manually. | System |
 | `PLANNED` | Planned | Has a date or visit and is ready for assignment or execution. | Office, system |
 | `WAITING` | Waiting for customer | Work is on hold for the customer, access or clarification. | Office, technician |
@@ -105,12 +105,19 @@ SLA deadlines are calculated using the department's business hours and holidays.
 
 | Status | Displayed as | Meaning |
 | --- | --- | --- |
-| `PENDING` | Pending | In the office's booking queue and not tied to an available slot. |
-| `CONFIRMED` | Confirmed | The slot is reserved, and the work order and visit have been created. |
+| `PENDING` | Pending | In the office's booking queue as a date-only request. Time and technician are not planned. |
+| `CONFIRMED` | Confirmed | The office has planned time and technician, and the work order and visit have been created. |
 | `CANCELLED` | Cancelled | The booking was cancelled. |
 | `EXPIRED` | Expired | A pending request expired without confirmation. |
 
-New bookings are normally confirmed directly against an available slot. The slot is held for five minutes while the customer completes the form. Older or manually created requests may remain `PENDING`. The event log uses `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` and `EXPIRED`.
+New bookings are always date-only requests: the customer chooses a date, not a
+time block, and the office plans time and technician. No new booking becomes
+`CONFIRMED` directly. Every pending request can be confirmed; older rows with a
+stored time window may use it, otherwise the office supplies date, start and end.
+Overlapping visits are a busy marker, not a hard block. A short hold
+(`BookingHold`) is used only when an already confirmed appointment is moved.
+The event log uses `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` and
+`EXPIRED`.
 
 ### Notifications and audit log
 
@@ -141,9 +148,9 @@ The audit log is a permanent, non-editable history of actions: who created, chan
 
 | Action | Data created or updated | Who sees it |
 | --- | --- | --- |
-| Customer books an available slot | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, booking event, `BOOKING` | Customer, office, technician |
-| Customer sends a request without a slot | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, booking event | Office in "Bookings" |
-| Office confirms a pending booking | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, optional SMS | Customer, office, technician |
+| Customer sends a date request | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, booking event, `BOOKING` | Office in "Bookings" |
+| Office confirms a pending request | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, optional SMS | Customer, office, technician |
+| Customer moves a confirmed appointment | New time window, `Visit(PLANNED)`, `RESCHEDULED`; short `BookingHold` only in this flow | Customer, office, technician |
 | Office creates a work order | `WorkOrder(PENDING)`, `Visit(PLANNED)` if dated, audit log | Office, calendar |
 | Office assigns a technician | `VisitTechnician`, technician list, `ASSIGNMENT`, audit log | Technician, office |
 | Technician starts driving | `Visit(EN_ROUTE)`, `enRouteAt`, SLA response, tracking | Office, customer |
@@ -231,8 +238,8 @@ The field surface saves drafts locally when the connection disappears. The draft
 | SLA | Service level agreement | Agreed response and resolution time |
 | Åpningstider | Business hours | The hours within which SLA deadlines are calculated |
 | Bestilling | Booking | The customer's request or confirmed appointment |
-| Ledig time | Available slot | A slot that can be booked |
-| Reservasjon | Hold | Short-term reservation of a slot |
+| Ledig time | Available slot | Suggested time in the slot picker; used only when moving a confirmed appointment, not for new bookings |
+| Reservasjon | Hold | Short-term reservation of an available slot in the legacy reschedule flow |
 | Varsel | Notification | Message about an event |
 | Aktivitetslogg | Audit log | Traceable history of actions |
 | Rettighet | Permission | What a role or user can do |

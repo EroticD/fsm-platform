@@ -512,11 +512,19 @@ The booking queue is at `/bookinger` with **All**, **Pending**, **Confirmed** an
 **Location**, **Service**, **Technician** and status.
 
 1. Open `/bookinger` and filter on **Pending**.
-2. Choose **Technician** in **Choose technician**.
-3. Press **Confirm booking**, or **Cancel** to decline.
+2. Fill in **Date**, **From** and **To** for the planned visit. The requested
+   date is prefilled but can be changed.
+3. Choose **Technician** in **Choose technician**. All active employees in the
+   department can be chosen; absence, working hours and holds are checked on
+   confirmation, while overlap is only shown as a busy marker.
+4. Press **Confirm booking**, or **Cancel** to decline.
 
 On confirmation the work order becomes **Planned**, the visit is created or
-updated, and the customer receives an SMS if the contact has consented.
+updated, and the customer receives an SMS if the contact has consented. If the
+technician already has another visit at that time, it is shown as a **busy
+marker**, not a hard block. You may still confirm, but should consider capacity
+and move one of the days if needed. Absence and working hours remain hard
+requirements.
 
 The customer chooses a site, service and requested date in the portal, and
 writes the desired time in the description. The customer cannot select a time
@@ -528,6 +536,10 @@ The office or technician plans the work order and sets the status to
 replanning. The customer receives the final confirmation only then. A customer
 booking is already a work order; there is no separate **Convert to work order**
 button.
+
+If the customer already has a confirmed appointment, **Request a new time** may
+use a short hold while the form is filled out. That hold applies only to
+rescheduling the confirmed appointment, never to new bookings.
 
 ## Reports
 
@@ -678,7 +690,7 @@ explicitly how old it is; the page never pretends an old ping is live. The ETA
 refreshes automatically every 30 seconds. **Messages** lets the customer reply by
 SMS with consent.
 
-The customer can **Book an available time**, **Request a new time**, **Cancel
+The customer can **Send a date request**, **Request a new time**, **Cancel
 request**, **Acknowledge receipt** and **Request a contact information update**.
 Booking and cancellation notify the office; contact updates must be made manually
 on the customer card.
@@ -784,7 +796,7 @@ restoration. See the administrator part (Part 3).
 | Overlapping workday | Technician has several jobs at the same time | Check capacity and move one of the days if needed |
 | Report is locked | Submitted report | Ask an administrator to **Unlock for editing** |
 | Customer cannot see the report | Not locked, or missing portal/document access | Lock the report, check portal user |
-| Customer cannot book | Missing contact, active user or available time | Check contact, user, 24 hours and available time slots |
+| Customer cannot book | Missing contact/active user, or date outside the window | Check contact, user, 24 hours and requested date |
 | SMS is not sent | Missing consent, phone, quota or dry run | Register consent, check number/settings |
 | Agreement creates no work orders | Paused/expired, future start or job not running | Activate, check start date and job |
 | SLA is not shown | No active agreement with an active policy | Activate the agreement and link a policy to it |

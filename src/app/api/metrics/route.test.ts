@@ -14,6 +14,17 @@ const snapshot = {
     smsFailed: 4,
     notificationEmailFailed: 5,
   },
+  slaCleanup: {
+    enabled: true,
+    intervalSeconds: 21600,
+    lastRunAt: "2026-11-02T00:00:00.000Z",
+    ageSeconds: 0,
+    lastStatus: "succeeded" as const,
+    lastScanned: 3,
+    lastCancelled: 0,
+    failedRuns24h: 0,
+    stale: false,
+  },
   backup: { available: true, ageSeconds: 3600, fresh: true, maxAgeSeconds: 93600 },
   process: { uptimeSeconds: 120, pid: 42 },
 };

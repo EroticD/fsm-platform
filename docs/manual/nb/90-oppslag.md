@@ -34,7 +34,7 @@ Sletting er bevisst ikke en vanlig rettighet. Administrator kan slette kunder, f
 
 | Status | Vises som | Betydning |
 | --- | --- | --- |
-| `OPEN` | Åpen / Ny | Opprettet, men ikke planlagt. Brukes blant annet for bestillinger uten ledig time. |
+| `OPEN` | Åpen / Ny | Opprettet, men ikke planlagt. Brukes for kundens datoforespørsel før kontoret planlegger den. |
 | `PENDING` | Venter på planlegging | Startstatus for nye og klonede oppdrag. Skal ikke velges manuelt. |
 | `PLANNED` | Planlagt | Har dato eller visitt og er klar for tildeling eller utførelse. |
 | `WAITING` | Venter på kunde | Arbeidet står i bero på kunden, tilgang eller avklaring. |
@@ -103,12 +103,12 @@ SLA-frister regnes med avdelingens åpningstider og helligdager. Første «På v
 
 | Status | Vises som | Betydning |
 | --- | --- | --- |
-| `PENDING` | Venter | Ligger i kontorets bookingkø og er ikke bundet til en ledig time. |
-| `CONFIRMED` | Bekreftet | Timen er reservert, og oppdrag og visitt er opprettet. |
+| `PENDING` | Venter | Ligger i kontorets bookingkø som en datoforespørsel. Tid og montør er ikke planlagt. |
+| `CONFIRMED` | Bekreftet | Kontoret har planlagt tid og montør, og oppdrag og visitt er opprettet. |
 | `CANCELLED` | Avlyst | Bestillingen er avlyst. |
 | `EXPIRED` | Utløpt | En ventende forespørsel er utløpt uten bekreftelse. |
 
-Nye bestillinger bekreftes normalt direkte mot en ledig time. Timen holdes i fem minutter mens kunden fyller ut skjemaet. Eldre eller manuelt opprettede forespørsler kan stå som `PENDING`. Hendelsesloggen bruker `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` og `EXPIRED`.
+Nye bestillinger er alltid datoforespørsler: kunden velger dato, ikke tidsblokk, og kontoret planlegger tid og montør. Ingen ny bestilling blir `CONFIRMED` direkte. Alle ventende forespørsler kan bekreftes; eldre rader med et lagret tidsvindu kan bruke det, ellers oppgir kontoret dato, start og slutt. Overlappende visiter er en opptatt-markering, ikke en hard sperre. En kort reservasjon (`BookingHold`) brukes bare når en allerede bekreftet avtale flyttes. Hendelsesloggen bruker `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` og `EXPIRED`.
 
 ### Varsler og aktivitetslogg
 
@@ -138,9 +138,9 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 
 | Handling | Data som opprettes eller oppdateres | Hvem ser det |
 | --- | --- | --- |
-| Kunden bestiller en ledig time | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, bookinghendelse, `BOOKING` | Kunde, kontor, montør |
-| Kunden sender forespørsel uten ledig time | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, bookinghendelse | Kontor i «Bookinger» |
-| Kontoret bekrefter en ventende booking | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, eventuell SMS | Kunde, kontor, montør |
+| Kunden sender en datoforespørsel | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, bookinghendelse, `BOOKING` | Kontor i «Bookinger» |
+| Kontoret bekrefter en ventende forespørsel | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, eventuell SMS | Kunde, kontor, montør |
+| Kunden flytter en bekreftet avtale | Nytt tidsvindu, `Visit(PLANNED)`, `RESCHEDULED`; kort `BookingHold` bare i denne flyten | Kunde, kontor, montør |
 | Kontoret oppretter et oppdrag | `WorkOrder(PENDING)`, `Visit(PLANNED)` hvis dato, aktivitetslogg | Kontor, kalender |
 | Kontoret tildeler en montør | `VisitTechnician`, montørliste, `ASSIGNMENT`, aktivitetslogg | Montør, kontor |
 | Montøren starter kjøring | `Visit(EN_ROUTE)`, `enRouteAt`, SLA-respons, sporing | Kontor, kunde |
@@ -218,8 +218,8 @@ Feltflaten lagrer kladder lokalt når nettet forsvinner. Kladden sendes når app
 | SLA | Service level agreement | Avtalt respons- og løsningstid |
 | Åpningstider | Business hours | Tidsrommene SLA-frister regnes innenfor |
 | Bestilling | Booking | Kundens forespørsel eller bekreftede time |
-| Ledig time | Available slot | En time som kan bookes |
-| Reservasjon | Hold | Kortvarig reservering av en time |
+| Ledig time | Available slot | Foreslått tid i slotvelgeren; brukes bare ved flytting av en bekreftet avtale, ikke ved nye bestillinger |
+| Reservasjon | Hold | Kortvarig reservering av en ledig time i den eldre ombookingsflyten |
 | Varsel | Notification | Melding om en hendelse |
 | Aktivitetslogg | Audit log | Sporbar historikk over handlinger |
 | Rettighet | Permission | Hva en rolle eller bruker kan gjøre |

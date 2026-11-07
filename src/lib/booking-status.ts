@@ -7,9 +7,9 @@
  *          ↘ CANCELLED
  *          ↘ EXPIRED
  *
- * `CONFIRMED` betyr at kontoret (eller den direkte slotflyten) har bundet
- * bestillingen til en konkret visitt. `PENDING` beholdes for eldre
- * forespørsler som venter på manuell bekreftelse i kontorkøen.
+ * `CONFIRMED` betyr at kontoret har planlagt bestillingen og bundet den til en
+ * konkret visitt. `PENDING` er den normale starttilstanden for alle nye
+ * datoforespørsler og venter på kontorets planlegging.
  */
 
 export const BOOKING_REQUEST_STATUSES = [

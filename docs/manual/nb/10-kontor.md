@@ -524,13 +524,16 @@ Bookingkøen ligger på `/bookinger` med **Alle**, **Venter**, **Bekreftet** og
 2. Fyll inn **Dato**, **Fra** og **Til** for den planlagte visitten. Ønsket
    dato er forhåndsutfylt, men kan endres.
 3. Velg **Montør** i **Velg montør**. Alle aktive ansatte i avdelingen kan
-   velges; ledighet, fravær og reservasjoner kontrolleres når du bekrefter.
+   velges; fravær, arbeidstid og reservasjoner kontrolleres når du bekrefter,
+   mens overlapp bare vises som en opptatt-markering.
 4. Trykk **Planlegg og bekreft**, eller **Avlys** for å avvise.
 
 Ved bekreftelse settes oppdraget til **Planlagt**, visitten opprettes eller
 oppdateres, og kunden får SMS hvis kontakten har samtykket. Hvis montøren
-allerede er opptatt i tidsrommet, blir bookingen stående som **Venter** og du
-får beskjed om å velge en annen tid eller montør.
+allerede har et annet oppdrag i tidsrommet, vises det som en
+**opptatt-markering**, ikke en hard sperre. Du kan bekrefte likevel, men bør
+vurdere kapasiteten og flytte en av dagene ved behov. Fravær og arbeidstid er
+fortsatt harde krav.
 
 Kunden velger sted, tjeneste og ønsket dato i portalen, og skriver ønsket
 klokkeslett i beskrivelsen. Kunden kan ikke velge tidsblokk, og bestillingen
@@ -543,6 +546,10 @@ Kontoret eller montøren planlegger oppdraget og setter status **Planlagt**.
 Passer ikke tiden, settes det til **Venter** til ny planlegging. Kunden får
 endelig bekreftelse først da. En kundebestilling er allerede et oppdrag; det
 finnes ingen egen **Konverter til oppdrag**-knapp.
+
+Har kunden en allerede bekreftet avtale, kan **Be om ny tid** bruke en kort
+reservasjon mens skjemaet fylles ut. Den reservasjonen gjelder bare ombooking
+av den bekreftede avtalen, aldri nye bestillinger.
 
 ## Rapporter
 
@@ -699,7 +706,7 @@ minutter). Er posisjonen eldre, står det eksplisitt hvor gammel den er; siden
 later aldri som et gammelt ping er live. ETA-en oppdateres automatisk hvert 30.
 sekund. **Meldinger** lar kunden svare på SMS ved samtykke.
 
-Kunden kan **Book en ledig time**, **Be om ny tid**, **Kanseller forespørsel**,
+Kunden kan **Send en datoforespørsel**, **Be om ny tid**, **Kanseller forespørsel**,
 **Kvitter mottatt** og **Be om oppdatering av kontaktinformasjon**. Booking og
 avbestilling varsler kontoret; kontaktoppdatering må gjøres manuelt i
 kundekortet.
@@ -806,7 +813,7 @@ administratordelen (del 3).
 | Overlappende arbeidsdag | Montøren har flere oppdrag samtidig | Vurder kapasiteten og flytt en dag ved behov |
 | Rapporten er låst | Innsendt rapport | Be administrator **Lås opp for retting** |
 | Kunden ser ikke rapporten | Ikke låst, eller mangler portal-/dokumenttilgang | Lås rapporten, kontroller portalbruker |
-| Kunden kan ikke booke | Mangler kontakt, aktiv bruker eller ledig tid | Sjekk kontakt, bruker, 24 timer og ledige tidsrom |
+| Kunden kan ikke booke | Mangler kontakt/aktiv bruker, eller datoen er utenfor vinduet | Sjekk kontakt, bruker, 24 timer og ønsket dato |
 | SMS sendes ikke | Mangler samtykke, telefon, kvote eller tørrkjøring | Registrer samtykke, kontroller nummer/innstillinger |
 | Avtalen lager ingen oppdrag | Pauset/utløpt, fremtidig start eller jobben kjører ikke | Aktiver, kontroller startdato og jobb |
 | SLA vises ikke | Ingen aktiv avtale med aktiv policy | Aktiver avtalen og knytt policy til den |

@@ -303,6 +303,44 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
     });
   });
 
+  it("kan bekrefte alle ventende datoforespørsler med kontorets planlegging", async () => {
+    const windows = [
+      { from: "15:00", to: "15:30" },
+      { from: "15:30", to: "16:00" },
+    ];
+    const created = await Promise.all(
+      windows.map((window, index) =>
+        createBooking(portalUsers[index], {
+          title: `IT-kø-${index}-${unique("b")}`,
+          description: "Datoforespørsel uten tidsblokk",
+          requestedDate,
+          contactName: "Kunde",
+          contactPhone: "12345678",
+        }),
+      ),
+    );
+    expect(created.every((result) => result.ok)).toBe(true);
+
+    for (const [index, window] of windows.entries()) {
+      const booking = created[index];
+      if (!booking.ok) return;
+      const row = await prisma.bookingRequest.findUniqueOrThrow({
+        where: { workOrderId: booking.data.id },
+        select: { id: true, status: true, requestedFrom: true },
+      });
+      expect(row.status).toBe("PENDING");
+      expect(row.requestedFrom).toBe("");
+
+      const confirmed = await confirmBooking(officeActor(), {
+        bookingId: row.id,
+        technicianId,
+        date: requestedDate,
+        ...window,
+      });
+      expect(confirmed.ok).toBe(true);
+    }
+  });
+
   it("gjenbruker lagret tidsvindu for eldre forespørsler", async () => {
     const pending = await createBooking(portalUsers[3], {
       title: `IT-legacy-${unique("b")}`,
@@ -350,7 +388,7 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
     });
   });
 
-  it("avviser en montør som er opptatt i det valgte tidsrommet", async () => {
+  it("tillater bevisst overlapp ved kontorets bekreftelse", async () => {
     const first = await createBooking(portalUsers[4], {
       title: `IT-overlap-a-${unique("b")}`,
       description: "Første oppdrag",
@@ -388,6 +426,8 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
     });
     expect(planned.ok).toBe(true);
 
+    // Overlapp er en opptatt-markering, ikke en hard sperre. Kontoret kan
+    // bevisst bekrefte to oppdrag samtidig på samme montør.
     const overlapping = await confirmBooking(officeActor(), {
       bookingId: bookings[1].id,
       technicianId,
@@ -395,17 +435,20 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
       from: "13:30",
       to: "14:30",
     });
-    expect(overlapping).toEqual({
-      ok: false,
-      reason: "conflict",
-      details: { code: "technician_unavailable" },
-    });
+    expect(overlapping.ok).toBe(true);
     expect(
       await prisma.bookingRequest.findUniqueOrThrow({
         where: { id: bookings[1].id },
         select: { status: true, visitId: true },
       }),
-    ).toEqual({ status: "PENDING", visitId: null });
+    ).toMatchObject({ status: "CONFIRMED", visitId: expect.any(String) });
+    expect(
+      await prisma.visit.count({
+        where: {
+          workOrderId: { in: [first.data.id, second.data.id] },
+        },
+      }),
+    ).toBe(2);
   });
 
   it("frigjør timen når reservasjonen utløper, og blokkerer en aktiv reservasjon", async () => {
