@@ -5,6 +5,27 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Modulær plattform, personvern og P2 v1
+- Ny modulkatalog med kjerne og av-/påslåbare moduler, `ModuleState`,
+  admin-fane, avhengighetsvalidering, audit, `MODULE_PRESET`, gating av
+  navigasjon, innstillinger, sider, actions, API, søk, eksport/import og
+  bakgrunnsjobber. Kjernen (kunder, oppdrag, arbeidsdager/tid, revisjon,
+  innstillinger) kan kjøres uten valgfrie moduler.
+- Ny `docs/MODULES.md` med katalog, avhengigheter, presets og
+  oppgraderingsløp. Eksisterende installasjoner får alle leverte moduler på.
+- GDPR-sletting/anonymisering (DATA-01): admin-only forhåndsvisning,
+  legal-hold-blokkering, transaksjonell anonymisering, idempotens og
+  revisjonsspor.
+- DOC-01 er avstemt: nye bookinger er datoforespørsler, direkte
+  slotbekreftelse er fjernet for nye bestillinger, og overlapp er en
+  opptatt-markering.
+- P2 v1: tilbud (`/tilbud`), fakturering (`/faktura`), lager (`/lager`),
+  kjøring/utlegg (`/utlegg`), lønnsomhet (`/lonnsomhet`) og herdet
+  kundeoverføring med durable jobber, signatur, valgfri AES-GCM-kryptering,
+  versjonsmigrering og filavstemming. Funksjonene er modulgatede og har
+  dokumenterte residualer (bl.a. ingen PSP/regnskapsintegrasjon, ingen
+  Ed25519, ingen ekstern lønnstjeneste).
+
 ### Arbeidsdager, tid og SLA
 - Oppdrag planlegges nå som rene datoer: **Dato for utførelse** og eventuell
   **Til dato**. Hver dato blir én arbeidsdag med egen intern økt, også når
