@@ -321,7 +321,7 @@ export default function FullCalendarView({
             if (info.date.getDay() === 1) {
               const week = document.createElement('span');
               week.className = 'kal-day-header-week';
-              week.textContent = `Uke ${isoWeekNumber(info.date)}`;
+              week.textContent = `${tRef.current("calendar.client.week")} ${isoWeekNumber(info.date)}`;
               nodes.push(week);
             }
             const label = document.createElement('span');
@@ -957,14 +957,17 @@ export default function FullCalendarView({
             background: var(--surface, #fffdf8);
             transition: background-color 120ms ease;
           }
+          /* v7 setter min-height: 0 !important på dagnettets celler. Uten
+             !important blir høyde-reglene under stille ignorert, og uke- og
+             to-ukersvisningen kollapser til innholdshøyde. */
           .kalender-container .kal-view-month .kal-day-cell {
-            min-height: clamp(4.5rem, 10vw, 7rem);
+            min-height: clamp(4.5rem, 10vw, 7rem) !important;
           }
           .kalender-container .kal-view-week .kal-day-cell {
-            min-height: 60vh;
+            min-height: 60vh !important;
           }
           .kalender-container .kal-view-biweekly .kal-day-cell {
-            min-height: 30vh;
+            min-height: 30vh !important;
           }
           .kalender-container .kal-day-cell:hover {
             background: color-mix(
@@ -1232,13 +1235,13 @@ export default function FullCalendarView({
               display: none;
             }
             .kalender-container .kal-view-week .kal-day-cell {
-              min-height: 42vh;
+              min-height: 42vh !important;
             }
             .kalender-container .kal-view-biweekly .kal-day-cell {
-              min-height: 24vh;
+              min-height: 24vh !important;
             }
             .kalender-container .kal-view-month .kal-day-cell {
-              min-height: 4.25rem;
+              min-height: 4.25rem !important;
             }
           }
         `}</style>

@@ -3,6 +3,27 @@
 Alle vesentlige endringer i FSM-plattformen dokumenteres her.
 Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
+## Unreleased (dev)
+
+### Kalender: FullCalendar 7
+- Kalenderen bruker nå `fullcalendar` 7.1.4 og `temporal-polyfill` i stedet for
+  de fire `@fullcalendar/*` v6-pakkene. Klassisk tema registreres som
+  v7-plugin, og skeleton-, tema- og palett-CSS importeres én gang i
+  `globals.css`.
+- Verktøylinjen bruker v7s `start`/`center`/`end` og `buttons` (tekst, hint og
+  klasse) i stedet for `buttonText`/`buttonHints`. Hendelser og dager styles
+  gjennom v7s offentlige klassehooks (`eventClass`, `rowEventClass`,
+  `dayCellClass`, `dayLaneClass` …) og `--fc-classic-*`-variabler. Gamle
+  v6-selektorer som `.fc-daygrid-*` og `.fc-toolbar-*` er fjernet.
+- Hendelsesfarger bruker `color`/`contrastColor` og statusprikk i tillegg til
+  farge. Dato- og ukenummerformatering er flyttet til `calendar-format.ts`
+  fordi v7 kollapser overskrifter på smale kolonner og sender feil dato til
+  `dayHeaderContent` i to-ukersvisningen.
+- E2E-testene bruker `data-testid="calendar-event"` og `.kal-day-cell[data-date]`
+  i stedet for v6-klasser, og dra-og-slipp venter til v7s første `datesSet` er
+  ferdig. Uke- og to-ukersvisningene beholder høyde og ukenumre også etter
+  v7s `min-height: 0 !important` på dagnettet.
+
 ## 0.8.10 — 2026-11-04
 
 ### Geokoding
