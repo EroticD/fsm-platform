@@ -56,6 +56,33 @@
       "dropLabel": "Slipp for å tildele",
       "dropZoneLabel": "Tildel et oppdrag til {name}"
     },
+    "field": {
+      "title": "Felt nå",
+      "summary": "{active} aktive · {total} montører i dag",
+      "updatedAt": "Oppdatert {time}",
+      "mapTitle": "Montører som deler posisjon",
+      "mapEmpty": "Ingen montører deler posisjon nå",
+      "mapListTitle": "Montører som deler posisjon",
+      "mapListHint": "Kartet viser de samme montørene som listen under. Bruk listen for å åpne oppdraget.",
+      "mapAria": "Kart over montører som deler posisjon",
+      "trackingDisabled": "Posisjonsdeling er ikke slått på",
+      "trackingDisabledHint": "Avdelingen må slå på sporing før montørene kan dele posisjon.",
+      "openMap": "Åpne kartet",
+      "openWorkOrder": "Åpne oppdrag",
+      "lastShared": "Sist delt {time}",
+      "noPosition": "Ingen posisjon delt",
+      "noVisit": "Ingen aktivt oppdrag",
+      "noStaff": "Ingen feltmontører er satt opp i dag.",
+      "markerUpdated": "Sist oppdatert {time}",
+      "status": {
+        "onSite": "På stedet",
+        "enRoute": "På vei",
+        "assigned": "Tildelt",
+        "done": "Ferdig for dagen",
+        "available": "Ledig",
+        "absent": "Fravær"
+      }
+    },
     "dnd": {
       "errorNoAccess": "Du har ikke tilgang til å tildele dette oppdraget.",
       "errorInvalidData": "Tildelingen er ugyldig. Prøv igjen.",

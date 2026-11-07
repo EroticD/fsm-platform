@@ -3072,6 +3072,33 @@
         "dropLabel": "Upuść, aby przypisać",
         "dropZoneLabel": "Przypisz zlecenie do {name}"
       },
+      "field": {
+        "title": "Zespół w terenie",
+        "summary": "{active} aktywnych · {total} techników dziś",
+        "updatedAt": "Zaktualizowano {time}",
+        "mapTitle": "Technicy udostępniający pozycję",
+        "mapEmpty": "Żaden technik nie udostępnia teraz pozycji",
+        "mapListTitle": "Technicy udostępniający pozycję",
+        "mapListHint": "Mapa pokazuje tych samych techników co lista poniżej. Użyj listy, aby otworzyć zlecenie.",
+        "mapAria": "Mapa techników udostępniających pozycję",
+        "trackingDisabled": "Udostępnianie pozycji jest wyłączone",
+        "trackingDisabledHint": "Dział musi włączyć śledzenie, zanim technicy będą mogli udostępniać pozycję.",
+        "openMap": "Otwórz mapę",
+        "openWorkOrder": "Otwórz zlecenie",
+        "lastShared": "Ostatnio udostępniono {time}",
+        "noPosition": "Nie udostępniono pozycji",
+        "noVisit": "Brak aktywnego zlecenia",
+        "noStaff": "Dziś nie zaplanowano techników terenowych.",
+        "markerUpdated": "Ostatnia aktualizacja {time}",
+        "status": {
+          "onSite": "Na miejscu",
+          "enRoute": "W drodze",
+          "assigned": "Przypisany",
+          "done": "Zakończone na dziś",
+          "available": "Dostępny",
+          "absent": "Nieobecny"
+        }
+      },
       "dnd": {
         "errorNoAccess": "Nie masz uprawnień do przypisania tego zlecenia.",
         "errorInvalidData": "Przypisanie jest nieprawidłowe. Spróbuj ponownie.",

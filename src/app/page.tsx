@@ -19,10 +19,13 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import { hasPermission } from "@/lib/permissions";
-import { departmentUsersScope, workOrderScope } from "@/lib/access";
+import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import { getDispatchExceptionCounts } from "@/server/dispatch";
 import { reviewSummaryForActor } from "@/server/reviews";
+import { loadDashboardFieldStatus } from "@/server/dashboard-field-status";
+import { loadTechnicianMapLayer } from "@/lib/map-technician-layer";
+import { getMapSettings } from "@/server/map-settings";
 import type { ServiceActor } from "@/server/actor";
 import { homePathForRole } from "@/lib/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -33,6 +36,7 @@ import DashboardBoard from "@/components/dashboard/DashboardBoard";
 import ExceptionCards from "@/components/dashboard/ExceptionCards";
 import PriorityQueue from "@/components/dashboard/PriorityQueue";
 import DashboardRail from "@/components/dashboard/DashboardRail";
+import DashboardFieldPanel from "@/components/dashboard/DashboardFieldPanel";
 import {
   QUEUE_SORT_KEYS,
   buildBoardColumns,
@@ -273,6 +277,7 @@ async function DashboardOverview({
   locale,
   canAssign,
   actor,
+  accessUser,
   view,
   sort,
   footer,
@@ -284,6 +289,7 @@ async function DashboardOverview({
   locale: string;
   canAssign: boolean;
   actor: ServiceActor;
+  accessUser: AccessUser;
   view: DashboardView;
   sort: QueueSort;
   footer?: ReactNode;
@@ -307,6 +313,9 @@ async function DashboardOverview({
     team,
     exceptionCounts,
     reviewSummary,
+    fieldStatus,
+    technicianLayer,
+    mapSettings,
   ] = await Promise.all([
     prisma.workOrder.groupBy({
       by: ["status"],
@@ -384,6 +393,9 @@ async function DashboardOverview({
     }),
     getDispatchExceptionCounts(actor, new Date()),
     reviewSummaryForActor(actor),
+    loadDashboardFieldStatus(accessUser),
+    loadTechnicianMapLayer(accessUser),
+    getMapSettings(),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -441,10 +453,14 @@ async function DashboardOverview({
       b._count.workOrders - a._count.workOrders ||
       (a.name ?? "").localeCompare(b.name ?? "", "nb"),
   );
+  const fieldById = new Map(
+    fieldStatus.rows.map((row) => [row.userId, row]),
+  );
   const teamRows = teamSorted.map((member) => ({
     id: member.id,
     name: member.name,
     count: member._count.workOrders,
+    field: fieldById.get(member.id) ?? null,
   }));
 
   const metricCards: DashboardMetricCard[] = [
@@ -500,6 +516,19 @@ async function DashboardOverview({
     hourCycle: "h23",
   });
 
+  const fieldMarkers = technicianLayer.markers.map((marker) => ({
+    visitId: marker.visitId,
+    userId: marker.userId,
+    name: marker.name,
+    status: marker.status,
+    updatedAt: marker.updatedAt,
+    lat: marker.point.latitude,
+    lng: marker.point.longitude,
+    workOrderId: marker.workOrderId,
+    workOrderTitle: marker.workOrderTitle,
+    customerName: marker.customerName,
+  }));
+
   return (
     <>
       <DashboardMetricCards
@@ -510,6 +539,16 @@ async function DashboardOverview({
       {exceptionCounts.ok ? (
         <ExceptionCards counts={exceptionCounts.data} t={t} />
       ) : null}
+
+      <DashboardFieldPanel
+        rows={fieldStatus.rows}
+        markers={fieldMarkers}
+        trackingEnabled={technicianLayer.enabled}
+        settings={mapSettings}
+        updatedAt={fieldStatus.generatedAt}
+        locale={locale}
+        t={t}
+      />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
@@ -823,6 +862,9 @@ function OverviewFallback({ label }: { label: string }) {
           ))}
         </div>
       </section>
+      <section role="status" aria-label={label}>
+        <Skeleton className="h-[18rem] rounded-2xl" />
+      </section>
       <section
         role="status"
         aria-label={label}
@@ -1036,6 +1078,7 @@ export default async function AdminDashboard({
             locale={locale}
             canAssign={canAssign}
             actor={user}
+            accessUser={user}
             view={view}
             sort={sort}
             footer={

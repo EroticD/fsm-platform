@@ -36,6 +36,44 @@ the default is **Oldest first**. The right-hand rail shows **Next action** with
 **Assign technician** or **Open work order**, **Today's progress** and **Team
 today**.
 
+### Field status and live map
+
+Below the exceptions, **Field now** shows today's status for field staff. Each
+technician has one status:
+
+| Status | Meaning |
+| --- | --- |
+| **On site** | A visit has started and the technician is on site |
+| **En route** | The technician has started driving to a visit |
+| **Assigned** | The technician has a visit today that has not started |
+| **Done for the day** | All of today's visits are completed |
+| **Available** | No visits today |
+| **Absent** | Absent all day with no active visit |
+
+Status precedence is **On site** → **En route** → **Assigned** → **Done for
+the day** → **Available**. If the technician has several jobs today, the active
+visit is shown; otherwise the visit starting nearest to now. **Absent** is shown
+only when the absence covers the whole day and the technician is not en route
+or on site. The row shows the work order title and customer, plus **Last
+shared** when the technician has shared a position. The same status badges
+appear in **Team today**.
+
+The **Technicians sharing location** map panel shows only technicians who have
+actively started location sharing on a visit that is **En route** or **On
+site**. Positions are short-lived points, not history: pings older than 24
+hours are not used, and the map shows the last known point. If tracking is not
+enabled for the department, the panel says **Location sharing is turned off**.
+If nobody is sharing right now, it says **No technicians are sharing their
+location right now**. Both states link to **Map** (`/kart`), and every marker
+has a matching link in the list below the map. The list keeps the map usable
+with a keyboard and screen reader.
+
+You only see technicians, work orders and positions in your own department; an
+administrator sees all departments. Names and coordinates are never shown to
+customer portal users or anyone without work order access. Location sharing is
+voluntary and controlled by the technician on the job; the department must also
+enable tracking.
+
 ### Exceptions, quick actions and activity
 
 At the top of the dashboard, **Exceptions needing action** shows the cards

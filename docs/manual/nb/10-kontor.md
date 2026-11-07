@@ -37,6 +37,41 @@ på kortet.
 er **Eldste først**. Høyrekolonnen viser **Neste handling** med **Tildel montør**
 eller **Åpne oppdrag**, **Dagens fremdrift** og **Team i dag**.
 
+### Feltstatus og livekart
+
+Under unntakene viser **Felt nå** dagens status for feltstaben. Hver montør har
+én status:
+
+| Status | Betyr |
+| --- | --- |
+| **På stedet** | En visitt er startet og montøren er på stedet |
+| **På vei** | Montøren har startet kjøring til en visitt |
+| **Tildelt** | Montøren har en visitt i dag, men den er ikke startet |
+| **Ferdig for dagen** | Alle dagens visiter er fullført |
+| **Ledig** | Ingen visiter i dag |
+| **Fravær** | Heldagsfravær uten aktiv visitt |
+
+Statusen følger rekkefølgen **På stedet** → **På vei** → **Tildelt** →
+**Ferdig for dagen** → **Ledig**. Har montøren flere oppdrag i dag, velges den
+aktive visitten; ellers vises den som starter nærmest nå. **Fravær** vises bare
+når fraværet dekker hele dagen og montøren ikke er på vei eller på stedet.
+Raden viser oppdragets tittel og kunde, og **Sist delt** når montøren har delt
+posisjon. De samme statusmerkene vises i **Team i dag**.
+
+Kartpanelet **Montører som deler posisjon** viser bare montører som aktivt har
+startet posisjonsdeling på en visitt som er **På vei** eller **På stedet**.
+Posisjoner er korte levende punkt, ikke historikk: ping eldre enn 24 timer
+brukes ikke, og kartet viser siste kjente punkt. Er sporing ikke slått på for
+avdelingen, står det **Posisjonsdeling er ikke slått på**. Deler ingen posisjon
+akkurat nå, står det **Ingen montører deler posisjon nå**. Begge tilstandene har
+lenke til **Kart** (`/kart`), og hver markør har en tilsvarende lenke i listen
+under kartet. Listen gjør kartet tilgjengelig med tastatur og skjermleser.
+
+Du ser bare montører, oppdrag og posisjoner i din egen avdeling; administrator
+ser alle avdelinger. Navn og koordinater vises aldri til kundeportalbrukere
+eller andre uten oppdragstilgang. Posisjonsdeling er frivillig og styres av
+montøren på oppdraget; avdelingen må i tillegg ha sporing slått på.
+
 ### Unntak, hurtighandlinger og aktivitet
 
 Øverst på dashbordet ligger **Unntak som krever handling** med kortene **Uten
