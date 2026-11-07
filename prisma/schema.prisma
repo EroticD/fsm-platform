@@ -982,6 +982,9 @@ model Visit {
   enRouteAt DateTime? @db.Timestamptz(3)
   onSiteAt  DateTime? @db.Timestamptz(3)
   doneAt    DateTime? @db.Timestamptz(3)
+  /// Når retur-/viderekjøringen etter fullført arbeid er avsluttet. Settes av
+  /// «Avslutt kjøring» eller automatisk når neste visitt starter EN_ROUTE.
+  travelFromEndedAt DateTime? @db.Timestamptz(3)
 
   technicians   VisitTechnician[]
   meterReadings MeterReading[]

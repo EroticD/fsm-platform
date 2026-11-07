@@ -18,7 +18,6 @@ import {
 import { markdownToPlainText } from "@/lib/markdown";
 import {
   addDaysUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
@@ -42,7 +41,13 @@ import {
 import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 import { isClosedStatus } from "@/lib/work-order-status";
-import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
+import {
+  createDefaultVisit,
+  DailyVisitConflictError,
+  ensureDailyVisits,
+  reconcileDailyVisits,
+  recomputeWorkOrderSchedule,
+} from "./visits";
 import { startClock } from "./sla";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
@@ -289,53 +294,6 @@ type VisitSummary = {
   id: string;
   status: string;
 };
-
-/**
- * Domeneavvik ved datoflytting som ikke har en egen gammel feilkode.
- * `detail` er en stabil nøkkel som API/UI kan oversette; selve `error`-koden
- * holder seg til det eksisterende kontraktet.
- */
-class VisitScheduleError extends Error {
-  readonly detail: string;
-
-  constructor(detail: string) {
-    super(detail);
-    this.name = "VisitScheduleError";
-    this.detail = detail;
-  }
-}
-
-/**
- * Datoendringer på oppdragsnivå kan bare konsolidere én planlagt visitt.
- * Flere visiter eies av visit-nivået, og en pågående visitt skal aldri flyttes
- * under montørens føtter.
- */
-function assertVisitsCanBeRescheduled(visits: VisitSummary[]): void {
-  if (visits.some((visit) => ["EN_ROUTE", "ON_SITE"].includes(visit.status))) {
-    throw new VisitScheduleError("visits.errors.visitInProgress");
-  }
-  if (visits.length > 1) {
-    throw new VisitScheduleError("visits.errors.multipleVisits");
-  }
-}
-
-/**
- * All-day-vinduet for en datoperiode. Datoene er rene kalenderdatoer, mens
- * visiten lagres som absolutte tidspunkt. Start er Oslo-midnatt første dag og
- * slutt er Oslo-midnatt dagen etter siste dag, slik at hele dagen dekkes også
- * når sommertid endrer døgnets lengde.
- */
-function allDayVisitWindow(
-  scheduledFor: Date,
-  scheduledTo: Date | null,
-): { startsAt: Date; endsAt: Date } {
-  const lastDay =
-    scheduledTo && scheduledTo > scheduledFor ? scheduledTo : scheduledFor;
-  return {
-    startsAt: osloDayStart(toDateOnly(scheduledFor)),
-    endsAt: osloDayStart(toDateOnly(addDaysUtc(lastDay, 1))),
-  };
-}
 
 /** Legger brukeren til på alle visitene i samme transaksjon. */
 async function addVisitTechnician(
@@ -595,17 +553,13 @@ export async function createWorkOrder(
         select: { id: true },
       });
 
-      // Et datofestet oppdrag har alltid minst én planlagt visitt. Visiten er
-      // den tildelbare tidsblokken; `scheduledFor`/`scheduledTo` avledes av
+      // Et datofestet oppdrag har én intern arbeidsøkt per kalenderdag. Visiten
+      // er den tildelbare tidsblokken; `scheduledFor`/`scheduledTo` avledes av
       // visitene og holdes i takt i samme transaksjon.
-      // Et nytt oppdrag starter med en redigerbar firetimersblokk samme dag,
-      // ikke en heldagsvisitt. Kontoret kan justere tidene i etterkant.
-      const visitWindow = defaultVisitWindow(scheduledFor);
-      await createDefaultVisit(tx, {
+      await ensureDailyVisits(tx, {
         workOrderId: newWorkOrder.id,
-        startsAt: visitWindow.startsAt,
-        endsAt: visitWindow.endsAt,
-        allDay: false,
+        scheduledFor,
+        scheduledTo,
         technicianIds,
       });
       await recomputeWorkOrderSchedule(tx, newWorkOrder.id);
@@ -894,10 +848,6 @@ export async function updateWorkOrder(
         orderBy: { sequence: "asc" },
       });
 
-      // Avvis datoflyttingen før noe skrives: en pågående visitt skal ikke
-      // flyttes, og flere visiter eies av visit-nivået.
-      if (datesChanged) assertVisitsCanBeRescheduled(visits);
-
       await tx.workOrder.update({
         where: { id: workOrderId },
         data: {
@@ -943,36 +893,20 @@ export async function updateWorkOrder(
       }
 
       if (datesChanged) {
-        if (!scheduledForDate) {
-          // Datoene er fjernet. Da skal oppdraget ikke beholde en foreldreløs
-          // standardvisitt.
-          if (visits.length === 1) {
-            await tx.visit.delete({ where: { id: visits[0].id } });
-            visits = [];
-          }
-        } else if (visits.length === 1) {
-          // Én visitt følger datoperioden. Flere visiter er allerede avvist.
-          const window = allDayVisitWindow(scheduledForDate, nextScheduledTo);
-          await tx.visit.update({
-            where: { id: visits[0].id },
-            data: {
-              startsAt: window.startsAt,
-              endsAt: window.endsAt,
-              allDay: true,
-            },
-          });
-        } else if (visits.length === 0) {
-          // Eldre oppdrag kan mangle visitt. Den repareres i samme transaksjon.
-          const window = allDayVisitWindow(scheduledForDate, nextScheduledTo);
-          await createDefaultVisit(tx, {
-            workOrderId,
-            startsAt: window.startsAt,
-            endsAt: window.endsAt,
-            allDay: true,
-            technicianIds: validTechnicianIds,
-          });
-        }
-
+        // Arbeidsdagene avstemmes mot den nye perioden. Eksisterende dager
+        // flyttes aldri; manglende dager legges til, og bare rene planlagte
+        // dager fram i tid kan fjernes. Loggede dager gir konflikt.
+        await reconcileDailyVisits(tx, {
+          workOrderId,
+          scheduledFor: scheduledForDate,
+          scheduledTo: nextScheduledTo,
+          technicianIds: validTechnicianIds,
+        });
+        visits = await tx.visit.findMany({
+          where: { workOrderId },
+          select: { id: true, status: true },
+          orderBy: { sequence: "asc" },
+        });
         await recomputeWorkOrderSchedule(tx, workOrderId);
       }
 
@@ -1019,7 +953,7 @@ export async function updateWorkOrder(
     });
     if (blocked) return { ok: false, error: blocked };
   } catch (error) {
-    if (error instanceof VisitScheduleError) {
+    if (error instanceof DailyVisitConflictError) {
       return { ok: false, error: "ugyldig-data", detail: error.detail };
     }
     if (isUniqueViolation(error)) {
@@ -1190,15 +1124,7 @@ export async function updateWorkOrderDate(
       if (before.legalHold) return { legalHold: true } as const;
       if (isClosedStatus(before.status as WorkStatus)) return { count: 0 };
 
-      const visits = await tx.visit.findMany({
-        where: { workOrderId },
-        select: { id: true, status: true },
-        orderBy: { sequence: "asc" },
-      });
-      assertVisitsCanBeRescheduled(visits);
-
       // Mangler `newEnd`, flyttes hele intervallet: samme antall dager som før.
-      // Da kan scheduledTo aldri havne før scheduledFor.
       let nextScheduledTo = scheduledTo;
       if (!hasEnd && before.scheduledFor && before.scheduledTo) {
         const durationDays = Math.max(
@@ -1213,6 +1139,17 @@ export async function updateWorkOrderDate(
         return { count: 0, invalidRange: true } as const;
       }
 
+      // Avstem før skriving, slik at en konflikt gir en tydelig feil uten
+      // delvise endringer. Transaksjonen ruller uansett alt tilbake.
+      await reconcileDailyVisits(tx, {
+        workOrderId: before.id,
+        scheduledFor,
+        scheduledTo: nextScheduledTo,
+        technicianIds: (before.technicians ?? []).map(
+          (technician) => technician.id,
+        ),
+      });
+
       const result = await tx.workOrder.updateMany({
         where: {
           id: before.id,
@@ -1223,30 +1160,6 @@ export async function updateWorkOrderDate(
       });
 
       if (result.count > 0) {
-        // Én visitt (eller ingen, for eldre rader) følger den nye perioden.
-        // Flere visiter og pågående visiter er avvist lenger opp.
-        if (visits.length === 1) {
-          const window = allDayVisitWindow(scheduledFor, nextScheduledTo);
-          await tx.visit.update({
-            where: { id: visits[0].id },
-            data: {
-              startsAt: window.startsAt,
-              endsAt: window.endsAt,
-              allDay: true,
-            },
-          });
-        } else if (visits.length === 0) {
-          const window = allDayVisitWindow(scheduledFor, nextScheduledTo);
-          await createDefaultVisit(tx, {
-            workOrderId: before.id,
-            startsAt: window.startsAt,
-            endsAt: window.endsAt,
-            allDay: true,
-            technicianIds: (before.technicians ?? []).map(
-              (technician) => technician.id,
-            ),
-          });
-        }
         await recomputeWorkOrderSchedule(tx, before.id);
 
         await audit(tx, {
@@ -1289,7 +1202,7 @@ export async function updateWorkOrderDate(
     }
     return { ok: true };
   } catch (error) {
-    if (error instanceof VisitScheduleError) {
+    if (error instanceof DailyVisitConflictError) {
       return { ok: false, error: "ugyldig-dato", detail: error.detail };
     }
     return { ok: false, error: "ukjent" };

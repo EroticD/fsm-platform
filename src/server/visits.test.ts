@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
+import { osloDayStart } from "@/lib/dates";
 import type { ServiceActor } from "./actor";
 
 const mocks = vi.hoisted(() => ({
@@ -11,12 +12,18 @@ const mocks = vi.hoisted(() => ({
     visit: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
       aggregate: vi.fn(),
+      count: vi.fn(),
     },
     user: { findMany: vi.fn() },
+    visitTechnician: {
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     slaClock: { findMany: vi.fn() },
     trackingLink: { updateMany: vi.fn() },
     visitLocationPing: { deleteMany: vi.fn() },
@@ -37,9 +44,12 @@ import {
   assignVisit,
   createDefaultVisit,
   createVisit,
+  ensureDailyVisits,
+  finishTravelFrom,
   listVisitsForDay,
   listVisitsForWorkOrder,
   moveVisit,
+  reconcileDailyVisits,
   recomputeWorkOrderSchedule,
   setVisitStatus,
   unassignVisit,
@@ -133,6 +143,7 @@ beforeEach(() => {
     _min: { startsAt: null },
     _max: { endsAt: null },
   });
+  mocks.prisma.visit.count.mockResolvedValue(0);
   mocks.prisma.user.findMany.mockImplementation(
     async ({ where }: { where: { id?: { in?: string[] } } }) =>
       (where.id?.in ?? []).map((id) => ({ id, name: `Montør ${id}` })),
@@ -357,6 +368,111 @@ describe("status og sperrer", () => {
     expect(mocks.prisma.visitLocationPing.deleteMany).toHaveBeenCalledWith({
       where: { visitId: "visit-1" },
     });
+  });
+
+  it("lukker returkjøringen på forrige fullførte jobb ved ny EN_ROUTE", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({ status: "PLANNED" }),
+    );
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      {
+        id: "visit-prev",
+        technicians: [{ userId: "tech-1" }],
+      },
+    ]);
+
+    const result = await setVisitStatus(
+      actor(["workorders.update"]),
+      "visit-1",
+      "EN_ROUTE",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.visit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "DONE",
+          travelFromEndedAt: null,
+          doneAt: expect.objectContaining({
+            gte: expect.any(Date),
+            lte: expect.any(Date),
+          }),
+        }),
+      }),
+    );
+    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-prev" },
+      data: { travelFromEndedAt: expect.any(Date) },
+    });
+    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: { status: "EN_ROUTE", enRouteAt: expect.any(Date) },
+    });
+  });
+
+  it("avslutter returkjøringen for siste jobb og er idempotent", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({
+        status: "DONE",
+        doneAt: new Date("2026-10-30T11:00:00.000Z"),
+        travelFromEndedAt: null,
+      }),
+    );
+    mocks.prisma.visit.update.mockResolvedValue(
+      visitModel({
+        status: "DONE",
+        doneAt: new Date("2026-10-30T11:00:00.000Z"),
+        travelFromEndedAt: new Date("2026-10-30T11:20:00.000Z"),
+      }),
+    );
+
+    const result = await finishTravelFrom(
+      actor(["workorders.update"]),
+      "visit-1",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: { travelFromEndedAt: expect.any(Date) },
+    });
+
+    vi.clearAllMocks();
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({
+        status: "DONE",
+        doneAt: new Date("2026-10-30T11:00:00.000Z"),
+        travelFromEndedAt: new Date("2026-10-30T11:20:00.000Z"),
+      }),
+    );
+    mocks.prisma.visit.findUniqueOrThrow.mockResolvedValue(
+      visitModel({ status: "DONE", travelFromEndedAt: new Date() }),
+    );
+
+    const again = await finishTravelFrom(
+      actor(["workorders.update"]),
+      "visit-1",
+    );
+    expect(again.ok).toBe(true);
+    expect(mocks.prisma.visit.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser avsluttet kjøring før dagen er fullført", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({ status: "ON_SITE" }),
+    );
+
+    const result = await finishTravelFrom(
+      actor(["workorders.update"]),
+      "visit-1",
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid",
+      details: { code: "visits.errors.travelFromNotAvailable" },
+    });
+    expect(mocks.prisma.visit.update).not.toHaveBeenCalled();
   });
 
   it("avviser en statusovergang som ikke finnes i flyten", async () => {
@@ -589,6 +705,228 @@ describe("createDefaultVisit", () => {
 
     expect(mocks.prisma.visit.create).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.update).toHaveBeenCalled();
+  });
+});
+
+describe("dagøkter", () => {
+  function dayRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "visit-1",
+      startsAt: osloDayStart("2026-10-19"),
+      endsAt: osloDayStart("2026-10-20"),
+      allDay: true,
+      status: "PLANNED",
+      sequence: 0,
+      enRouteAt: null,
+      onSiteAt: null,
+      doneAt: null,
+      ...overrides,
+    };
+  }
+
+  it("oppretter én heldagsøkt per dag med sekvens og montører", async () => {
+    const result = await ensureDailyVisits(
+      mocks.prisma as unknown as Prisma.TransactionClient,
+      {
+        workOrderId: "wo-1",
+        scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+        scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+        technicianIds: ["tech-1"],
+      },
+    );
+
+    expect(result).toEqual({
+      created: 3,
+      removed: 0,
+      preserved: 0,
+      dates: ["2026-10-19", "2026-10-20", "2026-10-21"],
+    });
+    expect(mocks.prisma.visit.create).toHaveBeenCalledTimes(3);
+    expect(mocks.prisma.visit.create).toHaveBeenNthCalledWith(1, {
+      data: {
+        workOrderId: "wo-1",
+        sequence: 0,
+        startsAt: osloDayStart("2026-10-19"),
+        endsAt: osloDayStart("2026-10-20"),
+        allDay: true,
+        status: "PLANNED",
+        technicians: { create: [{ userId: "tech-1" }] },
+      },
+      select: { id: true },
+    });
+    expect(mocks.prisma.visit.create).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        data: expect.objectContaining({ sequence: 2 }),
+      }),
+    );
+  });
+
+  it("er idempotent og oppretter bare manglende dager", async () => {
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      dayRow({ startsAt: osloDayStart("2026-10-19") }),
+    ]);
+
+    const result = await ensureDailyVisits(
+      mocks.prisma as unknown as Prisma.TransactionClient,
+      {
+        workOrderId: "wo-1",
+        scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+        scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+      },
+    );
+
+    expect(result).toMatchObject({ created: 2, preserved: 1 });
+    expect(mocks.prisma.visit.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("legger til dager og fjerner bare rene planlagte dager fram i tid", async () => {
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      dayRow({ id: "visit-old", startsAt: osloDayStart("2026-10-19") }),
+      dayRow({
+        id: "visit-keep",
+        startsAt: osloDayStart("2026-10-20"),
+        sequence: 1,
+      }),
+    ]);
+
+    const result = await reconcileDailyVisits(
+      mocks.prisma as unknown as Prisma.TransactionClient,
+      {
+        workOrderId: "wo-1",
+        scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
+        scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+        now: new Date("2026-10-01T12:00:00.000Z"),
+      },
+    );
+
+    expect(result).toMatchObject({ created: 1, removed: 1, preserved: 1 });
+    expect(mocks.prisma.visit.delete).toHaveBeenCalledWith({
+      where: { id: "visit-old" },
+    });
+    expect(mocks.prisma.visit.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser fjerning av en dag med tidsregistrering", async () => {
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      dayRow({
+        id: "visit-logged",
+        startsAt: osloDayStart("2026-10-19"),
+        status: "DONE",
+        enRouteAt: new Date("2026-10-19T06:00:00.000Z"),
+        onSiteAt: new Date("2026-10-19T06:30:00.000Z"),
+        doneAt: new Date("2026-10-19T09:00:00.000Z"),
+      }),
+    ]);
+
+    await expect(
+      reconcileDailyVisits(
+        mocks.prisma as unknown as Prisma.TransactionClient,
+        {
+          workOrderId: "wo-1",
+          scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
+          now: new Date("2026-10-01T12:00:00.000Z"),
+        },
+      ),
+    ).rejects.toMatchObject({
+      name: "DailyVisitConflictError",
+      detail: "visits.errors.loggedDayConflict",
+      date: "2026-10-19",
+    });
+    expect(mocks.prisma.visit.delete).not.toHaveBeenCalled();
+  });
+
+  it("avviser fjerning av en pågående dag", async () => {
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      dayRow({
+        startsAt: osloDayStart("2026-10-19"),
+        status: "ON_SITE",
+        onSiteAt: new Date("2026-10-19T06:30:00.000Z"),
+      }),
+    ]);
+
+    await expect(
+      reconcileDailyVisits(
+        mocks.prisma as unknown as Prisma.TransactionClient,
+        {
+          workOrderId: "wo-1",
+          scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
+          now: new Date("2026-10-01T12:00:00.000Z"),
+        },
+      ),
+    ).rejects.toMatchObject({
+      detail: "visits.errors.visitInProgress",
+    });
+  });
+
+  it("avviser fjerning av en planlagt dag i fortiden", async () => {
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      dayRow({ startsAt: osloDayStart("2026-09-01") }),
+    ]);
+
+    await expect(
+      reconcileDailyVisits(
+        mocks.prisma as unknown as Prisma.TransactionClient,
+        {
+          workOrderId: "wo-1",
+          scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
+          now: new Date("2026-10-01T12:00:00.000Z"),
+        },
+      ),
+    ).rejects.toMatchObject({
+      detail: "visits.errors.pastDayConflict",
+    });
+  });
+});
+
+describe("dispatch-tildeling av én dag", () => {
+  it("speiler montørlisten til øvrige planlagte dager", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({ status: "PLANNED" }),
+    );
+    mocks.prisma.visit.findMany.mockResolvedValue([
+      { id: "visit-2" },
+      { id: "visit-3" },
+    ]);
+
+    const result = await assignVisit(
+      actor(["workorders.assign"]),
+      "visit-1",
+      ["tech-2"],
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.visitTechnician.deleteMany).toHaveBeenCalledWith({
+      where: { visitId: { in: ["visit-2", "visit-3"] } },
+    });
+    expect(mocks.prisma.visitTechnician.createMany).toHaveBeenCalledWith({
+      data: [
+        { visitId: "visit-2", userId: "tech-2" },
+        { visitId: "visit-3", userId: "tech-2" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("fjerner montøren fra øvrige planlagte dager", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({ status: "PLANNED" }),
+    );
+    mocks.prisma.visit.findMany.mockResolvedValue([{ id: "visit-2" }]);
+
+    const result = await unassignVisit(
+      actor(["workorders.assign"]),
+      "visit-1",
+      "tech-1",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.visitTechnician.deleteMany).toHaveBeenCalledWith({
+      where: {
+        visitId: { in: ["visit-2"] },
+        userId: { in: ["tech-1"] },
+      },
+    });
   });
 });
 

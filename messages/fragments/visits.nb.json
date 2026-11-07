@@ -19,7 +19,12 @@
       "workOrderLocked": "Visitten kan ikke endres fordi oppdraget er fullført eller kansellert.",
       "visitLocked": "Visitten er fullført eller kansellert og kan ikke endres.",
       "statusTransition": "Statusendringen er ikke tillatt.",
-      "noChange": "Ingen endring ble utført."
+      "noChange": "Ingen endring ble utført.",
+      "invalidDateRange": "Datoperioden er ugyldig eller for lang.",
+      "visitInProgress": "Dagen er på vei eller på stedet og kan ikke fjernes.",
+      "loggedDayConflict": "Dagen har registrert tid eller er fullført og kan ikke fjernes.",
+      "pastDayConflict": "En planlagt dag i fortiden kan ikke fjernes automatisk.",
+      "travelFromNotAvailable": "Kjøringen kan bare avsluttes etter at dagen er fullført."
     }
   },
   "auditActions": {

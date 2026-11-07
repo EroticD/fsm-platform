@@ -429,3 +429,25 @@ export async function setVisitStatus(formData: FormData) {
   revalidateVisitPaths(workOrderId);
   redirect(`/oppdrag/${workOrderId}?ok=visitt-status#planlegging`);
 }
+
+/**
+ * Sekundær handling etter DONE: avslutter retur-/viderekjøringen for siste
+ * jobb på dagen. Neste jobbs EN_ROUTE lukker samme segment automatisk.
+ */
+export async function finishVisitTravelFrom(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.finishTravelFrom(user, visitId);
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-kjoring-avsluttet#planlegging`);
+}

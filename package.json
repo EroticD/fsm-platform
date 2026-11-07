@@ -26,6 +26,7 @@
     "check:i18n:strict": "node scripts/check-i18n.mjs --strict",
     "audit:backfill": "tsx scripts/backfill-audit-chain.ts",
     "audit:verify": "tsx scripts/verify-audit-chain.ts",
+    "visits:backfill:daily": "tsx scripts/backfill-daily-visits.ts",
     "manual:build": "node scripts/build-manual.mjs",
     "i18n:unused": "node scripts/i18n-unused.mjs",
     "test:coverage": "vitest run --coverage",

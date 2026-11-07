@@ -19,7 +19,12 @@
       "workOrderLocked": "The visit cannot be changed because the work order is completed or cancelled.",
       "visitLocked": "The visit is completed or cancelled and cannot be changed.",
       "statusTransition": "That status change is not allowed.",
-      "noChange": "No change was made."
+      "noChange": "No change was made.",
+      "invalidDateRange": "The date range is invalid or too long.",
+      "visitInProgress": "The day is en route or on site and cannot be removed.",
+      "loggedDayConflict": "The day has registered time or is completed and cannot be removed.",
+      "pastDayConflict": "A planned day in the past cannot be removed automatically.",
+      "travelFromNotAvailable": "Travel can only be finished after the day is completed."
     }
   },
   "auditActions": {

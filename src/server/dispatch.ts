@@ -710,6 +710,9 @@ export async function autoAssign(
               score: plan.score,
               breakdown: plan.breakdown,
             },
+            // Automatisk dispatch planlegger hver dag for seg og skal ikke
+            // overskrive en tidligere dags forslag i samme kjøring.
+            syncSiblings: false,
           },
         );
         if (!result.ok) {
