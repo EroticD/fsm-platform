@@ -193,7 +193,7 @@ kategori **HMS-skjema**.
 
 ## 8. Serviceavtaler, SLA og prislister
 
-**SLA-policy:** Gå til **Innstillinger → SLA og åpningstider**, fyll ut **Navn**, **Avdeling** eller **Alle avdelinger**, **Svartid (minutter)**, **Løsningstid (minutter)** og **Tell bare innenfor åpningstid**, og trykk **Opprett policy**. Oppdragets avtale peker på policy; ellers brukes en aktiv avtale for kunden, deretter avdelingens standard og til slutt global. Klokken starter ved opprettelse, respons registreres ved første `EN_ROUTE`/`ON_SITE`, løsning ved `DONE`/`COMPLETED`, og `CANCELLED` kansellerer. Tilstander: `ON_TRACK`, `AT_RISK`, `BREACHED`, `MET`, `CANCELLED`.
+**SLA-policy:** Gå til **Innstillinger → SLA og åpningstider**, fyll ut **Navn**, **Avdeling** eller **Alle avdelinger**, **Svartid (minutter)**, **Løsningstid (minutter)** og **Tell bare innenfor åpningstid**, og trykk **Opprett policy**. Klokken starter bare når oppdraget har en aktiv, datogyldig avtale med en aktiv SLA-policy. Det finnes ingen reserve til avdelingens standard eller en global policy, så en kunde uten aktiv avtale får ingen SLA-klokke. Klokken starter ved opprettelse, respons registreres ved første `EN_ROUTE`/`ON_SITE`, løsning ved `DONE`, og `CANCELLED` kansellerer. Returkjøring (`travelFromEndedAt`) flytter ikke klokken. Tilstander: `ON_TRACK`, `AT_RISK`, `BREACHED`, `MET`, `CANCELLED`.
 
 **Åpningstider og helligdager:** Velg **Avdeling**, trykk **Vis**, sett **Åpner**/**Stenger** eller **Stengt** per ukedag, og trykk **Lagre åpningstider**. Legg til **Helligdager** med dato, navn og eventuell avdeling. Globale gjelder alle; avdelingsspesifikke overstyrer bare den avdelingen. Mangler åpningstider, brukes hverdager 08–16 i Europe/Oslo. Alle frister regnes gjennom denne kalenderen.
 

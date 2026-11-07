@@ -73,6 +73,7 @@ const SUMMARY_SELECT = {
     select: EMBEDDED_VISIT_SELECT,
   },
   slaClocks: {
+    where: { state: { not: "CANCELLED" } },
     orderBy: { startedAt: "desc" },
     take: 1,
     select: {
