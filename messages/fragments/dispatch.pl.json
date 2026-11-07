@@ -23,10 +23,6 @@
       "excludedAbsence": "nieobecność",
       "excludedUnavailable": "poza godzinami pracy",
       "excludedOverlap": "podwójna rezerwacja",
-      "excluded_missing_skills": "brak kompetencji",
-      "excluded_absence": "nieobecność",
-      "excluded_unavailable": "poza godzinami pracy",
-      "excluded_overlap": "podwójna rezerwacja",
       "autoAssignTitle": "Automatyczne przydzielanie",
       "autoAssignHint": "Najpierw uruchom próbę dla {count} widocznych wizyt. Nic nie zostanie zapisane, dopóki nie zatwierdzisz propozycji.",
       "dryRun": "Próba",
@@ -35,11 +31,7 @@
       "autoAssignApplied": "Przydzielono {count} wizyt.",
       "autoAssignNone": "Brak dostępnego technika z wymaganymi kompetencjami.",
       "autoAssignSkipped": "{count} wizyt pozostało bez propozycji.",
-      "suggestTitle": "Zaproponuj technika",
-      "suggestHint": "Uszereguj techników według kompetencji, odległości, czasu dojazdu, wolnego czasu, SLA i obciążenia.",
-      "suggestButton": "Zaproponuj",
-      "suggestError": "Nie udało się pobrać propozycji. Spróbuj ponownie.",
-      "assignCandidate": "Przydziel"
+      "daySyncHint": "Każdy wiersz to jeden dzień pracy. Przypisanie aktualizuje pozostałe zaplanowane dni w tym samym zleceniu."
     },
     "route": {
       "subtitle": "Proponowana kolejność jazdy dla każdego technika, z czasem jazdy i przyjazdem na każdym przystanku.",

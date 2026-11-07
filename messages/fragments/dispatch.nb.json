@@ -23,10 +23,6 @@
       "excludedAbsence": "fravær",
       "excludedUnavailable": "utenfor arbeidstid",
       "excludedOverlap": "dobbelbooking",
-      "excluded_missing_skills": "mangler kompetanse",
-      "excluded_absence": "fravær",
-      "excluded_unavailable": "utenfor arbeidstid",
-      "excluded_overlap": "dobbelbooking",
       "autoAssignTitle": "Automatisk tildeling",
       "autoAssignHint": "Tørrkjør de {count} synlige visitene først. Ingenting lagres før du velger å bruke forslaget.",
       "dryRun": "Tørrkjør",
@@ -35,11 +31,7 @@
       "autoAssignApplied": "{count} visiter ble tildelt.",
       "autoAssignNone": "Ingen ledige montører med riktig kompetanse.",
       "autoAssignSkipped": "{count} visiter ble stående uten forslag.",
-      "suggestTitle": "Foreslå montør",
-      "suggestHint": "Ranger montører etter kompetanse, avstand, reisetid, ledig tid, SLA og belastning.",
-      "suggestButton": "Foreslå",
-      "suggestError": "Kunne ikke hente forslag. Prøv igjen.",
-      "assignCandidate": "Tildel"
+      "daySyncHint": "Én rad er én arbeidsdag. Tildeling oppdaterer de øvrige planlagte dagene i samme oppdrag."
     },
     "route": {
       "subtitle": "Foreslått kjøreorden per montør, med kjøretid og ankomst per stopp.",

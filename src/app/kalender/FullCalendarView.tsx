@@ -611,11 +611,23 @@ export default function FullCalendarView({
         content.className = 'fc-event-content';
 
         // FullCalendar gir lokaliserte klokkeslett for tidsstyrte hendelser.
-        // Heldagshendelser har ingen tid og skal ikke få en tom linje.
+        // Slutten kommer fra hendelsens faktiske `end` (backendens reelle
+        // varighet), slik at måneds- og ukevisningen viser hele økten og ikke
+        // bare starttiden. Heldagshendelser har ingen tid og får ingen linje.
         if (arg.timeText) {
+          const endText =
+            !arg.event.allDay && arg.event.end
+              ? formatDateLocalized(arg.event.end, locale, {
+                  timeStyle: 'short',
+                  hourCycle: 'h23',
+                })
+              : '';
           const timeLine = document.createElement('div');
           timeLine.className = 'fc-event-time-line';
-          timeLine.textContent = arg.timeText;
+          timeLine.textContent =
+            endText && endText !== arg.timeText
+              ? `${arg.timeText}–${endText}`
+              : arg.timeText;
           content.appendChild(timeLine);
         }
 

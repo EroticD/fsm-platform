@@ -91,7 +91,7 @@ Side-cachen varer i åtte timer; lokale kladder i sju dager.
 
 ### Neste jobb
 
-Kortet **Neste jobb** viser dagens første gjenstående jobb, eller neste kommende jobb hvis dagen er tom. Det viser dato og klokkeslett, eller **Tid ikke satt** / **Hele dagen**, tittel, kunde, ordrenummer, adresse, kontaktperson, **Jobb 1 av N**, og **Start skjema**, **Fortsett skjema** eller **Åpne jobb**, **Ring** og **Naviger**.
+Kortet **Neste jobb** viser dagens første gjenstående jobb, eller neste kommende jobb hvis dagen er tom. Det viser dato og status for dagens økt, tittel, kunde, ordrenummer, adresse, kontaktperson, **Jobb 1 av N**, og **Start skjema**, **Fortsett skjema** eller **Åpne jobb**, **Ring** og **Naviger**.
 
 **Start skjema** åpner første sjekkliste som mangler låst rapport. **Fortsett skjema** brukes ved kladd eller ulåst rapport. Har oppdraget ingen mal, sier knappen **Åpne jobb**. **Naviger** åpner kartappen med koordinater eller adresse.
 
@@ -107,13 +107,13 @@ Søkefeltet i **I dag** søker i tittel, beskrivelse, ordrenummer, kundenavn, ku
 
 ### Jobbkort og statuschips
 
-Kortet er én stor trykkflate med tittel, statuschip, kunde, ordrenummer, kontaktperson/telefon, adresse, tags, dato og klokkeslett. Finnes en kladd, vises **Kladd 14:32 · Fortsett**. **Ring** og **Naviger** ligger oppå kortet og starter telefon eller kartappen uten å åpne oppdraget.
+Kortet er én stor trykkflate med tittel, statuschip, kunde, ordrenummer, kontaktperson/telefon, adresse, tags og dato. Finnes en kladd, vises **Kladd 14:32 · Fortsett**. **Ring** og **Naviger** ligger oppå kortet og starter telefon eller kartappen uten å åpne oppdraget.
 
 | Chip | Betydning |
 | --- | --- |
 | **Åpen / Ny** | Opprettet, ikke planlagt eller startet |
 | **Venter på planlegging** | Systemets startstatus; velges ikke manuelt |
-| **Planlagt** | Har planlagt dato eller visitt |
+| **Planlagt** | Har planlagt dato og arbeidsdag |
 | **Påbegynt** | Det jobbes med oppdraget |
 | **Venter på kunde** | Arbeidet står i påvente av kunden |
 | **Fullført** | Avsluttet og låst |
@@ -145,11 +145,15 @@ Står det **Ingen aktive oppdrag i din kalender akkurat nå**:
 
 **Lokasjon og kontakt** viser full adresse, firma-telefon, oppdragets kontaktperson og kundens øvrige kontakter med telefon og e-post. Mangler data, står det **Ikke oppgitt** eller **Ingen spesifikk kontaktperson registrert**.
 
-### Visitt: start kjøring, på stedet, fullført
+### Dagens økt: på vei, på stedet, ferdig
 
-Visittkortet viser **Dagens visitt** eller **Neste visitt**, tidsrom, status og montører. Flyten er: **Start kjøring** → **På vei**, **På stedet** → **På stedet**, **Fullfør** → **Fullført**. Hvert trykk registrerer tidspunktet på serveren. Trykk først når du faktisk kjører, ankommer eller er ferdig; ikke bruk knappene for å rydde dagen i etterkant. Etter **Fullført** er visitten låst, og det står **Visitten er avsluttet.**
+Øktkortet viser **Dagens økt** eller **Neste økt** med dato, status og montører. Hver kalenderdag er én økt; et flerdagers oppdrag fortsetter neste dag selv om dagen i dag er fullført. Flyten er **På vei** → **På stedet** → **Ferdig**. Hvert trykk registrerer tidspunktet på serveren. Trykk først når du faktisk kjører, ankommer eller er ferdig; ikke bruk knappene for å rydde dagen i etterkant.
 
-Med live-sporing kan du dele posisjon mens visitten er **På vei**: **Del posisjon** / **Stopp deling**. Posisjonen slettes etter 24 timer.
+Etter **Ferdig** viser kortet **Avslutt kjøring** helt til returkjøringen er avsluttet. Da låses dagen, og det står **Dagen er fullført.** Neste dags økt kan startes med **På vei** selv om en tidligere dag fortsatt venter på **Avslutt kjøring**; da lukkes den forrige kjørebiten automatisk.
+
+Kortet viser tid i dag for **Kjøring til**, **Arbeid**, **Kjøring fra** og **Totalt**, og total tid for hele oppdraget med fordeling. **Dager** lister hver arbeidsdag i oppdraget med status og tid, slik at du ser hvilke dager som er fullført og hvilke som gjenstår. En fullført dag som mangler **Avslutt kjøring**, har knappen i dagslisten.
+
+Med live-sporing kan du dele posisjon mens økten er **På vei**: **Del posisjon** / **Stopp deling**. Posisjonen slettes etter 24 timer.
 
 ### Status, arbeidsbeskrivelse og kommentarer
 
@@ -344,7 +348,7 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 - **Sveip/«Fullfør enhet» er bare for ferdig dokumenterte, ikke-avvikende enheter.** Bruk **Avvik funnet** når noe er galt, mangler eller må utbedres.
 - **Godkjenn aldri noe du vil rette senere.** «Godkjent» betyr kontrollert og i orden nå; utbedring hører i avviket eller eget oppdrag.
 - **Beskriv avviket konkret:** hva, hvor, måling og hva som må gjøres. Legg ved bilde når det er relevant.
-- **Bruk tidspunktene som registreres.** Start kjøring, på stedet og fullført registreres når du trykker; ikke pynt i etterkant.
+- **Bruk tidspunktene som registreres.** På vei, på stedet, ferdig og avslutt kjøring registreres når du trykker; ikke pynt i etterkant.
 - **Kontroller enhetsidentiteten.** Riktig betegnelse, serienummer og plassering gjør historikken brukbar; én registrert enhet brukes én gang.
 - **Signer bare det du har gjennomgått.** Signatur er valgfri, men navnet må tilhøre en person på oppdraget.
 - **Rapporten låses ved innsending.** Retting krever administratoropplåsing og logges som revisjon.
@@ -365,7 +369,7 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Kan ikke sende rapporten** | Mangler enhet, vurdering, påkrevd svar, bilde, avkrysning eller navn; låst; offline | Les den røde meldingen, rett feltet og prøv igjen. **Mangler vurdering** betyr at hver enhet må ha **Godkjent** eller **Avvik** |
 | **Kan ikke fullføre med sveip** | Enheten mangler navn, har avvik, eller et påkrevd felt mangler | Fyll ut feltet, last opp bildet, eller bruk **Avvik funnet** bevisst |
 | **2FA-koden virker ikke** | Feil kode, klokkeavvik, brukt gjenopprettingskode | Vent på ny kode, sjekk klokken, bruk en ubrukt gjenopprettingskode, eller be administrator nullstille 2FA |
-| **Visittknappene mangler / status låst** | Visitten eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne visiter og oppdrag kan endres |
+| **Øktknappene mangler / status låst** | Dagen eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne dager og oppdrag kan endres |
 | **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, manglende tilgang eller aktivt innhold som ikke kan saniteres | Kom på nett, åpne via **Se rapport (PDF)**, last ned filen, og meld fra hvis tilgang mangler |
 | **Bilde mangler i PDF** | Filen er slettet, mangler metadata eller tilhører et annet oppdrag | Last opp bildet på nytt fra rapporten, og generer PDF-en igjen |
 | **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn åtte timer | Åpne jobben på nytt mens du er på nett, og hold appen installert |
