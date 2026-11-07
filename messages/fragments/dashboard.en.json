@@ -56,6 +56,33 @@
       "dropLabel": "Drop to assign",
       "dropZoneLabel": "Assign a work order to {name}"
     },
+    "field": {
+      "title": "Field now",
+      "summary": "{active} active · {total} technicians today",
+      "updatedAt": "Updated {time}",
+      "mapTitle": "Technicians sharing location",
+      "mapEmpty": "No technicians are sharing their location right now",
+      "mapListTitle": "Technicians sharing location",
+      "mapListHint": "The map shows the same technicians as the list below. Use the list to open the work order.",
+      "mapAria": "Map of technicians sharing their location",
+      "trackingDisabled": "Location sharing is turned off",
+      "trackingDisabledHint": "The department must enable tracking before technicians can share their location.",
+      "openMap": "Open map",
+      "openWorkOrder": "Open work order",
+      "lastShared": "Last shared {time}",
+      "noPosition": "No location shared",
+      "noVisit": "No active work order",
+      "noStaff": "No field technicians are scheduled today.",
+      "markerUpdated": "Last updated {time}",
+      "status": {
+        "onSite": "On site",
+        "enRoute": "En route",
+        "assigned": "Assigned",
+        "done": "Done for the day",
+        "available": "Available",
+        "absent": "Absent"
+      }
+    },
     "dnd": {
       "errorNoAccess": "You do not have permission to assign this work order.",
       "errorInvalidData": "The assignment is invalid. Try again.",

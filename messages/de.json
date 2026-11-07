@@ -3072,6 +3072,33 @@
         "dropLabel": "Zum Zuweisen hier ablegen",
         "dropZoneLabel": "Auftrag {name} zuweisen"
       },
+      "field": {
+        "title": "Jetzt im Einsatz",
+        "summary": "{active} aktiv · {total} Techniker heute",
+        "updatedAt": "Aktualisiert {time}",
+        "mapTitle": "Techniker mit Standortfreigabe",
+        "mapEmpty": "Derzeit teilt kein Techniker seinen Standort",
+        "mapListTitle": "Techniker mit Standortfreigabe",
+        "mapListHint": "Die Karte zeigt dieselben Techniker wie die Liste darunter. Öffnen Sie den Auftrag über die Liste.",
+        "mapAria": "Karte der Techniker mit Standortfreigabe",
+        "trackingDisabled": "Standortfreigabe ist ausgeschaltet",
+        "trackingDisabledHint": "Die Abteilung muss die Ortung aktivieren, bevor Techniker ihren Standort teilen können.",
+        "openMap": "Karte öffnen",
+        "openWorkOrder": "Auftrag öffnen",
+        "lastShared": "Zuletzt geteilt {time}",
+        "noPosition": "Kein Standort geteilt",
+        "noVisit": "Kein aktiver Auftrag",
+        "noStaff": "Heute sind keine Außendiensttechniker eingeplant.",
+        "markerUpdated": "Zuletzt aktualisiert {time}",
+        "status": {
+          "onSite": "Vor Ort",
+          "enRoute": "Unterwegs",
+          "assigned": "Zugewiesen",
+          "done": "Für heute fertig",
+          "available": "Verfügbar",
+          "absent": "Abwesend"
+        }
+      },
       "dnd": {
         "errorNoAccess": "Sie haben keine Berechtigung, diesen Auftrag zuzuweisen.",
         "errorInvalidData": "Die Zuweisung ist ungültig. Versuchen Sie es erneut.",

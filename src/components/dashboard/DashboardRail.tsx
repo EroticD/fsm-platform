@@ -2,12 +2,16 @@ import Link from "next/link";
 import Icon from "@/components/icons";
 import TechnicianDropZone from "@/components/dnd/TechnicianDropZone";
 import { formatDateRangeLocalized } from "@/lib/dates";
+import type { FieldStatusRow } from "@/lib/dashboard-field-status";
+import FieldStatusBadge from "./FieldStatusBadge";
 import type { DashboardOrder } from "./helpers";
 
 export type DashboardTeamMember = {
   id: string;
   name: string | null;
   count: number;
+  /** Dagens live status, når montøren er en del av feltstaben. */
+  field?: FieldStatusRow | null;
 };
 
 function initials(name: string | null) {
@@ -346,6 +350,16 @@ export default function DashboardRail({
                         {t("dashboard.team.load", { count: member.count })}
                       </span>
                     </div>
+                    {member.field ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <FieldStatusBadge status={member.field.status} t={t} />
+                        {member.field.visit ? (
+                          <span className="min-w-0 truncate text-[11px] font-medium text-[var(--muted,#62685f)]">
+                            {member.field.visit.title}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e7e3d7]">
                       <div
                         className={`h-full rounded-full ${
