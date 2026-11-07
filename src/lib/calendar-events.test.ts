@@ -171,6 +171,65 @@ describe("toVisitCalendarEvent", () => {
     expect(event?.extendedProps.technicians).toEqual([]);
   });
 
+  it("viser faktisk varighet når dagen er på stedet eller fullført", () => {
+    const base = {
+      id: "visit-real",
+      workOrderId: "wo-1",
+      // Hele arbeidsdagen, men med faktiske tidsstempler.
+      startsAt: new Date("2026-10-18T22:00:00.000Z"),
+      endsAt: new Date("2026-10-19T22:00:00.000Z"),
+      allDay: true,
+      status: "DONE",
+      technicians: [],
+      workOrder,
+    };
+    const completed = toVisitCalendarEvent({
+      ...base,
+      enRouteAt: new Date("2026-10-19T06:00:00.000Z"),
+      onSiteAt: new Date("2026-10-19T06:30:00.000Z"),
+      doneAt: new Date("2026-10-19T09:15:00.000Z"),
+      travelFromEndedAt: new Date("2026-10-19T09:45:00.000Z"),
+    });
+
+    // Fullført jobb viser total tid inkludert til- og returkjøring.
+    expect(completed).toMatchObject({
+      start: "2026-10-19T06:00:00.000Z",
+      end: "2026-10-19T09:45:00.000Z",
+      allDay: false,
+    });
+
+    // Uten avsluttet returkjøring stopper hendelsen ved doneAt.
+    const workDone = toVisitCalendarEvent({
+      ...base,
+      enRouteAt: new Date("2026-10-19T06:00:00.000Z"),
+      onSiteAt: new Date("2026-10-19T06:30:00.000Z"),
+      doneAt: new Date("2026-10-19T09:15:00.000Z"),
+      travelFromEndedAt: null,
+    });
+    expect(workDone).toMatchObject({
+      start: "2026-10-19T06:00:00.000Z",
+      end: "2026-10-19T09:15:00.000Z",
+      allDay: false,
+    });
+
+    // Bare onSiteAt: hendelsen varer til «nå», slik at pågående arbeid synes.
+    const ongoing = toVisitCalendarEvent(
+      {
+        ...base,
+        status: "ON_SITE",
+        onSiteAt: new Date("2026-10-19T06:30:00.000Z"),
+        doneAt: null,
+        travelFromEndedAt: null,
+      },
+      { now: new Date("2026-10-19T07:45:00.000Z") },
+    );
+    expect(ongoing).toMatchObject({
+      start: "2026-10-19T06:30:00.000Z",
+      end: "2026-10-19T07:45:00.000Z",
+      allDay: false,
+    });
+  });
+
   it("låser visiter som er fullført eller kansellert", () => {
     const done = toVisitCalendarEvent({
       id: "visit-3",

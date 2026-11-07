@@ -3336,7 +3336,12 @@
         "workOrderLocked": "Der Besuch kann nicht geändert werden, da der Auftrag abgeschlossen oder storniert ist.",
         "visitLocked": "Der Besuch ist abgeschlossen oder storniert und kann nicht geändert werden.",
         "statusTransition": "Diese Statusänderung ist nicht zulässig.",
-        "noChange": "Es wurde keine Änderung vorgenommen."
+        "noChange": "Es wurde keine Änderung vorgenommen.",
+        "invalidDateRange": "Der Datumsbereich ist ungültig oder zu lang.",
+        "visitInProgress": "Der Tag ist unterwegs oder vor Ort und kann nicht entfernt werden.",
+        "loggedDayConflict": "Der Tag hat erfasste Zeit oder ist abgeschlossen und kann nicht entfernt werden.",
+        "pastDayConflict": "Ein geplanter Tag in der Vergangenheit kann nicht automatisch entfernt werden.",
+        "travelFromNotAvailable": "Die Fahrt kann erst nach Abschluss des Tages beendet werden."
       }
     },
     "p3": {

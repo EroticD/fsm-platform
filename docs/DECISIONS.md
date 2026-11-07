@@ -493,3 +493,48 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   Filer skrives med `wx` før commit og slettes hvis transaksjonen feiler.
   Forhåndsvisningstokenet er kortlevd, bundet til aktør/jobb/sjekksum, og
   målbasens fingeravtrykk oppdages på nytt før bekreftelse.
+
+## Arbeidsdager, tidsregistrering og SLA (2026-11-07)
+
+- **Én intern økt per kalenderdag.** `WorkOrder.scheduledFor..scheduledTo` er
+  rene datoer. For hver dag finnes nøyaktig én `Visit` med `allDay: true`,
+  Oslo-midnatt til neste Oslo-midnatt, `sequence` lik dagindeksen og status
+  `PLANNED` ved opprettelse. Oppdragets datofelter avledes fortsatt av
+  visittene. `ensureDailyVisits` er idempotent og `reconcileDailyVisits`
+  legger til manglende dager, beholder eksisterende dager uendret, og fjerner
+  bare rene planlagte dager fram i tid. En dag med `EN_ROUTE`, `ON_SITE`,
+  `DONE` eller tidsstempler gir en tydelig konflikt i stedet for sletting.
+- **Tid registreres per dag, ikke per oppdrag.** `enRouteAt` er start på
+  tilkjøring, `onSiteAt` start på arbeid, `doneAt` arbeid ferdig og
+  `travelFromEndedAt` retur-/viderekjøring ferdig. Hver verdi settes bare én
+  gang. En montør kan ha flere jobber samme dag; når neste visitt starter
+  `EN_ROUTE`, lukkes forrige fullførte visitt sin `travelFromEndedAt` på samme
+  tidspunkt. Segmentet er dermed returkjøring for forrige jobb og tilkjøring
+  for neste, uten å telles som to reiser i én visitt. Siste jobb på dagen
+  lukkes med tjenesten `finishTravelFrom` («Avslutt kjøring» i UI).
+- **Summering inkluderer all reisetid.** `travelTo = onSiteAt - enRouteAt`,
+  `work = doneAt - onSiteAt`, `travelFrom = travelFromEndedAt - doneAt`, og
+  totalen er summen av alle tre. `src/lib/visit-time.ts` eksporterer stabile
+  typer og funksjoner for per visitt, per dag og per oppdrag.
+- **Kalenderen viser faktisk total tid.** En dag med tidsstempler tegnes som
+  tidsstyrt hendelse fra `enRouteAt` til `travelFromEndedAt` når den er
+  avsluttet, ellers til `doneAt`, og til «nå» mens den pågår. Dager uten
+  tidsstempler er fortsatt heldagsdatoer. Hver dag er en egen hendelse.
+- **Dispatch-tildeling gjelder hele oppdraget.** Manuell tildeling eller
+  fjerning av montør på én visitt speiles til de øvrige `PLANNED`/`ASSIGNED`
+  dagene i samme oppdrag. Automatisk dispatch planlegger hver dag for seg og
+  slår derfor bevisst av speilingen (`syncSiblings: false`).
+- **SLA krever aktiv avtale.** `resolveSlaPolicyId` har ikke lenger fallback
+  til avdelingens eller en global standardpolicy. En klokke starter bare når
+  oppdraget (eller kunden) har en `ACTIVE` avtale med gyldig dato og en aktiv
+  `SlaPolicy`. Kunder uten serviceavtale får ingen klokke. Første
+  `EN_ROUTE`/`ON_SITE` er respons; `DONE` er løsning. Returkjøring
+  (`travelFromEndedAt`) er etterspill og gjenåpner eller flytter ikke klokken.
+  Dette er en produktbeslutning: løsningstidspunktet er når arbeidet er
+  ferdig, ikke når montøren er tilbake.
+- **Backfill er engangs og ikke-destruktiv.** `npm run visits:backfill:daily`
+  splitter eldre flerdagers heldagsvisiter. Første dag beholder status,
+  notater, tidsstempler og montører; nye dager blir `PLANNED` uten kopiert
+  tid. Eksisterende visiter får `travelFromEndedAt = null` til de lukkes
+  manuelt eller av neste `EN_ROUTE`.
+

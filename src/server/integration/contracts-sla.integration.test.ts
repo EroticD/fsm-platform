@@ -17,11 +17,11 @@ import {
 } from "@/server/sla";
 import {
   createDefaultVisit,
+  finishTravelFrom,
   recomputeWorkOrderSchedule,
   setVisitStatus,
 } from "@/server/visits";
 import { createWorkOrder } from "@/server/work-orders";
-import { defaultVisitWindow } from "@/lib/visit-window";
 import { getCustomerDetail } from "@/server/customers";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
@@ -275,6 +275,16 @@ describeIntegration("Avtaler, dekning og SLA", () => {
     });
     expect(clock.resolvedAt).not.toBeNull();
     expect(clock.state).toBe("MET");
+    const resolvedAt = clock.resolvedAt;
+
+    // Returkjøring er etterspill og skal ikke gjenåpne eller flytte SLA.
+    const travel = await finishTravelFrom(officeActor, visit.id);
+    expect(travel.ok).toBe(true);
+    clock = await prisma.slaClock.findFirstOrThrow({
+      where: { workOrderId: workOrder },
+    });
+    expect(clock.resolvedAt).toEqual(resolvedAt);
+    expect(clock.state).toBe("MET");
   });
 
   it("starter klokken når et nytt oppdrag opprettes for en aktiv avtale", async () => {
@@ -297,15 +307,14 @@ describeIntegration("Avtaler, dekning og SLA", () => {
     if (!result.ok) return;
 
     const scheduledFor = toDateOnly(new Date());
-    const window = defaultVisitWindow(new Date(`${scheduledFor}T00:00:00.000Z`));
     const visit = await prisma.visit.findFirst({
       where: { workOrderId: result.id },
       select: { startsAt: true, endsAt: true, allDay: true },
     });
     expect(visit).toMatchObject({
-      startsAt: window.startsAt,
-      endsAt: window.endsAt,
-      allDay: false,
+      startsAt: osloDayStart(scheduledFor),
+      endsAt: osloDayStart(toDateOnly(addDaysUtc(new Date(`${scheduledFor}T00:00:00.000Z`), 1))),
+      allDay: true,
     });
 
     const clock = await prisma.slaClock.findFirst({

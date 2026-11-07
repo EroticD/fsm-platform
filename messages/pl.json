@@ -3336,7 +3336,12 @@
         "workOrderLocked": "Nie można zmienić wizyty, ponieważ zlecenie jest zakończone lub anulowane.",
         "visitLocked": "Wizyta jest zakończona lub anulowana i nie można jej zmienić.",
         "statusTransition": "Ta zmiana statusu nie jest dozwolona.",
-        "noChange": "Nie wprowadzono żadnych zmian."
+        "noChange": "Nie wprowadzono żadnych zmian.",
+        "invalidDateRange": "Zakres dat jest nieprawidłowy lub zbyt długi.",
+        "visitInProgress": "Dzień jest w drodze lub na miejscu i nie można go usunąć.",
+        "loggedDayConflict": "Dzień ma zarejestrowany czas lub jest zakończony i nie można go usunąć.",
+        "pastDayConflict": "Zaplanowanego dnia w przeszłości nie można usunąć automatycznie.",
+        "travelFromNotAvailable": "Jazdę można zakończyć dopiero po ukończeniu dnia."
       }
     },
     "p3": {
