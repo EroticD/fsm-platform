@@ -35,6 +35,12 @@ import {
   canTransitionVisit,
   isTerminalVisitStatus,
 } from "@/lib/visit-status";
+import { formatDurationMinutes } from "@/lib/duration";
+import {
+  ongoingWorkMinutes,
+  summarizeWorkOrderTime,
+  visitTimeMetrics,
+} from "@/lib/visit-time";
 import { idSchema } from "@/lib/schemas/common";
 import { parseJsonObject, REPORT_STATUS_DEVIATION } from "@/lib/report-answers";
 import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
@@ -48,6 +54,7 @@ import {
   addComment,
   addTechnician,
   addTemplate,
+  finishVisitTravelFrom,
   setVisitStatus,
   updateStatus,
 } from "./actions";
@@ -90,6 +97,16 @@ const FIELD_VISIT_FLOW: ReadonlyArray<{
     labelKey: "orders.fieldDetail.visits.complete",
   },
 ];
+
+const FIELD_VISIT_TIME_STAMPS = [
+  { field: "enRouteAt", labelKey: "orders.fieldDetail.visits.time.enRouteAt" },
+  { field: "onSiteAt", labelKey: "orders.fieldDetail.visits.time.onSiteAt" },
+  { field: "doneAt", labelKey: "orders.fieldDetail.visits.time.doneAt" },
+  {
+    field: "travelFromEndedAt",
+    labelKey: "orders.fieldDetail.visits.time.travelFromEndedAt",
+  },
+] as const;
 
 const VISIT_ERROR_KEYS: Record<string, string> = {
   overlap: "orders.fieldDetail.visits.errors.overlap",
@@ -503,75 +520,35 @@ export default async function TechnicianWorkOrderPage({
           }
         : null;
 
-  // Dagens eller neste visitt. Åpne visiter går foran avsluttede, slik at en
-  // nettopp fullført formiddagsvisitt ikke skjuler ettermiddagens jobb.
+  // Dagens eller neste arbeidsøkt. Hver kalenderdag har én intern økt, så en
+  // fullført dag skal aldri skjule morgendagens jobb. Åpne dager går foran
+  // avsluttede; blant åpne dager velges første dag som ikke er tilbake i tid.
   const now = new Date();
   const todayIso = dateOnlyInOslo(now);
-  const nonCancelledVisits = (workOrder.visits ?? []).filter(
+  const visits = (workOrder.visits ?? []).filter(
     (visit) => visit.status !== "CANCELLED",
   );
-  const openVisits = nonCancelledVisits.filter(
+  const openVisits = visits.filter(
     (visit) => !isTerminalVisitStatus(visit.status),
   );
-  const visitCandidates = openVisits.length > 0 ? openVisits : nonCancelledVisits;
   const currentVisit =
-    visitCandidates.find((visit) => visit.endsAt >= now) ??
-    visitCandidates[0] ??
+    openVisits.find(
+      (visit) => dateOnlyInOslo(visit.startsAt) >= todayIso,
+    ) ??
+    openVisits[0] ??
+    visits.at(-1) ??
     null;
-  const currentVisitLastDay = currentVisit
-    ? dateOnlyInOslo(new Date(currentVisit.endsAt.getTime() - 1))
-    : "";
   const currentVisitIsToday = Boolean(
     currentVisit &&
-      dateOnlyInOslo(currentVisit.startsAt) <= todayIso &&
-      currentVisitLastDay >= todayIso,
+      dateOnlyInOslo(currentVisit.startsAt) === todayIso,
   );
-  const currentVisitDate =
-    currentVisit && currentVisit.allDay
-      ? currentVisitLastDay &&
-        dateOnlyInOslo(currentVisit.startsAt) !== currentVisitLastDay
-        ? `${formatDateLocalized(currentVisit.startsAt, locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })} – ${formatDateLocalized(new Date(currentVisit.endsAt.getTime() - 1), locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}`
-        : formatDateLocalized(currentVisit.startsAt, locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })
-      : currentVisit
-        ? formatDateLocalized(currentVisit.startsAt, locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })
-        : "";
-  const currentVisitStartTime = currentVisit
-    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short", hourCycle: "h23" })
+  const currentVisitDate = currentVisit
+    ? formatDateLocalized(currentVisit.startsAt, locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      })
     : "";
-  const currentVisitEndTime = currentVisit
-    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short", hourCycle: "h23" })
-    : "";
-  const currentVisitSameDay = Boolean(
-    currentVisit &&
-      dateOnlyInOslo(currentVisit.startsAt) === currentVisitLastDay,
-  );
-  const currentVisitTime = !currentVisit
-    ? ""
-    : currentVisit.allDay
-      ? t("orders.fieldDetail.visits.allDay")
-      : currentVisitSameDay
-        ? `${currentVisitStartTime}–${currentVisitEndTime}`
-        : `${currentVisitStartTime} – ${formatDateLocalized(
-            currentVisit.endsAt,
-            locale,
-            { day: "numeric", month: "short" },
-          )} ${currentVisitEndTime}`;
   const currentVisitTechnicians =
     currentVisit?.technicians
       .map((technician) => technician.user.name || technician.user.email)
@@ -587,6 +564,25 @@ export default async function TechnicianWorkOrderPage({
   const currentVisitTerminal = currentVisit
     ? isTerminalVisitStatus(currentVisit.status)
     : false;
+  const currentVisitCanFinishTravel = Boolean(
+    currentVisit &&
+      currentVisit.status === "DONE" &&
+      !currentVisit.travelFromEndedAt,
+  );
+  const currentMetrics = currentVisit
+    ? visitTimeMetrics(currentVisit, now)
+    : null;
+  const orderTime = summarizeWorkOrderTime(visits);
+  const liveWorkMinutes = visits.reduce(
+    (sum, visit) =>
+      visit.doneAt ? sum : sum + (ongoingWorkMinutes(visit, now) ?? 0),
+    0,
+  );
+  const orderWorkMinutes = orderTime.workMinutes + liveWorkMinutes;
+  const orderTotalMinutes = orderTime.totalMinutes + liveWorkMinutes;
+  const pendingTravelFrom = visits.filter(
+    (visit) => visit.status === "DONE" && !visit.travelFromEndedAt,
+  );
   const visitErrorKey = visitError
     ? (VISIT_ERROR_KEYS[visitError] ?? VISIT_ERROR_KEYS.generic)
     : "";
@@ -1021,8 +1017,8 @@ export default async function TechnicianWorkOrderPage({
           </div>
         </div>
 
-        {/* VISITT – dagens eller neste planlagte tidsrom. Statusflyten her er
-            visitens egen og blandes ikke med oppdragets status. */}
+        {/* DAGENS ØKT – én intern arbeidsøkt per kalenderdag. Statusflyten
+            hører til dagen og blandes ikke med oppdragets status. */}
         <div id="visitt" className={`scroll-mt-4 ${FIELD_PANEL} p-4 sm:p-6`}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -1036,10 +1032,6 @@ export default async function TechnicianWorkOrderPage({
               {currentVisit ? (
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-paper">
                   <span className="capitalize">{currentVisitDate}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-sm font-black tabular-nums text-signal">
-                    <Icon name="clock" className="h-3.5 w-3.5" />
-                    {currentVisitTime}
-                  </span>
                 </p>
               ) : (
                 <p className="mt-1 text-sm font-bold text-paper/80">
@@ -1090,6 +1082,182 @@ export default async function TechnicianWorkOrderPage({
                 </p>
               )}
 
+              <div className="rounded-xl border border-[#2a3328] bg-field/65 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+                  {t("orders.fieldDetail.visits.time.dayTitle")}
+                </p>
+                <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
+                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                      {t("orders.fieldDetail.visits.time.travelTo")}
+                    </dt>
+                    <dd className="text-sm font-black tabular-nums text-paper">
+                      {formatDurationMinutes(
+                        currentMetrics?.travelToMinutes,
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
+                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                      {t("orders.fieldDetail.visits.time.work")}
+                    </dt>
+                    <dd className="text-sm font-black tabular-nums text-paper">
+                      {formatDurationMinutes(
+                        currentMetrics?.workMinutes,
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
+                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                      {t("orders.fieldDetail.visits.time.travelFrom")}
+                    </dt>
+                    <dd className="text-sm font-black tabular-nums text-paper">
+                      {formatDurationMinutes(
+                        currentMetrics?.travelFromMinutes,
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                  <div className="rounded-lg border border-signal/30 bg-signal/10 px-2.5 py-1.5">
+                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/60">
+                      {t("orders.fieldDetail.visits.time.total")}
+                    </dt>
+                    <dd className="text-sm font-black tabular-nums text-signal">
+                      {formatDurationMinutes(
+                        currentMetrics?.totalMinutes,
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {FIELD_VISIT_TIME_STAMPS.filter(
+                    (stamp) => currentVisit[stamp.field] instanceof Date,
+                  ).map((stamp) => (
+                    <span
+                      key={stamp.field}
+                      className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold tabular-nums text-paper/90"
+                    >
+                      <span className="font-medium text-paper/55">
+                        {t(stamp.labelKey)}
+                      </span>
+                      {formatDateLocalized(
+                        currentVisit[stamp.field],
+                        locale,
+                        { timeStyle: "short", hourCycle: "h23" },
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#2a3328] bg-field/65 p-3">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+                      {t("orders.fieldDetail.visits.time.orderTotal")}
+                    </p>
+                    <p className="text-xl font-black tabular-nums text-signal">
+                      {formatDurationMinutes(orderTotalMinutes, locale)}
+                    </p>
+                  </div>
+                  <p className="text-xs font-bold text-paper/70">
+                    {t("orders.fieldDetail.visits.time.progress", {
+                      done: orderTime.completedSessions,
+                      total: orderTime.sessions,
+                    })}
+                  </p>
+                </div>
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                  <div>
+                    <dt className="font-bold text-paper/50">
+                      {t("orders.fieldDetail.visits.time.work")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-paper/90">
+                      {formatDurationMinutes(orderWorkMinutes, locale)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-paper/50">
+                      {t("orders.fieldDetail.visits.time.travelTo")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-paper/90">
+                      {formatDurationMinutes(orderTime.travelToMinutes, locale)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-paper/50">
+                      {t("orders.fieldDetail.visits.time.travelFrom")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-paper/90">
+                      {formatDurationMinutes(orderTime.travelFromMinutes, locale)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+                  {t("orders.fieldDetail.visits.time.days")}
+                </p>
+                <ol className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {visits.map((visit) => {
+                    const metrics = visitTimeMetrics(visit);
+                    const finishHere =
+                      canUpdate &&
+                      !isClosed &&
+                      visit.status === "DONE" &&
+                      !visit.travelFromEndedAt &&
+                      visit.id !== currentVisit.id;
+                    return (
+                      <li
+                        key={visit.id}
+                        className={`flex flex-wrap items-center justify-between gap-1.5 rounded-lg border px-2.5 py-2 text-xs ${
+                          visit.id === currentVisit.id
+                            ? "border-signal/50 bg-white/10"
+                            : "border-[#2a3328] bg-white/5"
+                        }`}
+                      >
+                        <span className="min-w-0 font-bold capitalize text-paper/90">
+                          {formatDateLocalized(visit.startsAt, locale, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="font-bold uppercase tracking-wide text-paper/55">
+                            {t(VISIT_STATUS_LABEL_KEYS[visit.status])}
+                          </span>
+                          <span className="font-black tabular-nums text-signal">
+                            {formatDurationMinutes(metrics.totalMinutes, locale)}
+                          </span>
+                          {finishHere && (
+                            <form action={finishVisitTravelFrom}>
+                              <input
+                                type="hidden"
+                                name="workOrderId"
+                                value={workOrderId}
+                              />
+                              <input type="hidden" name="visitId" value={visit.id} />
+                              <button
+                                type="submit"
+                                className="inline-flex min-h-8 items-center rounded-lg border border-signal/40 px-2 py-0.5 text-[11px] font-bold text-signal transition hover:bg-signal/15"
+                              >
+                                {t("orders.fieldDetail.visits.finishTravelFrom")}
+                              </button>
+                            </form>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
                 {canUpdate && !isClosed && currentVisitNextStep ? (
                   <form action={setVisitStatus}>
@@ -1107,6 +1275,14 @@ export default async function TechnicianWorkOrderPage({
                       {t(currentVisitNextStep.labelKey)}
                     </SubmitButton>
                   </form>
+                ) : currentVisitCanFinishTravel && canUpdate && !isClosed ? (
+                  <form action={finishVisitTravelFrom}>
+                    <input type="hidden" name="workOrderId" value={workOrderId} />
+                    <input type="hidden" name="visitId" value={currentVisit.id} />
+                    <button type="submit" className={DARK_BUTTON}>
+                      {t("orders.fieldDetail.visits.finishTravelFrom")}
+                    </button>
+                  </form>
                 ) : currentVisitTerminal ? (
                   <p className="text-sm font-medium italic text-paper/70">
                     {t("orders.fieldDetail.visits.locked")}
@@ -1117,6 +1293,17 @@ export default async function TechnicianWorkOrderPage({
                   </p>
                 ) : null}
               </div>
+
+              {pendingTravelFrom.length > 0 &&
+                pendingTravelFrom.every(
+                  (visit) => visit.id !== currentVisit.id,
+                ) && (
+                  <p className="text-xs font-medium text-paper/60">
+                    {t("orders.fieldDetail.visits.pendingTravelFrom", {
+                      count: pendingTravelFrom.length,
+                    })}
+                  </p>
+                )}
 
               {canUpdate &&
                 currentVisit.status === "EN_ROUTE" &&

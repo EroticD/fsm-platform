@@ -6,7 +6,7 @@ import { loginAsRole, roleCredentials } from "./helpers";
  * visittene og ikke de gamle oppdragsdatofeltene. Testen muterer ingenting,
  * slik at den kan kjøres parallelt med resten av matrisen.
  */
-test("office: timegrid og visittplanlegging vises", async ({ page }) => {
+test("office: timegrid og dager/tid vises", async ({ page }) => {
   test.setTimeout(60_000);
   test.skip(!roleCredentials("office"), "E2E_OFFICE_EMAIL/PASSWORD er ikke satt");
   expect(await loginAsRole(page, "office")).toBe(true);
@@ -30,11 +30,11 @@ test("office: timegrid og visittplanlegging vises", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Service – automatiske dører" }),
   ).toBeVisible();
-  await expect(page.getByText("Planlegging", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Hele dagen").first()).toBeVisible();
+  await expect(page.getByText("Dager og tid", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Total tid for oppdraget").first()).toBeVisible();
 });
 
-test("technician: feltkortet viser visitt og statusflyt", async ({ page }) => {
+test("technician: feltkortet viser dagens økt og statusflyt", async ({ page }) => {
   test.setTimeout(60_000);
   test.skip(
     !roleCredentials("technician"),
@@ -58,9 +58,9 @@ test("technician: feltkortet viser visitt og statusflyt", async ({ page }) => {
   expect(detailHref).toBeTruthy();
   await page.goto(detailHref!);
 
-  await expect(page.getByText(/dagens visitt|neste visitt/i).first()).toBeVisible();
-  await expect(page.getByText("Hele dagen").first()).toBeVisible();
+  await expect(page.getByText(/dagens økt|neste økt/i).first()).toBeVisible();
+  await expect(page.getByText("Tid i dag").first()).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Start kjøring|På stedet|Fullfør/ }).first(),
+    page.getByRole("button", { name: /På vei|På stedet|Ferdig/ }).first(),
   ).toBeVisible();
 });

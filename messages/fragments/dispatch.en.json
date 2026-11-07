@@ -23,10 +23,6 @@
       "excludedAbsence": "absence",
       "excludedUnavailable": "outside working hours",
       "excludedOverlap": "double booking",
-      "excluded_missing_skills": "missing skills",
-      "excluded_absence": "absence",
-      "excluded_unavailable": "outside working hours",
-      "excluded_overlap": "double booking",
       "autoAssignTitle": "Automatic assignment",
       "autoAssignHint": "Dry-run the {count} visible visits first. Nothing is saved until you apply the suggestion.",
       "dryRun": "Dry run",
@@ -35,11 +31,7 @@
       "autoAssignApplied": "{count} visits were assigned.",
       "autoAssignNone": "No available technician with the required skills.",
       "autoAssignSkipped": "{count} visits were left without a suggestion.",
-      "suggestTitle": "Suggest technician",
-      "suggestHint": "Rank technicians by skills, distance, travel time, free time, SLA and load.",
-      "suggestButton": "Suggest",
-      "suggestError": "Could not load suggestions. Try again.",
-      "assignCandidate": "Assign"
+      "daySyncHint": "Each row is one workday. Assignment updates the other planned days in the same work order."
     },
     "route": {
       "subtitle": "Suggested driving order per technician, with drive time and arrival at each stop.",

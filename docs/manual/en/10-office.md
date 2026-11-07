@@ -84,7 +84,9 @@ started**, **In progress**, **Today**, **Overdue**, **Unassigned**,
 3. Choose **Customer** and **Contact person**, or leave the customer empty for
    an **Internal work order**. **Address**, **Postal code** and **City** override
    the customer address.
-4. Set **Date of execution** and optionally **End date (optional)**.
+4. Set **Date of execution** and optionally **End date (optional)**. Each date
+   becomes a separate workday. An empty end date means a one-day job, and a
+   multi-day work order continues on the next day.
 5. Choose technicians under **Assign technicians** and templates under **Add
    checklists / forms**, and add **Tags** if needed.
 6. Press **Save work order**. You return to **Calendar**.
@@ -106,19 +108,21 @@ On the create page, templates are grouped under **Service / checklists** and
 **HMS documentation**. Each template produces its own report, which is always
 new and empty.
 
-You can assign several technicians; **Remove** takes one off. The work order has
-a date; the time is set on the visit:
+You can assign several technicians; **Remove** takes one off. The assignment
+applies to the whole work order. The office only plans the dates; each date
+becomes one workday in the field app.
 
-1. Open **Planning** and press **Add visit**.
-2. Choose **From date**, optionally **Through**, and enter **Start time** and
-   **End time** in 24-hour format, for example `09:00` and `11:30`.
-3. Tick **All day** if the job has no fixed time, choose **Technicians on the
-   visit**, and add a **Note** if needed.
-4. Press **Save visit**.
+On the work order page, **Days and time** shows one row per workday with status,
+**En route**, **On site**, **Done** and **Travel finished**, plus work, travel
+to, travel from and total time. The top of the panel shows total time for the
+work order with the breakdown. If the work order has no workdays, the panel
+shows the date range and **Change dates**.
 
-A visit lasts at most 31 days, and the end time must be after the start time.
-Overlapping visits are allowed. The technician is shown as busy, but can still
-be assigned another job; use the calendar and capacity view to judge the load.
+The office does not create, move or delete individual days here. Change the work
+order's date range and the days are reconciled automatically. A day that has
+started, is completed or has recorded time cannot be removed without deliberate
+cleanup. **Dispatch** and **Calendar** open the planning views for assigning
+technicians per day and seeing actual time.
 
 ### HMS library and QR labels
 
@@ -165,7 +169,7 @@ and the **order number is cleared**. Reports and attachments are not copied.
 | Customer/contact | Header and **Location and contact** | Locked when a report or booking exists |
 | Equipment | Customer card → **Equipment** | The report remembers the units checked |
 | Reports | **Checklists and reports** | Locked when submitted |
-| Visits | **Planning** | Control the date period |
+| Workdays | **Days and time** | Each date on the work order becomes one workday |
 | Agreement/booking | The agreement's latest work order / booking queue | One booking per work order |
 
 **Move to trash** is administrator-only by default; the button is shown only to
@@ -348,10 +352,12 @@ maximum of 1000 visits; visits outside the window may be missing.
 
 ### Visits and drag and drop
 
-The calendar shows visits with the status **Planned**, **Assigned**, **On the
-way**, **On site**, **Completed** or **Cancelled**. Drag a visit to another day
-or time range to move it. On conflict the move is not saved, and you are told
-about the overlapping assignment.
+The calendar shows one event per workday with the status **Planned**,
+**Assigned**, **En route**, **On site**, **Done** or **Cancelled**. When the
+technician has recorded time, the event shows the actual start, end and duration
+instead of only the date. Drag a day to another date to move it. On conflict the
+move is not saved, and you are told about the overlapping assignment. Completed
+and cancelled days are locked.
 
 **Resource overview** shows technicians, active work, unassigned work and recent
 completions. **Unassigned work orders** have **Assign technician**. You can drag
@@ -361,7 +367,7 @@ cards between technicians to assign.
 
 **Dispatch** (`/kalender/dispatch`) assigns technicians to visits, with a
 separate **No technician** column. **Overdue / Unassigned** is always shown,
-regardless of the date. Drag a visit to a technician's column to move it. Drop
+regardless of the date. Drag a workday to a technician's column to assign it. Drop
 it on **No technician** to remove the source technician; other technicians are
 kept.
 
@@ -443,10 +449,12 @@ runs; without saved business hours, weekdays 08–16 are used. Policies, busines
 hours, holidays and price lists are maintained by an administrator under
 **Settings → SLA and business hours**.
 
-An agreement can point to a policy; otherwise the department default is used. On
-the work order, **SLA** shows **Respond by**, **Resolve by** and **On track**,
-**At risk**, **Breached**, **Met** or **Cancelled**. **On the way** or **On
-site** records response; **Completed** records resolution.
+SLA requires an **active service agreement** with a valid date and an active SLA
+policy. Customers without an active agreement get no SLA clock, and the work
+order shows no SLA panel. On the work order, **SLA** shows **Respond by**,
+**Resolve by** and **On track**, **At risk**, **Breached**, **Met** or
+**Cancelled**. **En route** or **On site** records response; **Done** records
+resolution.
 
 ### Price lists
 
@@ -456,8 +464,8 @@ calculate amounts.**
 ### Recurring work orders
 
 At each interval a new **Planned** work order is created with the agreement's
-customer, contact, department and checklist, plus a four-hour default visit without
-technicians (08:00–12:00). Expired agreements do not generate new work orders.
+customer, contact, department and checklist, plus one workday without
+technicians. Expired agreements do not generate new work orders.
 
 ## Bookings
 
@@ -719,7 +727,7 @@ tracking and report drafts are deliberately excluded. See
 | The office does | The technician does | Where it is described |
 | --- | --- | --- |
 | Creates work orders with customer, contact, equipment and checklists | Takes the work order, opens the form and completes checkpoints | Technician part (Part 2) |
-| Plans a visit with date, time and technician | Starts driving, marks **On site**, completes | Technician part |
+| Plans the date and technician per workday | Starts **En route**, marks **On site**, **Done** and **Finish travel** | Technician part |
 | Reads reports, deviations and signatures | Signs, attaches images, submits the report | Technician part |
 
 The administrator part describes **Employees & Roles**,
@@ -733,15 +741,15 @@ restoration. See the administrator part (Part 3).
 | --- | --- | --- |
 | Cannot find the work order | Wrong department, view or filter | Reset search/filter, check department |
 | Cannot assign | Missing **Assign technicians**, locked or legal hold | Request permission, or reopen as administrator |
-| Drag and drop did not change the date | Drag and drop assigns a technician | Move the visit in the calendar |
-| Calendar is empty | No visits, filter or outside ±6 months | Reset filter, choose **Today**, check visit |
-| Overlapping visit | Technician has several jobs at the same time | Check capacity and move one of the visits if needed |
+| Drag and drop did not change the date | Drag and drop assigns a technician | Move the day in the calendar |
+| Calendar is empty | No workdays, filter or outside ±6 months | Reset filter, choose **Today**, check the date range |
+| Overlapping workday | Technician has several jobs at the same time | Check capacity and move one of the days if needed |
 | Report is locked | Submitted report | Ask an administrator to **Unlock for editing** |
 | Customer cannot see the report | Not locked, or missing portal/document access | Lock the report, check portal user |
 | Customer cannot book | Missing contact, active user or available time | Check contact, user, 24 hours and available time slots |
 | SMS is not sent | Missing consent, phone, quota or dry run | Register consent, check number/settings |
 | Agreement creates no work orders | Paused/expired, future start or job not running | Activate, check start date and job |
-| SLA is not shown | No active policy | Link a policy to the agreement or department |
+| SLA is not shown | No active agreement with an active policy | Activate the agreement and link a policy to it |
 | Price list does not invoice | Reference data | Invoice outside the platform |
 | Attachment is not in the portal | Work order attachments are internal | Add the file to the customer card → **More** → **Attachments** |
 | Unit cannot be moved | Active contract lines, number conflict, cross-customer reference or invalid target | Read the blocker in the preview, clear the contract line, or choose the right customer/site |

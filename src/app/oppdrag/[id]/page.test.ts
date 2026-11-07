@@ -39,22 +39,16 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("./actions", () => ({
   addContactToCustomer: vi.fn(),
   assignTechnician: vi.fn(),
-  assignVisit: vi.fn(),
   cloneWorkOrder: vi.fn(),
-  createVisit: vi.fn(),
-  deleteVisit: vi.fn(),
   deleteWorkOrder: vi.fn(),
-  moveVisit: vi.fn(),
   setContact: vi.fn(),
   setReportLegalHold: vi.fn(),
   setReportLock: vi.fn(),
   setTags: vi.fn(),
   setTemplate: vi.fn(),
-  setVisitStatus: vi.fn(),
   setWorkOrderLegalHold: vi.fn(),
   unassignTechnician: vi.fn(),
   updateStatus: vi.fn(),
-  updateVisit: vi.fn(),
 }));
 
 import AdminWorkOrderPage from "./page";
@@ -147,6 +141,8 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     city: null,
     orderNumber: "1001",
     reference: "O-261030-REF12345",
+    scheduledFor: new Date("2026-10-30T00:00:00.000Z"),
+    scheduledTo: null,
     deletedAt: null,
     ...overrides,
   };
@@ -155,20 +151,12 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
 function makeVisit(overrides: Record<string, unknown> = {}) {
   return {
     id: "visit-1",
-    workOrderId: "wo1",
-    sequence: 0,
-    startsAt: new Date("2026-10-30T08:00:00.000Z"),
-    endsAt: new Date("2026-10-30T10:00:00.000Z"),
-    allDay: false,
+    startsAt: new Date("2026-10-30T00:00:00.000Z"),
     status: "PLANNED",
-    notes: "Ta med nøkkel",
-    technicians: [
-      {
-        visitId: "visit-1",
-        userId: "tech-1",
-        user: { id: "tech-1", name: "Ola Montør", email: "ola@example.test" },
-      },
-    ],
+    enRouteAt: null,
+    onSiteAt: null,
+    doneAt: null,
+    travelFromEndedAt: null,
     ...overrides,
   };
 }
@@ -333,64 +321,90 @@ describe("oppdragsdetaljer – rapporter uten mal", () => {
   });
 });
 
-describe("oppdragsdetaljer – visittplanlegging", () => {
-  it("viser tomtilstand og en tydelig «legg til visitt»-knapp", async () => {
+describe("oppdragsdetaljer – dager og tid", () => {
+  it("viser tomtilstand med datoperioden og lenke til datoredigering", async () => {
     const { text, hrefs } = await render({ status: "IN_PROGRESS", visits: [] });
 
-    expect(text).toContain("orders.detail.planning.empty");
-    expect(text).toContain("orders.detail.planning.addVisit");
-    expect(hrefs).toContain("#ny-visitt");
+    expect(text).toContain("orders.detail.time.empty");
+    expect(text.join(" | ")).toContain("orders.detail.time.emptyHint");
+    expect(hrefs).toContain(
+      "/oppdrag/wo1/rediger#office-edit-scheduled-for",
+    );
+    expect(text.join(" | ")).not.toContain("orders.detail.planning");
   });
 
-  it("lister visitt med dato, tid, status, montør og notat", async () => {
+  it("lister hver arbeidsdag med status, tidsstempler og timesummer", async () => {
     const { text } = await render({
       status: "IN_PROGRESS",
-      visits: [makeVisit()],
-    });
-
-    expect(text).toContain("orders.detail.planning.title");
-    expect(text.join(" | ")).toContain("fredag 30. oktober");
-    expect(text.join(" | ")).toContain("09:00–11:00");
-    expect(text).toContain("visits.status.planned");
-    expect(text).toContain("Ola Montør");
-    expect(text).toContain("Ta med nøkkel");
-    expect(text).toContain("orders.detail.planning.editVisit");
-  });
-
-  it("merker heldagsvisitt og viser notat uten oppdiktet klokkeslett", async () => {
-    const { text } = await render({
       visits: [
         makeVisit({
-          allDay: true,
-          startsAt: new Date("2026-10-30T00:00:00.000Z"),
-          endsAt: new Date("2026-10-31T00:00:00.000Z"),
+          status: "DONE",
+          enRouteAt: new Date("2026-10-30T07:50:00.000Z"),
+          onSiteAt: new Date("2026-10-30T08:00:00.000Z"),
+          doneAt: new Date("2026-10-30T09:30:00.000Z"),
+          travelFromEndedAt: new Date("2026-10-30T10:00:00.000Z"),
         }),
       ],
     });
 
-    expect(text).toContain("orders.detail.planning.allDay");
-    expect(text).toContain("orders.detail.planning.allDayMarker");
-    expect(text).not.toContain("09:00–11:00");
+    const joined = text.join(" | ");
+    expect(joined).toContain("orders.detail.time.title");
+    expect(joined).toContain("visits.status.done");
+    expect(joined).toContain("orders.detail.time.enRouteAt");
+    expect(joined).toContain("orders.detail.time.onSiteAt");
+    expect(joined).toContain("orders.detail.time.doneAt");
+    expect(joined).toContain("orders.detail.time.travelFromEndedAt");
+    expect(joined).toContain("08:50");
+    expect(joined).toContain("09:00");
+    expect(joined).toContain("10:30");
+    expect(joined).toContain("11:00");
+    expect(joined).toContain("1 t 30 min");
+    expect(joined).toContain("2 t 10 min");
+    expect(joined).toContain("orders.detail.time.totalIncludesTravel");
   });
 
-  it("viser inline feil fra visittjenesten", async () => {
-    const { text } = await render(
-      { visits: [] },
-      { planningError: "overlap" },
-    );
+  it("viser total tid for oppdraget med arbeid og begge kjørebitene", async () => {
+    const { text } = await render({
+      status: "IN_PROGRESS",
+      visits: [
+        makeVisit({
+          id: "day-1",
+          status: "DONE",
+          enRouteAt: new Date("2026-10-30T07:30:00.000Z"),
+          onSiteAt: new Date("2026-10-30T08:00:00.000Z"),
+          doneAt: new Date("2026-10-30T09:00:00.000Z"),
+          travelFromEndedAt: new Date("2026-10-30T09:30:00.000Z"),
+        }),
+        makeVisit({
+          id: "day-2",
+          startsAt: new Date("2026-10-31T00:00:00.000Z"),
+          status: "PLANNED",
+        }),
+      ],
+    });
 
-    expect(text).toContain("orders.detail.planning.errors.overlap");
+    const joined = text.join(" | ");
+    expect(joined).toContain("orders.detail.time.orderTotal");
+    expect(joined).toContain("orders.detail.time.completedDays");
+    expect(joined).toContain("2 t");
+    expect(joined).toContain("1 t");
+    expect(joined).toContain("30 min");
+    expect(joined).toContain("orders.detail.time.notStarted");
   });
 
-  it("henter visittene sammen med oppdraget", async () => {
+  it("henter tidsstemplene som trengs i dagsammendraget", async () => {
     await render({ visits: [] });
 
     expect(mocks.workOrderFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         include: expect.objectContaining({
           visits: expect.objectContaining({
-            include: expect.objectContaining({
-              technicians: expect.anything(),
+            select: expect.objectContaining({
+              startsAt: true,
+              enRouteAt: true,
+              onSiteAt: true,
+              doneAt: true,
+              travelFromEndedAt: true,
             }),
           }),
         }),

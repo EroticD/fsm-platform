@@ -875,7 +875,8 @@
         "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
         "siteLabel": "Lokalizacja",
         "noSite": "Brak lokalizacji (użyj adresu klienta)",
-        "siteHint": "Wybierz zarejestrowaną lokalizację. Adres jest używany jako zapasowy, gdy lokalizacja nie ma adresu."
+        "siteHint": "Wybierz zarejestrowaną lokalizację. Adres jest używany jako zapasowy, gdy lokalizacja nie ma adresu.",
+        "workdayHint": "Każda data staje się osobnym dniem pracy. Jeśli zlecenie obejmuje kilka dni, jest kontynuowane następnego dnia – a każdy dzień ma własną sesję w aplikacji terenowej."
       },
       "customerSelect": {
         "label": "Wybierz klienta",
@@ -1040,58 +1041,6 @@
         "updatingStatus": "Aktualizowanie …",
         "cancelConfirm": "Anulować to zlecenie? To działanie zamykające. Administrator może je później ponownie otworzyć.",
         "reportNoAccess": "Nie masz uprawnień do wyświetlenia treści raportu.",
-        "planning": {
-          "title": "Planowanie",
-          "count": "{count, plural, =0 {Brak wizyt} one {# wizyta} few {# wizyty} many {# wizyt} other {# wizyty}}",
-          "hint": "Wizyty określają okres zlecenia. Zmień czas dla każdej wizyty – nie bezpośrednio w zleceniu.",
-          "empty": "Brak zaplanowanej wizyty",
-          "emptyHint": "Dodaj wizytę, aby określić, kiedy zlecenie zostanie wykonane.",
-          "addVisit": "Dodaj wizytę",
-          "createVisit": "Zapisz wizytę",
-          "editVisit": "Edytuj wizytę",
-          "moveVisit": "Przenieś wizytę",
-          "assignVisit": "Przypisz techników",
-          "updateVisit": "Notatka i kolejność",
-          "startDate": "Od daty",
-          "endDate": "Do",
-          "startTime": "Godzina rozpoczęcia",
-          "endTime": "Godzina zakończenia",
-          "timeHint": "Wybierz godzinę rozpoczęcia i zakończenia lub zaznacz cały dzień. Data zakończenia jest opcjonalna.",
-          "allDay": "Cały dzień",
-          "allDayMarker": "Cały dzień",
-          "technicians": "Technicy na wizycie",
-          "noTechnicians": "Brak przypisanego technika",
-          "noStaff": "Nie znaleziono pracowników w dziale.",
-          "notes": "Notatka",
-          "notesPlaceholder": "Np. dostęp, sprzęt lub ustalenia z klientem",
-          "sequence": "Kolejność",
-          "saveMove": "Zapisz nowy czas",
-          "saveAssign": "Zapisz techników",
-          "saveVisit": "Zapisz notatkę",
-          "visitStatus": "Status wizyty",
-          "chooseStatus": "-- Wybierz nowy status --",
-          "updateStatus": "Zaktualizuj status",
-          "visitLocked": "Wizyta jest zakończona lub anulowana i nie można jej zmienić.",
-          "deleteVisit": "Usuń wizytę",
-          "deleteConfirm": "Usunąć tę wizytę? Tej operacji nie można cofnąć.",
-          "errors": {
-            "overlap": "Co najmniej jeden technik jest już przypisany do nakładającej się wizyty.",
-            "invalidTimeRange": "Godzina zakończenia musi być późniejsza niż godzina rozpoczęcia.",
-            "durationTooLong": "Wizyta może trwać maksymalnie 31 dni.",
-            "invalidTechnician": "Co najmniej jeden z wybranych techników nie należy do działu.",
-            "invalidInput": "Wizycie brakuje prawidłowych danych.",
-            "invalidSequence": "Kolejność musi być nieujemną liczbą całkowitą.",
-            "legalHold": "Nie można zmienić wizyty, ponieważ zlecenie jest objęte wstrzymaniem prawnym.",
-            "workOrderLocked": "Nie można zmienić wizyty, ponieważ zlecenie jest zakończone lub anulowane.",
-            "visitLocked": "Wizyta jest zakończona lub anulowana i nie można jej zmienić.",
-            "statusTransition": "Ta zmiana statusu jest niedozwolona.",
-            "noChange": "Nie wprowadzono zmian.",
-            "forbidden": "Nie masz uprawnień do zaplanowania tej wizyty.",
-            "notFound": "Wizyta nie istnieje lub została usunięta.",
-            "conflict": "Nie można zapisać wizyty, ponieważ koliduje z inną wizytą.",
-            "generic": "Nie udało się zapisać wizyty. Sprawdź pola i spróbuj ponownie."
-          }
-        },
         "sla": {
           "title": "SLA",
           "hint": "Terminy obliczone według godzin pracy umowy",
@@ -1107,7 +1056,31 @@
           "timeLeft": "Pozostało {minutes} min",
           "overdue": "{minutes} min po terminie"
         },
-        "site": "Lokalizacja"
+        "site": "Lokalizacja",
+        "time": {
+          "title": "Dni i czas",
+          "hint": "Każda data to osobny dzień pracy. Technik rejestruje „W drodze”, „Na miejscu”, „Zakończono” i „Koniec jazdy”; biuro widzi tutaj tylko podsumowanie.",
+          "dispatch": "Dispatch",
+          "calendar": "Kalendarz",
+          "empty": "Brak zarejestrowanych dni pracy",
+          "emptyHint": "Zlecenie obejmuje okres {range}. Zmień daty, aby utworzyć dni pracy.",
+          "editDates": "Zmień daty",
+          "orderTotal": "Łączny czas zlecenia",
+          "completedDays": "{done} z {total} dni zakończonych",
+          "work": "Praca",
+          "travelTo": "Dojazd",
+          "travelFrom": "Powrót",
+          "totalIncludesTravel": "Suma obejmuje cały dojazd i powrót.",
+          "day": "Dzień",
+          "status": "Status",
+          "timestamps": "Znaczniki czasu",
+          "notStarted": "Nie rozpoczęto",
+          "total": "Razem",
+          "enRouteAt": "W drodze",
+          "onSiteAt": "Na miejscu",
+          "doneAt": "Zakończono",
+          "travelFromEndedAt": "Koniec jazdy"
+        }
       },
       "edit": {
         "notFoundTitle": "Zlecenie nie istnieje",
@@ -1142,7 +1115,8 @@
         "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
         "siteLabel": "Lokalizacja",
         "noSite": "Brak lokalizacji (użyj adresu klienta)",
-        "siteHint": "Wybierz zarejestrowaną lokalizację dla zlecenia."
+        "siteHint": "Wybierz zarejestrowaną lokalizację dla zlecenia.",
+        "workdayHint": "Każda data staje się osobnym dniem pracy. Jeśli zlecenie obejmuje kilka dni, jest kontynuowane następnego dnia – a każdy dzień ma własną sesję w aplikacji terenowej."
       },
       "fieldList": {
         "greeting": "Cześć, {name}",
@@ -1286,14 +1260,13 @@
         "updating": "Aktualizowanie …",
         "cancelConfirm": "Anulować to zlecenie? To działanie zamykające.",
         "visits": {
-          "todayTitle": "Dzisiejsza wizyta",
-          "nextTitle": "Następna wizyta",
-          "empty": "Dla tego zlecenia nie zaplanowano wizyty.",
-          "allDay": "Cały dzień",
+          "todayTitle": "Dzisiejsza sesja",
+          "nextTitle": "Następna sesja",
+          "empty": "Dla tego zlecenia nie zaplanowano dnia pracy.",
           "noTechnicians": "Brak przypisanego technika",
           "statusUpdated": "Zaktualizowano status wizyty.",
-          "locked": "Wizyta jest zakończona.",
-          "startDriving": "Rozpocznij jazdę",
+          "locked": "Dzień jest zakończony.",
+          "startDriving": "W drodze",
           "onSite": "Na miejscu",
           "complete": "Zakończ",
           "errors": {
@@ -1309,7 +1282,23 @@
             "notFound": "Wizyta nie istnieje lub została usunięta.",
             "conflict": "Wizyta koliduje z inną wizytą.",
             "generic": "Nie udało się zmienić statusu wizyty. Spróbuj ponownie."
-          }
+          },
+          "time": {
+            "dayTitle": "Czas dzisiaj",
+            "travelTo": "Dojazd",
+            "work": "Praca",
+            "travelFrom": "Powrót",
+            "total": "Razem",
+            "orderTotal": "Łączny czas zlecenia",
+            "progress": "{done} z {total} dni zakończonych",
+            "days": "Dni",
+            "enRouteAt": "W drodze",
+            "onSiteAt": "Na miejscu",
+            "doneAt": "Zakończono",
+            "travelFromEndedAt": "Koniec jazdy"
+          },
+          "finishTravelFrom": "Zakończ jazdę",
+          "pendingTravelFrom": "{count, plural, =0 {Brak} one {# dzień czeka na „Zakończ jazdę”} few {# dni czekają na „Zakończ jazdę”} many {# dni czeka na „Zakończ jazdę”} other {# dni czeka na „Zakończ jazdę”}}"
         }
       },
       "fieldNew": {
@@ -1574,12 +1563,6 @@
         "reportLegalHoldUpdated": "Wstrzymanie prawne raportu zostało zaktualizowane.",
         "workOrderUpdated": "Zlecenie zostało zaktualizowane.",
         "cloned": "Zlecenie zostało sklonowane.",
-        "visitCreated": "Wizyta została utworzona.",
-        "visitMoved": "Wizyta została przeniesiona.",
-        "visitAssigned": "Technicy na wizycie zostali zaktualizowani.",
-        "visitUpdated": "Wizyta została zaktualizowana.",
-        "visitDeleted": "Wizyta została usunięta.",
-        "visitStatusUpdated": "Status wizyty został zaktualizowany.",
         "assigned": "Przypisano technika."
       },
       "reportsPage": {

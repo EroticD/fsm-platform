@@ -532,6 +532,15 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   (`travelFromEndedAt`) er etterspill og gjenåpner eller flytter ikke klokken.
   Dette er en produktbeslutning: løsningstidspunktet er når arbeidet er
   ferdig, ikke når montøren er tilbake.
+- **Kontoret planlegger dato, felten registrerer tid.** Oppdragssiden viser
+  «Dager og tid» skrivebeskyttet: én rad per arbeidsdag med status,
+  tidsstempler og summer for arbeid, tilkjøring, returkjøring og totalt.
+  Kontoret oppretter, flytter eller sletter ikke enkeltdager i UI-et; det gjøres
+  ved å endre datoperioden (avstemmingen) eller i dispatch/API. Feltkortet
+  beholder de tre primære handlingene **På vei**, **På stedet** og **Ferdig**,
+  og viser **Avslutt kjøring** som sekundær handling til `travelFromEndedAt` er
+  satt. Neste dags økt er startbar selv om en tidligere dag venter på
+  avsluttet kjøring.
 - **Backfill er engangs og ikke-destruktiv.** `npm run visits:backfill:daily`
   splitter eldre flerdagers heldagsvisiter. Første dag beholder status,
   notater, tidsstempler og montører; nye dager blir `PLANNED` uten kopiert

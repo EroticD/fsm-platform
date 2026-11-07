@@ -875,7 +875,8 @@
         "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
         "siteLabel": "Standort",
         "noSite": "Kein Standort (Kundenadresse verwenden)",
-        "siteHint": "Wählen Sie einen registrierten Standort. Die Adresse dient als Fallback, wenn der Standort keine Adresse hat."
+        "siteHint": "Wählen Sie einen registrierten Standort. Die Adresse dient als Fallback, wenn der Standort keine Adresse hat.",
+        "workdayHint": "Jedes Datum wird ein eigener Arbeitstag. Dauert der Auftrag mehrere Tage, wird er am nächsten Tag fortgesetzt – und jeder Tag erhält eine eigene Sitzung in der Feld-App."
       },
       "customerSelect": {
         "label": "Kunde auswählen",
@@ -1040,58 +1041,6 @@
         "updatingStatus": "Wird aktualisiert …",
         "cancelConfirm": "Diesen Auftrag stornieren? Dies ist eine abschließende Aktion. Ein Administrator kann ihn später wieder öffnen.",
         "reportNoAccess": "Sie haben keine Berechtigung, den Inhalt des Berichts anzuzeigen.",
-        "planning": {
-          "title": "Planung",
-          "count": "{count, plural, =0 {Keine Besuche} one {# Besuch} other {# Besuche}}",
-          "hint": "Die Besuche bestimmen den Zeitraum des Auftrags. Ändern Sie die Zeit pro Besuch – nicht direkt am Auftrag.",
-          "empty": "Kein Besuch geplant",
-          "emptyHint": "Fügen Sie einen Besuch hinzu, um festzulegen, wann der Auftrag ausgeführt wird.",
-          "addVisit": "Besuch hinzufügen",
-          "createVisit": "Besuch speichern",
-          "editVisit": "Besuch bearbeiten",
-          "moveVisit": "Besuch verschieben",
-          "assignVisit": "Techniker zuweisen",
-          "updateVisit": "Notiz und Reihenfolge",
-          "startDate": "Startdatum",
-          "endDate": "Bis",
-          "startTime": "Startzeit",
-          "endTime": "Endzeit",
-          "timeHint": "Wählen Sie Start- und Endzeit oder aktivieren Sie „Ganztägig“. Das Enddatum ist optional.",
-          "allDay": "Ganztägig",
-          "allDayMarker": "Ganztägig",
-          "technicians": "Techniker beim Besuch",
-          "noTechnicians": "Kein Techniker zugewiesen",
-          "noStaff": "Keine Mitarbeiter in der Abteilung gefunden.",
-          "notes": "Notiz",
-          "notesPlaceholder": "Z. B. Zugang, Ausrüstung oder Absprache mit dem Kunden",
-          "sequence": "Reihenfolge",
-          "saveMove": "Neue Zeit speichern",
-          "saveAssign": "Techniker speichern",
-          "saveVisit": "Notiz speichern",
-          "visitStatus": "Besuchsstatus",
-          "chooseStatus": "-- Neuen Status wählen --",
-          "updateStatus": "Status aktualisieren",
-          "visitLocked": "Der Besuch ist abgeschlossen oder storniert und kann nicht geändert werden.",
-          "deleteVisit": "Besuch löschen",
-          "deleteConfirm": "Diesen Besuch löschen? Dies kann nicht rückgängig gemacht werden.",
-          "errors": {
-            "overlap": "Ein oder mehrere Techniker sind bereits einem sich überschneidenden Besuch zugewiesen.",
-            "invalidTimeRange": "Die Endzeit muss nach der Startzeit liegen.",
-            "durationTooLong": "Ein Besuch kann höchstens 31 Tage dauern.",
-            "invalidTechnician": "Ein oder mehrere ausgewählte Techniker gehören nicht zur Abteilung.",
-            "invalidInput": "Dem Besuch fehlen gültige Daten.",
-            "invalidSequence": "Die Reihenfolge muss eine ganze Zahl größer oder gleich 0 sein.",
-            "legalHold": "Der Besuch kann nicht geändert werden, da für den Auftrag ein Legal Hold besteht.",
-            "workOrderLocked": "Der Besuch kann nicht geändert werden, da der Auftrag abgeschlossen oder storniert ist.",
-            "visitLocked": "Der Besuch ist abgeschlossen oder storniert und kann nicht geändert werden.",
-            "statusTransition": "Diese Statusänderung ist nicht zulässig.",
-            "noChange": "Es wurde keine Änderung vorgenommen.",
-            "forbidden": "Sie haben keine Berechtigung, diesen Besuch zu planen.",
-            "notFound": "Der Besuch existiert nicht oder wurde gelöscht.",
-            "conflict": "Der Besuch kann nicht gespeichert werden, da er mit einem anderen Besuch in Konflikt steht.",
-            "generic": "Der Besuch konnte nicht gespeichert werden. Prüfen Sie die Felder und versuchen Sie es erneut."
-          }
-        },
         "sla": {
           "title": "SLA",
           "hint": "Fristen mit den Geschäftszeiten des Vertrags berechnet",
@@ -1107,7 +1056,31 @@
           "timeLeft": "{minutes} Minuten übrig",
           "overdue": "{minutes} Minuten über der Frist"
         },
-        "site": "Standort"
+        "site": "Standort",
+        "time": {
+          "title": "Tage und Zeit",
+          "hint": "Jedes Datum ist ein eigener Arbeitstag. Der Techniker erfasst „Unterwegs“, „Vor Ort“, „Erledigt“ und „Fahrt beendet“; das Büro sieht hier nur die Summen.",
+          "dispatch": "Dispatch",
+          "calendar": "Kalender",
+          "empty": "Keine Arbeitstage erfasst",
+          "emptyHint": "Der Auftrag umfasst {range}. Ändern Sie die Daten, um Arbeitstage anzulegen.",
+          "editDates": "Daten ändern",
+          "orderTotal": "Gesamtzeit des Auftrags",
+          "completedDays": "{done} von {total} Tagen abgeschlossen",
+          "work": "Arbeit",
+          "travelTo": "Hinfahrt",
+          "travelFrom": "Rückfahrt",
+          "totalIncludesTravel": "Die Summe enthält alle Fahrten hin und zurück.",
+          "day": "Tag",
+          "status": "Status",
+          "timestamps": "Zeitstempel",
+          "notStarted": "Nicht gestartet",
+          "total": "Gesamt",
+          "enRouteAt": "Unterwegs",
+          "onSiteAt": "Vor Ort",
+          "doneAt": "Erledigt",
+          "travelFromEndedAt": "Fahrt beendet"
+        }
       },
       "edit": {
         "notFoundTitle": "Der Auftrag existiert nicht",
@@ -1142,7 +1115,8 @@
         "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
         "siteLabel": "Standort",
         "noSite": "Kein Standort (Kundenadresse verwenden)",
-        "siteHint": "Wählen Sie einen registrierten Standort für den Auftrag."
+        "siteHint": "Wählen Sie einen registrierten Standort für den Auftrag.",
+        "workdayHint": "Jedes Datum wird ein eigener Arbeitstag. Dauert der Auftrag mehrere Tage, wird er am nächsten Tag fortgesetzt – und jeder Tag erhält eine eigene Sitzung in der Feld-App."
       },
       "fieldList": {
         "greeting": "Hallo, {name}",
@@ -1286,16 +1260,15 @@
         "updating": "Wird aktualisiert …",
         "cancelConfirm": "Diesen Auftrag stornieren? Dies ist eine abschließende Aktion.",
         "visits": {
-          "todayTitle": "Heutiger Besuch",
-          "nextTitle": "Nächster Besuch",
-          "empty": "Für diesen Auftrag ist kein Besuch geplant.",
-          "allDay": "Ganztägig",
+          "todayTitle": "Heutige Sitzung",
+          "nextTitle": "Nächste Sitzung",
+          "empty": "Für diesen Auftrag ist kein Arbeitstag geplant.",
           "noTechnicians": "Kein Techniker zugewiesen",
           "statusUpdated": "Besuchsstatus aktualisiert.",
-          "locked": "Der Besuch ist beendet.",
-          "startDriving": "Losfahren",
+          "locked": "Der Tag ist abgeschlossen.",
+          "startDriving": "Unterwegs",
           "onSite": "Vor Ort",
-          "complete": "Abschließen",
+          "complete": "Erledigt",
           "errors": {
             "overlap": "Ein oder mehrere Techniker sind bereits einem sich überschneidenden Besuch zugewiesen.",
             "invalidTimeRange": "Der Besuch hat einen ungültigen Zeitraum.",
@@ -1309,7 +1282,23 @@
             "notFound": "Der Besuch existiert nicht oder wurde gelöscht.",
             "conflict": "Der Besuch steht im Konflikt mit einem anderen Besuch.",
             "generic": "Der Besuchsstatus konnte nicht geändert werden. Versuchen Sie es erneut."
-          }
+          },
+          "time": {
+            "dayTitle": "Zeit heute",
+            "travelTo": "Hinfahrt",
+            "work": "Arbeit",
+            "travelFrom": "Rückfahrt",
+            "total": "Gesamt",
+            "orderTotal": "Gesamtzeit des Auftrags",
+            "progress": "{done} von {total} Tagen abgeschlossen",
+            "days": "Tage",
+            "enRouteAt": "Unterwegs",
+            "onSiteAt": "Vor Ort",
+            "doneAt": "Erledigt",
+            "travelFromEndedAt": "Fahrt beendet"
+          },
+          "finishTravelFrom": "Fahrt beenden",
+          "pendingTravelFrom": "{count, plural, =0 {Keine} one {# Tag wartet auf „Fahrt beenden“} other {# Tage warten auf „Fahrt beenden“}}"
         }
       },
       "fieldNew": {
@@ -1574,12 +1563,6 @@
         "reportLegalHoldUpdated": "Der Legal Hold für den Bericht wurde aktualisiert.",
         "workOrderUpdated": "Der Auftrag wurde aktualisiert.",
         "cloned": "Der Auftrag wurde geklont.",
-        "visitCreated": "Der Besuch wurde erstellt.",
-        "visitMoved": "Der Besuch wurde verschoben.",
-        "visitAssigned": "Die Techniker des Besuchs wurden aktualisiert.",
-        "visitUpdated": "Der Besuch wurde aktualisiert.",
-        "visitDeleted": "Der Besuch wurde gelöscht.",
-        "visitStatusUpdated": "Der Besuchsstatus wurde aktualisiert.",
         "assigned": "Techniker zugewiesen."
       },
       "reportsPage": {

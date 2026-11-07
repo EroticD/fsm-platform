@@ -774,6 +774,9 @@ export default function DispatchBoard({
                 />
                 {day.label}
               </h2>
+              <p className="mt-0.5 text-[11px] font-medium text-[var(--muted,#62685f)]">
+                {t("calendar.dispatch.daySyncHint")}
+              </p>
             </div>
             <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
               {t("calendar.dispatch.visitDayCount", {

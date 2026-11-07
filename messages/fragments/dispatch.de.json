@@ -23,10 +23,6 @@
       "excludedAbsence": "Abwesenheit",
       "excludedUnavailable": "außerhalb der Arbeitszeit",
       "excludedOverlap": "Doppelbuchung",
-      "excluded_missing_skills": "fehlende Qualifikation",
-      "excluded_absence": "Abwesenheit",
-      "excluded_unavailable": "außerhalb der Arbeitszeit",
-      "excluded_overlap": "Doppelbuchung",
       "autoAssignTitle": "Automatische Zuweisung",
       "autoAssignHint": "Führe zuerst einen Probelauf für die {count} sichtbaren Besuche aus. Nichts wird gespeichert, bis du den Vorschlag anwendest.",
       "dryRun": "Probelauf",
@@ -35,11 +31,7 @@
       "autoAssignApplied": "{count} Besuche wurden zugewiesen.",
       "autoAssignNone": "Kein verfügbarer Techniker mit den erforderlichen Qualifikationen.",
       "autoAssignSkipped": "{count} Besuche blieben ohne Vorschlag.",
-      "suggestTitle": "Techniker vorschlagen",
-      "suggestHint": "Techniker nach Qualifikation, Entfernung, Fahrzeit, freier Zeit, SLA und Auslastung sortieren.",
-      "suggestButton": "Vorschlagen",
-      "suggestError": "Vorschläge konnten nicht geladen werden. Versuche es erneut.",
-      "assignCandidate": "Zuweisen"
+      "daySyncHint": "Jede Zeile ist ein Arbeitstag. Eine Zuweisung aktualisiert die übrigen geplanten Tage desselben Auftrags."
     },
     "route": {
       "subtitle": "Vorgeschlagene Fahrreihenfolge pro Techniker, mit Fahrzeit und Ankunft an jedem Stopp.",
