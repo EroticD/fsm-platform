@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPublicTrackingEta } from "@/server/tracking";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  const moduleGuard = await moduleApiGuard("tracking");
+  if (moduleGuard) return moduleGuard;
   const { token } = await params;
   const result = await getPublicTrackingEta(token);
 

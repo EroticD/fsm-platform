@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { equipmentErrorParam } from "@/lib/equipment-feedback";
 import { moveEquipmentToCustomer } from "@/server/equipment-move";
+import { moduleEnabled } from "@/server/modules";
 
 /**
  * Tynn action-wrapper. Autorisasjon, validering og transaksjon ligger i
  * tjenestelaget, slik at en direkte POST ikke kan omgå reglene.
  */
 export async function moveEquipmentToCustomerAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

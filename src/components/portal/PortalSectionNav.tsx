@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 const SECTIONS = [
@@ -15,12 +15,27 @@ const SECTIONS = [
  * og ligger i en egen, avgrenset vannrett liste på små skjermer slik at den
  * aldri gir sidevis overflow.
  */
-export default function PortalSectionNav() {
+export default function PortalSectionNav({
+  showBookings = true,
+  showReports = true,
+}: {
+  showBookings?: boolean;
+  showReports?: boolean;
+} = {}) {
   const t = useTranslations("common");
   const [active, setActive] = useState<string>("oversikt");
+  const sections = useMemo(
+    () =>
+      SECTIONS.filter(
+        (section) =>
+          (section.id !== "bestillinger" || showBookings) &&
+          (section.id !== "rapporter" || showReports),
+      ),
+    [showBookings, showReports],
+  );
 
   useEffect(() => {
-    const elements = SECTIONS.map((section) =>
+    const elements = sections.map((section) =>
       document.getElementById(section.id),
     ).filter((element): element is HTMLElement => Boolean(element));
     if (elements.length === 0) return;
@@ -40,7 +55,7 @@ export default function PortalSectionNav() {
 
     for (const element of elements) observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [sections]);
 
   return (
     <div className="sticky top-2 z-30 mt-6 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1 shadow-[0_2px_10px_rgba(20,17,11,0.06)] backdrop-blur">
@@ -48,7 +63,7 @@ export default function PortalSectionNav() {
         aria-label={t("portal.sectionNav.label")}
         className="flex gap-1 overflow-x-auto overscroll-x-contain px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {SECTIONS.map((section) => {
+        {sections.map((section) => {
           const isActive = active === section.id;
           return (
             <a

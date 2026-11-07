@@ -6,6 +6,7 @@ import { sweepSlaClocks } from "@/server/sla";
 import { runSlaCleanupJob } from "@/server/sla-cleanup-job";
 import { slaCleanupIntervalMs } from "@/lib/sla-cleanup-config";
 import { logger } from "@/lib/logger";
+import { moduleEnabled } from "@/server/modules";
 
 /** Hvor ofte jobben sjekker avtaler, vedlikehold, garanti og SLA. */
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -39,14 +40,23 @@ function errorText(error: unknown): string {
 export async function runScheduledJobs(
   now = new Date(),
 ): Promise<SchedulerRunResult> {
-  const lifecycle = await runContractLifecycle(now).catch((error) => {
-    logger.error("contracts: lifecycle failed", { error: errorText(error) });
-    return { renewed: 0, expired: 0, generated: 0 };
-  });
+  const [contractsEnabled, equipmentEnabled] = await Promise.all([
+    moduleEnabled("contracts"),
+    moduleEnabled("equipment"),
+  ]);
+
+  const lifecycle = contractsEnabled
+    ? await runContractLifecycle(now).catch((error) => {
+        logger.error("contracts: lifecycle failed", { error: errorText(error) });
+        return { renewed: 0, expired: 0, generated: 0 };
+      })
+    : { renewed: 0, expired: 0, generated: 0 };
 
   const [contracts, maintenance] = await Promise.allSettled([
-    generateDueRecurringWorkOrders(now),
-    generateDueMaintenanceWorkOrders(),
+    contractsEnabled ? generateDueRecurringWorkOrders(now) : Promise.resolve([]),
+    equipmentEnabled
+      ? generateDueMaintenanceWorkOrders()
+      : Promise.resolve([]),
   ]);
 
   let recurring: SchedulerRunResult["recurring"] = [];
@@ -67,36 +77,48 @@ export async function runScheduledJobs(
     });
   }
 
-  const sla = await sweepSlaClocks(now).catch((error) => {
-    logger.error("sla: sweep failed", { error: errorText(error) });
-    return { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 };
-  });
+  const sla = contractsEnabled
+    ? await sweepSlaClocks(now).catch((error) => {
+        logger.error("sla: sweep failed", { error: errorText(error) });
+        return { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 };
+      })
+    : { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 };
 
   // Fjern SLA-klokker uten aktiv avtaledekning. Jobben er selvbegrensende
   // (SLA_CLEANUP_ENABLED og SLA_CLEANUP_INTERVAL_HOURS) og kaster aldri, men
   // vi fanger likevel feil her så en framtidig regresjon ikke stopper resten.
-  const slaCleanup = await runSlaCleanupJob({ now }).catch((error) => {
-    logger.error("sla: cleanup failed", { error: errorText(error) });
-    return {
-      enabled: false,
-      skipped: null,
-      runId: null,
-      result: null,
-      error: errorText(error),
-    };
-  });
+  const slaCleanup: SchedulerRunResult["slaCleanup"] = contractsEnabled
+    ? await runSlaCleanupJob({ now }).catch((error) => {
+        logger.error("sla: cleanup failed", { error: errorText(error) });
+        return {
+          enabled: false,
+          skipped: null,
+          runId: null,
+          result: null,
+          error: errorText(error),
+        };
+      })
+    : {
+        enabled: false,
+        skipped: "disabled",
+        runId: null,
+        result: null,
+        error: null,
+      };
 
   // Garantivarsel er best effort og skal aldri stoppe de andre jobbene.
   let warranty: SchedulerRunResult["warranty"] = {
     checked: 0,
     notified: 0,
   };
-  try {
-    warranty = await notifyWarrantyExpiring();
-  } catch (error) {
-    logger.error("warranty: notification run failed", {
-      error: errorText(error),
-    });
+  if (equipmentEnabled) {
+    try {
+      warranty = await notifyWarrantyExpiring();
+    } catch (error) {
+      logger.error("warranty: notification run failed", {
+        error: errorText(error),
+      });
+    }
   }
 
   return {

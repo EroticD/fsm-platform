@@ -8,6 +8,10 @@ aldri, og alle kall må sende en Bearer-nøkkel.
 - **Base URL:** `https://<din-fsm-installasjon>/api/v1`
 - **OpenAPI 3.1:** [`GET /api/v1/openapi.json`](/api/v1/openapi.json) (åpent, uten nøkkel)
 - **Nøkkeladministrasjon:** **Innstillinger → API-nøkler** (bare administrator)
+- **Modul:** hele `/api/v1` er modulen `api`. Er den slått av, svarer alle
+  endepunkter `404`. Endepunkter for avslåtte moduler (avtaler, utstyr,
+  rapporter, dokumenter) filtreres også bort fra OpenAPI. Se
+  [`MODULES.md`](MODULES.md).
 
 ## Autentisering
 

@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
@@ -28,6 +29,7 @@ export default async function PublicTrackingPage({
 }: {
   params: Promise<{ token: string }>;
 }) {
+  await requireModulePage("tracking");
   const { token } = await params;
   const result = await getPublicTracking(token);
 

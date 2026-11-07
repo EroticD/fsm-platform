@@ -51,6 +51,11 @@ export type ExportOptions = {
   includeLegalHold: boolean;
   includeAudit: boolean;
   includeSignatures: boolean;
+  /**
+   * Modulene som var på da eksporten ble bestilt. Utelatt betyr «alle» og
+   * brukes av eldre tester/kall. Serveren setter alltid denne.
+   */
+  modules?: import("@/lib/modules").ModuleKey[];
 };
 
 export type ImportOptions = {

@@ -18,7 +18,8 @@
       "map": "Map",
       "api": "API keys",
       "equipment": "Equipment",
-      "evidence": "Evidence"
+      "evidence": "Evidence",
+      "modules": "Modules"
     },
     "branding": {
       "title": "White-label settings",
@@ -538,6 +539,125 @@
       "created": "Category created.",
       "updated": "Category updated.",
       "deleted": "Category deleted."
+    },
+    "modules": {
+      "title": "Modules",
+      "description": "Turn installation-level modules on or off. Core is always on, and dependencies prevent invalid combinations. Every change is audited.",
+      "dataPreserved": "Data is retained when a module is turned off. Pages, actions, APIs and workers are closed; nothing is deleted. Turn the module back on and the data returns.",
+      "core": "Core",
+      "planned": "Planned",
+      "enabled": "On",
+      "disabled": "Off",
+      "dependsOn": "Depends on: {modules}",
+      "requiredBy": "Used by: {modules}",
+      "missingDependencies": "Cannot be enabled until these are on: {modules}",
+      "hasDependents": "Cannot be disabled while these are on: {modules}",
+      "coreLocked": "Core cannot be disabled.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "confirmEnable": "Enable {module}?",
+      "confirmDisable": "Disable {module}? Data is retained, but pages, actions and workers are closed.",
+      "saved": "The module change was saved and audited.",
+      "errors": {
+        "forbidden": "Only an administrator can change modules.",
+        "conflict": "The change conflicts with module dependencies.",
+        "coreLocked": "Core cannot be disabled.",
+        "missingDependencies": "One or more dependencies are off.",
+        "hasDependents": "One or more modules that use this are on.",
+        "not_found": "Unknown module.",
+        "invalid": "Invalid module change.",
+        "error": "Could not save the module change."
+      },
+      "items": {
+        "core": {
+          "label": "Core",
+          "description": "Always on: authentication, users, departments, customers, work orders, workdays and time, audit and settings."
+        },
+        "calendar": {
+          "label": "Calendar and dispatch",
+          "description": "Calendar, dispatch board, route planning and capacity overview."
+        },
+        "reports": {
+          "label": "Reports and HSE",
+          "description": "Service reports, HSE, checklists and templates, PDF viewer and statistics."
+        },
+        "equipment": {
+          "label": "Equipment",
+          "description": "Equipment register, service history, QR/scan and maintenance plans."
+        },
+        "contracts": {
+          "label": "Service contracts and SLA",
+          "description": "Service contracts, SLA policies, business hours and price lists."
+        },
+        "portal": {
+          "label": "Customer portal",
+          "description": "Customers’ own portal for work orders, reports, documents and contact details."
+        },
+        "booking": {
+          "label": "Bookings",
+          "description": "Customer booking requests and available slots. Requires portal and calendar."
+        },
+        "documents": {
+          "label": "Documents",
+          "description": "Document library, folders, versions and text extraction/OCR."
+        },
+        "sms": {
+          "label": "SMS and reminders",
+          "description": "SMS messages, templates, delivery status and reminders before visits."
+        },
+        "map": {
+          "label": "Map",
+          "description": "Map of work orders, equipment and technician positions."
+        },
+        "tracking": {
+          "label": "Tracking and ETA",
+          "description": "Public tracking link and real-time ETA for visits."
+        },
+        "reviews": {
+          "label": "Reviews",
+          "description": "Customer reviews from public links and internal follow-up."
+        },
+        "transfer": {
+          "label": "Customer transfer",
+          "description": "Export and import of customer packages. Requires equipment and documents."
+        },
+        "auditExport": {
+          "label": "Audit and evidence export",
+          "description": "Signed audit export and evidence packages for work orders."
+        },
+        "api": {
+          "label": "REST API",
+          "description": "API v1 with API keys, scopes and OpenAPI documentation."
+        },
+        "sso": {
+          "label": "SSO and SCIM",
+          "description": "OIDC login, SCIM provisioning and SSO settings."
+        },
+        "offline": {
+          "label": "Offline field",
+          "description": "Field app offline drafts, outbox queue and session guard."
+        },
+        "quotes": {
+          "label": "Quotes (P2)",
+          "description": "Quotes and estimates. Not delivered yet."
+        },
+        "invoicing": {
+          "label": "Invoicing (P2)",
+          "description": "Invoicing and payment. Not delivered yet."
+        },
+        "inventory": {
+          "label": "Inventory (P2)",
+          "description": "Inventory, parts and purchasing. Not delivered yet."
+        },
+        "fieldExpenses": {
+          "label": "Mileage and expenses (P2)",
+          "description": "Mileage log, expenses and payroll export. Not delivered yet."
+        },
+        "bi": {
+          "label": "Profitability (P2)",
+          "description": "Profitability and report builder. Not delivered yet."
+        }
+      }
     }
   },
   "users": {

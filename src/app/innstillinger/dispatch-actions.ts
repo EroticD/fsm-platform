@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   deleteTerritory,
   saveAssignmentPolicy,
@@ -27,6 +28,7 @@ function weight(formData: FormData, key: string): string {
 }
 
 export async function saveDispatchPolicyAction(formData: FormData) {
+  if (!(await moduleEnabled("calendar"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -56,6 +58,7 @@ export async function saveDispatchPolicyAction(formData: FormData) {
 }
 
 export async function saveTerritoryAction(formData: FormData) {
+  if (!(await moduleEnabled("calendar"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -82,6 +85,7 @@ export async function saveTerritoryAction(formData: FormData) {
 }
 
 export async function deleteTerritoryAction(formData: FormData) {
+  if (!(await moduleEnabled("calendar"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

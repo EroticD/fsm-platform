@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ModuleKey } from "@/lib/modules";
 import LanguageSwitcher from "./LanguageSwitcher";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
@@ -57,6 +58,7 @@ export default function BrandedHeader({
   showNav = true,
   role,
   permissions,
+  enabledModules,
   companyName = "FSM System",
   logoUrl = null,
   primaryColor = "#2563eb",
@@ -65,6 +67,7 @@ export default function BrandedHeader({
   showNav?: boolean;
   role?: string;
   permissions?: string[];
+  enabledModules?: ModuleKey[];
   companyName?: string;
   logoUrl?: string | null;
   primaryColor?: string;
@@ -89,8 +92,8 @@ export default function BrandedHeader({
   const isField = role === "TECHNICIAN";
   const isDesk = !isCustomer && !isField;
   const navItems = useMemo(
-    () => (showNav ? navItemsFor(role, permissions) : []),
-    [role, permissions, showNav],
+    () => (showNav ? navItemsFor(role, permissions, enabledModules) : []),
+    [role, permissions, enabledModules, showNav],
   );
   const primaryItems = useMemo(() => primaryNavFor(navItems), [navItems]);
   const menuItems = useMemo(() => menuNavFor(navItems), [navItems]);
@@ -294,7 +297,7 @@ export default function BrandedHeader({
               <GlobalSearch />
             </div>
           )}
-          {showNav && isField && (
+          {showNav && isField && enabledModules?.includes("equipment") && (
             <Link
               href="/skann"
               aria-label={t("nav.scan")}

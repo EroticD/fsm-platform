@@ -270,6 +270,11 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider === "credentials") return true;
 
+      const { moduleEnabled } = await import("@/server/modules");
+      if (!(await moduleEnabled("sso"))) {
+        return "/logg-inn?error=SsoDisabled";
+      }
+
       const provider = ssoProviderById(account?.provider ?? "");
       if (!provider) return "/logg-inn?error=SsoConfiguration";
 

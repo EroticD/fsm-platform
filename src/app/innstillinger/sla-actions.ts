@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   deactivateSlaPolicy,
   saveSlaPolicy,
@@ -40,6 +41,7 @@ function parseTime(value: FormDataEntryValue | null): number {
 }
 
 export async function saveSlaPolicyAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -61,6 +63,7 @@ export async function saveSlaPolicyAction(formData: FormData) {
 }
 
 export async function deactivateSlaPolicyAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -74,6 +77,7 @@ export async function deactivateSlaPolicyAction(formData: FormData) {
 }
 
 export async function saveBusinessHoursAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -103,6 +107,7 @@ export async function saveBusinessHoursAction(formData: FormData) {
 }
 
 export async function saveHolidayAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -117,6 +122,7 @@ export async function saveHolidayAction(formData: FormData) {
 }
 
 export async function deleteHolidayAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -130,6 +136,7 @@ export async function deleteHolidayAction(formData: FormData) {
 }
 
 export async function createPriceListAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -142,6 +149,7 @@ export async function createPriceListAction(formData: FormData) {
 }
 
 export async function addPriceListItemAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -158,6 +166,7 @@ export async function addPriceListItemAction(formData: FormData) {
 }
 
 export async function deletePriceListItemAction(formData: FormData) {
+  if (!(await moduleEnabled("contracts"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

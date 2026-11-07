@@ -9,12 +9,14 @@ import { saveTemplate } from "./actions";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
+import { requireModulePage } from "@/lib/module-guards";
 
 export default async function EditTemplatePage({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) {
+  await requireModulePage("reports");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "templates.manage")) redirect("/");

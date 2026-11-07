@@ -7,6 +7,7 @@ import { LIMITS, cleanText } from "@/lib/sanitize";
 import { idSchema } from "@/lib/schemas/common";
 import * as workOrderService from "@/server/work-orders";
 import { setReportLock as setReportLockService } from "@/server/reports";
+import { moduleEnabled } from "@/server/modules";
 
 /**
  * Tynne action-wrappere for kontorets oppdragsside.
@@ -24,6 +25,7 @@ function workOrderIdFrom(formData: FormData): string {
 }
 
 export async function setTemplate(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const workOrderId = workOrderIdFrom(formData);
   if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
 
@@ -141,6 +143,7 @@ export async function setTags(formData: FormData) {
 }
 
 export async function setReportLock(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const workOrderId = workOrderIdFrom(formData);
   if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
 
@@ -197,6 +200,7 @@ export async function setWorkOrderLegalHold(formData: FormData) {
 
 /** Bevaringsplikt på en enkelt rapport. Bare administrator. */
 export async function setReportLegalHold(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const workOrderId = workOrderIdFrom(formData);
   const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
   if (!workOrderId || !reportId) redirect("/oppdrag?error=ugyldig-data");

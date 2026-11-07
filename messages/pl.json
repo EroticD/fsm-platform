@@ -2322,7 +2322,8 @@
         "api": "Klucze API",
         "sla": "SLA i godziny pracy",
         "equipment": "Sprzęt",
-        "evidence": "Dowody"
+        "evidence": "Dowody",
+        "modules": "Moduły"
       },
       "branding": {
         "title": "Ustawienia white label",
@@ -2936,6 +2937,125 @@
         "created": "Kategoria została utworzona.",
         "updated": "Kategoria została zaktualizowana.",
         "deleted": "Kategoria została usunięta."
+      },
+      "modules": {
+        "title": "Moduły",
+        "description": "Włączaj i wyłączaj moduły na poziomie instalacji. Rdzeń jest zawsze włączony, a zależności blokują nieprawidłowe kombinacje. Każda zmiana jest audytowana.",
+        "dataPreserved": "Dane są zachowywane po wyłączeniu modułu. Strony, akcje, API i zadania w tle są zamykane, ale nic nie jest usuwane. Po ponownym włączeniu dane wracają.",
+        "core": "Rdzeń",
+        "planned": "Planowany",
+        "enabled": "Wł.",
+        "disabled": "Wył.",
+        "dependsOn": "Zależy od: {modules}",
+        "requiredBy": "Używany przez: {modules}",
+        "missingDependencies": "Nie można włączyć, dopóki te są wyłączone: {modules}",
+        "hasDependents": "Nie można wyłączyć, dopóki te są włączone: {modules}",
+        "coreLocked": "Rdzenia nie można wyłączyć.",
+        "enable": "Włącz",
+        "disable": "Wyłącz",
+        "confirmEnable": "Włączyć {module}?",
+        "confirmDisable": "Wyłączyć {module}? Dane zostaną zachowane, ale strony, akcje i zadania w tle zostaną zamknięte.",
+        "saved": "Zmiana modułu została zapisana i zarejestrowana w audycie.",
+        "errors": {
+          "forbidden": "Tylko administrator może zmieniać moduły.",
+          "conflict": "Zmiana jest sprzeczna z zależnościami modułów.",
+          "coreLocked": "Rdzenia nie można wyłączyć.",
+          "missingDependencies": "Co najmniej jedna zależność jest wyłączona.",
+          "hasDependents": "Co najmniej jeden moduł, który tego używa, jest włączony.",
+          "not_found": "Nieznany moduł.",
+          "invalid": "Nieprawidłowa zmiana modułu.",
+          "error": "Nie udało się zapisać zmiany modułu."
+        },
+        "items": {
+          "core": {
+            "label": "Rdzeń",
+            "description": "Zawsze włączone: logowanie, użytkownicy, działy, klienci, zlecenia, dni pracy i czas, audyt oraz ustawienia."
+          },
+          "calendar": {
+            "label": "Kalendarz i dyspozytornia",
+            "description": "Kalendarz, tablica dyspozytorni, planowanie tras i przegląd wydajności."
+          },
+          "reports": {
+            "label": "Raporty i BHP",
+            "description": "Raporty serwisowe, BHP, listy kontrolne i szablony, przeglądarka PDF i statystyki."
+          },
+          "equipment": {
+            "label": "Urządzenia",
+            "description": "Rejestr urządzeń, historia serwisowa, QR/skanowanie i plany konserwacji."
+          },
+          "contracts": {
+            "label": "Umowy serwisowe i SLA",
+            "description": "Umowy serwisowe, polityki SLA, godziny pracy i cenniki."
+          },
+          "portal": {
+            "label": "Portal klienta",
+            "description": "Portal klienta ze zleceniami, raportami, dokumentami i danymi kontaktowymi."
+          },
+          "booking": {
+            "label": "Rezerwacje",
+            "description": "Zapytania o rezerwację i wolne terminy. Wymaga portalu i kalendarza."
+          },
+          "documents": {
+            "label": "Dokumenty",
+            "description": "Biblioteka dokumentów, foldery, wersje oraz ekstrakcja tekstu/OCR."
+          },
+          "sms": {
+            "label": "SMS i przypomnienia",
+            "description": "Wiadomości SMS, szablony, status dostawy i przypomnienia przed wizytami."
+          },
+          "map": {
+            "label": "Mapa",
+            "description": "Mapa zleceń, urządzeń i pozycji techników."
+          },
+          "tracking": {
+            "label": "Śledzenie i ETA",
+            "description": "Publiczny link śledzenia i ETA w czasie rzeczywistym."
+          },
+          "reviews": {
+            "label": "Opinie",
+            "description": "Opinie klientów z publicznych linków i wewnętrzna obsługa."
+          },
+          "transfer": {
+            "label": "Transfer klientów",
+            "description": "Eksport i import pakietów klientów. Wymaga urządzeń i dokumentów."
+          },
+          "auditExport": {
+            "label": "Eksport audytu i dowodów",
+            "description": "Podpisany eksport audytu i pakiety dowodów dla zleceń."
+          },
+          "api": {
+            "label": "REST API",
+            "description": "API v1 z kluczami, zakresami i dokumentacją OpenAPI."
+          },
+          "sso": {
+            "label": "SSO i SCIM",
+            "description": "Logowanie OIDC, provisioning SCIM i ustawienia SSO."
+          },
+          "offline": {
+            "label": "Praca offline",
+            "description": "Szkice offline, kolejka wychodząca i strażnik sesji w aplikacji terenowej."
+          },
+          "quotes": {
+            "label": "Oferty (P2)",
+            "description": "Oferty i wyceny. Jeszcze nie dostarczone."
+          },
+          "invoicing": {
+            "label": "Fakturowanie (P2)",
+            "description": "Fakturowanie i płatności. Jeszcze nie dostarczone."
+          },
+          "inventory": {
+            "label": "Magazyn (P2)",
+            "description": "Magazyn, części i zakupy. Jeszcze nie dostarczone."
+          },
+          "fieldExpenses": {
+            "label": "Kilometry i wydatki (P2)",
+            "description": "Ewidencja kilometrów, wydatki i eksport płac. Jeszcze nie dostarczone."
+          },
+          "bi": {
+            "label": "Rentowność (P2)",
+            "description": "Rentowność i kreator raportów. Jeszcze nie dostarczone."
+          }
+        }
       }
     },
     "users": {

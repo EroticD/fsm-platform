@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
@@ -37,6 +38,7 @@ export default async function ReportViewerPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ rapport?: string; returnTo?: string }>;
 }) {
+  await requireModulePage("reports");
   const t = await getTranslations("common");
   const locale = await getLocale();
   const viewer = await getCurrentUser();

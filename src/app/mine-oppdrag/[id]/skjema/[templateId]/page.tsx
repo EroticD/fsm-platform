@@ -9,6 +9,7 @@ import { parseJsonObject, REPORT_STATUS_APPROVED, REPORT_STATUS_DEVIATION, REPOR
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import { requireModulePage } from "@/lib/module-guards";
 
 /**
  * Brødsmulesti for skjemaet. Den peker alltid til oppdraget – ikke til
@@ -67,6 +68,7 @@ export default async function TechnicianFillFormPage({
   params: Promise<{ id: string; templateId: string }>;
   searchParams: Promise<{ returnTo?: string; error?: string }>;
 }) {
+  await requireModulePage("reports");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "reports.write")) redirect("/");

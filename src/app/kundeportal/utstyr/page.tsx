@@ -6,12 +6,14 @@ import PortalShell from "@/components/portal/PortalShell";
 import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import { getPortalEquipment } from "@/server/portal-expansion";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { requireModulePage } from "@/lib/module-guards";
 
 export default async function PortalEquipmentPage({
   searchParams,
 }: {
   searchParams: Promise<{ side?: string }>;
 }) {
+  await requireModulePage("equipment");
   const context = await loadPortalPage();
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");

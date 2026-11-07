@@ -16,7 +16,8 @@
       "customerAccount": "Kundenportalbenutzer können sich nicht per SSO anmelden.",
       "identityConflict": "Das Konto ist bereits mit einer anderen Identität verknüpft. Kontaktieren Sie einen Administrator.",
       "configuration": "SSO ist nicht korrekt konfiguriert. Kontaktieren Sie einen Administrator.",
-      "serverError": "Die SSO-Anmeldung ist fehlgeschlagen. Versuchen Sie es erneut."
+      "serverError": "Die SSO-Anmeldung ist fehlgeschlagen. Versuchen Sie es erneut.",
+      "disabled": "Das SSO-Modul ist ausgeschaltet. Verwenden Sie die Passwortanmeldung oder kontaktieren Sie einen Administrator."
     }
   },
   "settings": {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { internalApiError } from "@/lib/api-errors";
 import { getCurrentUser } from "@/lib/session";
 import { exportAuditArchive } from "@/server/audit-export";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  * skal laste den ned direkte uten å holde hele arkivet i React-treet.
  */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("auditExport");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user?.isActive || user.role !== "ADMIN") {
     return internalApiError("forbidden", 403);

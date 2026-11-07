@@ -9,6 +9,8 @@ import {
 } from "@/lib/api-key-scopes";
 import type { ServiceActor } from "@/server/actor";
 import { hashApiKeyToken, isApiKeyToken } from "@/server/api-keys";
+import { moduleEnabled } from "@/server/modules";
+import { moduleForPath } from "@/lib/modules";
 
 /** Grensen gjelder per nøkkel og deles av alle app-instanser via databasen. */
 export const API_KEY_RATE_LIMIT = 120;
@@ -76,6 +78,14 @@ function unauthorized(
 export async function authenticateApiRequest(
   request: Request,
 ): Promise<ApiAuthenticationResult> {
+  // Hele /api/v1-flaten er en modul. Er den av, finnes endepunktene ikke.
+  if (!(await moduleEnabled("api"))) {
+    return { ok: false, response: apiError("not_found", 404) };
+  }
+  const owner = moduleForPath(new URL(request.url).pathname);
+  if (owner && owner !== "api" && !(await moduleEnabled(owner))) {
+    return { ok: false, response: apiError("not_found", 404) };
+  }
   const token = apiBearerToken(request);
   if (!token) {
     return {

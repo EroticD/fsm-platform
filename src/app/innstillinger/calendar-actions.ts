@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   getOrCreateCalendarToken,
   regenerateCalendarToken,
@@ -24,6 +25,9 @@ export async function calendarFeedAction(
   _previous: CalendarFeedActionState,
   formData: FormData,
 ): Promise<CalendarFeedActionState> {
+  if (!(await moduleEnabled("calendar"))) {
+    return { token: null, active: false, error: "forbidden" };
+  }
   const user = await getCurrentUser();
   if (!user) return { token: null, active: false, error: "forbidden" };
 

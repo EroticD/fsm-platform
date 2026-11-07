@@ -42,6 +42,8 @@ import type {
   ImportPreview,
 } from "@/lib/customer-transfer/types";
 import { toAuditActor, type ServiceActor } from "./actor";
+import { enabledModulesFor, moduleIsOn, type ModuleKey } from "@/lib/modules";
+import { readModuleStates } from "./modules";
 
 export type TransferFailure = {
   ok: false;
@@ -255,6 +257,7 @@ export async function findReusableExport(
   if (denied) return denied;
 
   const options = normaliseExportOptions(input);
+  options.modules = enabledModulesFor(await readModuleStates());
   if (options.customerIds.length === 0) return { ok: true, data: null };
 
   const reusable = await findReusableExportJob({
@@ -280,6 +283,10 @@ export async function exportCustomerPackage(
   if (denied) return denied;
 
   const options = normaliseExportOptions(input);
+  // Eksporten inneholder bare data fra moduler som er på. Modulsnapshotet
+  // inngår i fingeravtrykket, så en eldre eksportjobb gjenbrukes ikke etter at
+  // en modul er slått av.
+  options.modules = enabledModulesFor(await readModuleStates());
   const customerIds = options.customerIds;
   if (customerIds.length === 0) {
     return failure(400, "validation_error", "errors.customerTransfer.noCustomers");
@@ -472,6 +479,56 @@ export async function abortTransferJob(
  * oppretter en importjobb. Ingen parsing eller DB-skriving av kundedata skjer
  * før dry-run/confirm.
  */
+const IMPORT_MODULE_BY_ENTITY: Readonly<Record<string, ModuleKey>> = {
+  Product: "equipment",
+  EquipmentCategory: "equipment",
+  EquipmentQrCode: "equipment",
+  MaintenancePlan: "equipment",
+  MaintenancePlanOccurrence: "equipment",
+  MeterReading: "equipment",
+  Contract: "contracts",
+  ContractLine: "contracts",
+  SlaPolicy: "contracts",
+  PriceList: "contracts",
+  Document: "documents",
+  DocumentVersion: "documents",
+  DocumentFolder: "documents",
+  Report: "reports",
+  ReportUnit: "reports",
+  ReportRevision: "reports",
+  Template: "reports",
+  PortalUser: "portal",
+};
+
+async function disabledImportModules(
+  entities: ReadonlyArray<{ type: string }>,
+): Promise<ModuleKey[]> {
+  const states = await readModuleStates();
+  const disabled = new Set<ModuleKey>();
+  for (const entity of entities) {
+    if (!Object.hasOwn(IMPORT_MODULE_BY_ENTITY, entity.type)) continue;
+    const mod = IMPORT_MODULE_BY_ENTITY[entity.type];
+    if (mod && !moduleIsOn(states, mod)) disabled.add(mod);
+  }
+  return [...disabled];
+}
+
+function moduleDisabledFailure(modules: ModuleKey[]): TransferFailure {
+  return failure(
+    409,
+    TRANSFER_ERROR.module_disabled,
+    "errors.customerTransfer.moduleDisabled",
+    [
+      {
+        code: TRANSFER_ERROR.module_disabled,
+        path: "",
+        messageKey: "errors.customerTransfer.moduleDisabled",
+        detail: modules.join(","),
+      },
+    ],
+  );
+}
+
 export async function createImportJob(
   actor: ServiceActor,
   buffer: Buffer,
@@ -618,6 +675,8 @@ export async function dryRunImport(
   }
 
   const analysis = await analysePackage(read.result, DEFAULT_POLICIES, options);
+  const disabled = await disabledImportModules(analysis.entities);
+  if (disabled.length > 0) return moduleDisabledFailure(disabled);
   const token = previewToken();
   const previewExpiresAt = new Date(Date.now() + TRANSFER_LIMITS.previewTtlMs);
   await prisma.customerTransferJob.update({
@@ -725,6 +784,8 @@ export async function confirmImport(
     restoreDeleted: false,
   };
   const freshAnalysis = await analysePackage(read.result, policies, options);
+  const disabled = await disabledImportModules(freshAnalysis.entities);
+  if (disabled.length > 0) return moduleDisabledFailure(disabled);
   if (
     job.targetFingerprint &&
     freshAnalysis.fingerprint !== job.targetFingerprint

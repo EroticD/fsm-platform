@@ -12,6 +12,7 @@ import {
   scimActorFromToken,
 } from "@/server/scim-tokens";
 import { createScimUser, listScimUsers } from "@/server/scim-users";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export const dynamic = "force-dynamic";
  * settes aldri.
  */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 
@@ -49,6 +52,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 

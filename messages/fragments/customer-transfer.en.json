@@ -148,7 +148,8 @@
       "symlink": "Symlinks in the archive are not supported.",
       "unknownEntry": "An unknown top-level file was ignored with a warning.",
       "rateLimitedRetry": "Too many export attempts. Try again in {minutes} minutes.",
-      "exportInProgress": "The export is still running. Try again shortly."
+      "exportInProgress": "The export is still running. Try again shortly.",
+      "moduleDisabled": "The package contains data from a disabled module. Enable the module or create a new export."
     }
   },
   "auditActions": {

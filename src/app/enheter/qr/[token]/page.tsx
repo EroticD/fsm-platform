@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -14,6 +15,7 @@ export default async function EquipmentQrPage({
 }: {
   params: Promise<{ token: string }>;
 }) {
+  await requireModulePage("equipment");
   const { token } = await params;
   const equipment = await resolveEquipmentQrToken(token);
   if (!equipment) notFound();

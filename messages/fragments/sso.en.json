@@ -16,7 +16,8 @@
       "customerAccount": "Customer portal users cannot sign in with SSO.",
       "identityConflict": "The account is already linked to another identity. Contact an administrator.",
       "configuration": "SSO is not configured correctly. Contact an administrator.",
-      "serverError": "Could not sign in with SSO. Try again."
+      "serverError": "Could not sign in with SSO. Try again.",
+      "disabled": "The SSO module is disabled. Use password login or contact an administrator."
     }
   },
   "settings": {

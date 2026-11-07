@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { submitReview } from "@/server/reviews";
+import { moduleEnabled } from "@/server/modules";
 
 /**
  * Sender inn en offentlig omtale. Tokenet er en bærbar hemmelighet, og
@@ -9,6 +10,7 @@ import { submitReview } from "@/server/reviews";
  * poengsummen er gyldig. Vi redirecter alltid tilbake til samme token-side.
  */
 export async function submitReviewAction(formData: FormData) {
+  if (!(await moduleEnabled("reviews"))) redirect("/");
   const token = String(formData.get("token") ?? "");
   const score = Number(formData.get("score"));
   const comment = formData.get("comment");

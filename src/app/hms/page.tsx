@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import Icon from "@/components/icons";
 import { redirect } from "next/navigation";
@@ -48,6 +49,7 @@ export default async function HmsPage({
 }: {
   searchParams: Promise<{ template?: string; linked?: string; error?: string }>;
 }) {
+  await requireModulePage("reports");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 

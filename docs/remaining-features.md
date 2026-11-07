@@ -119,6 +119,11 @@
   visiter og kartmarkører fra ferske posisjonspinger (`17f758d`). Kartet
   krever at avdelingen har sporing på og at montøren deler posisjon, se
   **UX-09**.
+- **ARCH-01 · Modulær plattform** — modulkatalog med kjerneskille,
+  avhengighetsvalidering, `ModuleState`-migrering, admin-fane, presets
+  (`full`/`core`), gating av navigasjon, innstillinger, sider, actions, API,
+  søk og arbeidsjobber. Data beholdes når en modul slås av. Se
+  [`MODULES.md`](MODULES.md) og `src/lib/modules.ts`.
 
 ---
 
@@ -138,7 +143,6 @@ Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet t
 
 | ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
 | --- | --- | --- | --- | --- | --- |
-| **ARCH-01** · Modulær plattform | P2 | L | Ingen hard; bør komme før nye produktmoduler | **Åpen.** Dagens funksjoner er sammenvevd i navigasjon, server actions, API og worker. Dette er en plattformmuliggjører, ikke en produktmodul. | Modulregister med flagg og presets; tydelig skille mellom kjerne og valgfrie moduler; server actions/API/UI/worker-jobber gates konsistent; avhengigheter mellom moduler valideres; en kjerne-only installasjon kan drive kunde-, oppdrags-, dispatch- og rapportflyt uten døde lenker eller skjulte kall; tester dekker på/av, ugyldige kombinasjoner og oppgradering fra dagens installasjon; driftsdokumentasjon beskriver presets. |
 | **REV-01** · Tilbud og estimater | P2 | L | ARCH-01 anbefales; prislister finnes som referansedata | **Åpen.** | Tilbudsbygger med linjer, mengder, rabatt og versjonering; gode/bedre/beste-varianter; godkjenning i kundeportalen med sporbar signatur/kvittering; konvertering til oppdrag uten å miste historikk; avviste/utløpte tilbud håndteres; alt revideres og tilgangstestes. |
 | **REV-02** · Fakturering og betaling | P2 | L | REV-01; valg av regnskaps-/betalingsleverandør og MVA-regler | **Åpen.** | Faktura fra fullført oppdrag/rapport med linjer, MVA, kreditnota og betalingsstatus; betalingslenke og avstemming; regnskapseksport med idempotent synk; delvis betaling/avskrivning håndteres; tester dekker MVA, kreditnota og dobbeltsynk. |
 | **OPS-05** · Lager, deler og innkjøp | P2 | L | ARCH-01 anbefales; beslutning om lagerstruktur | **Åpen.** Erstatter PLAT-08 som produktområde. | Saldo per lager/bil; reservasjon mot oppdrag og visit; forbruk trekkes ved fullført arbeid; innkjøpsforslag ved minimumsnivå; sporbarhet på del/serie/lot der relevant; justeringer og tellinger revideres; tester dekker reservasjon, negativ saldo og samtidige uttak. |
@@ -148,9 +152,10 @@ Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet t
 
 **Merknader til P2:**
 
-- **ARCH-01** er en forutsetning for at REV-, OPS-05- og BI-moduler skal kunne
-  leveres uten å tvinge alle kunder til å installere alt. Kjernen skal fortsatt
-  kunne kjøre kunde/oppdrag/dispatch/rapport alene.
+- **ARCH-01 er levert** (se [`MODULES.md`](MODULES.md)). Nye produktmoduler
+  (REV-, OPS-05- og BI) skal legges inn i modulkatalogen, ikke hardkodes i
+  navigasjon, actions eller worker. Kjernen kan fortsatt kjøre
+  kunde/oppdrag/dispatch/rapport alene med `MODULE_PRESET=core`.
 - **REV-01 → REV-02** er quote-to-cash-løpet. Ikke start REV-02 uten avklart
   MVA- og regnskapsmodell.
 - **OPS-05** flytter det gamle PLAT-08-innholdet inn i produktkøen. PLAT-08
@@ -219,8 +224,11 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon på
 Rekkefølgen er et forslag; bølger kan kjøres parallelt når avhengighetene
 tillater det.
 
-2. **Plattformmuliggjører:** ARCH-01 (L). Ikke bygg nye moduler som hardkoder
-   seg inn i navigasjon, server actions og worker før denne er på plass.
+1. **P1 og plattform:** DATA-01, DOC-01 og ARCH-01 er levert. Nye moduler
+   registreres i `src/lib/modules.ts` og gates med
+   `requireModule`/`requireModulePage`.
+2. **Plattformmuliggjører videre:** bruk modulkatalogen før nye produktmoduler
+   bygges; ikke hardkod nye flater inn i navigasjon, actions eller workers.
 3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) etter at
    omsetningsdata finnes.
 4. **Felt og logistikk:** FLD-01 (M), OPS-05 (L). CUST-EXPORT-02 (L) kan gå

@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -380,6 +381,7 @@ export default async function ReportRevisionsPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ rapport?: string; revisjon?: string; returnTo?: string }>;
 }) {
+  await requireModulePage("reports");
   const user = await getCurrentUser();
   if (!user?.isActive) redirect("/logg-inn");
 

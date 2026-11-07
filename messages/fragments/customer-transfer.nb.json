@@ -148,7 +148,8 @@
       "symlink": "Symlinker i arkivet støttes ikke.",
       "unknownEntry": "Ukjent toppnivåfil ble ignorert med en advarsel.",
       "rateLimitedRetry": "For mange eksportforsøk. Prøv igjen om {minutes} minutter.",
-      "exportInProgress": "Eksporten pågår fortsatt. Prøv igjen om litt."
+      "exportInProgress": "Eksporten pågår fortsatt. Prøv igjen om litt.",
+      "moduleDisabled": "Pakken inneholder data fra en modul som er slått av. Slå modulen på eller lag en ny eksport."
     }
   },
   "auditActions": {

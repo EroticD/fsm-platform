@@ -56,6 +56,7 @@ import {
 } from "@/lib/template-categories";
 import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
 import { slaRemainingMinutes, slaStateAt } from "@/lib/sla";
+import { moduleEnabled } from "@/server/modules";
 
 // Command Center-verdier. Fallbackene matcher office-card/signal-button/
 // ink-button-tokenene, slik at flaten står riktig også før de er lastet.
@@ -515,8 +516,14 @@ export default async function AdminWorkOrderPage({
   const canAssign = hasPermission(user, "workorders.assign") && !isClosed;
   const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
   const canCreate = hasPermission(user, "workorders.create");
-  const canWriteReports = hasPermission(user, "reports.write");
-  const canViewReports = hasPermission(user, "reports.view");
+  const [reportsEnabled, smsEnabled] = await Promise.all([
+    moduleEnabled("reports"),
+    moduleEnabled("sms"),
+  ]);
+  const canWriteReports =
+    reportsEnabled && hasPermission(user, "reports.write");
+  const canViewReports =
+    reportsEnabled && hasPermission(user, "reports.view");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
   const statusLabels: Record<WorkStatus, string> = {
@@ -745,13 +752,15 @@ export default async function AdminWorkOrderPage({
                           </a>
                         )}
                       </p>
-                      <Link
-                        href={`/meldinger?oppdrag=${workOrder.id}`}
-                        className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] hover:underline"
-                      >
-                        <Icon name="mail" className="h-3.5 w-3.5 shrink-0" />
-                        {t("sms.nav")}
-                      </Link>
+                      {smsEnabled && (
+                        <Link
+                          href={`/meldinger?oppdrag=${workOrder.id}`}
+                          className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] hover:underline"
+                        >
+                          <Icon name="mail" className="h-3.5 w-3.5 shrink-0" />
+                          {t("sms.nav")}
+                        </Link>
+                      )}
                     </>
                   ) : (
                     <p className="mt-1 text-xs italic text-[#5e6356]">

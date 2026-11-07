@@ -4,6 +4,7 @@ import { allowRequestDb } from "@/lib/rate-limit-db";
 import { noStoreJson } from "@/lib/http";
 import { internalApiError } from "@/lib/api-errors";
 import { getCustomerEquipmentOptions } from "@/server/equipment";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 const MAX_QUERY = 120;
 
@@ -14,6 +15,8 @@ const MAX_QUERY = 120;
  * og som aktøren faktisk har `equipment.view` for. Ingen hele-register-lister.
  */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("equipment");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user || !user.isActive || user.role === "CUSTOMER" || !hasPermission(user, "equipment.view")) {
     return internalApiError("forbidden", 403);

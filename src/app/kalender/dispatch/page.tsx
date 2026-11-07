@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Prisma, VisitStatus } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -80,6 +81,7 @@ export default async function DispatchPage({
     error?: string | string[];
   }>;
 }) {
+  await requireModulePage("calendar");
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");

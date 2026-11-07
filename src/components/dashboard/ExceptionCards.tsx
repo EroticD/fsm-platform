@@ -79,13 +79,31 @@ const TONE: Record<ExceptionDefinition["tone"], string> = {
   neutral: "border-l-[var(--line,#dedcd1)]",
 };
 
+const EXCEPTION_MODULES: Partial<
+  Record<ExceptionKey, "calendar" | "reports" | "map">
+> = {
+  visitsWithoutTechnician: "calendar",
+  doubleBooked: "calendar",
+  staleBookings: "calendar",
+  missingCoordinates: "map",
+  unsignedReports: "reports",
+};
+
 export default function ExceptionCards({
   counts,
+  modules,
   t,
 }: {
   counts: DispatchExceptionCounts;
+  modules?: { calendar: boolean; reports: boolean; map: boolean };
   t: (key: string) => string;
 }) {
+  const visible = EXCEPTIONS.filter((exception) => {
+    const owner = EXCEPTION_MODULES[exception.key];
+    if (!owner || !modules) return true;
+    return modules[owner];
+  });
+  const canDispatch = modules?.calendar ?? true;
   return (
     <section aria-labelledby="dashboard-exceptions-title" className="min-w-0">
       <div className="mb-2 flex items-end justify-between gap-2">
@@ -100,17 +118,19 @@ export default function ExceptionCards({
             {t("dashboard.exceptions.subtitle")}
           </p>
         </div>
-        <Link
-          href="/kalender/dispatch"
-          prefetch={false}
-          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
-        >
-          {t("dashboard.exceptions.openDispatch")}
-          <Icon name="arrowRight" className="h-3.5 w-3.5" />
-        </Link>
+        {canDispatch && (
+          <Link
+            href="/kalender/dispatch"
+            prefetch={false}
+            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
+          >
+            {t("dashboard.exceptions.openDispatch")}
+            <Icon name="arrowRight" className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {EXCEPTIONS.map((exception) => {
+        {visible.map((exception) => {
           const value = counts[exception.key];
           return (
             <li key={exception.key}>

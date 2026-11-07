@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -32,6 +33,7 @@ export default async function NewEquipmentPage({
 }: {
   searchParams: Promise<{ feil?: string }>;
 }) {
+  await requireModulePage("equipment");
   const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");

@@ -29,6 +29,7 @@ import {
   type SmsDb,
 } from "./sms";
 import { isSmsEventKey, smsLocale, type SmsEventKey } from "@/lib/sms/templates";
+import { moduleEnabled } from "@/server/modules";
 
 export const REMINDER_CHANNELS = ["SMS", "EMAIL", "BOTH"] as const;
 export type ReminderChannel = (typeof REMINDER_CHANNELS)[number];
@@ -1128,7 +1129,10 @@ export function startReminderWorker(): void {
   scope.__fsmReminderWorkerStarted = true;
 
   const run = () => {
-    void runReminderCycle().catch((error) => {
+    void (async () => {
+      if (!(await moduleEnabled("sms"))) return;
+      await runReminderCycle();
+    })().catch((error) => {
       logger.error("Could not run the reminder cycle", {
         error: error instanceof Error ? error.message : String(error),
       });

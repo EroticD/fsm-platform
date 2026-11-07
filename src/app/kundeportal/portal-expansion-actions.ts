@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   createPortalSite,
   createPortalTrackingLink,
@@ -29,6 +30,7 @@ function portalError(reason: string): string {
 }
 
 export async function openTrackingAction(formData: FormData) {
+  if (!(await moduleEnabled("portal")) || !(await moduleEnabled("tracking"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await createPortalTrackingLink(user, formData.get("visitId"));
@@ -39,6 +41,7 @@ export async function openTrackingAction(formData: FormData) {
 }
 
 export async function requestReviewAction(formData: FormData) {
+  if (!(await moduleEnabled("portal")) || !(await moduleEnabled("reviews"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await requestPortalReview(user, formData.get("visitId"));
@@ -80,6 +83,7 @@ function siteRedirect(result: { ok: boolean; reason?: string }, saved = false) {
 }
 
 export async function createPortalSiteAction(formData: FormData) {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await createPortalSite(user, {
@@ -93,6 +97,7 @@ export async function createPortalSiteAction(formData: FormData) {
 }
 
 export async function updatePortalSiteAction(formData: FormData) {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await updatePortalSite(user, formData.get("id"), {
@@ -106,6 +111,7 @@ export async function updatePortalSiteAction(formData: FormData) {
 }
 
 export async function deletePortalSiteAction(formData: FormData) {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await deletePortalSite(user, formData.get("id"));
@@ -113,6 +119,7 @@ export async function deletePortalSiteAction(formData: FormData) {
 }
 
 export async function setPortalPrimarySiteAction(formData: FormData) {
+  if (!(await moduleEnabled("portal"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const result = await setPortalPrimarySite(user, formData.get("id"));

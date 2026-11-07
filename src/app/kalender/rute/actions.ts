@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { applyRouteOrder, ROUTE_ERROR_CODES } from "@/server/route-plan";
+import { moduleEnabled } from "@/server/modules";
 
 const ROUTE_PATH = "/kalender/rute";
 
@@ -37,6 +38,7 @@ function firstErrorCode(details: unknown): string | null {
  * avviser hele endringen hvis noe er endret i mellomtiden.
  */
 export async function applyRouteOrderAction(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("calendar"))) redirect("/");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 

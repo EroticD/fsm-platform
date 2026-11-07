@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import prisma from "@/lib/prisma";
@@ -89,6 +90,7 @@ export default async function CalendarPage({
     ufordelt?: string | string[];
   }>;
 }) {
+  await requireModulePage("calendar");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");

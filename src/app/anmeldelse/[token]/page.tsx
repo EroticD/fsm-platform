@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
@@ -37,6 +38,7 @@ export default async function PublicReviewPage({
   params: Promise<{ token: string }>;
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
+  await requireModulePage("reviews");
   const { token } = await params;
   const { error } = await searchParams;
   const result = await getPublicReview(token);

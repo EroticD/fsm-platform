@@ -8,6 +8,7 @@ import { LIMITS, cleanText } from "@/lib/sanitize";
 import { idSchema } from "@/lib/schemas/common";
 import * as workOrderService from "@/server/work-orders";
 import * as visitService from "@/server/visits";
+import { moduleEnabled } from "@/server/modules";
 
 /** Tynne action-wrappere for feltportalens oppdragsside. */
 
@@ -54,6 +55,7 @@ export async function addComment(formData: FormData) {
 }
 
 export async function addTemplate(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const workOrderId = workOrderIdFrom(formData);
   if (!workOrderId) redirect("/mine-oppdrag?error=ugyldig-data");
 

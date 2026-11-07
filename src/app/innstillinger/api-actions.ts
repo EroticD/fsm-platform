@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   createApiKey,
   revokeApiKey,
@@ -38,6 +39,7 @@ export async function createApiKeyAction(
   _previous: ApiKeyActionState,
   formData: FormData,
 ): Promise<ApiKeyActionState> {
+  if (!(await moduleEnabled("api"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return { status: "error", error: "forbidden" };
 
@@ -74,6 +76,7 @@ export async function rotateApiKeyAction(
   _previous: ApiKeyActionState,
   formData: FormData,
 ): Promise<ApiKeyActionState> {
+  if (!(await moduleEnabled("api"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return { status: "error", error: "forbidden" };
 
@@ -96,6 +99,7 @@ export async function rotateApiKeyAction(
  * videre API-kall med nøkkelen avvises umiddelbart.
  */
 export async function revokeApiKeyAction(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("api"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/");
 

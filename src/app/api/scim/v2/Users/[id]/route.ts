@@ -1,4 +1,5 @@
 import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
+import { moduleApiGuard } from "@/lib/module-guards";
 import {
   scimBadRequest,
   scimBaseUrl,
@@ -37,6 +38,8 @@ async function readBody(request: Request) {
 }
 
 export async function GET(request: Request, context: RouteContext) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 
@@ -47,6 +50,8 @@ export async function GET(request: Request, context: RouteContext) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 
@@ -64,6 +69,8 @@ export async function PUT(request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 
@@ -82,6 +89,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 /** DELETE er en myk deaktivering, ikke en hard sletting. */
 export async function DELETE(request: Request, context: RouteContext) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 

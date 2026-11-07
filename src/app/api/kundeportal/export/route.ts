@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { csvCell } from "@/lib/csv";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { resolvePortalAccess } from "@/server/portal-access";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 /** Maks antall rader i én eksport, slik at minnebruken er forutsigbar. */
 const EXPORT_ROW_CAP = 5000;
@@ -19,6 +20,8 @@ const PORTAL_EXPORT_FILENAME = "mine-oppdrag.csv";
  * kundetilknytning får tilgang, og bare sine egne oppdrag.
  */
 export async function GET() {
+  const moduleGuard = await moduleApiGuard("portal");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user?.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return internalApiError("forbidden", 403);

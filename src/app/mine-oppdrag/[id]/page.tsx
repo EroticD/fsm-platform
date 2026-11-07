@@ -50,6 +50,7 @@ import {
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
 import * as workOrderService from "@/server/work-orders";
+import { moduleEnabled } from "@/server/modules";
 import {
   addComment,
   addTechnician,
@@ -448,8 +449,11 @@ export default async function TechnicianWorkOrderPage({
   const statusOptions = allowedStatusOptions.filter(
     (status) => status !== "CANCELLED",
   );
-  const canWriteReports = hasPermission(user, "reports.write");
-  const canViewReports = hasPermission(user, "reports.view");
+  const reportsEnabled = await moduleEnabled("reports");
+  const canWriteReports =
+    reportsEnabled && hasPermission(user, "reports.write");
+  const canViewReports =
+    reportsEnabled && hasPermission(user, "reports.view");
 
   const allUsers = await prisma.user.findMany({
     where: staffForDepartment(workOrder.departmentId),

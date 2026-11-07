@@ -16,7 +16,8 @@
       "customerAccount": "Kundeportalbrukere kan ikke logge inn med SSO.",
       "identityConflict": "Kontoen er allerede koblet til en annen identitet. Kontakt administrator.",
       "configuration": "SSO er ikke riktig konfigurert. Kontakt administrator.",
-      "serverError": "Kunne ikke logge inn med SSO. Prøv igjen."
+      "serverError": "Kunne ikke logge inn med SSO. Prøv igjen.",
+      "disabled": "SSO-modulen er slått av. Bruk passordinnlogging eller kontakt administrator."
     }
   },
   "settings": {

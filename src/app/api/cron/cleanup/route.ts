@@ -3,6 +3,7 @@ import { cleanupAbandonedUploads } from "@/lib/upload-cleanup";
 import { cleanupUploadTempFiles } from "@/lib/upload-multipart";
 import { uploadDir } from "@/lib/uploads";
 import { safeEqual } from "@/lib/secrets";
+import { moduleEnabled } from "@/server/modules";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
     .trim();
   if (!token || !safeEqual(token, secret)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 401 });
+  }
+
+  if (!(await moduleEnabled("documents"))) {
+    return NextResponse.json({ error: "module_disabled" }, { status: 404 });
   }
 
   const result = await cleanupAbandonedUploads();

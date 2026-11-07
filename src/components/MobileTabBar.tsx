@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Icon from "./icons";
+import type { ModuleKey } from "@/lib/modules";
 import {
   isAuthPath,
   isMobileTabActive,
@@ -24,14 +25,16 @@ import {
 export default function MobileTabBar({
   role,
   permissions,
+  enabledModules,
 }: {
   role?: string | null;
   permissions?: string[];
+  enabledModules?: ModuleKey[];
 }) {
   const t = useTranslations("common");
   const pathname = usePathname();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const items = mobileTabItemsFor(role, permissions);
+  const items = mobileTabItemsFor(role, permissions, enabledModules);
   const fieldMode = role === "TECHNICIAN";
 
   if (
