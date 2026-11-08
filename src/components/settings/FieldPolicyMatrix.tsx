@@ -44,7 +44,12 @@ export default async function FieldPolicyMatrix() {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div
+        className="overflow-x-auto"
+        role="region"
+        aria-label={t("settings.fieldPolicy.title")}
+        tabIndex={0}
+      >
         <table className="w-full min-w-[560px] border-collapse text-left text-xs">
           <thead>
             <tr>
