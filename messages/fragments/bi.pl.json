@@ -6,7 +6,7 @@
   },
   "bi": {
     "title": "Rentowność",
-    "subtitle": "Zlecenia, czas, first-time fix i szacowany przychód według działu, klienta i technika.",
+    "subtitle": "Zlecenia, czas, naprawa za pierwszym razem i szacowany przychód według działu, klienta i technika.",
     "export": "Eksportuj CSV",
     "errors": {
       "invalid": "Filtry są nieprawidłowe. Sprawdź okres i spróbuj ponownie.",
@@ -52,7 +52,7 @@
       "ordersSub": "{completed} ukończonych · {cancelled} anulowanych",
       "completionRate": "Wskaźnik ukończenia",
       "completionRateSub": "Ukończone zlecenia ze wszystkich w okresie",
-      "firstTimeFix": "First-time fix",
+      "firstTimeFix": "Naprawa za pierwszym razem",
       "firstTimeFixSub": "{fixed} z {eligible} mierzalnych zleceń",
       "hours": "Łączne godziny",
       "hoursSub": "{work} godz. pracy · {travel} godz. jazdy",
@@ -83,7 +83,7 @@
       "customers": "Na klienta",
       "customersDescription": "Zlecenia, godziny i szacowany przychód na klienta.",
       "orders": "Na zlecenie",
-      "ordersDescription": "{count} zleceń w okresie z czasem, first-time fix i szacowanym przychodem."
+      "ordersDescription": "{count} zleceń w okresie z czasem, naprawą za pierwszym razem i szacowanym przychodem."
     },
     "table": {
       "technician": "Technik",
@@ -95,7 +95,7 @@
       "total": "Razem",
       "available": "Dostępne",
       "utilisation": "Wykorzystanie",
-      "firstTimeFix": "First-time fix",
+      "firstTimeFix": "Naprawa za pierwszym razem",
       "estimatedRevenue": "Szacowany przychód",
       "completedOf": "{completed} z {total} ukończonych",
       "status": "Status"

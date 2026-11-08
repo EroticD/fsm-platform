@@ -1,112 +1,112 @@
 {
   "inventory": {
-    "title": "Inventory",
-    "eyebrow": "OPS-05 · Inventory and spare parts",
-    "description": "Stock per warehouse and service van, reservations against work orders, and purchase suggestions when an item reaches its reorder point.",
-    "searchPlaceholder": "Search SKU or name",
-    "search": "Search",
-    "back": "Back to inventory",
-    "location": "Location",
+    "title": "Magazyn",
+    "eyebrow": "OPS-05 · Magazyn i części zamienne",
+    "description": "Stan magazynowy według magazynu i samochodu serwisowego, rezerwacje na zlecenia oraz propozycje zakupu, gdy pozycja osiągnie poziom minimalny.",
+    "searchPlaceholder": "Szukaj SKU lub nazwy",
+    "search": "Szukaj",
+    "back": "Wróć do magazynu",
+    "location": "Lokalizacja",
     "status": "Status",
-    "workOrder": "Work order",
-    "actions": "Actions",
-    "openWorkOrder": "Open work order",
-    "workOrderLink": "Spare parts",
-    "chooseLocation": "Choose location",
+    "workOrder": "Zlecenie",
+    "actions": "Działania",
+    "openWorkOrder": "Otwórz zlecenie",
+    "workOrderLink": "Części zamienne",
+    "chooseLocation": "Wybierz lokalizację",
     "feedback": {
-      "saved": "The change has been saved.",
-      "error": "The action could not be completed. Check stock, access, and that the work order is open."
+      "saved": "Zmiana została zapisana.",
+      "error": "Nie udało się wykonać działania. Sprawdź stan magazynowy, uprawnienia i czy zlecenie jest otwarte."
     },
     "suggestions": {
-      "title": "Purchase suggestions",
-      "description": "Items at or below the reorder point, after active reservations.",
-      "empty": "No items need restocking right now.",
-      "buy": "Suggested purchase"
+      "title": "Propozycje zakupu",
+      "description": "Pozycje na poziomie minimalnym lub poniżej, po uwzględnieniu aktywnych rezerwacji.",
+      "empty": "Żadna pozycja nie wymaga teraz uzupełnienia.",
+      "buy": "Sugerowany zakup"
     },
     "item": {
-      "title": "Item",
+      "title": "Pozycja",
       "sku": "SKU",
-      "name": "Item",
-      "unit": "Unit",
-      "minLevel": "Reorder point",
-      "description": "Description",
-      "onHand": "On hand",
-      "reserved": "Reserved",
-      "available": "Available",
-      "low": "Low stock",
-      "noDescription": "No description.",
-      "edit": "Edit item",
-      "active": "Active",
-      "save": "Save"
+      "name": "Nazwa",
+      "unit": "Jednostka",
+      "minLevel": "Poziom minimalny",
+      "description": "Opis",
+      "onHand": "Na stanie",
+      "reserved": "Zarezerwowano",
+      "available": "Dostępne",
+      "low": "Niski stan",
+      "noDescription": "Brak opisu.",
+      "edit": "Edytuj pozycję",
+      "active": "Aktywna",
+      "save": "Zapisz"
     },
     "items": {
-      "title": "Items",
-      "empty": "No items have been registered yet.",
-      "create": "New item",
-      "createButton": "Create item"
+      "title": "Pozycje",
+      "empty": "Nie zarejestrowano jeszcze żadnych pozycji.",
+      "create": "Nowa pozycja",
+      "createButton": "Utwórz pozycję"
     },
     "locations": {
-      "title": "Locations",
-      "empty": "No warehouses or vans have been registered yet.",
-      "itemCount": "{count} items",
-      "lowCount": "{count} low",
-      "create": "New location",
-      "name": "Warehouse or van name",
-      "createButton": "Create location",
-      "detailTitle": "Location",
-      "edit": "Edit location",
-      "active": "Active"
+      "title": "Lokalizacje",
+      "empty": "Nie zarejestrowano jeszcze żadnych magazynów ani samochodów.",
+      "itemCount": "{count} poz.",
+      "lowCount": "Niski stan: {count}",
+      "create": "Nowa lokalizacja",
+      "name": "Nazwa magazynu lub samochodu",
+      "createButton": "Utwórz lokalizację",
+      "detailTitle": "Lokalizacja",
+      "edit": "Edytuj lokalizację",
+      "active": "Aktywna"
     },
     "locationType": {
-      "warehouse": "Warehouse",
-      "van": "Service van"
+      "warehouse": "Magazyn",
+      "van": "Samochód serwisowy"
     },
     "stock": {
-      "levels": "Stock per location",
-      "noLevels": "No stock has been registered for this item yet."
+      "levels": "Stan według lokalizacji",
+      "noLevels": "Nie zarejestrowano jeszcze stanu tej pozycji."
     },
     "adjust": {
-      "title": "Adjust stock",
-      "description": "In and out reject negative stock. Adjustment is an explicit correction and can fix a count.",
+      "title": "Koryguj stan",
+      "description": "Przyjęcia i wydania odrzucają ujemny stan. Korekta jest jawną poprawką i może wyrównać stan.",
       "types": {
-        "in": "In",
-        "out": "Out",
-        "adjust": "Adjust"
+        "in": "Przyjęcie",
+        "out": "Wydanie",
+        "adjust": "Korekta"
       },
-      "quantity": "Quantity",
-      "reason": "Reason",
-      "button": "Save movement"
+      "quantity": "Ilość",
+      "reason": "Powód",
+      "button": "Zapisz ruch"
     },
     "reserve": {
-      "title": "Reserve parts",
-      "description": "The reservation holds available quantity against a work order or work session. Stock is deducted only when consumed.",
-      "quantity": "Quantity",
-      "workOrderId": "Work order ID",
-      "note": "Note",
-      "button": "Reserve",
-      "chooseItem": "Choose item",
-      "noVisit": "Whole work order (no specific session)"
+      "title": "Zarezerwuj części",
+      "description": "Rezerwacja blokuje dostępną ilość na rzecz zlecenia lub sesji pracy. Stan jest odejmowany dopiero przy zużyciu.",
+      "quantity": "Ilość",
+      "workOrderId": "ID zlecenia",
+      "note": "Notatka",
+      "button": "Zarezerwuj",
+      "chooseItem": "Wybierz pozycję",
+      "noVisit": "Całe zlecenie (bez konkretnej sesji)"
     },
     "reservations": {
-      "title": "Reservations",
-      "empty": "No reservations.",
-      "release": "Release",
-      "consume": "Consume"
+      "title": "Rezerwacje",
+      "empty": "Brak rezerwacji.",
+      "release": "Zwolnij",
+      "consume": "Zużyj"
     },
     "movements": {
-      "title": "Movements",
-      "empty": "No movements have been registered.",
-      "at": "Time",
-      "type": "Type",
-      "quantity": "Quantity",
-      "reason": "Reason"
+      "title": "Ruchy",
+      "empty": "Nie zarejestrowano żadnych ruchów.",
+      "at": "Czas",
+      "type": "Typ",
+      "quantity": "Ilość",
+      "reason": "Powód"
     },
     "workOrderParts": {
-      "title": "Spare parts",
-      "backToWorkOrder": "Back to work order",
-      "consumeVisit": "Consume parts for a completed session",
-      "consumeVisitDescription": "Consumes all active reservations tied to the session. Use this when the work has actually been done.",
-      "consumeAll": "Consume all"
+      "title": "Części zamienne",
+      "backToWorkOrder": "Wróć do zlecenia",
+      "consumeVisit": "Zużyj części dla zakończonej sesji",
+      "consumeVisitDescription": "Zużywa wszystkie aktywne rezerwacje powiązane z sesją. Użyj tej opcji, gdy praca została faktycznie wykonana.",
+      "consumeAll": "Zużyj wszystkie"
     }
   }
 }
