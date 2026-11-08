@@ -1,6 +1,6 @@
 # Tekniker
 
-Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.9.0 (2026-11-08).
+Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.9.1 (2026-11-08).
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
 
@@ -42,7 +42,7 @@ Du kan ikke bytte passord i feltappen. Logg ut og bruk **Glemt passord** på inn
 2. Rull til bunnen. Der ligger **Endre språk**.
 3. Velg **Norsk**, **English**, **Polski** eller **Deutsch**.
 
-Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.9.0.
+Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.9.1.
 
 ### Installer feltappen (PWA)
 

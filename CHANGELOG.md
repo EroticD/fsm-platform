@@ -5,6 +5,17 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.9.1 — 2026-11-08
+
+**Utgivelsessammendrag:** 0.9.1 samler designsystemet på tvers av alle
+kontorsider, fullfører UX-08 (FullCalendar 7 visuell QA) og UX-09
+(live-kartets forutsetninger), og gjør `docs/BACKLOG.md` til eneste
+arbeidskø. Utgivelsen inneholder også oppdatert plattformanalyse,
+fagdokumentasjon, skjermbilder og PDF-manualer. Ingen funksjoner er fjernet
+og ingen datamigreringer er nødvendige.
+
 ### Design, UX og tilgjengelighet
 - Ny felles kontorramme `PageShell` og oppdatert `PageHeader` med
   `type-title-1`, brytbar tittel og eyebrow. Alle kontorsider bruker samme

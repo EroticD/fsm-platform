@@ -1,6 +1,6 @@
 # Administrator
 
-Applies to FSM Platform **0.9.0** (2026-11-08). This chapter is for system administrators who configure the platform, manage users and permissions, set up integrations, and are responsible for data, security and operations. It covers configuration and governance. Day-to-day workflows for office, technician and customer portal users are described in their own chapters.
+Applies to FSM Platform **0.9.1** (2026-11-08). This chapter is for system administrators who configure the platform, manage users and permissions, set up integrations, and are responsible for data, security and operations. It covers configuration and governance. Day-to-day workflows for office, technician and customer portal users are described in their own chapters.
 
 ## 1. The administrator role and delegation
 
@@ -79,7 +79,7 @@ The user is created inactive. You either get confirmation that the invitation em
 
 ### Change password, 2FA and recovery codes
 
-1. To change your password, sign out and use **Forgot password** on the sign-in page. 0.9.0 has no separate change-password page. The link is valid for one hour, and all other sessions are invalidated when the new password is set.
+1. To change your password, sign out and use **Forgot password** on the sign-in page. 0.9.1 has no separate change-password page. The link is valid for one hour, and all other sessions are invalidated when the new password is set.
 2. Go to **Settings → Security** to turn on **Two-factor authentication**. Scan the QR code with your authenticator app and enter the 6-digit code.
 3. Store the **Recovery codes** in a safe place. They are shown only once, and each code can be used once. **Create new codes** invalidates the old ones.
 4. Use **Log out** on shared devices. If misuse is suspected, change the password via **Forgot password** and reset 2FA.
@@ -158,7 +158,7 @@ Portal users never see other customers, internal notes, internal permissions, dr
 
 **Security:** use separate accounts per person. **Deactivate** when someone leaves; this signs them out, clears the calendar subscription and revokes portal access. Deleting the customer deactivates all portal users, invalidates sessions and closes booking. After restoring, each portal user must be activated again. A portal user must always have a valid contact on the same customer.
 
-**Delegation:** the portal has server-enforced capabilities for booking, documents, agreements and equipment, but 0.9.0 has no form for editing them. A contact without a delegation row gets full portal access; restricted access must be configured and tested with the actual account.
+**Delegation:** the portal has server-enforced capabilities for booking, documents, agreements and equipment, but 0.9.1 has no form for editing them. A contact without a delegation row gets full portal access; restricted access must be configured and tested with the actual account.
 
 ## 6. Checklists and templates
 
@@ -206,7 +206,7 @@ Office and technicians with `workorders.update` can change open statuses freely.
 
 **Report numbers:** HMS reports receive an automatic `abc1234` number (three lowercase letters and four digits) on first submission. It is kept across revisions. Ordinary service reports have no automatic number.
 
-**PDF and branding:** the PDF uses the company name, logo and primary colour from **Branding**, is stored as a `WORK_ORDER` upload and requires `reports.view`. The response is `no-store`. Branding is part of the PDF hash, so changes apply next time the PDF is generated. Report PDF labels are Norwegian in 0.9.0; agreement PDFs support all four languages. The generated remediation work order title is also Norwegian (“Utbedring av avvik – …”) in 0.9.0.
+**PDF and branding:** the PDF uses the company name, logo and primary colour from **Branding**, is stored as a `WORK_ORDER` upload and requires `reports.view`. The response is `no-store`. Branding is part of the PDF hash, so changes apply next time the PDF is generated. Report PDF labels are Norwegian in 0.9.1; agreement PDFs support all four languages. The generated remediation work order title is also Norwegian (“Utbedring av avvik – …”) in 0.9.1.
 
 **Legal hold and retention:** legal hold prevents hard deletion and freezes the report. On a work order, all reports inherit the flag. Releasing it requires a reason and does not release the reports’ own flags; **Report hold** must be released per report with its own reason. Soft-deleted work orders can be hard-deleted after `RETENTION_DAYS` (default 365) only when they have no reports. **Recycle bin** and **Restore** are administrator-only.
 
@@ -236,11 +236,11 @@ SMS is sent only when the recipient has `optedIn = true` and `optedOut = false`.
 
 **Tracking:** off by default per department. Enable it under **Departments → Edit department → Enable live tracking** after a DPIA, because the technician’s location is personal data. An assigned technician can share location while the visit is `EN_ROUTE`. The public link shows only first name, status, ETA, planned time and last updated — never coordinates, a map or history. Pings are kept for 24 hours and deleted on `DONE`/`CANCELLED`; the link expires two hours after the visit, and there is one active link per visit. `TRACKING_AVERAGE_SPEED_KMH` (default 50) controls the fallback estimate. With `OSRM_BASE_URL`, an external routing provider is used for ETA; without it, ETA is calculated locally. A ping older than ten minutes is shown as **last known position**, not as live. The public ETA endpoint is polled every 30 seconds and has its own per-token rate limit.
 
-**Reviews:** internal and never published. The customer can request a review in the portal after a completed visit, or the office can send an SMS with “Request review”. A review requires a completed visit, can be submitted once and is stored with a hashed token. Reviews are not shown as a separate dashboard in 0.9.0.
+**Reviews:** internal and never published. The customer can request a review in the portal after a completed visit, or the office can send an SMS with “Request review”. A review requires a completed visit, can be submitted once and is stored with a hashed token. Reviews are not shown as a separate dashboard in 0.9.1.
 
 ## 10. Branding, map, language and notifications
 
-**Dispatch and workforce:** under **Settings → Dispatch**, configure **Assignment rules** (weights for skills, distance, travel time, availability, SLA and load) and **Territories**. Weights are relative. **Capacity plans** are shown under **Calendar → Capacity** but are not edited in **Settings** in 0.9.0. Skills, absence and working hours feed the suggestions but also have no separate form in **Settings**; keep the data updated outside the interface.
+**Dispatch and workforce:** under **Settings → Dispatch**, configure **Assignment rules** (weights for skills, distance, travel time, availability, SLA and load) and **Territories**. Weights are relative. **Capacity plans** are shown under **Calendar → Capacity** but are not edited in **Settings** in 0.9.1. Skills, absence and working hours feed the suggestions but also have no separate form in **Settings**; keep the data updated outside the interface.
 
 **Routing and overtime:** the route plan uses `OSRM_BASE_URL` for routes and the travel matrix, and `GOOGLE_ROUTES_API_KEY` for optional traffic-aware ETA on single legs. Without the key, ETA is a route and speed estimate, not live traffic; without either, it falls back to straight-line distance × 1.35. `ROUTE_ALLOW_OVERTIME` (default `true`) and `ROUTE_MAX_OVERTIME_MINUTES` (0 = no limit) control whether visits may be planned outside working hours. `ROUTING_PROVIDER=haversine` deliberately disables all external route and traffic calls. Monitor Google quota and cost; cache and rate limit are per process. See `docs/ROUTING.md`.
 
@@ -248,7 +248,7 @@ SMS is sent only when the recipient has `optedIn = true` and `optedOut = false`.
 
 **Map and geocoding:** under **Settings → Map**, choose a **Map provider**. **OpenStreetMap (no key)** is the default; **MapTiler** and **Mapbox** require an **API key**. The key is stored on the server and sent only to the map in the browser; use a domain-restricted key. Set **Default layer**, **Default zoom (2–19)**, **Center** and **Enable scroll wheel zoom**. Geocoding is on by default (`GEOCODE_ENABLED=true`) and tries OpenStreetMap/Nominatim, then Kartverket and Photon. Set `GEOCODE_USER_AGENT` to identify the installation, or disable with `GEOCODE_ENABLED=false`. The **Geocode addresses** button on the map reports whether no address was found, the service did not respond, or geocoding is disabled.
 
-**Language:** Norwegian, English, Polish and German have complete catalogues. The top-bar selector stores the `NEXT_LOCALE` cookie and uses `router.refresh()`, without a URL prefix. Dates and numbers follow `nb-NO`, `en-GB`, `pl-PL` and `de-DE`. SMS uses the recipient contact’s `locale`; email notifications use the user’s `locale`. Reports have Norwegian PDF labels in 0.9.0; translations live in `messages/` and are checked with `npm run check:i18n`.
+**Language:** Norwegian, English, Polish and German have complete catalogues. The top-bar selector stores the `NEXT_LOCALE` cookie and uses `router.refresh()`, without a URL prefix. Dates and numbers follow `nb-NO`, `en-GB`, `pl-PL` and `de-DE`. SMS uses the recipient contact’s `locale`; email notifications use the user’s `locale`. Reports have Norwegian PDF labels in 0.9.1; translations live in `messages/` and are checked with `npm run check:i18n`.
 
 **Notifications:** in-app and email. Each user chooses events and channels under **Notifications → Settings**; there is no global default. Make sure SMTP is configured. The `Notification` queue retries five times with backoff, skips deactivated users and uses a lease (a time-limited lock) to prevent double sending. Types include assignment, date change, cancellation, report ready, booking, agreement, overdue, contact update, SLA and warranty.
 
@@ -392,7 +392,7 @@ registered a device on their own account.
 
 ## 12. Activity log, privacy and data
 
-**Activity log:** **Settings → Activity log** shows system events, security events such as failed 2FA attempts, and user activity with search, **From date** and **To date**, 50 rows per page. Work orders and customers have their own activity tabs; reports have revisions. The log is written in the same transaction as the mutation, cannot be edited or deleted in the UI, and is not hash-chained in 0.9.0.
+**Activity log:** **Settings → Activity log** shows system events, security events such as failed 2FA attempts, and user activity with search, **From date** and **To date**, 50 rows per page. Work orders and customers have their own activity tabs; reports have revisions. The log is written in the same transaction as the mutation, cannot be edited or deleted in the UI, and is not hash-chained in 0.9.1.
 
 **Privacy:** collect only necessary data, use department and customer scope, and grant `reports.viewAllDepartments` only when needed. Use separate portal accounts and deactivate them on leaving. Assess DPIA before tracking in a new department; tracking is opt-in, limited to `EN_ROUTE`, shows no route or coordinates and deletes pings after 24 hours. Obtain SMS consent and keep reviews internal. Deleting a customer deactivates portal users.
 
