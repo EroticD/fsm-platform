@@ -1665,6 +1665,26 @@ model Upload {
   @@index([contentHash])
 }
 
+/// Kortlevd reservering av opplastingskvote. Raden opprettes før filen skrives
+/// til den endelige mappen og slettes når `Upload`-raden er skrevet eller
+/// opplastingen er avvist. Da teller samtidige opplastinger mot kvoten selv om
+/// de ennå ikke har fått en `Upload`-rad.
+///
+/// Utløpte rader ignoreres i kvoteberegningen og ryddes av cronjobben, slik at
+/// en krasjet prosess ikke låser kvoten permanent.
+model UploadQuotaReservation {
+  id         String   @id @default(cuid())
+  userId     String
+  customerId String?
+  size       Int
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([userId, expiresAt])
+  @@index([customerId, expiresAt])
+  @@index([expiresAt])
+}
+
 enum JobStatus {
   PENDING
   RUNNING

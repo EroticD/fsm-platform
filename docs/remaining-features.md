@@ -52,6 +52,23 @@
   diagnoseverktøy. Tester dekker scheduler-kallet, avslått konfigurasjon,
   feilende kjøring, metrics og idempotent/samtidig kjøring mot reell
   PostgreSQL. Se [`OPERATIONS.md`](OPERATIONS.md).
+- **DATA-04 — backfill for eldre tidsstyrte visiter.** Samme
+  `npm run visits:backfill:daily` (tørrkjøring som standard) normaliserer nå
+  også tidsstyrte enkeltdagsvisiter til én heldagsøkt: start/slutt utvides til
+  arbeidsdagen, `allDay` settes, og alle tidsstempler, status, notater og
+  montører står urørt. Ingen nye rader opprettes. Flerdagers tidsstyrte
+  visiter, flere visiter samme dag, opptatte dager og tidsstempler utenfor
+  dagen rapporteres eksplisitt og endres ikke. Integrasjonstest mot reell
+  PostgreSQL dekker både en entydig rad og en tvetydig rad som må rapporteres
+  uten endring. Se [`OPERATIONS.md`](OPERATIONS.md).
+- **SEC-06 — atomisk opplastingskvote.** Kvoten reserveres i en kortlevd
+  `UploadQuotaReservation` under en transaksjonslåst advisory lock per
+  bruker/kunde, og ferdige `Upload`-rader og aktive reservasjoner telles
+  sammen. Samtidige opplastinger kan derfor ikke overskride 2 GiB per bruker
+  eller 10 GiB per kunde. Commit skriver `Upload`-raden og sletter reservasjonen
+  i én transaksjon; avvisning gir fortsatt `507`, fjerner filen og frigjør
+  kvoten. Utløpte reservasjoner ryddes av `/api/cron/cleanup`. Konfigurasjon og
+  offentlig API er beholdt, med en additiv migrering for reservasjonstabellen.
 - **DOC-01 — booking/overlapp avstemt.** Den direkte slotbekreftelsen i
   `createBooking` er fjernet; alle nye bestillinger er datoforespørsler som
   kontoret planlegger og bekrefter. Overlappende visiter er en
@@ -92,7 +109,8 @@
   med `?inline=1` etter sanitering (`89c8024`).
 - **Opplastingskvote** — standardkvotene regnes nå i MB/bytes riktig
   (2 GiB per bruker, 10 GiB per kunde), med tydelige feilmeldinger
-  (`870f13e`). Kappløpet mellom kontroll og skriving gjenstår som **SEC-06**.
+  (`870f13e`). Kvoten reserveres atomisk før filen skrives, og samtidige
+  opplastinger kan derfor ikke lenger overskride grensen, se **SEC-06** under.
 - **Kundeoverføring** — eksport dedupliseres per utvalg, feil lagres på jobben
   og vises i UI, og første forsøk blokkeres ikke av gamle tellere; grensen er
   10 starter/time (`28e82cb`). Selve overføringen er fortsatt synkron og
@@ -109,8 +127,9 @@
 - **Arbeidsdager, tid og reise** — én intern økt per kalenderdag, faktisk
   start/slutt/varighet i kalenderen, tidsregistrering per dag og reisetid
   som lukkes av neste `EN_ROUTE` eller «Avslutt kjøring» (`b8ea453`,
-  `67bf9d8`). Backfill og automatisk lukking av siste kjøring gjenstår som
-  **DATA-04** og **FLD-02**.
+  `67bf9d8`), og backfill som normaliserer eldre flerdagers- og tidsstyrte
+  visiter trygt (**DATA-04**). Automatisk lukking av siste kjøring gjenstår
+  som **FLD-02**.
 - **SLA med aktiv avtale** — SLA starter bare med aktiv, datogyldig avtale og
   aktiv policy; ingen fallback til avdeling/global policy. Oppryddingen av
   gamle klokker uten dekning kjører automatisk og revisjonslogges
@@ -175,9 +194,7 @@ det som allerede er levert.
 
 | ID | Prioritet | Størrelse | Status | Akseptanse |
 | --- | --- | --- | --- | --- |
-| **DATA-04** · Backfill for eldre tidsstyrte visiter | P2 | M | **Delvis:** `npm run visits:backfill:daily` splitter bare flerdagers heldagsvisiter; eldre tidsstyrte enkeltdagsvisiter blir ikke normalisert. | Skript/tørrkjøring som oppdager og rapporterer legacy tidsstyrte enkeltdagsvisiter; trygg splitting eller eksplisitt manuell rapport; tidsstempler dupliseres aldri; integrasjonstest mot reell PostgreSQL; `OPERATIONS.md` oppdatert. |
 | **FLD-02** · Automatisk lukking av siste kjøring | P2 | S | **Manuell i dag:** siste jobb på dagen må bruke «Avslutt kjøring». | Definer policy for auto-lukking (tidspunkt/avstand) som aldri gjetter ulønnet reise; handlingen revideres og kan korrigeres; felt-UI viser hvorfor reisen ble lukket; tester dekker neste `EN_ROUTE`, siste jobb og overnatting. |
-| **SEC-06** · Atomisk opplastingskvote | P2 | M | **Kjent kappløp:** kontrollen er lesning før skriving; samtidige opplastinger kan overskride kvoten med noen MB (`src/lib/upload-quota.ts`). | Kvoten reserveres/oppdateres atomisk (ledger, radlås eller tilsvarende); samtidig test viser at grensen ikke overskrides; 507 gir tydelig feil; ingen orphan-filer ved avvisning; eksisterende kvoter og opprydding bevares. |
 | **UX-08** · FullCalendar 7 visuell QA | P3 | S | **Kjente kanttilfeller:** to-ukersvisningens andre uke har en egen workaround for kolonneoverskrifter; timegrid skal åpne 07:00 (`scrollTime`), men mangler visuell test mot 00:00; korte tidsstyrte kort kan klippe tekst. | To-ukersvisning viser riktig dato/ukenummer i begge uker i nb/en/pl/de og smale bredder; timegrid åpner på arbeidsdagen og ikke 00:00 ved visningsbytte; korte hendelser er lesbare uten klipping; visuell/E2E-test eller skjermbildekontroll fanger regresjoner. |
 | **UX-09** · Tydelige forutsetninger for live-kart | P3 | S | **Dokumentert forutsetning:** dashbordkartet krever `Department.trackingEnabled` og at montøren deler posisjon; ellers vises tom/flagg-tilstand. | Tomtilstand forklarer begge forutsetningene og lenker til riktig sted (innstillinger for sporing, feltflate for deling); ingen markører fra gamle/avsluttede visiter; test dekker sporing av, ingen deling og fersk posisjon. |
 

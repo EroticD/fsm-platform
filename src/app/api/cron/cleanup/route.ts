@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanupAbandonedUploads } from "@/lib/upload-cleanup";
+import { releaseExpiredUploadQuotaReservations } from "@/lib/upload-quota";
 import { cleanupUploadTempFiles } from "@/lib/upload-multipart";
 import { uploadDir } from "@/lib/uploads";
 import { safeEqual } from "@/lib/secrets";
@@ -37,11 +38,19 @@ export async function GET(request: Request) {
   }
 
   const result = await cleanupAbandonedUploads();
+  // Reservasjoner fra krasjede eller avbrutte opplastinger må ikke låse
+  // kvoten. Aktive opplastinger er langt yngre enn reservasjonens levetid.
+  const reservationsReleased = await releaseExpiredUploadQuotaReservations();
   // Midlertidige filer fra avbrutte eller krasjede opplastinger skal ikke bli
   // liggende. Aktive opplastinger er langt yngre enn fristen på 24 timer.
   const temp = await cleanupUploadTempFiles({ tempDir: uploadDir() });
 
-  return NextResponse.json({ ok: true, ...result, tempRemoved: temp.removed });
+  return NextResponse.json({
+    ok: true,
+    ...result,
+    reservationsReleased,
+    tempRemoved: temp.removed,
+  });
 }
 
 export const POST = GET;
