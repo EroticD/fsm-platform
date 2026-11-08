@@ -16,10 +16,12 @@ seg**. Kjør `az <kommando> --help` hvis en parameter avvikes.
 
 > **Status og avgrensning**
 >
-> Dette er en primærarkitektur for én app-instans. Den er ikke en
-> høytilgjengelig app-topologi. Appen har in-process workers og lokalt
-> opplastingsvolum, så den kan ikke skaleres horisontalt uten videre. Se
-> [Skalering og HA](#10-skalering-og-ha) før dere vurderer flere app-VMer.
+> Dette er en primærarkitektur for én app-instans. Appen har nå
+> storage-abstraksjon med S3/MinIO-driver, Redis-basert kø/cache/rate limit med
+> database-fallback, og PITR-verktøy for Compose. Se
+> [Skalering og HA](#10-skalering-og-ha), [`STORAGE.md`](STORAGE.md) og
+> [`SCALING.md`](SCALING.md). Azure-oppsettet under bruker fortsatt lokal disk
+> som standard og må konfigureres bevisst for flere replikaer.
 >
 > Alle `az`-kommandoer under er **ikke kjørt mot et ekte Azure-abonnement** i
 > denne guiden. Det som er verifisert lokalt, står i tabellen nedenfor.
@@ -870,13 +872,16 @@ sudo docker compose \
 
 ## 5. Blob Storage for offsite backup
 
-Blob er **ikke** primærlagring for opplastinger. Appen skriver til
-`UPLOAD_DIR` på VM-ens disk, og det finnes ingen S3-driver i 0.8.10. Blob brukes
-til:
+Azure Blob kan brukes som primærlagring gjennom S3-kompatibilitet bare når
+tjenesten tilbyr et S3-endepunkt; appen har ingen egen Azure Blob-driver.
+Enkleste vei er S3/MinIO eller en S3-kompatibel gateway. Uten det skriver appen
+til `UPLOAD_DIR` på VM-ens disk. Blob brukes uansett til:
 
 - offsite kopi av `pg_dump`-filer
-- offsite kopi av opplastingsarkivet
+- offsite kopi av opplastingsarkivet eller S3-bucketten
 - langtidsretensjon og immutability
+
+Se [`STORAGE.md`](STORAGE.md) for migrering fra lokal disk.
 
 ### 5.1 Opprett storage account og container
 
@@ -1816,31 +1821,32 @@ Appen har in-process workers:
 - `REMINDER_WORKER` – påminnelser
 - `PDF_JOB_WORKER` – PDF/OCR-kø
 
-Noen oppgaver bruker PostgreSQL advisory locks eller delte køtabeller, men
-ikke alle. PDF-rendering har en prosesslokal semaphore, SSE bruker in-memory
-distribusjon, og opplastingsvolumet er lokalt. To app-instanser gir derfor
-minst disse problemene:
+Jobbene er idempotente og bruker PostgreSQL-låser/advisory locks, og med
+`STORAGE_DRIVER=s3` + `QUEUE_DRIVER=redis` kan flere replikaer dele arbeid og
+filer. Uten delt lagring gir to instanser likevel minst disse problemene:
 
-- dobbeltarbeid eller dupliserte varsler
+- opplastinger som havner på feil VM og blir utilgjengelige for den andre
+- dobbeltarbeid eller dupliserte varsler der en jobb ikke er låst
 - SSE-hendelser som bare når brukere på samme instans
 - PDF-semaphore som gir 2 per instans, ikke 2 totalt
-- opplastinger som havner på feil VM og blir utilgjengelige for den andre
 
 ### 10.2 Hva som kreves for flere app-instanser
 
-1. Skill workers ut i en egen prosess/tjeneste, eller bruk en låsemekanisme
-   som dekker alle jobbtypene.
-2. Flytt rate limits og kø til Redis/BullMQ eller en annen delt tjeneste.
-3. Flytt opplastinger til delt lagring. Appen har ingen S3-driver i 0.8.10;
-   Azure Files (SMB) kan monteres, men POSIX-semantikk, ytelse, låsing og
-   rettigheter må testes. Blob kan ikke brukes direkte uten kodeendring.
+1. Sett `STORAGE_DRIVER=s3` med en S3-kompatibel tjeneste og migrer filene
+   ([`STORAGE.md`](STORAGE.md)). Azure Files (SMB) er ikke testet og anbefales
+   ikke som primærlager.
+2. Sett `QUEUE_DRIVER=redis`, `CACHE_DRIVER=redis` og
+   `RATE_LIMIT_DRIVER=redis` med en managed Redis. Databasen er fallback.
+3. Sett `DATABASE_POOL_MAX` slik at replikaer × pool + margin er under
+   `max_connections`. Vurder pgbouncer.
 4. Sett opp Azure Load Balancer/Application Gateway med health probe mot
-   `/api/ready`.
-5. Del Caddy/TLS eller terminer TLS i Application Gateway.
-6. Test failover og delt filsystem grundig.
+   `/api/health` og readiness mot `/api/ready`.
+5. Terminer TLS i Application Gateway eller del Caddy.
+6. Test failover, opplasting, PDF/OCR og kundeoverføring med minst to
+   replikaer. Se [`SCALING.md`](SCALING.md).
 
-Dette er en egen utvidelse (P3/P4), ikke en konfigurasjonsendring i
-Compose-filen.
+For Compose finnes en ferdig profil i `docker-compose.ha.yml` med app-replikaer,
+Redis, WAL-arkiv og base-backup. Lasttest er ikke kjørt i denne endringen.
 
 ### 10.3 Database-HA
 
@@ -1878,9 +1884,11 @@ Full app-HA krever arkitekturendringene i [10.2](#102-hva-som-kreves-for-flere-a
   POSIX-filsystem. SMB gir andre låse- og rettighetssemantikker, og ytelsen er
   dårligere for mange små filer. Ikke bruk det uten en test av opplasting,
   OCR, PDF og sletting.
-- **Blob:** appen har ingen Blob/S3-driver. Blob er backup og offsite, ikke
-  `UPLOAD_DIR`.
-- **Managed disk:** anbefalt primærlagring i denne versjonen. Ta snapshot eller
+- **S3/MinIO:** støttet førsteklasses driver. Bruk versjonering, kryptering og
+  blokkert offentlig tilgang.
+- **Azure Blob:** brukes til backup/offsite med mindre dere har en
+  S3-kompatibel gateway. Appen har ingen egen Blob-SDK.
+- **Managed disk:** standard og enklest for én instans. Ta snapshot eller
   arkivkopi, og test restore.
 
 ### 10.6 Vertikal skalering

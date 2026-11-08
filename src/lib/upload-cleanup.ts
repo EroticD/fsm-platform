@@ -1,7 +1,5 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import { deleteUploadFile } from "@/lib/uploads";
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
@@ -104,7 +102,7 @@ export async function releaseUpload(
 
   const deleted = await prisma.upload.deleteMany({ where: { storedName } });
   if (deleted.count > 0) {
-    await fs.unlink(path.join(uploadDir(), storedName)).catch(() => undefined);
+    await deleteUploadFile(storedName).catch(() => undefined);
     return true;
   }
   return false;

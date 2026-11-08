@@ -5,6 +5,22 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Infrastruktur: S3, Redis og HA/PITR
+- Opplastinger går gjennom et felles `StorageDriver`-grensesnitt med lokal
+  disk (standard) og S3/MinIO. `/uploads/<filnavn>` og lagrede nøkler er
+  uendret. `npm run storage:migrate` kopierer og verifiserer eksisterende
+  filer. Se `docs/STORAGE.md`.
+- PDF-køen kan varsles via Redis (`QUEUE_DRIVER=redis`), og rate limits/cache
+  kan bruke Redis. Databasen er fortsatt standard og fallback; ingen jobb
+  avhenger av at Redis er oppe.
+- Ny HA-profil `docker-compose.ha.yml` med app-replikaer, Caddy, Redis,
+  delt S3 og Postgres WAL-arkivering. Verifisert base-backup og
+  `restore-pitr.sh` med RPO/RTO og øvelsessjekkliste i
+  `docs/BACKUP-RESTORE.md` og `docs/SCALING.md`.
+- `DATABASE_POOL_MAX` styrer DB-tilkoblinger per appprosess.
+- Ekte S3, Redis og PITR-restore er ikke verifisert uten legitimasjon/miljø;
+  se restrisiko i `docs/remaining-features.md` (PLAT-01/02/06).
+
 ### Native Android- og iOS-app flyttet til eget repo
 - Android- og iOS-appen ligger nå i det egne repoet `fsm-mobile`. Plattformen
   inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.

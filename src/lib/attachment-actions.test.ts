@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   releaseUpload: vi.fn(),
   revalidatePath: vi.fn(),
+  statUploadFile: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -26,16 +27,14 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: mocks.getCurrentUser,
   requireAdmin: mocks.requireAdmin,
 }));
-vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/opplastinger" }));
+vi.mock("@/lib/uploads", () => ({
+  statUploadFile: mocks.statUploadFile,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/server/customers", () => ({
   addCustomerAttachment: vi.fn(),
   removeCustomerAttachment: vi.fn(),
 }));
-vi.mock("fs/promises", () => ({
-  default: { access: vi.fn(async () => undefined) },
-}));
-
 import { addAttachment, removeAttachment } from "./attachment-actions";
 
 const access = {
@@ -71,6 +70,7 @@ beforeEach(() => {
   });
   mocks.audit.mockResolvedValue(undefined);
   mocks.claimUpload.mockResolvedValue({ claimed: true });
+  mocks.statUploadFile.mockResolvedValue({ key: "fil.pdf", size: 4 });
   mocks.prisma.$transaction.mockImplementation(
     async (callback: (tx: typeof mocks.prisma) => unknown) =>
       callback(mocks.prisma),

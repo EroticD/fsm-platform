@@ -1,7 +1,5 @@
 // i18n-ignore-file: jobbtilstander er tekniske data, ikke UI-tekst.
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -17,35 +15,36 @@ import {
   EXPORT_STALE_RUNNING_MS,
 } from "./export-request";
 import {
+  TRANSFER_ROOT_KEY,
   ensureJobStaging,
-  jobStagingDir,
-  transferRoot,
+  jobStagingKey,
+  jobStagingPrefix,
 } from "./paths";
+import { getStorageDriver } from "@/lib/storage";
 import { reconcileTransferFiles } from "./reconcile";
 
-export { ensureJobStaging, jobStagingDir, transferRoot };
+export { ensureJobStaging, jobStagingPrefix };
 
 export async function writeStagedPackage(
   jobId: string,
   buffer: Buffer,
 ): Promise<string> {
-  const directory = await ensureJobStaging(jobId);
-  const target = path.join(directory, "package.zip");
-  const handle = await fs.open(target, "wx", 0o600);
-  try {
-    await handle.writeFile(buffer);
-  } finally {
-    await handle.close();
-  }
-  return target;
+  await ensureJobStaging(jobId);
+  const key = jobStagingKey(jobId, "package.zip");
+  await getStorageDriver().write(key, buffer, {
+    contentType: "application/zip",
+    cacheControl: "private, no-store",
+  });
+  return key;
 }
 
 export async function readStagedPackage(jobId: string): Promise<Buffer | null> {
   try {
-    const target = path.join(jobStagingDir(jobId), "package.zip");
-    const stat = await fs.stat(target);
-    if (!stat.isFile() || stat.size > TRANSFER_LIMITS.maxPackageBytes) return null;
-    return await fs.readFile(target);
+    const storage = getStorageDriver();
+    const key = jobStagingKey(jobId, "package.zip");
+    const stat = await storage.stat(key);
+    if (!stat || stat.size > TRANSFER_LIMITS.maxPackageBytes) return null;
+    return await storage.read(key);
   } catch {
     return null;
   }
@@ -53,7 +52,11 @@ export async function readStagedPackage(jobId: string): Promise<Buffer | null> {
 
 export async function removeJobStaging(jobId: string): Promise<void> {
   try {
-    await fs.rm(jobStagingDir(jobId), { recursive: true, force: true });
+    const storage = getStorageDriver();
+    const prefix = jobStagingPrefix(jobId);
+    for (const object of await storage.list(prefix)) {
+      await storage.delete(object.key).catch(() => undefined);
+    }
   } catch {
     // Best effort. En orkestrert opprydding prøver igjen senere.
   }
@@ -295,17 +298,23 @@ export async function cleanupExpiredTransfers(now = new Date()): Promise<number>
   });
   const activeIds = new Set(active.map((job) => job.id));
   try {
-    const entries = await fs.readdir(transferRoot(), { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (activeIds.has(entry.name)) continue;
-      await fs.rm(path.join(transferRoot(), entry.name), {
-        recursive: true,
-        force: true,
-      });
+    const storage = getStorageDriver();
+    const objects = await storage.list(TRANSFER_ROOT_KEY);
+    const jobIds = new Set(
+      objects
+        .map((object) => object.key.slice(TRANSFER_ROOT_KEY.length + 1).split("/")[0])
+        .filter((id) => Boolean(id)),
+    );
+    for (const jobId of jobIds) {
+      if (activeIds.has(jobId)) continue;
+      for (const object of objects.filter((candidate) =>
+        candidate.key.startsWith(`${TRANSFER_ROOT_KEY}/${jobId}/`),
+      )) {
+        await storage.delete(object.key).catch(() => undefined);
+      }
     }
   } catch {
-    // Mappen finnes ikke ennå.
+    // Ingen staging ennå.
   }
 
   await pruneTransferJobRows(now);

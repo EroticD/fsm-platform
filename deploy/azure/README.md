@@ -126,12 +126,13 @@ docker compose --env-file deploy/azure/azure.env.example \
 
 ## Viktige begrensninger
 
-- **Én app-replika.** PDF/OCR, SMS, påminnelser og serviceavtaler kjører som
-  in-process workers. Skalering krever egen worker-prosess og Redis (eller
-  tilsvarende), se `docs/AZURE.md`.
-- **Opplastinger ligger på VM-ens managed disk.** `UPLOAD_DIR` er et lokalt
-  volum i `/app/uploads`. Blob Storage brukes til offsite backup, ikke som
-  primærlagring. Appen har ingen S3-driver i denne versjonen.
+- **Én app-replika i denne profilen.** Appen har nå Redis-adapter for
+  kø/cache/rate limit (`QUEUE_DRIVER=redis`) med database-fallback, og
+  S3/MinIO-driver for opplastinger (`STORAGE_DRIVER=s3`). Se
+  `docs/SCALING.md`, `docs/STORAGE.md` og `docker-compose.ha.yml`.
+- **Opplastinger ligger på VM-ens managed disk i denne profilen.**
+  `UPLOAD_DIR` er et lokalt volum i `/app/uploads`. Bytt til S3/MinIO og
+  migrer filene før dere skalerer ut eller vil ha delt lagring.
 - **Backup skriptes separat.** `scripts/backup.sh` forutsetter en lokal
   `postgres`-tjeneste i Compose og passer ikke direkte mot Flexible Server. Bruk
   Azure PITR og en egen `pg_dump`-jobb til Blob; se `docs/AZURE.md`.

@@ -1,7 +1,5 @@
 // i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
 // oversettes ved visning i audit-actions.ts.
-import fs from "fs/promises";
-import path from "path";
 import crypto from "node:crypto";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -29,7 +27,7 @@ import {
 import { isSafeLogoUrl } from "@/lib/logo";
 import { searchNormalizedIds } from "@/lib/search-sql";
 import { claimUpload } from "@/lib/upload-access";
-import { uploadDir } from "@/lib/uploads";
+import { statUploadFile } from "@/lib/uploads";
 import {
   can,
   fail,
@@ -46,9 +44,9 @@ import { contractScopeFor } from "./contracts";
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
-function attachmentPath(fileUrl: string): string | null {
+function attachmentKey(fileUrl: string): string | null {
   if (!UPLOAD_URL.test(fileUrl)) return null;
-  return path.join(uploadDir(), path.basename(fileUrl));
+  return fileUrl.slice("/uploads/".length);
 }
 
 export const CUSTOMER_ACTIVE_STATUSES: WorkStatus[] = [
@@ -1327,12 +1325,10 @@ export async function addCustomerAttachment(
 
   if (!customerId || !fileUrl) return fail("invalid");
 
-  const filePath = attachmentPath(fileUrl);
-  if (!filePath) return fail("invalid");
+  const fileKey = attachmentKey(fileUrl);
+  if (!fileKey) return fail("invalid");
 
-  try {
-    await fs.access(filePath);
-  } catch {
+  if (!(await statUploadFile(fileKey))) {
     return fail("file_not_found");
   }
 

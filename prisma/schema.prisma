@@ -1719,6 +1719,17 @@ model RateLimit {
   @@index([resetAt])
 }
 
+/// Database-fallback for cache når Redis ikke er konfigurert. Verdien er JSON
+/// som tekst, slik at modellen er driver-uavhengig. Radene har TTL og ryddes av
+/// jobbworkeren; Redis-nøkler bruker Redis sin egen TTL.
+model InfraCache {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 model AuditLog {
   id String @id @default(cuid())
   /// Monoton rekkefølge. Hash-kjeden følger denne, ikke tidspunktet, slik at

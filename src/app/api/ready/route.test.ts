@@ -71,9 +71,26 @@ describe("/api/ready", () => {
       status: "ready",
       database: "up",
       disk: "writable",
+      storage: { driver: "local", status: "ok" },
       queue: { pending: 0, failed: 0 },
     });
     expect(body.requestId).toBeTruthy();
+  });
+
+  it("returnerer 503 når lagringslaget ikke er tilgjengelig", async () => {
+    vi.mocked(fs.access).mockRejectedValueOnce(new Error("read-only"));
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/ready", {
+        headers: { authorization: "Bearer ready-secret" },
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      status: "not_ready",
+      storage: { driver: "local", status: "down" },
+    });
   });
 
   it("avviser feil hemmelighet uten detaljer", async () => {

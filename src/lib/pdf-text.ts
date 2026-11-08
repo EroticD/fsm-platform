@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { execFile as execFileCallback } from "child_process";
 import { promisify } from "util";
-import { uploadDir } from "@/lib/uploads";
+import { getStorageDriver, uploadTempDir } from "@/lib/storage";
 
 const execFile = promisify(execFileCallback);
 
@@ -63,12 +63,40 @@ export async function extractPdfText(filePath: string): Promise<{ text: string; 
     return { text: "", pages: [] };
   }
 
-  const fullPath = path.join(uploadDir(), path.basename(filePath));
+  const storedName = path.basename(filePath);
+  const driver = getStorageDriver();
+  let fullPath = driver.localPath(storedName);
+  let cleanup: (() => Promise<void>) | null = null;
 
-  if (!fs.existsSync(fullPath)) {
+  if (!fullPath) {
+    // S3 og andre eksterne drivere: pdftotext/tesseract trenger en lokal fil.
+    try {
+      const data = await driver.read(storedName);
+      const temporaryDir = await fs.promises.mkdtemp(
+        path.join(uploadTempDir(), "fsm-pdf-"),
+      );
+      fullPath = path.join(temporaryDir, "input.pdf");
+      await fs.promises.writeFile(fullPath, data, { mode: 0o600 });
+      cleanup = async () => {
+        await fs.promises.rm(temporaryDir, { recursive: true, force: true });
+      };
+    } catch {
+      return { text: "", pages: [] };
+    }
+  } else if (!fs.existsSync(fullPath)) {
     return { text: "", pages: [] };
   }
 
+  try {
+    return await extractFromFile(fullPath);
+  } finally {
+    if (cleanup) await cleanup().catch(() => undefined);
+  }
+}
+
+async function extractFromFile(
+  fullPath: string,
+): Promise<{ text: string; pages: { page: number; text: string }[] }> {
   // 1. Prøv pdftotext (poppler) - mest pålitelig
   let text = "";
   let pages: { page: number; text: string }[] = [];

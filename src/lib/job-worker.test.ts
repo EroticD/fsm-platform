@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
+    $executeRaw: vi.fn(),
   },
 }));
 
@@ -31,15 +32,15 @@ vi.mock("@/lib/pdf-text", () => ({
   extractPdfText: vi.fn(),
 }));
 
-vi.mock("node:fs/promises", () => ({
-  default: { unlink: vi.fn() },
-}));
+const uploadFileMocks = vi.hoisted(() => ({ deleteUploadFile: vi.fn() }));
 
-vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/uploads" }));
+vi.mock("@/lib/uploads", () => ({
+  uploadDir: () => "/tmp/uploads",
+  deleteUploadFile: uploadFileMocks.deleteUploadFile,
+}));
 
 import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
-import fs from "node:fs/promises";
 import {
   claimNextPdfTextJob,
   cleanupExpiredDrafts,
@@ -74,8 +75,9 @@ const mocked = prisma as unknown as {
   auditLog: { create: Mock };
   $transaction: Mock;
   $queryRaw: Mock;
+  $executeRaw: Mock;
 };
-const mockedUnlink = vi.mocked(fs.unlink);
+const mockedDeleteUploadFile = uploadFileMocks.deleteUploadFile;
 const mockedExtract = vi.mocked(extractPdfText);
 
 function job(overrides: Partial<PdfTextJob> = {}): PdfTextJob {
@@ -123,7 +125,12 @@ describe("claimNextPdfTextJob", () => {
 });
 
 describe("enqueuePdfText", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocked.$transaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
+      callback(mocked),
+    );
+  });
 
   it("lager en vedvarende jobb", async () => {
     mocked.documentJob.findFirst.mockResolvedValue(null);
@@ -135,6 +142,7 @@ describe("enqueuePdfText", () => {
     expect(mocked.documentJob.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { documentId: "doc-1", type: "PDF_TEXT" } }),
     );
+    expect(mocked.$executeRaw).toHaveBeenCalled();
   });
 
   it("lager ikke en ny jobb når dokumentet allerede venter", async () => {
@@ -233,7 +241,7 @@ describe("cleanupExpiredDrafts", () => {
     mocked.upload.findUnique.mockResolvedValue(null);
     mocked.upload.delete.mockResolvedValue({});
     mocked.upload.deleteMany.mockResolvedValue({ count: 1 });
-    mockedUnlink.mockResolvedValue(undefined);
+    mockedDeleteUploadFile.mockResolvedValue(undefined);
   });
 
   it("sletter utløpte kladder og frigjør en signatur som fortsatt eies av brukeren", async () => {
@@ -268,7 +276,7 @@ describe("cleanupExpiredDrafts", () => {
     expect(mocked.upload.deleteMany).toHaveBeenCalledWith({
       where: { storedName: "sig.png", ownerType: "USER", ownerId: "u1" },
     });
-    expect(mockedUnlink).toHaveBeenCalledWith("/tmp/uploads/sig.png");
+    expect(mockedDeleteUploadFile).toHaveBeenCalledWith("sig.png");
   });
 
   it("sletter ikke en signatur som allerede er tatt over av en rapport", async () => {
@@ -292,7 +300,7 @@ describe("cleanupExpiredDrafts", () => {
     expect(mocked.reportDraft.deleteMany).toHaveBeenCalled();
     mocked.upload.deleteMany.mockResolvedValue({ count: 0 });
     expect(mocked.upload.delete).not.toHaveBeenCalled();
-    expect(mockedUnlink).not.toHaveBeenCalled();
+    expect(mockedDeleteUploadFile).not.toHaveBeenCalled();
   });
 
   it("sletter ikke en kladd som ble oppdatert etter utløpet", async () => {

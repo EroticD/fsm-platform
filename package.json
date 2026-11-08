@@ -29,6 +29,7 @@
     "transfer:encrypt": "tsx scripts/transfer-encrypt.ts",
     "transfer:decrypt": "tsx scripts/transfer-decrypt.ts",
     "transfer:reconcile": "tsx scripts/reconcile-transfers.ts",
+    "storage:migrate": "tsx scripts/migrate-uploads-to-s3.ts",
     "visits:backfill:daily": "tsx scripts/backfill-daily-visits.ts",
     "sla:cleanup": "tsx scripts/cancel-uncontracted-sla.ts",
     "manual:build": "node scripts/build-manual.mjs",
@@ -37,6 +38,7 @@
     "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
@@ -45,6 +47,7 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.9",
     "fullcalendar": "^7.1.4",
+    "ioredis": "^6.0.0",
     "leaflet": "^1.9.4",
     "mdast-util-from-markdown": "^2.1.0",
     "next": "16.4.3",

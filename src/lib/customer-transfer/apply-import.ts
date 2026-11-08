@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // i18n-ignore-file: importmotoren skriver data og stabile feilkoder, ikke UI.
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { uploadDir } from "@/lib/uploads";
+import { getStorageDriver } from "@/lib/storage";
 import { writeFinalFilesLedger } from "./reconcile";
 import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
@@ -68,7 +66,6 @@ function extensionForMime(mime: string): string {
 
 type PendingFile = {
   storedName: string;
-  absolutePath: string;
   data: Buffer;
 };
 
@@ -123,8 +120,7 @@ function allocateFile(
   const entry = ctx.read.fileEntries.find((file) => file.path === packagePath);
   if (!entry) return null;
   const storedName = `${crypto.randomUUID()}.${extensionForMime(entry.mimeType)}`;
-  const absolutePath = path.join(uploadDir(), storedName);
-  ctx.pendingFiles.push({ storedName, absolutePath, data });
+  ctx.pendingFiles.push({ storedName, data });
   return {
     storedName,
     url: `/uploads/${storedName}`,
@@ -135,22 +131,18 @@ function allocateFile(
 
 async function movePendingFiles(pending: PendingFile[]): Promise<string[]> {
   const moved: string[] = [];
-  await fs.mkdir(uploadDir(), { recursive: true, mode: 0o700 });
+  const storage = getStorageDriver();
   for (const file of pending) {
-    const handle = await fs.open(file.absolutePath, "wx", 0o600);
-    try {
-      await handle.writeFile(file.data);
-    } finally {
-      await handle.close();
-    }
-    moved.push(file.absolutePath);
+    await storage.write(file.storedName, file.data);
+    moved.push(file.storedName);
   }
   return moved;
 }
 
-async function deleteFiles(paths: string[]): Promise<void> {
+async function deleteFiles(keys: string[]): Promise<void> {
+  const storage = getStorageDriver();
   await Promise.all(
-    paths.map((filePath) => fs.unlink(filePath).catch(() => undefined)),
+    keys.map((key) => storage.delete(key).catch(() => undefined)),
   );
 }
 

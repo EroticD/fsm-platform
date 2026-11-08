@@ -4,6 +4,13 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
+import {
+  forgetPdfJob,
+  notifyPdfJob,
+  takeDuePdfJobIds,
+} from "@/lib/infra/queue";
+import { cleanupExpiredCache } from "@/lib/infra/cache";
+import { queueDriver } from "@/lib/infra/redis";
 import { parseDateOnly, todayInOslo } from "@/lib/dates";
 import { logger } from "@/lib/logger";
 import { deleteUploadIfOwned } from "@/lib/upload-store";
@@ -136,19 +143,31 @@ export async function enqueuePdfText(
 
   try {
     // Unngå at gjentatte klikk på «reindekser» lager mange like jobber.
-    const existing = await prisma.documentJob.findFirst({
-      where: {
-        documentId,
-        status: { in: ["PENDING", "RUNNING"] },
-      },
-      select: { id: true },
+    // Advisory-låsen serialiserer samtidige enqueue-kall for samme dokument,
+    // slik at to replikaer ikke kan lage hver sin PENDING-jobb.
+    const created = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`document-job:${documentId}`}, 0)
+        )
+      `;
+      const existing = await tx.documentJob.findFirst({
+        where: {
+          documentId,
+          status: { in: ["PENDING", "RUNNING"] },
+        },
+        select: { id: true },
+      });
+      if (existing) return existing;
+      return tx.documentJob.create({
+        data: { documentId, type: PDF_TEXT_JOB_TYPE },
+        select: { id: true },
+      });
     });
-    if (existing) return existing;
-
-    return await prisma.documentJob.create({
-      data: { documentId, type: PDF_TEXT_JOB_TYPE },
-      select: { id: true },
-    });
+    // Redis-varselet er best effort. Uten Redis plukkes jobben av den vanlige
+    // databasepollingen, så en feil her kan aldri miste jobben.
+    await notifyPdfJob(created.id);
+    return created;
   } catch (error) {
     // Kallestedene er server actions som ikke venter på køen; en feil her skal
     // ikke velte selve opplastingen.
@@ -161,10 +180,41 @@ export async function enqueuePdfText(
 }
 
 /**
+ * Henter og låser én bestemt jobb. Redis kan varsle samme ID til flere
+ * replikaer; denne betingede oppdateringen gjør at bare én vinner.
+ */
+export async function claimPdfTextJobById(
+  id: string,
+): Promise<PdfTextJob | null> {
+  const rows = await prisma.$queryRaw<PdfTextJob[]>`
+    UPDATE "DocumentJob"
+    SET "status" = 'RUNNING',
+        "lockedAt" = now(),
+        "attempts" = "attempts" + 1
+    WHERE "id" = ${id}
+      AND "status" = 'PENDING'
+      AND "runAt" <= now()
+    RETURNING *
+  `;
+  return rows[0] ?? null;
+}
+
+/**
  * Henter og låser neste jobb som er klar. `SKIP LOCKED` gjør at flere
  * prosesser kan hente hver sin jobb uten å vente på hverandre.
+ *
+ * Med Redis prøver vi de varslede ID-ene først. Finner vi ingen (eller er
+ * Redis nede), bruker vi den samme databasekøen som før. Det er denne
+ * fallbacken som gjør at Redis kan slås av uten datatap.
  */
 export async function claimNextPdfTextJob(): Promise<PdfTextJob | null> {
+  if (queueDriver() === "redis") {
+    for (const id of await takeDuePdfJobIds()) {
+      const claimed = await claimPdfTextJobById(id);
+      if (claimed) return claimed;
+    }
+  }
+
   const rows = await prisma.$queryRaw<PdfTextJob[]>`
     UPDATE "DocumentJob"
     SET "status" = 'RUNNING',
@@ -203,6 +253,9 @@ export async function requeueStalePdfTextJobs(): Promise<number> {
       logger.warn("Text extraction: requeued stale jobs", {
         count: rows.length,
       });
+      await Promise.all(
+        rows.map((row) => notifyPdfJob(row.id).catch(() => false)),
+      );
     }
     return rows.length;
   } catch (error) {
@@ -230,6 +283,7 @@ async function failOrRetryPdfTextJob(
       attempts: job.attempts,
       error: message,
     });
+    await forgetPdfJob(job.id);
     return "failed";
   }
 
@@ -245,6 +299,7 @@ async function failOrRetryPdfTextJob(
     attempts: job.attempts,
     runAt: runAt.toISOString(),
   });
+  await notifyPdfJob(job.id, runAt);
   return "retry";
 }
 
@@ -278,6 +333,7 @@ export async function processPdfTextJob(
       where: { id: job.id },
       data: { status: "DONE", lockedAt: null, lastError: null },
     });
+    await forgetPdfJob(job.id);
 
     return "done";
   } catch (error) {
@@ -794,6 +850,19 @@ export async function startJobWorker(): Promise<void> {
   pruneRateLimits();
   const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
   cleanupTimer.unref?.();
+
+  // Utløpte cache-rader i databasen ryddes sammen med rate-limit-tellerne.
+  // Redis-nøkler har egen TTL og trenger ingen tilsvarende jobb.
+  const pruneCache = () => {
+    void cleanupExpiredCache().catch((error) => {
+      logger.error("Could not clean up the infrastructure cache", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  pruneCache();
+  const cacheTimer = setInterval(pruneCache, 15 * 60_000);
+  cacheTimer.unref?.();
 
   // Send varsel-e-poster fra den vedvarende Notification-tabellen. En treg
   // SMTP-server blokkerer da ikke handlingen som utløste varselet.

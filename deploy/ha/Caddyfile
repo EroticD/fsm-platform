@@ -1,0 +1,32 @@
+# Caddy foran flere app-replikaer. Docker DNS returnerer alle replikaene bak
+# tjenestenavnet «app», og Caddy fordeler trafikken mellom dem.
+{
+	email {$ACME_EMAIL}
+}
+
+{$FSM_DOMAIN} {
+	encode zstd gzip
+
+	# Helse mot /api/health (liveness), ikke /api/ready: readiness sjekker DB,
+	# S3 og Redis og skal ikke fjerne en replika fra LB ved en kortvarig
+	# avhengighetsfeil. Compose/orkestratoren eier readiness.
+	reverse_proxy app:3000 {
+		lb_policy least_conn
+		health_uri /api/health
+		health_interval 10s
+		health_timeout 3s
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
