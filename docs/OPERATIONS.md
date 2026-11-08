@@ -1152,28 +1152,76 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   `QUEUED` eller `RUNNING` avvises med `409`. Selve anvendelsen låser også hver
   eksisterende målkunde (sortert, for å unngå deadlock), slik at to ulike
   pakker som treffer samme kunde serialiseres.
-- **Signatur (anbefalt):** sett `CUSTOMER_TRANSFER_SIGNING_KEY` (minst 32 tegn,
-  f.eks. `openssl rand -base64 48`) på både kilde- og målinstallasjonen.
-  Eksporten legger da en HMAC-SHA256 i `manifest.sig`; importen verifierer
-  manifest + `checksums.sha256` og avviser endrede pakker. Sett
-  `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` for å kreve signatur. Nøkkelen
-  skal aldri i git, logger eller pakken.
-  - **Rotasjon:** generer ny nøkkel, sett den som `CUSTOMER_TRANSFER_SIGNING_KEY`
-    og legg den gamle i `CUSTOMER_TRANSFER_SIGNING_KEYS_PREVIOUS`
-    (kommaseparert). Nye pakker signeres med den nye; gamle verifiseres med den
-    gamle. Fjern gamle nøkler når alle mellomliggende pakker er importert eller
-    utløpt. `CUSTOMER_TRANSFER_SIGNING_KEY_ID` er en valgfri, ikke-hemmelig
-    etikett for logging.
-  - **Trust model:** HMAC er et delt hemmelighetssystem. Det beviser at
-    pakken er laget av noen med nøkkelen, ikke hvem i en juridisk
-    ikke-fornektelsesforstand. Behandle nøkkelen som en tjenestehemmelighet og
-    roter ved mistanke om lekkasje.
+- **Signatur (anbefalt):** to moduser kan brukes sammen. Begge signerer
+  manifestet og `checksums.sha256` med samme kanoniske payload.
+  - **HMAC-SHA256:** sett `CUSTOMER_TRANSFER_SIGNING_KEY` (minst 32 tegn,
+    f.eks. `openssl rand -base64 48`) på både kilde- og målinstallasjonen.
+    Eksporten legger signaturen i `manifest.sig`. Den er bakoverkompatibel med
+    alle eksisterende pakker.
+  - **Ed25519:** generer et nøkkelpar på kildeinstallasjonen:
+    `openssl genpkey -algorithm ED25519 -out transfer-ed25519-private.pem` og
+    `openssl pkey -in transfer-ed25519-private.pem -pubout -out transfer-ed25519-public.pem`.
+    Sett `CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY` på kilden og
+    `CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY` på mottakeren. PEM kan inneholde
+    ekte linjeskift eller escaped `\n` (nyttig i Docker/env-filer).
+    `CUSTOMER_TRANSFER_ED25519_KEY_ID` er en valgfri, ikke-hemmelig etikett for
+    logging. Eksporten legger signaturen i `manifest.sig.ed25519`.
+    På en installasjon som bare skal verifisere, settes bare den offentlige
+    nøkkelen. Setter man bare privatnøkkelen, utleder appen den offentlige
+    nøkkelen for egen verifisering; dette er praktisk i enkeltinstallasjoner.
+  - **Modus:** `CUSTOMER_TRANSFER_SIGNATURE_MODE` kan være `hmac`, `ed25519`,
+    `both` eller `any`. `hmac`/`ed25519` godtar bare den valgte algoritmen og
+    ignorerer den andre med en advarsel. `both` krever at begge signaturfilene
+    finnes og er gyldige. `any` krever minst én gyldig av de konfigurerte
+    algoritmene. Standard er `any` når både HMAC og Ed25519 er konfigurert,
+    ellers den ene konfigurerte algoritmen. Standardvalget bevarer gamle
+    HMAC-pakker etter at Ed25519 tas i bruk. En signatur som er til stede, men
+    ugyldig, avvises alltid – også i `any`.
+  - Sett `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` for å kreve signatur.
+    Pakker med feil nøkkel får `customer_transfer.signature_untrusted`, endret
+    innhold får `customer_transfer.signature_invalid`, og manglende påkrevd
+    signatur får `customer_transfer.signature_missing`.
+  - **Nøkkellagring:** private nøkler og HMAC-hemmeligheter skal aldri i git,
+    logger, pakken eller vanlige env-filer i klartekst. Bruk
+    secrets-manager/Docker secret, begrens lesetilgang og roter ved mistanke om
+    lekkasje. Den offentlige Ed25519-nøkkelen er ikke hemmelig og kan
+    distribueres over en verifisert kanal.
+  - **Rotasjon:** generer nytt nøkkelpar (eller ny HMAC-nøkkel), sett den nye
+    som aktiv signeringsnøkkel og legg den gamle offentlige nøkkelen i
+    `CUSTOMER_TRANSFER_ED25519_PUBLIC_KEYS_PREVIOUS` (kommaseparert PEM eller
+    JSON-array med PEM/`{id, publicKey}`). For HMAC legges den gamle nøkkelen i
+    `CUSTOMER_TRANSFER_SIGNING_KEYS_PREVIOUS` (kommaseparert). Nye pakker
+    signeres med den nye nøkkelen; gamle verifiseres med den gamle. Fjern gamle
+    verifiseringsnøkler når alle mellomliggende pakker er importert eller
+    utløpt.
+  - **Gjenoppretting:** mistes privatnøkkelen, kan nye pakker ikke signeres med
+    den. Generer et nytt par, distribuer den nye offentlige nøkkelen og behold
+    den gamle offentlige nøkkelen til gamle pakker er importert. Mistes en
+    offentlig nøkkel på mottakeren, kan pakken ikke verifiseres; skaff den fra
+    en verifisert kanal. Signer aldri om en mottatt pakke for å «reparere» den.
+  - **Trust model:** HMAC er et delt hemmelighetssystem. Det beviser at pakken
+    er laget av noen med nøkkelen, ikke hvem i en juridisk
+    ikke-fornektelsesforstand. Ed25519 fjerner behovet for å dele en hemmelighet
+    med mottakeren og gir asymmetrisk verifisering, men det er fortsatt én
+    felles signeringsidentitet for installasjonen – ikke per-bruker
+    ikke-fornektelse. I `any`-modus kan en gyldig HMAC-signatur godtas når
+    Ed25519 mangler; bruk `both` eller `ed25519` hvis bare asymmetrisk
+    verifisering skal være mulig.
 - **Valgfri kryptering:** `npm run transfer:encrypt -- pakke.zip pakke.fsmenc`
   (eller `TRANSFER_PASSPHRASE=...`) lager et AES-256-GCM-omslag med
   scrypt-nøkkel. Import kan ta imot `.fsmenc` med passfrasen i multipart-feltet
   `passphrase`; CLI kan også dekryptere med `npm run transfer:decrypt`.
-  Passfrasen lagres aldri i DB, jobb-JSON eller logg. `X-Transfer-Passphrase` er
-  bare for CLI og må ikke logges av proxyer. Bruk TLS i tillegg.
+  - **Admin-UI:** importfanen har et eget passordfelt for `.fsmenc`. Feltet
+    sendes bare som multipart `passphrase` i den ene opplastingsforespørselen,
+    tømmes fra React-state etter at pakken er tatt imot, og lagres aldri i DB,
+    jobb-JSON eller logg. Vanlige ZIP-pakker lastes opp uten passfrase.
+    Manglende passfrase gir `customer_transfer.passphrase_required`; feil
+    passfrase gir `customer_transfer.decryption_failed`. Begge vises som
+    oversatte feilmeldinger i UI-et.
+  - **Eksport:** nedlastingsknappen lager en vanlig ZIP. Skal pakken krypteres
+    før overføring, kjøres CLI-en etter nedlasting og `.fsmenc`-filen lastes opp
+    i mottakerens importfane. `X-Transfer-Passphrase` er bare for CLI og må ikke
+    logges av proxyer. Bruk TLS i tillegg.
 - **Levetid/opprydding:** eksportartefakter og importstaging utløper etter 24
   timer. `cleanupExpiredTransfers()` kalles hver time, avstemmer filer, sletter
   staging, markerer jobben `EXPIRED` og fjerner forlatte kataloger uten levende

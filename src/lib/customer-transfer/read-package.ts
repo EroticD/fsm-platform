@@ -22,7 +22,11 @@ import {
   TRANSFER_SCHEMA_VERSION,
   migrateManifestToCurrent,
 } from "./schema-version";
-import { SIGNATURE_FILE, verifyPackageSignature } from "./signature";
+import {
+  ED25519_SIGNATURE_FILE,
+  SIGNATURE_FILE,
+  verifyPackageSignatures,
+} from "./signature";
 import type { PackageReadResult, TransferDataset, TransferRow } from "./types";
 
 export type PackageReadOutcome =
@@ -887,21 +891,28 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
   // Signaturverifisering skjer før vi stoler på checksums/manifest. Uten
   // nøkkel er en usignert pakke et integritetsvarsel, ikke en hemmelighet.
   const signatureEntry = entryMap.get(SIGNATURE_FILE) ?? null;
-  const signature = verifyPackageSignature({
-    signatureBytes: signatureEntry?.data ?? null,
+  const ed25519Entry = entryMap.get(ED25519_SIGNATURE_FILE) ?? null;
+  const signature = verifyPackageSignatures({
+    hmacSignatureBytes: signatureEntry?.data ?? null,
+    ed25519SignatureBytes: ed25519Entry?.data ?? null,
     manifestBytes: manifestEntry.data,
     checksumsBytes: checksumEntry.data,
   });
   for (const code of signature.errors) {
+    const untrusted = code === "signature_untrusted";
     errors.push(
       issue(
         code === "signature_missing"
           ? TRANSFER_ERROR.signature_missing
-          : TRANSFER_ERROR.signature_invalid,
-        SIGNATURE_FILE,
+          : untrusted
+            ? TRANSFER_ERROR.signature_untrusted
+            : TRANSFER_ERROR.signature_invalid,
+        untrusted ? ED25519_SIGNATURE_FILE : SIGNATURE_FILE,
         code === "signature_missing"
           ? "errors.customerTransfer.signatureMissing"
-          : "errors.customerTransfer.signatureInvalid",
+          : untrusted
+            ? "errors.customerTransfer.signatureUntrusted"
+            : "errors.customerTransfer.signatureInvalid",
       ),
     );
   }
@@ -912,7 +923,9 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
         SIGNATURE_FILE,
         code === "signature_key_missing"
           ? "errors.customerTransfer.signatureKeyMissing"
-          : "errors.customerTransfer.signatureUnsigned",
+          : code === "signature_algorithm_ignored"
+            ? "errors.customerTransfer.signatureAlgorithmIgnored"
+            : "errors.customerTransfer.signatureUnsigned",
         "warning",
       ),
     );
@@ -1108,6 +1121,7 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
       path === "checksums.sha256" ||
       path === "README.txt" ||
       path === "manifest.sig" ||
+      path === "manifest.sig.ed25519" ||
       path.startsWith("data/") ||
       path.startsWith("files/") ||
       path.startsWith("provenance/");

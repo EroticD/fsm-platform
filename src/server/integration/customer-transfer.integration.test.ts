@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, generateKeyPairSync } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -22,6 +22,7 @@ import { uploadDir } from "@/lib/uploads";
 import { encryptPackageBuffer } from "@/lib/customer-transfer/encryption";
 import { exportRateLimitKey } from "@/lib/customer-transfer/export-request";
 import { POST as exportRoutePost } from "@/app/api/innstillinger/kunder/eksport/route";
+import { POST as importRoutePost } from "@/app/api/innstillinger/kunder/import/route";
 import { GET as downloadRouteGet } from "@/app/api/innstillinger/kunder/eksport/[jobId]/download/route";
 import {
   confirmImport,
@@ -793,7 +794,14 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
       where: { actorId: { in: [ids.adminId, ids.officeId, ids.technicianId] } },
     });
     await prisma.rateLimit.deleteMany({
-      where: { key: exportRateLimitKey(ids.adminId) },
+      where: {
+        key: {
+          in: [
+            exportRateLimitKey(ids.adminId),
+            `customer-transfer-import:${ids.adminId}`,
+          ],
+        },
+      },
     });
     sessionState.user = null;
     if (tempRoot) {
@@ -1500,6 +1508,158 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
       }
     }
   });
+
+  it("signerer med Ed25519, avviser endret manifest og ukjent offentlig nøkkel", async () => {
+    const envKeys = [
+      "CUSTOMER_TRANSFER_SIGNING_KEY",
+      "CUSTOMER_TRANSFER_REQUIRE_SIGNATURE",
+      "CUSTOMER_TRANSFER_SIGNATURE_MODE",
+      "CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY",
+      "CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY",
+      "CUSTOMER_TRANSFER_ED25519_KEY_ID",
+    ] as const;
+    const previous = Object.fromEntries(
+      envKeys.map((key) => [key, process.env[key]]),
+    ) as Record<(typeof envKeys)[number], string | undefined>;
+
+    const signer = generateKeyPairSync("ed25519");
+    const other = generateKeyPairSync("ed25519");
+    const privatePem = signer.privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const publicPem = signer.publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+    const otherPublicPem = other.publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+
+    delete process.env.CUSTOMER_TRANSFER_SIGNING_KEY;
+    process.env.CUSTOMER_TRANSFER_SIGNATURE_MODE = "ed25519";
+    process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE = "true";
+    process.env.CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY = privatePem;
+    process.env.CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY = publicPem;
+    process.env.CUSTOMER_TRANSFER_ED25519_KEY_ID = "integration-ed25519";
+
+    try {
+      const signed = await buildCustomerPackage(admin, {
+        customerIds: [ids.customerBId],
+        includeFiles: true,
+        includeDeleted: false,
+        includeLegalHold: false,
+        includeAudit: false,
+        includeSignatures: false,
+      });
+      const entries = readZip(signed.buffer);
+      const paths = entries.map((entry) => entry.path);
+      expect(paths).toContain("manifest.sig.ed25519");
+      expect(paths).not.toContain("manifest.sig");
+
+      const good = readPackage(signed.buffer);
+      expect(good.ok).toBe(true);
+
+      const manifestEntry = entries.find(
+        (entry) => entry.path === "manifest.json",
+      );
+      expect(manifestEntry).toBeTruthy();
+      if (!manifestEntry) return;
+      const tamperedManifest = JSON.parse(
+        manifestEntry.data.toString("utf8"),
+      ) as Record<string, unknown>;
+      tamperedManifest.exportedAt = new Date(
+        Date.parse(String(tamperedManifest.exportedAt)) + 1000,
+      ).toISOString();
+      const tampered = createZip(
+        entries.map((entry) =>
+          entry.path === "manifest.json"
+            ? {
+                path: entry.path,
+                data: Buffer.from(
+                  `${JSON.stringify(tamperedManifest, null, 2)}\n`,
+                  "utf8",
+                ),
+              }
+            : { path: entry.path, data: entry.data },
+        ),
+      );
+      const rejected = readPackage(tampered);
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) {
+        expect(
+          rejected.errors.some(
+            (error) => error.code === "customer_transfer.signature_invalid",
+          ),
+        ).toBe(true);
+      }
+
+      // Riktig pakke, men feil offentlig nøkkel er konfigurert i mottakeren.
+      process.env.CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY = otherPublicPem;
+      const untrusted = readPackage(signed.buffer);
+      expect(untrusted.ok).toBe(false);
+      if (!untrusted.ok) {
+        expect(
+          untrusted.errors.some(
+            (error) => error.code === "customer_transfer.signature_untrusted",
+          ),
+        ).toBe(true);
+      }
+    } finally {
+      for (const key of envKeys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it("tar imot multipart-passfrase via importruten", async () => {
+    const passphrase = "korrekt hest batteri stiftemaskin";
+    const envelope = encryptPackageBuffer(packageBuffer, passphrase);
+
+    const post = (passphraseValue?: string) => {
+      const form = new FormData();
+      form.append(
+        "file",
+        new File([new Uint8Array(envelope)], "encrypted.fsmenc", {
+          type: "application/octet-stream",
+        }),
+      );
+      if (passphraseValue !== undefined) {
+        form.append("passphrase", passphraseValue);
+      }
+      return importRoutePost(
+        new Request("http://localhost/api/innstillinger/kunder/import", {
+          method: "POST",
+          headers: { Origin: "http://localhost" },
+          body: form,
+        }) as never,
+      );
+    };
+
+    const missing = await post();
+    expect(missing.status).toBe(422);
+    const missingBody = (await missing.json()) as {
+      error: string;
+      messageKey: string;
+    };
+    expect(missingBody.error).toBe("customer_transfer.passphrase_required");
+    expect(missingBody.messageKey).toBe(
+      "errors.customerTransfer.passphraseRequired",
+    );
+
+    const wrong = await post("feil passfrase som er lang nok");
+    expect(wrong.status).toBe(422);
+    const wrongBody = (await wrong.json()) as { error: string };
+    expect(wrongBody.error).toBe("customer_transfer.decryption_failed");
+
+    const accepted = await post(passphrase);
+    expect(accepted.status).toBe(202);
+    const acceptedBody = (await accepted.json()) as { id: string };
+    expect(acceptedBody.id).toBeTruthy();
+    await removeJobStaging(acceptedBody.id);
+    await prisma.customerTransferJob.delete({ where: { id: acceptedBody.id } });
+  });
+
 
   it("migrerer en 1.0-pakke deterministisk og avviser en fremtidig majorversjon", () => {
     const entries = readZip(packageBuffer);

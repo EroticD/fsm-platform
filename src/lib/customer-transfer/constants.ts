@@ -85,6 +85,7 @@ export const TRANSFER_ERROR = {
   nested_archive: "customer_transfer.nested_archive",
   signature_invalid: "customer_transfer.signature_invalid",
   signature_missing: "customer_transfer.signature_missing",
+  signature_untrusted: "customer_transfer.signature_untrusted",
   decryption_failed: "customer_transfer.decryption_failed",
   passphrase_required: "customer_transfer.passphrase_required",
   conflict: "customer_transfer.conflict",
@@ -272,9 +273,9 @@ rapporter, dokumenter og vedlegg for én eller flere kunder.
 - Portalerbrukere importeres deaktivert og uten passord. De må inviteres eller
   tilbakestille passord i målinstallasjonen.
 - Sjekksummene i checksums.sha256 oppdager korrupsjon. Når installasjonen har
-  en signeringsnøkkel, ligger en HMAC-SHA256-signatur i manifest.sig og binder
-  manifest og sjekksummer til nøkkelen. Uten nøkkel beviser ikke pakken hvem
-  som lagde den.
+  en signeringsnøkkel, ligger en HMAC-SHA256-signatur i manifest.sig, og/eller
+  en Ed25519-signatur i manifest.sig.ed25519. Signaturen binder manifest og
+  sjekksummer til nøkkelen. Uten nøkkel beviser ikke pakken hvem som lagde den.
 - Rapporter kan inneholde helse-/HMS-opplysninger og signaturer. Signaturbilder
   er som standard ikke inkludert; PDF-en er den visuelle hovedkilden.
 - Behandle filen som konfidensielt materiale, oppbevar den tilgangsbegrenset og

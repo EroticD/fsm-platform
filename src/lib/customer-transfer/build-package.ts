@@ -19,7 +19,11 @@ import {
   stableJson,
   type TransferManifest,
 } from "./manifest";
-import { signPackage, transferSigningConfig } from "./signature";
+import {
+  createPackageSignatures,
+  signatureFileCount,
+  transferSigningConfig,
+} from "./signature";
 import type {
   AuditSnapshotRow,
   ExportOptions,
@@ -253,7 +257,8 @@ export async function buildCustomerPackage(
     .digest("hex")
     .slice(0, 32);
 
-  const signed = Boolean(transferSigningConfig().primary);
+  const signingConfig = transferSigningConfig();
+  const signatureCount = signatureFileCount(signingConfig);
   const manifest: TransferManifest = {
     format: TRANSFER_FORMAT,
     schemaVersion: TRANSFER_SCHEMA_VERSION,
@@ -267,14 +272,15 @@ export async function buildCustomerPackage(
     totals: {
       dataBytes,
       fileBytes,
-      // manifest.json, checksums.sha256, README.txt (+ manifest.sig)
-      entries: entries.length + 3 + (signed ? 1 : 0),
+      // manifest.json, checksums.sha256, README.txt (+ eventuelle signaturfiler)
+      entries: entries.length + 3 + signatureCount,
     },
   };
 
   const manifestJson = stableJson(manifest);
   const checksumsFile = buildChecksumsFile(checksums);
-  const signature = signPackage(manifestJson, checksumsFile, {
+  const signatures = createPackageSignatures(manifestJson, checksumsFile, {
+    config: signingConfig,
     signedAt: exportedAt,
   });
   entries.push(
@@ -282,10 +288,10 @@ export async function buildCustomerPackage(
     { path: "checksums.sha256", data: checksumsFile, modifiedAt: exportedAt },
     { path: "README.txt", data: Buffer.from(README_TEXT, "utf8"), modifiedAt: exportedAt },
   );
-  if (signature) {
+  for (const signature of signatures.files) {
     entries.push({
-      path: "manifest.sig",
-      data: signature,
+      path: signature.path,
+      data: signature.data,
       modifiedAt: exportedAt,
     });
   }
