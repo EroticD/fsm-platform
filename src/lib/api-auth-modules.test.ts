@@ -39,4 +39,27 @@ describe("API-modulen", () => {
     if (!result.ok) expect(result.response.status).toBe(404);
     expect(mocks.prisma.apiKey.findUnique).not.toHaveBeenCalled();
   });
+
+  it.each(["/api/v1/quotes", "/api/v1/inventory/items"])(
+    "svarer 404 når modulen for %s er av",
+    async (path) => {
+      mocks.moduleEnabled.mockImplementation(
+        async (key: string) => key === "api",
+      );
+      const result = await authenticateApiRequest(request(path));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.response.status).toBe(404);
+      expect(mocks.prisma.apiKey.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  it("slipper gjennom når både api og rute-modulen er på", async () => {
+    mocks.moduleEnabled.mockResolvedValue(true);
+    mocks.prisma.apiKey.findUnique.mockResolvedValue(null);
+    const result = await authenticateApiRequest(
+      request("/api/v1/inventory/items"),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(401);
+  });
 });

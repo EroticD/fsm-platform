@@ -1008,6 +1008,7 @@ export async function listQuotes(
   actor: ServiceActor,
   options: { status?: QuoteStatusValue | null; query?: string; customerId?: string; page?: number; pageSize?: number } = {},
 ): Promise<ServiceResult<{ quotes: QuoteListItem[]; total: number }>> {
+  if (!(await moduleIsAvailable("quotes"))) return fail("not_found");
   const scope = quoteScopeFor(actor);
   if (!actor.isActive) return fail("forbidden");
   const page = Math.max(1, options.page ?? 1);
@@ -1055,6 +1056,7 @@ export async function listQuotes(
 }
 
 export async function getQuote(actor: ServiceActor, quoteId: string) {
+  if (!(await moduleIsAvailable("quotes"))) return fail("not_found");
   const cleanId = id(quoteId);
   if (!cleanId) return fail("not_found");
   const quote = await prisma.quote.findFirst({

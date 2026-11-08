@@ -278,6 +278,12 @@
         "maintenanceWrite": "Vedlikehold – skriv",
         "reportsRead": "Rapporter – les",
         "documentsRead": "Dokumenter – les",
+        "quotesRead": "Tilbud – les",
+        "quotesWrite": "Tilbud – skriv",
+        "ordersRead": "Ordre – les",
+        "ordersWrite": "Ordre – skriv",
+        "inventoryRead": "Lager – les",
+        "inventoryWrite": "Lager – skriv",
         "allLegacy": "Alle (eldre nøkkel uten begrensning)"
       },
       "revoke": "Tilbakekall",

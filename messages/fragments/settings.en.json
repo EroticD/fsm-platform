@@ -278,6 +278,12 @@
         "maintenanceWrite": "Maintenance – write",
         "reportsRead": "Reports – read",
         "documentsRead": "Documents – read",
+        "quotesRead": "Quotes – read",
+        "quotesWrite": "Quotes – write",
+        "ordersRead": "Orders – read",
+        "ordersWrite": "Orders – write",
+        "inventoryRead": "Inventory – read",
+        "inventoryWrite": "Inventory – write",
         "allLegacy": "All (legacy key without restriction)"
       },
       "revoke": "Revoke",

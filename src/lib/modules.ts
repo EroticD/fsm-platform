@@ -94,7 +94,7 @@ export const MODULES: readonly ModuleDefinition[] = [
       "sikkerhet",
     ],
     routes: ["/", "/oppdrag", "/kunder", "/mine-oppdrag", "/sok", "/varsler", "/innstillinger", "/brukere"],
-    apiPrefixes: ["/api/search", "/api/oppdrag", "/api/kunder", "/api/notifications", "/api/branding"],
+    apiPrefixes: ["/api/search", "/api/oppdrag", "/api/kunder", "/api/notifications", "/api/branding", "/api/v1/orders"],
     workers: [
       "audit-retention",
       "search-log-cleanup",
@@ -277,7 +277,7 @@ export const MODULES: readonly ModuleDefinition[] = [
     nav: ["quotes"],
     settingsTabs: [],
     routes: ["/tilbud"],
-    apiPrefixes: ["/api/tilbud"],
+    apiPrefixes: ["/api/tilbud", "/api/v1/quotes"],
     workers: [],
   }),
   definition("invoicing", {
@@ -297,7 +297,7 @@ export const MODULES: readonly ModuleDefinition[] = [
     nav: ["inventory"],
     settingsTabs: [],
     routes: ["/lager"],
-    apiPrefixes: [],
+    apiPrefixes: ["/api/v1/inventory"],
     workers: [],
   }),
   definition("fieldExpenses", {
@@ -509,6 +509,8 @@ const ROUTE_MODULE_PREFIXES: ReadonlyArray<readonly [string, ModuleKey]> = [
   ["/dokumenter", "documents"],
   ["/api/v1/documents", "documents"],
   ["/api/upload", "documents"],
+  ["/api/v1/quotes", "quotes"],
+  ["/api/v1/inventory", "inventory"],
   ["/meldinger", "sms"],
   ["/api/webhooks/sms", "sms"],
   ["/kart", "map"],

@@ -36,6 +36,22 @@ describe("requiredScopeForRequest", () => {
     ["/api/v1/reports/r1/pdf", "GET", "reports:read"],
     ["/api/v1/documents", "GET", "documents:read"],
     ["/api/v1/documents/d1", "GET", "documents:read"],
+    ["/api/v1/quotes", "GET", "quotes:read"],
+    ["/api/v1/quotes", "POST", "quotes:write"],
+    ["/api/v1/quotes/q1", "GET", "quotes:read"],
+    ["/api/v1/quotes/q1", "PATCH", "quotes:write"],
+    ["/api/v1/quotes/q1/send", "POST", "quotes:write"],
+    ["/api/v1/orders", "GET", "orders:read"],
+    ["/api/v1/orders", "POST", "orders:write"],
+    ["/api/v1/orders/o1", "GET", "orders:read"],
+    ["/api/v1/orders/o1", "PATCH", "orders:write"],
+    ["/api/v1/inventory/items", "GET", "inventory:read"],
+    ["/api/v1/inventory/items/i1", "GET", "inventory:read"],
+    ["/api/v1/inventory/locations", "GET", "inventory:read"],
+    ["/api/v1/inventory/stock", "GET", "inventory:read"],
+    ["/api/v1/inventory/reservations", "POST", "inventory:write"],
+    ["/api/v1/inventory/reservations/r1/release", "POST", "inventory:write"],
+    ["/api/v1/inventory/reservations/r1/consume", "POST", "inventory:write"],
   ])("%s %s krever %s", (path, method, expected) => {
     expect(requiredScopeForRequest(method, path)).toBe(expected);
   });
