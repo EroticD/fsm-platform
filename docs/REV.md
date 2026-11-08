@@ -13,6 +13,11 @@ følger det modulære rammeverket. Sidene registrerer seg selv med
 i `src/i18n/messages.ts`, modulene er `active` i modulkatalogen, og
 navigasjons-/innstillingspunktene er på plass.
 
+> **Tillegg i denne grenen:** betaling via Stripe/Vipps og regnskapssynk mot
+> Fiken/Tripletex/PowerOffice Go/CSV. Se `docs/PAYMENTS.md` og
+> `docs/ACCOUNTING.md`. Migreringen `20261109090000_payments_accounting` er
+> additiv og legger til betalingslenke, PSP-metadata og regnskapstabeller.
+
 ## Ruter
 
 | Rute | Modul | Formål |
@@ -101,13 +106,15 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
 
 ## v1-begrensninger
 
-- **Ingen ekstern betalingsleverandør.** Det finnes ingen kortbetaling,
-  Vipps/Stripe-integrasjon eller betalingslenke. Betaling registreres manuelt,
-  og portalen viser bankoverføring som betalingsmåte.
+- **Betalingsleverandør er valgfri og miljøstyrt.** Med `PAYMENTS_PROVIDER`
+  tom er flyten manuell som før. Med Stripe/Vipps opprettes en betalingslenke,
+  og webhooken registrerer betalingen. Refusjon skjer fortsatt bare med
+  kreditnota. Se `docs/PAYMENTS.md`.
 - **Ingen refusjon.** En kreditnota kan ikke overstige utestående beløp. En
   fullt betalt faktura kan derfor ikke krediteres i v1.
-- **Ingen e-faktura/Peppol, bokføringssystem eller OCR/KID-generering.**
-  CSV-eksporten er et regnskapsvennlig uttrekk, ikke en integrasjon.
+- **Regnskapssynk er manuell.** Fiken, Tripletex og PowerOffice Go kan
+  motta kunde, faktura og betaling. CSV markerer bare eksport. Det finnes
+  ingen automatisk bakgrunnssynk eller toveis synk. Se `docs/ACCOUNTING.md`.
 - **Ingen e-postutsending av tilbud/faktura.** Godkjenningslenken vises i
   grensesnittet og må deles manuelt.
 - **Utskrift/PDF er print-til-PDF i nettleseren.** Det finnes ingen
@@ -144,6 +151,16 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
   konvertering til oppdrag, delbetaling, idempotent betaling, kreditnota,
   rettigheter, krysskundeisolasjon (inkl. tilbudslesing for utskrift), forfall
   og CSV-idempotens.
+- `src/lib/payments/payments.test.ts` og
+  `src/app/api/webhooks/payments/[provider]/route.test.ts` – HMAC-signaturer,
+  rå kropp, rate limit, modulvakt og parsing for Stripe/Vipps.
+- `src/lib/accounting/providers.test.ts` – Fiken/Tripletex/PowerOffice/CSV med
+  mockede HTTP-kall, idempotensheadere og ørekonvertering.
+- `src/server/accounting-sync-idempotency.test.ts` – gjentatt synk gjenbruker
+  ekstern id uten nye leverandørkall.
+- `src/server/integration/payments-accounting.integration.test.ts` – ekte
+  PostgreSQL: webhook → betaling → fakturainnstatus, duplikat, delbetaling,
+  valuta-/beløpsavvik, leverandør av, regnskapssynk og retrybar feiltilstand.
 
 Kjør integrasjonstestene mot en dedikert database:
 

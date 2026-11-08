@@ -6,6 +6,7 @@ import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import { requireModulePage } from "@/lib/module-guards";
 import { formatDateLocalized } from "@/lib/dates";
 import { formatAmount } from "@/lib/billing";
+import { paymentProviderInfo } from "@/lib/payments/provider";
 import { getPortalInvoice } from "@/server/invoices";
 import { PortalNoAccess, loadPortalPage } from "../../portal-page";
 
@@ -19,6 +20,13 @@ export default async function PortalInvoiceDetailPage({ params }: { params: Prom
   const invoice = result.data;
   const t = await getTranslations("common");
   const locale = await getLocale();
+  const paymentInfo = paymentProviderInfo();
+  const canPay =
+    paymentInfo.configured &&
+    paymentInfo.provider === invoice.paymentProvider &&
+    Boolean(invoice.paymentLinkUrl) &&
+    invoice.paymentStatus === "PENDING" &&
+    Number(invoice.outstanding.toString()) > 0;
 
   return (
     <PortalShell active="oversikt" customer={context.customer} userName={context.user.name ?? context.user.email ?? ""}>
@@ -68,8 +76,23 @@ export default async function PortalInvoiceDetailPage({ params }: { params: Prom
           <div className="flex justify-between text-base font-black"><dt>{t("invoicing.detail.outstanding")}</dt><dd>{formatAmount(invoice.outstanding, invoice.currency)}</dd></div>
         </dl>
 
+        {canPay && invoice.paymentLinkUrl ? (
+          <div className="mt-4 rounded-xl border border-[var(--ink,#101310)] p-3">
+            <a
+              href={invoice.paymentLinkUrl}
+              className="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--ink,#101310)] px-4 py-2 text-sm font-bold text-[var(--paper,#f2efe6)]"
+            >
+              {t("portal.invoices.pay")}
+            </a>
+            <p className="mt-2 text-xs leading-5 text-[var(--muted,#62685f)]">
+              {t("portal.invoices.payHint")}
+            </p>
+          </div>
+        ) : null}
         <p className="mt-4 rounded-xl bg-[var(--paper,#f2efe6)] p-3 text-xs leading-5 text-[var(--muted,#62685f)]">
-          {t("portal.invoices.manualPayment", { reference: invoice.invoiceNumber ?? invoice.id })}
+          {canPay
+            ? t("portal.invoices.paymentPending")
+            : t("portal.invoices.manualPayment", { reference: invoice.invoiceNumber ?? invoice.id })}
         </p>
         {invoice.notes ? <p className="mt-3 whitespace-pre-wrap text-sm">{invoice.notes}</p> : null}
         <p className="mt-4 text-xs">

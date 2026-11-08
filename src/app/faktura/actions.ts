@@ -15,6 +15,8 @@ import {
   updateInvoice,
   type InvoiceInput,
 } from "@/server/invoices";
+import { createInvoicePaymentLink } from "@/server/payments";
+import { syncInvoiceToAccounting } from "@/server/accounting";
 
 function linesFrom(formData: FormData): unknown {
   const raw = formData.get("lines");
@@ -111,6 +113,34 @@ export async function registerPaymentAction(formData: FormData) {
   revalidatePath(`/faktura/${invoiceId}`);
   redirect(
     `/faktura/${encodeURIComponent(invoiceId)}?payment=${result.data.duplicate ? "duplicate" : "ok"}`,
+  );
+}
+
+export async function createPaymentLinkAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const invoiceId = String(formData.get("id") ?? "");
+  const result = await createInvoicePaymentLink(user, invoiceId);
+  if (!result.ok) {
+    redirect(`/faktura/${encodeURIComponent(invoiceId)}?error=${encodeURIComponent(resultCode(result))}`);
+  }
+  revalidatePath("/faktura");
+  revalidatePath(`/faktura/${invoiceId}`);
+  redirect(`/faktura/${encodeURIComponent(invoiceId)}?paymentLink=1`);
+}
+
+export async function syncInvoiceAccountingAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const invoiceId = String(formData.get("id") ?? "");
+  const result = await syncInvoiceToAccounting(user, invoiceId);
+  if (!result.ok) {
+    redirect(`/faktura/${encodeURIComponent(invoiceId)}?error=${encodeURIComponent(resultCode(result))}`);
+  }
+  revalidatePath("/faktura");
+  revalidatePath(`/faktura/${invoiceId}`);
+  redirect(
+    `/faktura/${encodeURIComponent(invoiceId)}?accounting=${result.data.alreadySynced ? "already" : result.data.status.toLowerCase()}`,
   );
 }
 

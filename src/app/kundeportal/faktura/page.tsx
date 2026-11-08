@@ -6,6 +6,7 @@ import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import { requireModulePage } from "@/lib/module-guards";
 import { formatDateLocalized } from "@/lib/dates";
 import { formatAmount } from "@/lib/billing";
+import { paymentProviderInfo } from "@/lib/payments/provider";
 import { parsePage } from "@/lib/pagination";
 import { getPortalInvoices } from "@/server/invoices";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
@@ -22,6 +23,7 @@ export default async function PortalInvoicesPage({
   const locale = await getLocale();
   const params = await searchParams;
   const result = await getPortalInvoices(context.user, { page: parsePage(params.side) });
+  const paymentsEnabled = paymentProviderInfo();
 
   return (
     <PortalShell
@@ -60,6 +62,18 @@ export default async function PortalInvoicesPage({
                   <div className="flex gap-1"><dt className="font-bold">{t("portal.invoices.paid")}:</dt><dd>{formatAmount(invoice.paidTotal, invoice.currency)}</dd></div>
                   <div className="flex gap-1"><dt className="font-bold">{t("portal.invoices.outstanding")}:</dt><dd className="font-bold text-[var(--ink,#101310)]">{formatAmount(invoice.outstanding, invoice.currency)}</dd></div>
                 </dl>
+                {paymentsEnabled.configured &&
+                paymentsEnabled.provider === invoice.paymentProvider &&
+                invoice.paymentLinkUrl &&
+                invoice.paymentStatus === "PENDING" &&
+                Number(invoice.outstanding.toString()) > 0 ? (
+                  <a
+                    href={invoice.paymentLinkUrl}
+                    className="mt-2 inline-flex min-h-10 items-center justify-center rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]"
+                  >
+                    {t("portal.invoices.pay")}
+                  </a>
+                ) : null}
               </li>
             ))}
           </ul>

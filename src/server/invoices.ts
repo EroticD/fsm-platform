@@ -50,7 +50,7 @@ export const INVOICE_STATUSES = [
 ] as const;
 
 export type InvoiceStatusValue = (typeof INVOICE_STATUSES)[number];
-export const PAYMENT_METHODS = ["BANK_TRANSFER", "CASH", "OTHER"] as const;
+export const PAYMENT_METHODS = ["BANK_TRANSFER", "CASH", "OTHER", "ONLINE"] as const;
 export type PaymentMethodValue = (typeof PAYMENT_METHODS)[number];
 
 export function isInvoiceStatus(value: string): value is InvoiceStatusValue {
@@ -490,6 +490,7 @@ export async function getInvoice(actor: ServiceActor, invoiceId: string) {
       lines: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }] },
       creditNotes: { orderBy: { issuedAt: "desc" } },
+      accountingSyncs: { orderBy: { updatedAt: "desc" }, take: 1 },
       customer: {
         select: {
           id: true,
@@ -745,6 +746,10 @@ export type PaymentInput = {
   reference?: unknown;
   note?: unknown;
   idempotencyKey?: unknown;
+  /** PSP-metadata. Settes bare av betalingswebhooken, aldri av skjemaet. */
+  provider?: unknown;
+  providerEventId?: unknown;
+  providerReference?: unknown;
 };
 
 /** Registrerer en manuell betaling. Delbetaling er normalen, ikke unntaket. */
@@ -770,6 +775,9 @@ export async function registerPayment(
   const reference = cleanText(input.reference, { maxLength: LIMITS.line }) || null;
   const note = cleanText(input.note, { maxLength: LIMITS.text }) || null;
   const idempotencyKey = cleanText(input.idempotencyKey, { maxLength: 100 }) || null;
+  const provider = cleanText(input.provider, { maxLength: 30 }).toLowerCase() || null;
+  const providerEventId = cleanText(input.providerEventId, { maxLength: 200 }) || null;
+  const providerReference = cleanText(input.providerReference, { maxLength: 200 }) || null;
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -816,6 +824,9 @@ export async function registerPayment(
           reference,
           note,
           idempotencyKey,
+          provider,
+          providerEventId,
+          providerReference,
           createdById: actor.id,
         },
         select: { id: true },
@@ -859,6 +870,8 @@ export async function registerPayment(
           method,
           paidAt: toDateOnly(paidAt),
           status: nextStatus,
+          ...(provider ? { provider } : {}),
+          ...(providerReference ? { providerReference } : {}),
         },
       });
       return ok({ paymentId: payment.id, duplicate: false, status: nextStatus });
@@ -1148,6 +1161,9 @@ export async function getPortalInvoices(
     paidTotal: Prisma.Decimal;
     outstanding: Prisma.Decimal;
     currency: string;
+    paymentStatus: string;
+    paymentProvider: string | null;
+    paymentLinkUrl: string | null;
   }>;
   total: number;
   page: number;
@@ -1177,6 +1193,9 @@ export async function getPortalInvoices(
         paidTotal: true,
         outstanding: true,
         currency: true,
+        paymentStatus: true,
+        paymentProvider: true,
+        paymentLinkUrl: true,
       },
     }),
     prisma.invoice.count({ where }),

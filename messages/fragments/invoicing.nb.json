@@ -11,7 +11,8 @@
     "methods": {
       "BANK_TRANSFER": "Bankoverføring",
       "CASH": "Kontant",
-      "OTHER": "Annet"
+      "OTHER": "Annet",
+      "ONLINE": "Kort/Vipps"
     },
     "lines": {
       "line": "Linje {number}",
@@ -107,7 +108,7 @@
       "sending": "Sender …",
       "sendHint": "Når fakturaen sendes, fryses linjene og et unikt fakturanummer tildeles.",
       "paymentTitle": "Registrer betaling",
-      "paymentHint": "Ingen kortbetaling eller ekstern betalingsleverandør er koblet på. Registrer manuell bankoverføring, kontant eller annet.",
+      "paymentHint": "Registrer en manuell betaling (bankoverføring, kontant eller annet). Kortbetaling skjer via betalingslenken over og registreres automatisk.",
       "amount": "Beløp",
       "paidAt": "Betalt dato",
       "method": "Metode",
@@ -130,7 +131,7 @@
       "document": "Faktura",
       "companyFallback": "Min bedrift",
       "paymentTitle": "Betaling",
-      "paymentHint": "Betal via bankoverføring og oppgi {reference} som betalingsreferanse. Kortbetaling er ikke støttet."
+      "paymentHint": "Betaling skjer via bankoverføring med {reference} som referanse. Hvis fakturaen har en betalingslenke, kan den også betales med kort eller Vipps."
     },
     "settings": {
       "title": "Fakturering og tilbud",
@@ -147,6 +148,90 @@
       "nextNumber": "Neste nummer: faktura {invoice}, kreditnota {credit}.",
       "saving": "Lagrer …",
       "submit": "Lagre innstillinger"
+    },
+    "payment": {
+      "title": "Betalingslenke",
+      "hint": "Kunden kan betale med {provider} via en sikker lenke. Kortdata håndteres av leverandøren, aldri av denne appen.",
+      "statusLabel": "Betalingsstatus",
+      "openLink": "Åpne betalingslenke",
+      "creating": "Oppretter …",
+      "createLink": "Opprett betalingslenke",
+      "recreateLink": "Lag ny betalingslenke",
+      "linkCreated": "Betalingslenken er opprettet. Du kan dele den med kunden.",
+      "disabled": "Betalingsleverandøren er ikke konfigurert.",
+      "unsupportedCurrency": "Betalingsleverandøren støtter bare NOK i denne versjonen.",
+      "providerError": "Betalingsleverandøren svarte ikke som forventet. Prøv igjen.",
+      "rateLimited": "Betalingsleverandøren begrenser antall forespørsler. Prøv igjen om litt.",
+      "providers": {
+        "stripe": "Stripe",
+        "vipps": "Vipps MobilePay"
+      },
+      "status": {
+        "NONE": "Ingen lenke",
+        "PENDING": "Venter på betaling",
+        "PAID": "Betalt",
+        "PARTIALLY_PAID": "Delvis betalt",
+        "FAILED": "Feilet",
+        "EXPIRED": "Utløpt"
+      }
+    },
+    "accounting": {
+      "title": "Regnskap",
+      "provider": "Leverandør: {provider}",
+      "enabled": "Synk er slått på.",
+      "disabledState": "Synk er slått av.",
+      "statusLabel": "Synkstatus",
+      "externalNumber": "Ekstern faktura",
+      "lastAttempt": "Sist forsøkt {date}",
+      "lastError": "Siste feil",
+      "neverSynced": "Fakturaen er ikke synkronisert ennå.",
+      "enableHint": "Slå på regnskapssynk i innstillingene for å bruke manuell synk.",
+      "syncing": "Synkroniserer …",
+      "retry": "Prøv synk igjen",
+      "sync": "Synk til regnskap",
+      "resetAction": "Nullstill synk",
+      "draftHint": "Send fakturaen før den synkroniseres til regnskap.",
+      "disabled": "Regnskapssynk er slått av.",
+      "notConfigured": "Regnskapsleverandøren er ikke konfigurert.",
+      "syncFailed": "Synkroniseringen feilet. Feilen er lagret og kan prøves på nytt.",
+      "concurrent": "En synkronisering pågår allerede for denne fakturaen.",
+      "synced": "Fakturaen er synkronisert til regnskap.",
+      "alreadySynced": "Fakturaen var allerede synkronisert. Ingenting ble sendt på nytt.",
+      "exported": "Fakturaen er eksportert til CSV. Ingen ekstern regnskapsleverandør er oppdatert.",
+      "reset": "Synken er nullstilt og kan kjøres på nytt.",
+      "settingsTitle": "Regnskapsintegrasjon",
+      "settingsHint": "Leverandør og nøkler settes i miljøet. Her ser du status og kan teste forbindelsen.",
+      "connection": "Tilkobling",
+      "configured": "Konfigurert",
+      "mode": "Modus",
+      "modeExport": "CSV-eksport (ingen ekstern skriving)",
+      "modeApi": "API",
+      "lastTest": "Siste test",
+      "lastTestOk": "Forbindelsen virker",
+      "lastTestFailed": "Forbindelsen feilet",
+      "never": "Aldri",
+      "lastSync": "Siste synk",
+      "saving": "Lagrer …",
+      "enable": "Slå på synk",
+      "disable": "Slå av synk",
+      "testing": "Tester …",
+      "test": "Test forbindelse",
+      "recentTitle": "Siste synkroniseringer",
+      "noSyncs": "Ingen synkroniseringer ennå.",
+      "failedCount": "{count} faktura(er) har feilet og kan prøves på nytt.",
+      "providers": {
+        "fiken": "Fiken",
+        "tripletex": "Tripletex",
+        "poweroffice": "PowerOffice Go",
+        "csv": "CSV"
+      },
+      "status": {
+        "PENDING": "Venter",
+        "SYNCED": "Synkronisert",
+        "EXPORTED": "Eksportert",
+        "FAILED": "Feilet",
+        "SKIPPED": "Hoppet over"
+      }
     },
     "errors": {
       "generic": "Handlingen kunne ikke fullføres.",
@@ -171,7 +256,10 @@
       "total": "Totalt",
       "paid": "Betalt",
       "outstanding": "Utestående",
-      "manualPayment": "Betaling skjer via bankoverføring. Oppgi fakturanummeret som referanse. Kortbetaling er ikke støttet."
+      "manualPayment": "Betaling skjer via bankoverføring med fakturanummeret som referanse. Hvis fakturaen har en Betal-knapp, kan du også betale med kort eller Vipps.",
+      "pay": "Betal",
+      "payHint": "Du blir sendt til en sikker betalingsside. Kortdata deles aldri med oss.",
+      "paymentPending": "Betalingen registreres automatisk når leverandøren bekrefter den. Det kan ta noen minutter."
     }
   }
 }
