@@ -171,5 +171,43 @@
         "missing_email": "Brak adresu e-mail"
       }
     }
+  },
+  "email": {
+    "settings": {
+      "title": "Automatyczna poczta e-mail",
+      "description": "Transakcyjne wiadomości e-mail są wysyłane ze trwałej skrzynki wychodzącej. Tutaj ustawiasz nadawcę, adres odpowiedzi i zdarzenia, które wysyłają e-mail.",
+      "smtpOn": "SMTP jest skonfigurowany. Skrzynka wychodząca wysyła wiadomości w tle.",
+      "smtpOff": "SMTP nie jest skonfigurowany. Wiadomości czekają w kolejce, aż zmienne SMTP zostaną ustawione.",
+      "smtpHint": "Host, nazwa użytkownika i hasło SMTP są ustawiane w SMTP_HOST, SMTP_PORT, SMTP_USER i SMTP_PASS. Hasło nigdy nie jest tu pokazywane.",
+      "fromName": "Nazwa nadawcy",
+      "fromAddress": "Adres nadawcy",
+      "fromPlaceholder": "Puste = użytkownik SMTP",
+      "replyTo": "Adres odpowiedzi",
+      "replyPlaceholder": "Opcjonalny",
+      "fromHint": "Adres nadawcy musi być akceptowany przez dostawcę SMTP. Puste pola używają użytkownika SMTP i nazwy firmy z marki.",
+      "eventsTitle": "Zdarzenia",
+      "eventsHint": "Wyłącz zdarzenie, aby przestać wysyłać je automatycznie. Zdarzenie nadal jest zapisywane w systemie; zatrzymuje się tylko e-mail.",
+      "events": {
+        "quoteSent": "Wysłano ofertę",
+        "invoiceSent": "Wysłano fakturę",
+        "paymentReceived": "Otrzymano płatność",
+        "bookingRequested": "Otrzymano zapytanie o termin",
+        "bookingConfirmed": "Rezerwacja potwierdzona",
+        "bookingCancelled": "Rezerwacja anulowana",
+        "workOrderAssigned": "Zlecenie przydzielone technikowi"
+      },
+      "save": "Zapisz ustawienia e-mail",
+      "saved": "Ustawienia e-mail zostały zapisane.",
+      "testTitle": "Wyślij wiadomość testową",
+      "testHint": "Wyślij wiadomość testową przez skrzynkę wychodzącą, aby potwierdzić, że SMTP i adres nadawcy działają.",
+      "testRecipient": "Odbiorca",
+      "testSend": "Wyślij test",
+      "testSent": "Wiadomość testowa została wysłana.",
+      "testPrivacy": "Test jest wysyłany tylko na podany adres i nie jest zapisywany jako zdarzenie.",
+      "errorForbidden": "Nie masz uprawnień do zmiany ustawień e-mail.",
+      "errorInvalid": "Adres nadawcy lub adres odpowiedzi jest nieprawidłowy.",
+      "errorSmtp": "SMTP nie jest skonfigurowany, więc test nie mógł zostać wysłany.",
+      "errorSend": "Nie udało się wysłać wiadomości. Sprawdź konfigurację SMTP i spróbuj ponownie."
+    }
   }
 }

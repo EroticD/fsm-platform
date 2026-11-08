@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   audit: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
   trySendBookingConfirmedSms: vi.fn(),
+  enqueueBookingEmail: vi.fn(),
   recomputeWorkOrderSchedule: vi.fn(),
 }));
 
@@ -53,6 +54,9 @@ vi.mock("./notifications", () => ({
 }));
 vi.mock("./sms-events", () => ({
   trySendBookingConfirmedSms: mocks.trySendBookingConfirmedSms,
+}));
+vi.mock("./email-outbox", () => ({
+  enqueueBookingEmail: mocks.enqueueBookingEmail,
 }));
 
 import { confirmBooking, listBookingQueue } from "./bookings";
@@ -101,6 +105,13 @@ beforeEach(() => {
   mocks.prisma.bookingRequest.findFirst.mockResolvedValue(booking());
   mocks.prisma.bookingRequest.findUnique.mockResolvedValue({
     workOrderId: "wo-1",
+    reference: "B-TEST-1",
+    customerId: "cust-1",
+    requestedDate: parseDateOnly(DATE)!,
+    requestedFrom: "09:00",
+    requestedTo: "10:30",
+    customer: { name: "Kunde AS" },
+    workOrder: { title: "Årlig service", contactId: null },
   });
   mocks.prisma.bookingRequest.update.mockResolvedValue({ id: "br-1" });
   mocks.prisma.user.findMany.mockResolvedValue([
@@ -118,6 +129,11 @@ beforeEach(() => {
   mocks.audit.mockResolvedValue(undefined);
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
   mocks.trySendBookingConfirmedSms.mockResolvedValue(undefined);
+  mocks.enqueueBookingEmail.mockResolvedValue({
+    queued: true,
+    id: "em-1",
+    reason: "queued",
+  });
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
 });
 
@@ -225,6 +241,16 @@ describe("confirmBooking", () => {
       expect.any(String),
       "/oppdrag/wo-1",
       "booking-confirm:br-1",
+    );
+    expect(mocks.enqueueBookingEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "bookingConfirmed",
+        bookingId: "br-1",
+        customerId: "cust-1",
+        title: "Årlig service",
+        reference: "B-TEST-1",
+        technicianName: "Tina Tekniker",
+      }),
     );
   });
 

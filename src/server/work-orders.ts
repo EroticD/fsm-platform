@@ -5,6 +5,7 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
+import { enqueueWorkOrderAssignedEmail } from "./email-outbox";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { normalizeOrderNumber } from "@/lib/order-number";
@@ -1476,7 +1477,7 @@ async function changeTechnician(
 
   const target = await prisma.user.findFirst({
     where: { id: userId, ...staffForDepartment(access.departmentId) },
-    select: { id: true, name: true },
+    select: { id: true, name: true, email: true, locale: true },
   });
   if (!target) return { ok: false, error: "ugyldig-data" };
 
@@ -1535,6 +1536,14 @@ async function changeTechnician(
     } catch {
       // Varsling er best effort.
     }
+
+    await enqueueWorkOrderAssignedEmail({
+      workOrderId,
+      userId,
+      title: access.title ?? "",
+      email: target.email,
+      locale: target.locale,
+    });
   }
 
   return { ok: true };
@@ -1609,7 +1618,7 @@ export async function moveTechnician(
           id: targetTechnicianId,
           ...staffForDepartment(access.departmentId),
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, email: true, locale: true },
       })
     : null;
   if (targetTechnicianId && !target) {
@@ -1705,6 +1714,14 @@ export async function moveTechnician(
     } catch {
       // Varsling er best effort.
     }
+
+    await enqueueWorkOrderAssignedEmail({
+      workOrderId,
+      userId: target.id,
+      title: access.title ?? "",
+      email: target.email,
+      locale: target.locale,
+    });
   }
 
   return { ok: true };

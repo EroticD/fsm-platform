@@ -22,6 +22,7 @@ import {
   type RawLine,
 } from "@/lib/billing";
 import { assertModule } from "./modules";
+import { enqueueQuoteSentEmail } from "./email-outbox";
 import {
   can,
   fail,
@@ -605,7 +606,20 @@ export async function sendQuote(
   const cleanId = id(quoteId);
   const quote = await prisma.quote.findFirst({
     where: { id: cleanId, AND: [quoteScopeFor(actor)] },
-    select: { id: true, status: true, version: true, validUntil: true, title: true },
+    select: {
+      id: true,
+      status: true,
+      version: true,
+      validUntil: true,
+      title: true,
+      quoteNumber: true,
+      total: true,
+      currency: true,
+      customerId: true,
+      contactId: true,
+      customerName: true,
+      customer: { select: { name: true } },
+    },
   });
   if (!quote) return fail("not_found");
   if (quote.status !== "DRAFT") return fail("conflict", { code: "quote.notDraft" });
@@ -633,6 +647,23 @@ export async function sendQuote(
       return { token, version: quote.version };
     });
     if (!result) return fail("conflict", { code: "quote.notDraft" });
+
+    // E-posten legges i den vedvarende utboksen etter at statusen er committet.
+    // En SMTP-feil kan derfor aldri rulle tilbake «sendt»-statusen.
+    await enqueueQuoteSentEmail({
+      quoteId: cleanId,
+      token: result.token,
+      version: result.version,
+      title: quote.title,
+      customerName: quote.customer?.name ?? quote.customerName,
+      reference: quote.quoteNumber,
+      total: quote.total,
+      currency: quote.currency,
+      validUntil: quote.validUntil,
+      customerId: quote.customerId,
+      contactId: quote.contactId,
+    });
+
     return ok(result);
   } catch (error) {
     if (isUniqueViolation(error)) return fail("conflict", { code: "quote.duplicate" });

@@ -12,6 +12,7 @@ import {
 import { OPEN_STATUSES } from "@/lib/work-order-status";
 import { notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
+import { enqueueBookingEmail } from "./email-outbox";
 import {
   assertTechnicianSlotAvailable,
   listAvailableTechniciansForWindow,
@@ -526,7 +527,18 @@ export async function confirmBooking(
     if (result.ok && !result.data.already) {
       const booking = await prisma.bookingRequest.findUnique({
         where: { id: bookingId },
-        select: { workOrderId: true },
+        select: {
+          workOrderId: true,
+          reference: true,
+          customerId: true,
+          requestedDate: true,
+          requestedFrom: true,
+          requestedTo: true,
+          customer: { select: { name: true } },
+          workOrder: {
+            select: { title: true, contactId: true },
+          },
+        },
       });
       if (booking) {
         await notifyWorkOrderEvent(
@@ -538,6 +550,22 @@ export async function confirmBooking(
           `booking-confirm:${bookingId}`,
         ).catch((error) => {
           console.error("Kunne ikke varsle om bekreftet booking:", error);
+        });
+
+        await enqueueBookingEmail({
+          event: "bookingConfirmed",
+          bookingId,
+          customerId: booking.customerId,
+          contactId: booking.workOrder.contactId,
+          title: booking.workOrder.title,
+          customerName: booking.customer?.name,
+          reference: booking.reference,
+          date: booking.requestedDate,
+          time:
+            booking.requestedFrom && booking.requestedTo
+              ? `${booking.requestedFrom}–${booking.requestedTo}`
+              : null,
+          technicianName: result.data.technicianName,
         });
       }
     }
@@ -630,7 +658,18 @@ export async function cancelBookingFromOffice(
     if (result.ok) {
       const booking = await prisma.bookingRequest.findUnique({
         where: { id: bookingId },
-        select: { workOrderId: true },
+        select: {
+          workOrderId: true,
+          reference: true,
+          customerId: true,
+          requestedDate: true,
+          requestedFrom: true,
+          requestedTo: true,
+          customer: { select: { name: true } },
+          workOrder: {
+            select: { title: true, contactId: true },
+          },
+        },
       });
       if (booking) {
         await notifyWorkOrderEvent(
@@ -642,6 +681,21 @@ export async function cancelBookingFromOffice(
           `booking-office-cancel:${bookingId}`,
         ).catch((error) => {
           console.error("Kunne ikke varsle om avlyst booking:", error);
+        });
+
+        await enqueueBookingEmail({
+          event: "bookingCancelled",
+          bookingId,
+          customerId: booking.customerId,
+          contactId: booking.workOrder.contactId,
+          title: booking.workOrder.title,
+          customerName: booking.customer?.name,
+          reference: booking.reference,
+          date: booking.requestedDate,
+          time:
+            booking.requestedFrom && booking.requestedTo
+              ? `${booking.requestedFrom}–${booking.requestedTo}`
+              : null,
         });
       }
     }

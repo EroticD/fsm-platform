@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
-  sendBookingNotification: vi.fn(),
+  enqueueBookingEmail: vi.fn(),
   allowRequestDb: vi.fn(),
   getDefaultDepartmentId: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
@@ -56,8 +56,8 @@ vi.mock("./notifications", () => ({
 vi.mock("./sms-events", () => ({
   trySendBookingConfirmedSms: mocks.trySendBookingConfirmedSms,
 }));
-vi.mock("@/lib/email", () => ({
-  sendBookingNotification: mocks.sendBookingNotification,
+vi.mock("./email-outbox", () => ({
+  enqueueBookingEmail: mocks.enqueueBookingEmail,
 }));
 
 import { createBooking } from "./portal";
@@ -129,11 +129,10 @@ beforeEach(() => {
     locale: "nb",
   });
   mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
-  mocks.prisma.auditLog.findFirst.mockResolvedValue(null);
-  mocks.prisma.auditLog.create.mockResolvedValue({ id: "audit-email" });
-  mocks.sendBookingNotification.mockResolvedValue({
-    officeSent: 1,
-    customerSent: true,
+  mocks.enqueueBookingEmail.mockResolvedValue({
+    queued: true,
+    id: "em-booking",
+    reason: "queued",
   });
 });
 
@@ -403,44 +402,27 @@ describe("createBooking", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(mocks.sendBookingNotification).toHaveBeenCalledTimes(1);
-    expect(mocks.sendBookingNotification).toHaveBeenCalledWith(
-      "dep-1",
-      "kari@example.test",
+    expect(mocks.enqueueBookingEmail).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueBookingEmail).toHaveBeenCalledWith(
       expect.objectContaining({
+        event: "bookingRequested",
+        bookingId: "B-TEST-1",
+        customerId: "cust-1",
+        contactId: "contact-1",
         title: booking.title,
         customerName: "Kunde AS",
-        locale: "nb",
         reference: "B-TEST-1",
       }),
     );
-    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        entityType: "WorkOrder",
-        entityId: "wo-1",
-        action: "Sendte bestillingsbekreftelse på e-post",
-      }),
-    });
   });
 
-  it("er idempotent når bekreftelsen allerede er markert sendt", async () => {
-    mocks.prisma.auditLog.findFirst.mockResolvedValue({ id: "audit-marker" });
-
-    const result = await createBooking(customer(), booking);
-
-    expect(result.ok).toBe(true);
-    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
-    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
-  });
-
-  it("ruller ikke tilbake bookingen når SMTP feiler", async () => {
-    mocks.sendBookingNotification.mockRejectedValue(new Error("SMTP nede"));
+  it("ruller ikke tilbake bookingen når utboksen feiler", async () => {
+    mocks.enqueueBookingEmail.mockRejectedValue(new Error("database nede"));
 
     const result = await createBooking(customer(), booking);
 
     expect(result).toMatchObject({ ok: true, data: { id: "wo-1" } });
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
-    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("sender ikke bekreftelse på nytt for en duplikatbestilling", async () => {
@@ -451,7 +433,7 @@ describe("createBooking", () => {
 
     await createBooking(customer(), booking);
 
-    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
+    expect(mocks.enqueueBookingEmail).not.toHaveBeenCalled();
   });
 
   it("bruker alltid aktørens egen customerId", async () => {

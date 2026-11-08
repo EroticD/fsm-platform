@@ -22,6 +22,10 @@ import { resolvePortalAccess } from "./portal-access";
 import { quoteScopeFor } from "./quotes";
 import { assertModule } from "./modules";
 import {
+  enqueueInvoiceSentEmail,
+  enqueuePaymentReceivedEmail,
+} from "./email-outbox";
+import {
   can,
   fail,
   isAdminActor,
@@ -674,7 +678,7 @@ export async function sendInvoice(
   if (!cleanId) return fail("not_found");
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findFirst({
         where: { id: cleanId, AND: [invoiceScopeFor(actor)] },
         select: {
@@ -732,6 +736,36 @@ export async function sendInvoice(
       });
       return ok({ invoiceNumber, alreadySent: false });
     });
+
+    if (result.ok && !result.data.alreadySent) {
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: cleanId },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          customerId: true,
+          contactId: true,
+          currency: true,
+          total: true,
+          dueDate: true,
+          customer: { select: { name: true } },
+        },
+      });
+      if (invoice?.invoiceNumber) {
+        await enqueueInvoiceSentEmail({
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerId: invoice.customerId,
+          contactId: invoice.contactId,
+          customerName: invoice.customer?.name,
+          total: invoice.total,
+          currency: invoice.currency,
+          dueDate: invoice.dueDate,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicateNumber" });
     throw error;
@@ -772,7 +806,7 @@ export async function registerPayment(
   const idempotencyKey = cleanText(input.idempotencyKey, { maxLength: 100 }) || null;
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findFirst({
         where: { id: cleanId, AND: [invoiceScopeFor(actor)] },
         select: {
@@ -863,6 +897,36 @@ export async function registerPayment(
       });
       return ok({ paymentId: payment.id, duplicate: false, status: nextStatus });
     });
+
+    // Kvittering sendes bare når fakturaen faktisk er fullt betalt, og bare
+    // for den transaksjonen som skrev betalingen (ikke idempotente gjentak).
+    if (result.ok && !result.data.duplicate && result.data.status === "PAID") {
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: cleanId },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          customerId: true,
+          contactId: true,
+          currency: true,
+          total: true,
+          customer: { select: { name: true } },
+        },
+      });
+      if (invoice?.invoiceNumber) {
+        await enqueuePaymentReceivedEmail({
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerId: invoice.customerId,
+          contactId: invoice.contactId,
+          customerName: invoice.customer?.name,
+          amount: invoice.total,
+          currency: invoice.currency,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     if (isUniqueViolation(error) && idempotencyKey) {
       const existing = await prisma.payment.findFirst({
