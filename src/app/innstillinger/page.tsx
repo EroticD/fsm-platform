@@ -20,6 +20,10 @@ import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SsoScimTab from "@/components/settings/SsoScimTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
+import EmailSettingsTab from "@/components/settings/EmailSettingsTab";
+import PushSettingsTab from "@/components/settings/PushSettingsTab";
+import SamlSettingsSection from "@/components/settings/SamlSettingsSection";
+import FieldPolicyMatrix from "@/components/settings/FieldPolicyMatrix";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
 import WorkforceSettingsTab from "@/components/settings/WorkforceSettingsTab";
 import ModulesTab from "@/components/settings/ModulesTab";
@@ -29,6 +33,9 @@ import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getMapSettingsView } from "@/server/map-settings";
+import { getEmailSettingsView } from "@/server/email-outbox";
+import { isSmtpConfigured } from "@/lib/email";
+import { samlConfigErrors, samlProviderConfigs } from "@/lib/saml";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import {
@@ -57,6 +64,10 @@ import {
   listModuleAdminView,
 } from "@/server/modules";
 import { toTransferActor } from "@/lib/customer-transfer/guard";
+import {
+  saveEmailSettingsAction,
+  sendTestEmailAction,
+} from "./email-actions";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -309,6 +320,12 @@ export default async function SettingsPage({
   const ssoConfig = currentTab === "sso" && isAdmin ? readSsoConfig() : null;
   const scimTokens =
     currentTab === "sso" && isAdmin ? await listScimTokens(user) : null;
+  const samlProviders =
+    currentTab === "sso" && isAdmin ? samlProviderConfigs() : [];
+  const samlErrors =
+    currentTab === "sso" && isAdmin ? samlConfigErrors() : [];
+  const emailSettings =
+    currentTab === "email" && isAdmin ? await getEmailSettingsView(user) : null;
 
   const slaSettings =
     currentTab === "sla" && canSla
@@ -596,6 +613,19 @@ export default async function SettingsPage({
           />
         )}
 
+        {currentTab === "email" && isAdmin && emailSettings?.ok && (
+          <EmailSettingsTab
+            settings={emailSettings.data}
+            smtpConfigured={isSmtpConfigured()}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            saveSettings={saveEmailSettingsAction}
+            sendTest={sendTestEmailAction}
+          />
+        )}
+
+        {currentTab === "push" && isAdmin && <PushSettingsTab />}
+
         {currentTab === "dispatch" && canDispatch && dispatchSettings?.ok && (
           <DispatchSettingsTab
             policies={dispatchSettings.data.policies}
@@ -641,6 +671,7 @@ export default async function SettingsPage({
               error={resolvedParams.error}
               message={resolvedParams.role}
             />
+            <FieldPolicyMatrix />
           </div>
         )}
 
@@ -698,6 +729,13 @@ export default async function SettingsPage({
             createToken={createScimTokenAction}
             rotateToken={rotateScimTokenAction}
             revokeToken={revokeScimTokenAction}
+          />
+        )}
+
+        {currentTab === "sso" && isAdmin && (
+          <SamlSettingsSection
+            providers={samlProviders}
+            configErrors={samlErrors}
           />
         )}
 

@@ -5,6 +5,24 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Betalinger, e-post, push og ruting
+- Faktura kan få betalingslenke via Stripe Checkout eller Vipps MobilePay.
+  Webhooker signaturverifiseres, er idempotente og registrerer delbetalinger
+  gjennom den eksisterende betalingsflyten. Kundeportalen viser «Betal» når
+  leverandøren er konfigurert. Se `docs/PAYMENTS.md`.
+- Regnskapssynk v1 for Fiken, Tripletex og PowerOffice Go, med CSV som
+  eksplisitt eksportfallback. Synken er manuell, idempotent og revideres. Se
+  `docs/ACCOUNTING.md`.
+- Transaksjons-e-post går gjennom en vedvarende utboks med retry/backoff for
+  tilbud, faktura, betaling, booking og tildeling. Admin kan slå av/på hver
+  hendelse, velge avsender/reply-to og sende test. Se `docs/EMAIL.md`.
+- Server-side pushvarsler via FCM HTTP v1 og APNs, med enhetsregistrering,
+  token-opprydding, durabel utboks og dype lenker. Mobilappen registrerer
+  tokens og håndterer varseltrykk. Se `docs/PUSH.md`.
+- Ruteoptimalisering med tidssoner, kompetanse, prioritet og arbeidstid, samt
+  trafikkbevisst ETA via TomTom/HERE med OSRM/haversine-fallback. Endelig
+  rekkefølge brukes først etter eksplisitt, revidert handling. Se
+  `docs/ROUTING.md`.
 ### SAML 2.0, SCIM-grupper og feltnivå-RBAC v1
 - SAML 2.0-tjenesteleverandør med `@node-saml/node-saml`: per-leverandør
   konfigurasjon, SP-metadata, ACS og innloggingsrute, signert assertion,

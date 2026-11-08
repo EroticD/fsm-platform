@@ -19,7 +19,9 @@
       "api": "API-nøkler",
       "equipment": "Utstyr",
       "evidence": "Bevis",
-      "modules": "Moduler"
+      "modules": "Moduler",
+      "email": "E-post",
+      "push": "Pushvarsler"
     },
     "branding": {
       "title": "White-label Innstillinger",

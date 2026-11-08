@@ -19,7 +19,9 @@
       "api": "API keys",
       "equipment": "Equipment",
       "evidence": "Evidence",
-      "modules": "Modules"
+      "modules": "Modules",
+      "email": "Email",
+      "push": "Push notifications"
     },
     "branding": {
       "title": "White-label settings",

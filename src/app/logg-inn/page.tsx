@@ -5,9 +5,11 @@ import prisma from "@/lib/prisma";
 import ErrorBanner from "@/components/ErrorBanner";
 import BrandMark from "@/components/BrandMark";
 import LoginSsoButtons from "@/components/LoginSsoButtons";
+import LoginSamlButtons from "@/components/LoginSamlButtons";
 import { controlClassName } from "@/components/ui/controlStyles";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 import { readSsoConfig } from "@/lib/sso";
+import { samlProviderConfigs } from "@/lib/saml";
 import { moduleEnabled } from "@/server/modules";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
@@ -47,6 +49,12 @@ export default async function LoginPage({
   const ssoProviders = ssoEnabled
     ? sso.providers.map((provider) => ({
         id: provider.id,
+        name: provider.displayName,
+      }))
+    : [];
+  const samlProviders = ssoEnabled
+    ? samlProviderConfigs().map((provider) => ({
+        slug: provider.slug,
         name: provider.displayName,
       }))
     : [];
@@ -109,6 +117,10 @@ export default async function LoginPage({
 
         <LoginSsoButtons
           providers={ssoProviders}
+          callbackUrl={safeCallbackUrl}
+        />
+        <LoginSamlButtons
+          providers={samlProviders}
           callbackUrl={safeCallbackUrl}
         />
 

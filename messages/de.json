@@ -2323,7 +2323,9 @@
         "sla": "SLA und Geschäftszeiten",
         "equipment": "Ausstattung",
         "evidence": "Nachweise",
-        "modules": "Module"
+        "modules": "Module",
+        "email": "E-Mail",
+        "push": "Push-Benachrichtigungen"
       },
       "branding": {
         "title": "White-Label-Einstellungen",

@@ -13,6 +13,8 @@ export type SettingsTabKey =
   | "statistikk"
   | "sla"
   | "sms"
+  | "email"
+  | "push"
   | "dispatch"
   | "roller"
   | "avdelinger"
@@ -53,6 +55,8 @@ const TAB_ORDER: SettingsTabKey[] = [
   "statistikk",
   "sla",
   "sms",
+  "email",
+  "push",
   "dispatch",
   "roller",
   "avdelinger",
@@ -132,6 +136,9 @@ export function isSettingsTabAllowed(
       return permissions.canSla;
     case "sms":
       return permissions.canSms;
+    case "email":
+    case "push":
+      return permissions.isAdmin;
     case "dispatch":
       return permissions.canDispatch;
     case "roller":

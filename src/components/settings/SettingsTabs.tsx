@@ -253,6 +253,28 @@ export default function SettingsTabs({
             {t("settings.tabs.sms")}
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            href="?tab=email"
+            ref={currentTab === "email" ? activeRef : undefined}
+            className={linkClass(currentTab === "email")}
+            aria-current={currentTab === "email" ? "page" : undefined}
+          >
+            <Icon name="mail" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.email")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=push"
+            ref={currentTab === "push" ? activeRef : undefined}
+            className={linkClass(currentTab === "push")}
+            aria-current={currentTab === "push" ? "page" : undefined}
+          >
+            <Icon name="bell" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.push")}
+          </Link>
+        )}
         {canDispatch && (
           <Link
             href="?tab=dispatch"

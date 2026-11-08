@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getBillingSettings } from "@/server/invoices";
 import { updateBillingSettingsAction } from "../actions";
+import AccountingSettings from "@/components/accounting/AccountingSettings";
 
 const LABEL = "mb-1 block text-xs font-bold uppercase tracking-[0.12em]";
 const INPUT = "min-h-11 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm";
@@ -87,6 +88,8 @@ export default async function BillingSettingsPage({
             {t("invoicing.settings.submit")}
           </SubmitButton>
         </form>
+
+        <AccountingSettings />
       </div>
     </div>
   );

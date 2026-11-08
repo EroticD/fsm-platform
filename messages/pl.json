@@ -2323,7 +2323,9 @@
         "sla": "SLA i godziny pracy",
         "equipment": "Sprzęt",
         "evidence": "Dowody",
-        "modules": "Moduły"
+        "modules": "Moduły",
+        "email": "E-mail",
+        "push": "Powiadomienia push"
       },
       "branding": {
         "title": "Ustawienia white label",
