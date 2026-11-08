@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "quotes": "Oferty"
+  },
   "quotes": {
     "status": {
       "DRAFT": "Szkic",

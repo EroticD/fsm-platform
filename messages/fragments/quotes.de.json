@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "quotes": "Angebote"
+  },
   "quotes": {
     "status": {
       "DRAFT": "Entwurf",

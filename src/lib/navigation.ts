@@ -118,7 +118,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/tilbud",
-    labelKey: "quotes.list.title",
+    labelKey: "quotes",
     icon: "file",
     requires: "workorders.create",
     section: "menu",
@@ -126,7 +126,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/faktura",
-    labelKey: "invoicing.list.title",
+    labelKey: "invoices",
     icon: "chart",
     requires: "workorders.view",
     section: "menu",
@@ -134,7 +134,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/lager",
-    labelKey: "inventory.title",
+    labelKey: "inventory",
     icon: "wrench",
     requires: "equipment.view",
     section: "menu",
@@ -142,7 +142,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/utlegg",
-    labelKey: "expenses.title",
+    labelKey: "expenses",
     icon: "route",
     requires: "workorders.view",
     section: "menu",
@@ -150,7 +150,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/lonnsomhet",
-    labelKey: "bi.title",
+    labelKey: "profitability",
     icon: "chart",
     requires: "reports.view",
     section: "menu",

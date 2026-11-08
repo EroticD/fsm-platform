@@ -3038,24 +3038,24 @@
             "description": "Offline-Entwürfe, Outbox und Sitzungsschutz der Feld-App."
           },
           "quotes": {
-            "label": "Angebote (P2)",
-            "description": "Angebote und Schätzungen. Noch nicht geliefert."
+            "label": "Angebote",
+            "description": "Angebote mit Versionen, Genehmigung und Umwandlung in Aufträge."
           },
           "invoicing": {
-            "label": "Abrechnung (P2)",
-            "description": "Abrechnung und Zahlung. Noch nicht geliefert."
+            "label": "Abrechnung",
+            "description": "Rechnungen, Zahlungen, Gutschriften und Buchhaltungsexport."
           },
           "inventory": {
-            "label": "Lager (P2)",
-            "description": "Lager, Teile und Einkauf. Noch nicht geliefert."
+            "label": "Lager",
+            "description": "Bestand pro Lager und Servicefahrzeug, Reservierungen für Aufträge und Bestellvorschläge."
           },
           "fieldExpenses": {
-            "label": "Fahrten und Auslagen (P2)",
-            "description": "Fahrtenbuch, Auslagen und Lohnexport. Noch nicht geliefert."
+            "label": "Fahrten und Auslagen",
+            "description": "Fahrten und Auslagen mit Belegen, Freigabe und Lohnexport."
           },
           "bi": {
-            "label": "Wirtschaftlichkeit (P2)",
-            "description": "Wirtschaftlichkeit und Berichtsgenerator. Noch nicht geliefert."
+            "label": "Wirtschaftlichkeit",
+            "description": "Wirtschaftlichkeit nach Abteilung, Kunde und Techniker mit geschätztem und tatsächlichem Umsatz."
           }
         }
       }

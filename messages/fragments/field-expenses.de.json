@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "expenses": "Auslagen"
+  },
   "expenses": {
     "title": "Auslagen",
     "eyebrow": "FLD-01 · Fahrten und Auslagen",

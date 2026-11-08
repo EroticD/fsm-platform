@@ -47,7 +47,7 @@ const labels = {
   booking: { label: "Bestillinger", description: "Krever portal" },
   contracts: { label: "Avtaler", description: "SLA" },
   calendar: { label: "Kalender", description: "Kalender" },
-  quotes: { label: "Tilbud", description: "P2" },
+  quotes: { label: "Tilbud", description: "Tilbud og godkjenning" },
 };
 
 describe("ModulesTab", () => {

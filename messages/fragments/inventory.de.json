@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "inventory": "Lager"
+  },
   "inventory": {
     "title": "Lager",
     "eyebrow": "OPS-05 · Lager und Ersatzteile",

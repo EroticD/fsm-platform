@@ -29,8 +29,8 @@ export const MODULE_KEYS = [
   "api",
   "sso",
   "offline",
-  // P2-moduler. De har ingen leverte sider ennå, men følger samme
-  // av/på-rammeverk slik at nye produktmoduler ikke må hardkodes senere.
+  // P2-moduler. De er levert med egne sider og følger samme av/på-rammeverk
+  // som resten av produktmodulene.
   "quotes",
   "invoicing",
   "inventory",
@@ -342,7 +342,7 @@ export function isCoreModule(key: ModuleKey): boolean {
   return MODULE_BY_KEY[key].core;
 }
 
-/** Alle aktive (leveringsklare) moduler, uten P2-plassholdere. */
+/** Alle aktive (leveringsklare) moduler. */
 export const ACTIVE_MODULE_KEYS: readonly ModuleKey[] = MODULES.filter(
   (mod) => mod.status === "active",
 ).map((mod) => mod.key);

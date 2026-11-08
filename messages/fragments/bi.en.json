@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "profitability": "Profitability"
+  },
   "metadata": {
     "routes": {
       "lonnsomhet": "Profitability"

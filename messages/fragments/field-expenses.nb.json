@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "expenses": "Utlegg"
+  },
   "expenses": {
     "title": "Utlegg",
     "eyebrow": "FLD-01 · Kjøreturer og utlegg",

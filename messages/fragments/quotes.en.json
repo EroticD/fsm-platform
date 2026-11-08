@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "quotes": "Quotes"
+  },
   "quotes": {
     "status": {
       "DRAFT": "Draft",

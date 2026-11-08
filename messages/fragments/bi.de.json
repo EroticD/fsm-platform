@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "profitability": "Wirtschaftlichkeit"
+  },
   "metadata": {
     "routes": {
       "lonnsomhet": "Wirtschaftlichkeit"

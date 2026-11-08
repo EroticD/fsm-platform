@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "invoices": "Fakturaer"
+  },
   "invoicing": {
     "status": {
       "DRAFT": "Utkast",

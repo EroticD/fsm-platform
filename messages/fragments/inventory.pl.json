@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "inventory": "Magazyn"
+  },
   "inventory": {
     "title": "Magazyn",
     "eyebrow": "OPS-05 · Magazyn i części zamienne",

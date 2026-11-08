@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "inventory": "Inventory"
+  },
   "inventory": {
     "title": "Inventory",
     "eyebrow": "OPS-05 · Inventory and spare parts",

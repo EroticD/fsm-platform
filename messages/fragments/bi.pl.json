@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "profitability": "Rentowność"
+  },
   "metadata": {
     "routes": {
       "lonnsomhet": "Rentowność"

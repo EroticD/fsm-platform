@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "expenses": "Expenses"
+  },
   "expenses": {
     "title": "Expenses",
     "eyebrow": "FLD-01 · Mileage and expenses",
