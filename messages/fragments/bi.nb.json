@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "profitability": "Lønnsomhet"
+  },
   "metadata": {
     "routes": {
       "lonnsomhet": "Lønnsomhet"

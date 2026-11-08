@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "expenses": "Wydatki"
+  },
   "expenses": {
     "title": "Wydatki",
     "eyebrow": "FLD-01 · Kilometry i wydatki",

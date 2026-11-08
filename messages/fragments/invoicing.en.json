@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "invoices": "Invoices"
+  },
   "invoicing": {
     "status": {
       "DRAFT": "Draft",

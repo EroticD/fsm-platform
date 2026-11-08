@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "quotes": "Tilbud"
+  },
   "quotes": {
     "status": {
       "DRAFT": "Utkast",

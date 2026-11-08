@@ -640,24 +640,24 @@
           "description": "Field app offline drafts, outbox queue and session guard."
         },
         "quotes": {
-          "label": "Quotes (P2)",
-          "description": "Quotes and estimates. Not delivered yet."
+          "label": "Quotes",
+          "description": "Quotes with versions, approval and conversion to work orders."
         },
         "invoicing": {
-          "label": "Invoicing (P2)",
-          "description": "Invoicing and payment. Not delivered yet."
+          "label": "Invoicing",
+          "description": "Invoices, payments, credit notes and accounting export."
         },
         "inventory": {
-          "label": "Inventory (P2)",
-          "description": "Inventory, parts and purchasing. Not delivered yet."
+          "label": "Inventory",
+          "description": "Stock per warehouse and service van, reservations for work orders and purchase suggestions."
         },
         "fieldExpenses": {
-          "label": "Mileage and expenses (P2)",
-          "description": "Mileage log, expenses and payroll export. Not delivered yet."
+          "label": "Mileage and expenses",
+          "description": "Trips and expenses with receipts, approval and payroll export."
         },
         "bi": {
-          "label": "Profitability (P2)",
-          "description": "Profitability and report builder. Not delivered yet."
+          "label": "Profitability",
+          "description": "Profitability by department, customer and technician with estimated and actual revenue."
         }
       }
     }

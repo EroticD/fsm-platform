@@ -3038,24 +3038,24 @@
             "description": "Szkice offline, kolejka wychodząca i strażnik sesji w aplikacji terenowej."
           },
           "quotes": {
-            "label": "Oferty (P2)",
-            "description": "Oferty i wyceny. Jeszcze nie dostarczone."
+            "label": "Oferty",
+            "description": "Oferty z wersjami, zatwierdzaniem i konwersją na zlecenia."
           },
           "invoicing": {
-            "label": "Fakturowanie (P2)",
-            "description": "Fakturowanie i płatności. Jeszcze nie dostarczone."
+            "label": "Fakturowanie",
+            "description": "Faktury, płatności, faktury korygujące i eksport księgowy."
           },
           "inventory": {
-            "label": "Magazyn (P2)",
-            "description": "Magazyn, części i zakupy. Jeszcze nie dostarczone."
+            "label": "Magazyn",
+            "description": "Stan magazynowy według magazynu i samochodu serwisowego, rezerwacje na zlecenia i propozycje zakupów."
           },
           "fieldExpenses": {
-            "label": "Kilometry i wydatki (P2)",
-            "description": "Ewidencja kilometrów, wydatki i eksport płac. Jeszcze nie dostarczone."
+            "label": "Kilometry i wydatki",
+            "description": "Przejechane kilometry i wydatki z paragonami, zatwierdzanie i eksport płac."
           },
           "bi": {
-            "label": "Rentowność (P2)",
-            "description": "Rentowność i kreator raportów. Jeszcze nie dostarczone."
+            "label": "Rentowność",
+            "description": "Rentowność według działu, klienta i technika z szacowanym i rzeczywistym przychodem."
           }
         }
       }
