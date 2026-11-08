@@ -3052,8 +3052,8 @@
             "description": "Fahrtenbuch, Auslagen und Lohnexport. Noch nicht geliefert."
           },
           "bi": {
-            "label": "Rentabilität (P2)",
-            "description": "Rentabilität und Berichtsgenerator. Noch nicht geliefert."
+            "label": "Wirtschaftlichkeit (P2)",
+            "description": "Wirtschaftlichkeit und Berichtsgenerator. Noch nicht geliefert."
           }
         }
       }

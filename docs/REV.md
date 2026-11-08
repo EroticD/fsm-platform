@@ -8,10 +8,10 @@ Denne grenen leverer to modulgated vertikale snitt:
   kreditnotaer, forfallsoppdatering og CSV-eksport.
 
 Kjernen er urørt: navigasjon, innstillinger, dashboard og `src/lib/modules.ts`
-er ikke endret. Sidene registrerer seg selv med `requireModulePage`, og API-et
-bruker `moduleApiGuard`. Hovedagenten må koble inn fragmentene i
-`src/i18n/messages.ts`, eventuelt gjøre modulene `active` i modulkatalogen og
-legge inn navigasjons-/innstillingspunkter.
+følger det modulære rammeverket. Sidene registrerer seg selv med
+`requireModulePage`, og API-et bruker `moduleApiGuard`. Fragmentene er koblet inn
+i `src/i18n/messages.ts`, modulene er `active` i modulkatalogen, og
+navigasjons-/innstillingspunktene er på plass.
 
 ## Ruter
 
@@ -96,14 +96,14 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
   de avrundede linjene.
 - **Tilbud uten kundekort** kan opprettes med `customerName`, men
   fakturering krever en kundekortkobling. Konvertering kan opprette kunden.
-- **Polsk og tysk** har i denne grenen engelsk innhold som midlertidig
-  fallback til oversettelsene er skrevet.
-- **Modulene er fortsatt `planned`** i `src/lib/modules.ts`. Uten hovedagentens
-  statusendring eller manuell aktivering i `ModuleState` gir sidene 404, som
-  er den tiltenkte modulvakten.
-- **i18n-fragmentene er ikke koblet inn** i `src/i18n/messages.ts` i denne
-  grenen. `src/i18n/messages.test.ts` feiler derfor til hovedagenten legger
-  inn importene for `quotes.*.json` og `invoicing.*.json`.
+- **Polsk og tysk** er fullt oversatt i denne grenen. Norske og engelske
+  kataloger er kilde til sannhet, og `npm run check:i18n:strict` verifiserer
+  nøkkelparitet i alle fire språk.
+- **Modulene er `active`** i `src/lib/modules.ts` og har navigasjons- og
+  innstillingspunkter. Modulvakten gir fortsatt 404 når en modul slås av.
+- **i18n-fragmentene er koblet inn** i `src/i18n/messages.ts`.
+  `src/i18n/messages.test.ts` verifiserer at alle fragmentnøkler finnes i alle
+  fire språk.
 
 ## Tester
 
