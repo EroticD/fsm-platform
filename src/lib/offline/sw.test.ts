@@ -545,9 +545,9 @@ describe("service worker – cache-valg", () => {
     expect(worker.isFreshCacheEntry(now - 7 * 24 * 60 * 60 * 1000 - 1, now)).toBe(false);
   });
 
-  it("forhåndslaster bare felt og viktige innganger som HTML", () => {
+  it("forhåndslaster bare feltflatene som HTML", () => {
     expect(worker.shouldEnsureHtml("/mine-oppdrag/wo1")).toBe(true);
-    expect(worker.shouldEnsureHtml("/oppdrag")).toBe(true);
+    expect(worker.shouldEnsureHtml("/oppdrag")).toBe(false);
     expect(worker.shouldEnsureHtml("/innstillinger")).toBe(false);
   });
 });

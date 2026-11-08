@@ -35,7 +35,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PAGE_ENTRIES = 400;
 const MAX_API_ENTRIES = 800;
 const MAX_FILE_ENTRIES = 200;
-const PREFETCH_PAGES = ["/", "/oppdrag", "/kalender", "/kunder", "/mine-oppdrag", "/rapporter", "/dokumenter"];
+const PREFETCH_PAGES = ["/mine-oppdrag"];
 
 const HTML_KIND = "html";
 const RSC_KIND = "rsc";
@@ -142,7 +142,7 @@ function isCacheableApi(pathname) {
 }
 
 function shouldEnsureHtml(pathname) {
-  return isFieldPage(pathname) || PREFETCH_PAGES.includes(pathname);
+  return isFieldPage(pathname);
 }
 
 function apiCacheName(userId) {
