@@ -1,9 +1,7 @@
 // i18n-ignore-file: eksporten bygger tekniske datafiler og advarselskoder.
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
 import { sniffFileMime } from "@/lib/upload-validation";
+import { getStorageDriver, tryNormaliseStorageKey } from "@/lib/storage";
 import { sha256Hex } from "@/lib/zip";
 import {
   ALLOWED_MIME_SET,
@@ -163,14 +161,14 @@ export function createFileCollector(): FileCollector {
     ) {
       return null;
     }
-    const root = path.resolve(uploadDir());
-    const target = path.resolve(root, storedName);
-    if (target !== root && !target.startsWith(root + path.sep)) return null;
+    const key = tryNormaliseStorageKey(storedName);
+    if (!key) return null;
     try {
-      const stat = await fs.stat(target);
-      if (!stat.isFile()) return null;
+      const storage = getStorageDriver();
+      const stat = await storage.stat(key);
+      if (!stat) return null;
       if (stat.size > TRANSFER_LIMITS.maxFileBytes) return "too_large" as const;
-      return await fs.readFile(target);
+      return await storage.read(key);
     } catch {
       return null;
     }

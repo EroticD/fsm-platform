@@ -10,21 +10,17 @@ const mocks = vi.hoisted(() => ({
       create: vi.fn(),
     },
   },
-  access: vi.fn(),
-  mkdir: vi.fn(),
-  writeFile: vi.fn(),
-  unlink: vi.fn(),
+  stat: vi.fn(),
+  write: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/uploads" }));
-vi.mock("node:fs/promises", () => ({
-  default: {
-    access: mocks.access,
-    mkdir: mocks.mkdir,
-    writeFile: mocks.writeFile,
-    unlink: mocks.unlink,
-  },
+vi.mock("@/lib/uploads", () => ({
+  uploadDir: () => "/tmp/uploads",
+  statUploadFile: mocks.stat,
+  writeUploadFile: mocks.write,
+  deleteUploadFile: mocks.remove,
 }));
 
 import { MAX_USER_SIGNATURE_UPLOADS, storeDataImage } from "./upload-store";
@@ -48,10 +44,9 @@ beforeEach(() => {
   mocks.prisma.upload.aggregate.mockResolvedValue({ _sum: { size: 0 } });
   mocks.prisma.upload.deleteMany.mockResolvedValue({ count: 0 });
   mocks.prisma.upload.create.mockResolvedValue({});
-  mocks.access.mockResolvedValue(undefined);
-  mocks.mkdir.mockResolvedValue(undefined);
-  mocks.writeFile.mockResolvedValue(undefined);
-  mocks.unlink.mockResolvedValue(undefined);
+  mocks.stat.mockResolvedValue({ key: "finnes.png", size: 4 });
+  mocks.write.mockResolvedValue(undefined);
+  mocks.remove.mockResolvedValue(undefined);
 });
 
 describe("storeDataImage – kladdesignaturer", () => {
@@ -61,13 +56,13 @@ describe("storeDataImage – kladdesignaturer", () => {
     await expect(storeDataImage(DATA_URL, userContext())).resolves.toBe(
       "/uploads/finnes.png",
     );
-    expect(mocks.writeFile).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
     expect(mocks.prisma.upload.create).not.toHaveBeenCalled();
   });
 
   it("rydder borte metadata og lager ny fil når den gamle mangler", async () => {
     mocks.prisma.upload.findFirst.mockResolvedValue({ storedName: "borte.png" });
-    mocks.access.mockRejectedValueOnce(new Error("missing"));
+    mocks.stat.mockResolvedValueOnce(null);
 
     await expect(storeDataImage(DATA_URL, userContext())).resolves.toMatch(
       /^\/uploads\/.+\.png$/,
@@ -84,7 +79,7 @@ describe("storeDataImage – kladdesignaturer", () => {
     await expect(storeDataImage(DATA_URL, userContext())).rejects.toThrow(
       "For mange lagrede kladdesignaturer",
     );
-    expect(mocks.writeFile).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
   });
 
   it("avviser når daglig kvote er brukt opp", async () => {

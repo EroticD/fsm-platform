@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import {
+  deleteUploadFile,
+  statUploadFile,
+  writeUploadFile,
+} from "@/lib/uploads";
 
 /** Signaturbilder er små; 5 MB dekodet er rikelig for en underskrift. */
 const MAX_SIGNATURE_BYTES = 5 * 1024 * 1024;
@@ -92,8 +94,10 @@ export async function storeDataImage(
     });
     if (existing) {
       try {
-        await fs.access(path.join(uploadDir(), existing.storedName));
-        return `/uploads/${existing.storedName}`;
+        if (await statUploadFile(existing.storedName)) {
+          return `/uploads/${existing.storedName}`;
+        }
+        throw new Error("Filen mangler");
       } catch {
         // Filen er borte; rydd metadata og lag en ny kopi under.
         await prisma.upload.deleteMany({ where: { storedName: existing.storedName } });
@@ -122,11 +126,8 @@ export async function storeDataImage(
   }
 
   const storedName = `${randomUUID()}${extension}`;
-  const directory = uploadDir();
-  const filePath = path.join(directory, storedName);
 
-  await fs.mkdir(directory, { recursive: true });
-  await fs.writeFile(filePath, buffer);
+  await writeUploadFile(storedName, buffer, mimeType);
 
   try {
     await prisma.upload.create({
@@ -145,7 +146,7 @@ export async function storeDataImage(
     });
   } catch (error) {
     // Databasen avviste raden – da skal ikke filen bli liggende igjen.
-    await fs.unlink(filePath).catch(() => undefined);
+    await deleteUploadFile(storedName).catch(() => undefined);
     throw error;
   }
 
@@ -179,8 +180,8 @@ export async function deleteUploadIfOwned(
     if (result.count === 0) return;
 
     // Slett raden først. Da kan ikke filen lenger nås gjennom /uploads, selv om
-    // unlink skulle feile.
-    await fs.unlink(path.join(uploadDir(), storedName)).catch(() => undefined);
+    // slettingen i lagringslaget skulle feile.
+    await deleteUploadFile(storedName).catch(() => undefined);
   } catch (error) {
     console.error("Kunne ikke slette gammel signatur:", error);
   }

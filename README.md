@@ -257,6 +257,10 @@ Backup, kryptering, restore-test og rollback er beskrevet i
 - [Backup og gjenoppretting](docs/BACKUP-RESTORE.md) – full runbook med RPO/RTO,
   Azure-native backup, restore-test, feilsøking og sjekklister. Se også
   [drift og feilsøking](docs/OPERATIONS.md).
+- [Lagring](docs/STORAGE.md) – lokal disk eller S3/MinIO, nøkkelmapping og
+  gjenopptakbar migrering av eksisterende filer.
+- [Skalering og HA](docs/SCALING.md) – flere app-replikaer, Redis-kø/cache,
+  DB-tilkoblingsgrenser og utrulling.
 - [Azure-deployment](docs/AZURE.md) – VM, Docker Compose, Caddy, PostgreSQL
   Flexible Server, Key Vault, Blob-backup og oppdateringsrutine.
 
@@ -338,7 +342,9 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | --- | --- |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
 | [`docs/MODULES.md`](docs/MODULES.md) | Modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av |
-| [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, Azure-native backup, øvelser og sjekklister |
+| [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, PITR, Azure-native backup, øvelser og sjekklister |
+| [`docs/STORAGE.md`](docs/STORAGE.md) | Lagringsdrivere, S3/MinIO, nøkler og migrering |
+| [`docs/SCALING.md`](docs/SCALING.md) | HA, replikaer, Redis og kapasitet |
 | [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
 | [`fsm-mobile`](https://github.com/EroticD/fsm-mobile) | Native Android-/iOS-app (eget repo) |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { Readable } from "node:stream";
 import path from "path";
 import prisma from "@/lib/prisma";
 import type { AccessUser } from "@/lib/access";
-import { contentTypeFor, uploadDir } from "@/lib/uploads";
+import { contentTypeFor } from "@/lib/uploads";
+import {
+  getStorageDriver,
+  isInternalStorageKey,
+  tryNormaliseStorageKey,
+} from "@/lib/storage";
 import { getCurrentUser } from "@/lib/session";
 import { canReadUpload } from "@/lib/upload-access";
 import { hasPermission } from "@/lib/permissions";
@@ -32,14 +34,14 @@ function safeFileName(name: string): string {
  * en opprinnelig fil med anførselstegn eller linjeskift ikke kan bryte ut av
  * Content-Disposition-headeren.
  */
-function contentDisposition(filePath: string, originalName?: string | null) {
-  const name = safeFileName(originalName || path.basename(filePath));
+function contentDisposition(fileKey: string, originalName?: string | null) {
+  const name = safeFileName(originalName || path.basename(fileKey));
   const asciiName = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   const encoded = encodeURIComponent(name).replace(
     /['()*]/g,
     (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
   );
-  const disposition = contentTypeFor(filePath).startsWith("image/")
+  const disposition = contentTypeFor(fileKey).startsWith("image/")
     ? "inline"
     : "attachment";
   return `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encoded}`;
@@ -87,15 +89,14 @@ export async function GET(
   }
 
   const { path: segments } = await params;
-  const root = uploadDir();
-  const filePath = path.join(root, ...segments);
+  const fileKey = tryNormaliseStorageKey(segments.join("/"));
 
-  // Aldri les filer utenfor opplastingsmappen.
-  if (filePath !== root && !filePath.startsWith(root + path.sep)) {
+  // Aldri les filer utenfor opplastingsroten eller interne stagingfiler.
+  if (!fileKey || isInternalStorageKey(fileKey)) {
     return new NextResponse("Invalid path", { status: 400 });
   }
 
-  const storedName = path.basename(filePath);
+  const storedName = path.basename(fileKey);
   const upload = await prisma.upload.findUnique({ where: { storedName } });
 
   if (!upload) {
@@ -243,30 +244,26 @@ export async function GET(
   }
 
   try {
-    const info = await stat(filePath);
-    const stream = createReadStream(filePath);
-    // En feil etter at headeren er sendt kan ellers bli en uhåndtert
-    // stream-feil. Svarstrømmen avsluttes uansett.
-    stream.on("error", () => {});
+    const storage = getStorageDriver();
+    const info = await storage.stat(fileKey);
+    if (!info) return new NextResponse("File not found", { status: 404 });
+    const stream = await storage.stream(fileKey);
 
-    return new NextResponse(
-      Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>,
-      {
-        headers: {
-          "Content-Type": contentTypeFor(filePath),
-          "Content-Length": String(info.size),
-          "Content-Disposition": contentDisposition(
-            filePath,
-            upload?.originalName,
-          ),
-          "X-Content-Type-Options": "nosniff",
-          // Filnavnet er tilfeldig, men innholdet kan være kundedata og
-          // tilgangen kan trekkes tilbake. Derfor skal ingen delt cache eller
-          // nettleser beholde filen etter at den er vist.
-          "Cache-Control": "private, no-store",
-        },
+    return new NextResponse(stream, {
+      headers: {
+        "Content-Type": contentTypeFor(fileKey),
+        "Content-Length": String(info.size),
+        "Content-Disposition": contentDisposition(
+          fileKey,
+          upload?.originalName,
+        ),
+        "X-Content-Type-Options": "nosniff",
+        // Filnavnet er tilfeldig, men innholdet kan være kundedata og
+        // tilgangen kan trekkes tilbake. Derfor skal ingen delt cache eller
+        // nettleser beholde filen etter at den er vist.
+        "Cache-Control": "private, no-store",
       },
-    );
+    });
   } catch {
     return new NextResponse("File not found", { status: 404 });
   }

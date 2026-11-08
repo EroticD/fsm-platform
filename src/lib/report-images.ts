@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import sharp from "sharp";
 import { parseImageUrls, parseJsonObject } from "@/lib/report-answers";
 import type { UploadOwnerType } from "@/lib/upload-access";
@@ -8,7 +6,8 @@ import {
   loadUploadOwnerships,
   uploadStoredName,
 } from "@/lib/upload-ownership";
-import { uploadDir } from "@/lib/uploads";
+import { readUploadFile } from "@/lib/uploads";
+import { storageKeyFromUploadUrl } from "@/lib/storage";
 
 /** Lastes opp hit, og kan skaleres ned lokalt. Eksterne bilder brukes som de er. */
 const LOCAL_PREFIX = "/uploads/";
@@ -182,15 +181,11 @@ async function toPdfImage(file: Buffer): Promise<PdfImage | null> {
 async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
   if (!url.startsWith(LOCAL_PREFIX)) return null;
 
-  const root = uploadDir();
-  const decoded = decodeURIComponent(url.slice(LOCAL_PREFIX.length));
-  const filePath = path.join(root, ...decoded.split("/"));
-
-  // Aldri les filer utenfor opplastingsmappen.
-  if (filePath !== root && !filePath.startsWith(root + path.sep)) return null;
+  const key = storageKeyFromUploadUrl(url);
+  if (!key) return null;
 
   try {
-    const file = await fs.readFile(filePath);
+    const file = await readUploadFile(key);
     return await toPdfImage(file);
   } catch {
     // Stabile koder uten filnavn eller annen metadata i loggen.

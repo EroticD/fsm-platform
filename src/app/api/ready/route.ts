@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { constants } from "node:fs";
-import fs from "node:fs/promises";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import { getStorageDriver } from "@/lib/storage";
 import { logger, requestIdFrom } from "@/lib/logger";
 import { hasValidBearer } from "@/lib/secrets";
 import { clientIpFrom } from "@/lib/client-ip";
@@ -139,15 +137,22 @@ export async function GET(request: Request) {
     });
   }
 
-  let disk: "writable" | "unwritable" = "unwritable";
+  let disk: "writable" | "unwritable" | "not_applicable" = "not_applicable";
+  let storage: { driver: "local" | "s3"; status: "ok" | "down" } = {
+    driver: "local",
+    status: "down",
+  };
   try {
-    await fs.mkdir(uploadDir(), { recursive: true });
-    await fs.access(uploadDir(), constants.W_OK);
-    disk = "writable";
+    const driver = getStorageDriver();
+    storage = { driver: driver.kind, status: "down" };
+    await driver.healthCheck();
+    storage.status = "ok";
+    disk = driver.kind === "local" ? "writable" : "not_applicable";
   } catch (error) {
     ready = false;
-    logger.error("Readiness: upload volume is not writable", {
+    logger.error("Readiness: storage is not available", {
       requestId,
+      driver: storage.driver,
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -174,6 +179,7 @@ export async function GET(request: Request) {
       database,
       databaseRole,
       disk,
+      storage,
       queue,
       requestId,
       time: new Date().toISOString(),

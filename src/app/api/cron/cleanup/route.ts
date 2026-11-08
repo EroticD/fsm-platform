@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cleanupAbandonedUploads } from "@/lib/upload-cleanup";
 import { releaseExpiredUploadQuotaReservations } from "@/lib/upload-quota";
 import { cleanupUploadTempFiles } from "@/lib/upload-multipart";
-import { uploadDir } from "@/lib/uploads";
+import { uploadTempDir } from "@/lib/uploads";
 import prisma from "@/lib/prisma";
 import { safeEqual } from "@/lib/secrets";
 import { moduleEnabled } from "@/server/modules";
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
   const reservationsReleased = await releaseExpiredUploadQuotaReservations();
   // Midlertidige filer fra avbrutte eller krasjede opplastinger skal ikke bli
   // liggende. Aktive opplastinger er langt yngre enn fristen på 24 timer.
-  const temp = await cleanupUploadTempFiles({ tempDir: uploadDir() });
+  const temp = await cleanupUploadTempFiles({ tempDir: uploadTempDir() });
 
   return NextResponse.json({
     ok: true,

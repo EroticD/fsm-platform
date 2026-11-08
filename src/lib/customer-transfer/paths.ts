@@ -1,23 +1,34 @@
-// i18n-ignore-file: interne filstier for staging.
-import fs from "node:fs/promises";
-import path from "node:path";
-import { uploadDir } from "@/lib/uploads";
+// i18n-ignore-file: interne lagringsnøkler for staging.
+import { normaliseStorageKey } from "@/lib/storage";
 
-export function transferRoot(): string {
-  return path.join(uploadDir(), ".transfer");
-}
+/**
+ * Intern staging for kundeoverføringer ligger i samme lagringslag som
+ * opplastingene, men under en skjult rot. Da ser alle app-instanser de samme
+ * filene, og avstemmingen kan jobbe uavhengig av hvilken replika som tok
+ * jobben. `/uploads`-ruten nekter å serve nøkler som starter med «.».
+ */
+export const TRANSFER_ROOT_KEY = ".transfer";
 
-export function jobStagingDir(jobId: string): string {
+export function jobStagingPrefix(jobId: string): string {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(jobId)) {
     throw new Error("Ugyldig jobb-id");
   }
-  return path.join(transferRoot(), jobId);
+  return normaliseStorageKey(`${TRANSFER_ROOT_KEY}/${jobId}`);
 }
 
-/** Oppretter staging-mappen med restriktive rettigheter (0700). */
+export function jobStagingKey(jobId: string, name: string): string {
+  return normaliseStorageKey(`${jobStagingPrefix(jobId)}/${name}`);
+}
+
+/**
+ * Historisk navn. Returnerer nå en lagringsnøkkel, ikke en absolutt sti.
+ * Funksjonen lager ingen mapper; driveren oppretter det den trenger.
+ */
 export async function ensureJobStaging(jobId: string): Promise<string> {
-  await fs.mkdir(transferRoot(), { recursive: true, mode: 0o700 });
-  const directory = jobStagingDir(jobId);
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  return directory;
+  return jobStagingPrefix(jobId);
+}
+
+/** @deprecated Bruk `jobStagingPrefix`. Beholdt for eldre kall og tester. */
+export function jobStagingDir(jobId: string): string {
+  return jobStagingPrefix(jobId);
 }

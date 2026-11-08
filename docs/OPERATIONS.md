@@ -121,6 +121,9 @@ driften:
 | Backup | Daglig kryptert backup med sjekksum og statusfil; produksjon nekter å ta backup uten `BACKUP_AGE_RECIPIENT` | `BACKUP_REMOTE`, `REQUIRE_BACKUP_ENCRYPTION=true`, se «Backup og restore» |
 | Overvåking | `/api/metrics` er av uten `METRICS_SECRET` | `METRICS_SECRET`, se «Overvåking og varsling» |
 | Opplasting | 4 samtidige kroppslesinger per instans, 50 MB per PDF, 2 GiB per bruker/24 t og 10 GiB per kunde | `UPLOAD_BODY_CONCURRENCY`, `UPLOAD_MAX_DOCUMENT_MB`, `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt sette egne grenser |
+| Lagring | Lokal disk (`STORAGE_DRIVER=local`); `/uploads/<filnavn>` er uendret | `STORAGE_DRIVER=s3` + `S3_*`, se [`STORAGE.md`](STORAGE.md) |
+| Kø/cache/rate limit | Database (`QUEUE_DRIVER=db`) | `QUEUE_DRIVER=redis` + `REDIS_URL`; `CACHE_DRIVER`/`RATE_LIMIT_DRIVER` kan overstyres, se [`SCALING.md`](SCALING.md) |
+| DB-tilkoblinger | 10 per appprosess (`DATABASE_POOL_MAX`) | Senk/hev bevisst; replikaer × pool må være under `max_connections` |
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
@@ -281,8 +284,8 @@ behandler større filer.
 - `GET /api/ready` — **readiness**. Uautentiserte kall får en kort status og
   billige database- og rollekontroller (rate-limitert per IP), slik at også
   Compose-healthchecken blir unhealthy når runtime-rollen kan DDL. Med
-  `READY_SECRET` eller `CRON_SECRET` sjekkes også skrivbart
-  opplastingsvolum og jobbkøen, og detaljene returneres. Returnerer 503 når
+  `READY_SECRET` eller `CRON_SECRET` sjekkes også lagring (`local` eller
+  `s3`) og jobbkøen, og detaljene returneres. Returnerer 503 når
   noe mangler, eller når `databaseRole.canDdl` er `true` i produksjon uten
   `ALLOW_DB_DDL_ROLE=true`.
 - `GET /api/metrics` — **driftsmålinger**, beskyttet med `METRICS_SECRET`.
@@ -717,6 +720,11 @@ Etterpå: åpne et vedlegg i UI, og bekreft at filen finnes med riktig
 tilgangskontroll. `UPLOAD_DIR` må peke på samme sted som i produksjon
 (`/app/uploads` i containeren). Gjenopprett alltid database og opplastinger fra
 **samme tidsstempel**, ellers kan `Upload`-rader peke på filer som mangler.
+
+Med `STORAGE_DRIVER=s3` ligger filene i bucket, ikke i `fsm_uploads`. Da
+gjenopprettes de fra S3-versjonering/bucket-backup, ikke fra
+opplastingsarkivet. Bytt aldri driver uten å ha migrert og verifisert filene
+først; se [`STORAGE.md`](STORAGE.md).
 
 ### 4. Rollback-øvelse
 
@@ -1167,8 +1175,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 
 ## Disk, opplastinger og opprydding
 
-- Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`).
-- `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil.
+- Standard er lokal disk: filer ligger i `UPLOAD_DIR` (standard `./uploads`, i
+  Docker `/app/uploads`). Med `STORAGE_DRIVER=s3` ligger de i S3/MinIO, men
+  URL-ene er fortsatt `/uploads/<filnavn>`. Se [`STORAGE.md`](STORAGE.md).
+- `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil. Ruten
+  bruker samme lagringslag som opplastingen, så den virker uendret med S3.
 - Per-fil-grenser: 15 MB for bilder og 50 MB for PDF (`UPLOAD_MAX_IMAGE_MB`,
   `UPLOAD_MAX_DOCUMENT_MB`). Hele forespørselen avvises tidlig med 413 basert på
   `Content-Length`, og grensene håndheves på nytt mens multipart-kroppen
@@ -1186,9 +1197,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   reservasjonen. Utløpte reservasjoner (15 min) ignoreres og ryddes av
   `/api/cron/cleanup`. Volumbegrensning i drift er fortsatt nødvendig som
   ytterste sikkerhet.
-- Midlertidige filer ligger i `UPLOAD_DIR/.tmp` og slettes når opplastingen
-  feiler. Cron-jobben `/api/cron/cleanup` fjerner i tillegg filer som er eldre
-  enn 24 timer etter en krasj. Sjekk at jobben kjører hvis diskbruken vokser.
+- Midlertidige filer ligger i `UPLOAD_TEMP_DIR` (standard `/tmp` i container,
+  `UPLOAD_DIR/.tmp` lokalt) og slettes når opplastingen feiler. Cron-jobben
+  `/api/cron/cleanup` fjerner i tillegg filer som er eldre enn 24 timer etter
+  en krasj. Sjekk at jobben kjører hvis diskbruken vokser. Ved S3 må
+  `UPLOAD_TEMP_DIR` være skrivbar og stor nok for OCR/PDF.
 - Grov kapasitetsberegning: 1000 PDF-er à 20 MB = ca. 20 GB, og backup arkiverer
   det samme én gang til. Lokale backupfiler dobler altså diskbehovet. Hold
   minst 30 % ledig disk, og legg backupene utenfor datadisk hvis mulig.
@@ -1226,14 +1239,19 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   inneholde opprinnelige data. Det er et dokumentert retensjonsvalg, ikke en
   feil. Se [`privacy-erasure.md`](privacy-erasure.md) for retensjonsmatrise,
   prosedyre og bevis.
-- Etter store slettinger: kontroller `UPLOAD_DIR` for filer uten `Upload`-rad.
+- Etter store slettinger: kontroller lagringslaget for filer uten `Upload`-rad.
   Tjenesten forsøker å rydde dem, men filer fra eldre data kan mangle metadata.
-  Sammenlign med `Upload.storedName` før manuell sletting.
+  Sammenlign med `Upload.storedName` før manuell sletting. Ved S3 brukes
+  bucket-listingen med `S3_PREFIX`; slett aldri objekter manuelt uten denne
+  sammenligningen.
 
 ### Kundeoverføring (eksport/import)
 
-- Midlertidige kundepakker og staging ligger i `UPLOAD_DIR/.transfer/<jobbId>/`.
-  Mappen opprettes med `0700`, og `package.zip` skrives med `0600`.
+- Midlertidige kundepakker og staging ligger i lagringslaget under
+  `.transfer/<jobbId>/` (lokal disk: `UPLOAD_DIR/.transfer/<jobbId>/`; S3:
+  `S3_PREFIX/.transfer/<jobbId>/`). Med delt lagring kan importjobben kjøre på
+  en annen replika enn den som tok imot filen. `/uploads` nekter å serve
+  nøkler som starter med «.».
 - **Grenser:** maks 50 MiB per fil, 500 MiB per pakke (ukomprimert og
   komprimert), 20 000 ZIP-oppføringer og kompresjonsforhold 100:1. Hele pakken
   holdes i minnet, så den praktiske minnegrensen er også 500 MiB.
@@ -1366,15 +1384,24 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   med begrenset, eksponentiell backoff og gir opp etter fem forsøk, slik at en
   401/403 ikke gir en uendelig løkke.
 
-## Skalering
+## Skalering og HA
 
-- Rate limits og jobbkø ligger i databasen og deles mellom instanser.
-- Serviceavtale-genereringen bruker en PostgreSQL advisory lock, så bare én
-  instans genererer om gangen.
-- PDF-rendering har en prosesslokal semaphore (maks 2). Ved flere instanser
-  gjelder grensen per instans.
-- For større installasjoner: bytt lokal disk mot S3-kompatibel lagring og
-  vurder Redis/BullMQ for kø og rate limits (P4).
+- Standard: rate limits og jobbkø ligger i databasen og deles mellom instanser.
+  PDF-rendering har en prosesslokal semaphore (maks 2); grensen gjelder per
+  instans.
+- Med `QUEUE_DRIVER=redis` varsles jobber via Redis, men databasen er fortsatt
+  kilden til sannhet og fallback. `CACHE_DRIVER` og `RATE_LIMIT_DRIVER` kan
+  overstyres hver for seg.
+- Flere app-replikaer krever **delt opplastingslager** (`STORAGE_DRIVER=s3`).
+  Uten det får hver replika sin egen disk.
+- `DATABASE_POOL_MAX` (standard 10) ganger antall replikaer må være lavere enn
+  Postgres `max_connections`, med margin til migrasjoner og drift.
+- Bruk `docker-compose.ha.yml` og `deploy/ha/Caddyfile`. Se
+  [`SCALING.md`](SCALING.md) for topologi, utrulling, readiness og
+  kapasitetstesting.
+- For databasen: bruk managed PostgreSQL med replika/failover og PITR, eller
+  Patroni. Compose-profilen har WAL-arkiv og verifisert base-backup, men ingen
+  automatisk primærfailover.
 
 ## CI og publisering
 

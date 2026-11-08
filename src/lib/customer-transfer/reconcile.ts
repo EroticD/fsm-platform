@@ -1,17 +1,16 @@
 // i18n-ignore-file: avstemmingen bruker filnavn og statuser, ikke UI-tekst.
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { uploadDir } from "@/lib/uploads";
 import { isUploadReferenced } from "@/lib/upload-cleanup";
+import { getStorageDriver } from "@/lib/storage";
 import { TRANSFER_STATUS } from "./constants";
-import { jobStagingDir, transferRoot } from "./paths";
+import { TRANSFER_ROOT_KEY, jobStagingKey } from "./paths";
 
 /**
  * Avstemming av sluttfiler fra kundeoverføringer.
  *
- * Import skriver filer til `UPLOAD_DIR` før databasetransaksjonen committer.
+ * Import skriver filer til lagringslaget (lokal `UPLOAD_DIR` eller S3) før
+ * databasetransaksjonen committer.
  * Krasjer prosessen mellom skriving og commit, blir filene liggende uten en
  * `Upload`-rad. Vi kan ikke bruke en vanlig «slett alt uten rad»-skanner: den
  * ville også tatt filer fra andre flyter som nettopp er skrevet, men ennå ikke
@@ -38,16 +37,14 @@ export async function writeFinalFilesLedger(
   jobId: string,
   storedNames: readonly string[],
 ): Promise<void> {
-  const directory = jobStagingDir(jobId);
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const names = [...new Set(storedNames)].filter((name) =>
     STORED_NAME.test(name),
   );
   const ledger: LedgerFile = { version: 1, files: names };
-  await fs.writeFile(
-    path.join(directory, FINAL_FILES_LEDGER),
+  await getStorageDriver().write(
+    jobStagingKey(jobId, FINAL_FILES_LEDGER),
     `${JSON.stringify(ledger)}\n`,
-    { encoding: "utf8", mode: 0o600 },
+    { contentType: "application/json", cacheControl: "private, no-store" },
   );
 }
 
@@ -55,11 +52,10 @@ export async function readFinalFilesLedger(
   jobId: string,
 ): Promise<string[]> {
   try {
-    const raw = await fs.readFile(
-      path.join(jobStagingDir(jobId), FINAL_FILES_LEDGER),
-      "utf8",
+    const raw = await getStorageDriver().read(
+      jobStagingKey(jobId, FINAL_FILES_LEDGER),
     );
-    const parsed = JSON.parse(raw) as Partial<LedgerFile>;
+    const parsed = JSON.parse(raw.toString("utf8")) as Partial<LedgerFile>;
     if (parsed.version !== 1 || !Array.isArray(parsed.files)) return [];
     return parsed.files.filter(
       (name): name is string =>
@@ -71,8 +67,8 @@ export async function readFinalFilesLedger(
 }
 
 async function removeLedger(jobId: string): Promise<void> {
-  await fs
-    .unlink(path.join(jobStagingDir(jobId), FINAL_FILES_LEDGER))
+  await getStorageDriver()
+    .delete(jobStagingKey(jobId, FINAL_FILES_LEDGER))
     .catch(() => undefined);
 }
 
@@ -117,9 +113,9 @@ async function reconcileJob(
   }
 
   result.jobs = 1;
+  const storage = getStorageDriver();
   for (const storedName of names) {
     const url = `/uploads/${storedName}`;
-    const target = path.join(uploadDir(), storedName);
     // En eksisterende Upload-rad er i seg selv en referanse. Slett aldri en
     // fil bare fordi ingen attachment peker på den ennå.
     const uploadRow = await prisma.upload.findFirst({
@@ -130,21 +126,21 @@ async function reconcileJob(
       result.filesKept += 1;
       continue;
     }
-    let existed = true;
-    try {
-      await fs.unlink(target);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") existed = false;
-      else result.filesKept += 1; // Klarte ikke slette; prøv igjen senere.
-    }
-    if (!existed) {
-      result.filesMissing += 1;
-    } else {
+    const existed = Boolean(await storage.stat(storedName));
+    if (existed) {
+      try {
+        await storage.delete(storedName);
+      } catch {
+        result.filesKept += 1; // Klarte ikke slette; prøv igjen senere.
+        continue;
+      }
       // En eventuell ufullstendig Upload-rad uten referanser ryddes også.
       await prisma.upload
         .deleteMany({ where: { storedName } })
         .catch(() => undefined);
       result.filesDeleted += 1;
+    } else {
+      result.filesMissing += 1;
     }
   }
   await removeLedger(jobId);
@@ -177,25 +173,29 @@ export async function reconcileTransferFiles(options?: {
     filesMissing: 0,
   };
 
-  let entries;
+  let objects;
   try {
-    entries = await fs.readdir(transferRoot(), { withFileTypes: true });
+    objects = await getStorageDriver().list(TRANSFER_ROOT_KEY);
   } catch {
     return total;
   }
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(entry.name)) continue;
+  const jobIds = new Set(
+    objects
+      .map((object) => object.key.slice(TRANSFER_ROOT_KEY.length + 1).split("/")[0])
+      .filter((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id)),
+  );
+
+  for (const jobId of jobIds) {
     try {
-      const result = await reconcileJob(entry.name, { now, staleMs });
+      const result = await reconcileJob(jobId, { now, staleMs });
       total.jobs += result.jobs;
       total.filesDeleted += result.filesDeleted;
       total.filesKept += result.filesKept;
       total.filesMissing += result.filesMissing;
     } catch (error) {
       logger.error("Could not reconcile customer transfer files", {
-        jobId: entry.name,
+        jobId,
         error: error instanceof Error ? error.message : String(error),
       });
     }

@@ -1,7 +1,5 @@
 "use server";
 
-import fs from "fs/promises";
-import path from "path";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
@@ -10,7 +8,7 @@ import { requireAdmin, getCurrentUser } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
 import { claimUpload } from "@/lib/upload-access";
 import { releaseUpload } from "@/lib/upload-cleanup";
-import { uploadDir } from "@/lib/uploads";
+import { statUploadFile } from "@/lib/uploads";
 import { isClosedStatus } from "@/lib/work-order-status";
 import type { WorkStatus } from "@prisma/client";
 import {
@@ -32,9 +30,9 @@ function failAttachment(error: string, messageKey?: string): AttachmentActionRes
 /** Bare filer som ligger i opplastingsmappen kan knyttes til et oppdrag. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
-function attachmentPath(fileUrl: string): string | null {
+function attachmentKey(fileUrl: string): string | null {
   if (!UPLOAD_URL.test(fileUrl)) return null;
-  return path.join(uploadDir(), path.basename(fileUrl));
+  return fileUrl.slice("/uploads/".length);
 }
 
 /**
@@ -72,13 +70,11 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
 
   if (!fileUrl) return failAttachment("missing_field", "errors.api.missingField");
 
-  const filePath = attachmentPath(fileUrl);
-  if (!filePath) return failAttachment("invalid_file", "errors.api.invalidFile");
+  const fileKey = attachmentKey(fileUrl);
+  if (!fileKey) return failAttachment("invalid_file", "errors.api.invalidFile");
 
-  // Filen må faktisk finnes i opplastingsmappen.
-  try {
-    await fs.access(filePath);
-  } catch {
+  // Filen må faktisk finnes i lagringslaget.
+  if (!(await statUploadFile(fileKey))) {
     return failAttachment("file_not_found", "errors.api.fileNotFound");
   }
 

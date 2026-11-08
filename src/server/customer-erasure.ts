@@ -1,6 +1,4 @@
 // i18n-ignore-file: tjenesten lagrer stabile norske revisjonsdata, ikke UI-tekst.
-import fs from "node:fs/promises";
-import path from "node:path";
 import type {
   Attachment,
   BookingRequest,
@@ -31,7 +29,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { releaseUpload } from "@/lib/upload-cleanup";
-import { uploadDir } from "@/lib/uploads";
+import { deleteUploadFile } from "@/lib/uploads";
 import { cleanText, LIMITS } from "@/lib/sanitize";
 import {
   can,
@@ -1275,7 +1273,7 @@ async function cleanupFiles(result: ApplyResult): Promise<{
     });
     if (stillRegistered) continue;
     try {
-      await fs.unlink(path.join(uploadDir(), stored));
+      await deleteUploadFile(stored);
       deletedNames.add(stored);
       deleted += 1;
     } catch (error) {

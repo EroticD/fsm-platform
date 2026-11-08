@@ -1,6 +1,5 @@
 // i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
 // oversettes ved visning i audit-actions.ts.
-import fs from "node:fs/promises";
 import path from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -16,7 +15,7 @@ import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { claimUpload } from "@/lib/upload-access";
 import { enqueuePdfText } from "@/lib/pdf-queue";
 import { findDocumentIdsBySearch } from "@/lib/document-search";
-import { uploadDir } from "@/lib/uploads";
+import { deleteUploadFile } from "@/lib/uploads";
 import {
   can,
   fail,
@@ -135,7 +134,7 @@ async function removeOrphanedUpload(
   });
   if (removed.count === 0) return false;
   try {
-    await fs.unlink(path.join(uploadDir(), storedName));
+    await deleteUploadFile(storedName);
   } catch {
     // Filen kan allerede være borte, eller ligge på et annet volum.
   }
