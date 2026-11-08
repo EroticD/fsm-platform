@@ -2582,6 +2582,12 @@
           "maintenanceWrite": "Konserwacja – zapis",
           "reportsRead": "Raporty – odczyt",
           "documentsRead": "Dokumenty – odczyt",
+          "quotesRead": "Oferty – odczyt",
+          "quotesWrite": "Oferty – zapis",
+          "ordersRead": "Zamówienia – odczyt",
+          "ordersWrite": "Zamówienia – zapis",
+          "inventoryRead": "Magazyn – odczyt",
+          "inventoryWrite": "Magazyn – zapis",
           "allLegacy": "Wszystko (starszy klucz bez ograniczeń)"
         },
         "revoke": "Odwołaj",

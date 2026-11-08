@@ -315,6 +315,106 @@ export async function listInventory(
   });
 }
 
+export type InventoryStockRow = {
+  itemId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  locationId: string;
+  locationName: string;
+  locationType: string;
+  quantity: number;
+  reserved: number;
+  available: number;
+  low: boolean;
+};
+
+/**
+ * Flat beholdningsliste per vare og lokasjon, avgrenset til aktørens
+ * avdelingsomfang. Brukes av API-et; oversikten i UI-et bruker `listInventory`.
+ */
+export async function listStockLevels(
+  actor: ServiceActor,
+  params: { itemId?: string; locationId?: string } = {},
+): Promise<ServiceResult<InventoryStockRow[]>> {
+  if (!(await requireModule("inventory"))) return fail("not_found");
+  const denied = requireView(actor);
+  if (denied) return denied;
+
+  const itemId = cleanId(params.itemId);
+  const locationId = cleanId(params.locationId);
+  const locations = await prisma.inventoryLocation.findMany({
+    where: {
+      ...locationScope(actor),
+      ...(locationId ? { id: locationId } : {}),
+    },
+    select: { id: true, name: true, type: true },
+  });
+  if (locationId && locations.length === 0) return fail("not_found");
+  const locationIds = locations.map((location) => location.id);
+  if (locationIds.length === 0) return ok([]);
+
+  const [levels, reservations] = await Promise.all([
+    prisma.stockLevel.findMany({
+      where: {
+        locationId: { in: locationIds },
+        ...(itemId ? { itemId } : {}),
+      },
+      orderBy: [{ item: { name: "asc" } }, { location: { name: "asc" } }],
+      select: {
+        itemId: true,
+        locationId: true,
+        quantity: true,
+        item: {
+          select: { sku: true, name: true, unit: true, minLevel: true },
+        },
+        location: { select: { name: true, type: true } },
+      },
+    }),
+    prisma.inventoryReservation.groupBy({
+      by: ["itemId", "locationId"],
+      where: {
+        status: "ACTIVE",
+        locationId: { in: locationIds },
+        ...(itemId ? { itemId } : {}),
+      },
+      _sum: { quantity: true },
+    }),
+  ]);
+
+  const reservedByKey = new Map(
+    reservations.map((reservation) => [
+      `${reservation.itemId}:${reservation.locationId}`,
+      decimalToNumber(reservation._sum.quantity),
+    ]),
+  );
+
+  return ok(
+    levels.map((level) => {
+      const quantity = decimalToNumber(level.quantity);
+      const reserved =
+        reservedByKey.get(`${level.itemId}:${level.locationId}`) ?? 0;
+      return {
+        itemId: level.itemId,
+        sku: level.item.sku,
+        name: level.item.name,
+        unit: level.item.unit,
+        locationId: level.locationId,
+        locationName: level.location.name,
+        locationType: level.location.type,
+        quantity,
+        reserved,
+        available: roundQuantity(quantity - reserved),
+        low: isLowStock(
+          quantity,
+          reserved,
+          decimalToNumber(level.item.minLevel),
+        ),
+      };
+    }),
+  );
+}
+
 export type InventoryItemDetail = {
   item: {
     id: string;

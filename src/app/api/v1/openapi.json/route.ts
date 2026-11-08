@@ -63,6 +63,21 @@ export const openApiDocument = {
     },
     { name: "Reports", description: "Signerte servicerapporter." },
     { name: "Documents", description: "Dokumentbiblioteket." },
+    {
+      name: "Quotes",
+      description:
+        "Tilbud med serverberegnede linjer og totaler. Krever modulen `quotes`.",
+    },
+    {
+      name: "Orders",
+      description:
+        "Idempotent innmelding av ordrer fra andre ordresystemer. Mapping til oppdrag.",
+    },
+    {
+      name: "Inventory",
+      description:
+        "Varer, lokasjoner, beholdning og reservasjoner. Krever modulen `inventory`.",
+    },
   ],
   security: [{ bearerAuth: [] }],
   paths: {
@@ -1448,6 +1463,688 @@ export const openApiDocument = {
         },
       },
     },
+    "/quotes": {
+      get: {
+        tags: ["Quotes"],
+        operationId: "listQuotes",
+        summary: "List tilbud",
+        description:
+          "Tilbud i brukerens avdelings- eller kundeomfang. Beløp er " +
+          "serverberegnede og returneres som desimalstrenger.",
+        parameters: [
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+          {
+            name: "status",
+            in: "query",
+            description: "Filtrer på tilbudsstatus.",
+            schema: {
+              type: "string",
+              enum: ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"],
+            },
+          },
+          {
+            name: "customerId",
+            in: "query",
+            description: "Filtrer på kunde.",
+            schema: { type: "string" },
+          },
+          {
+            name: "q",
+            in: "query",
+            description: "Fritekstsøk i tittel, tilbudsnummer og kundenavn.",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Side med tilbud.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/QuoteList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Quotes"],
+        operationId: "createQuote",
+        summary: "Opprett tilbud",
+        description:
+          "Oppretter et tilbud i kladd. Krever `quotes:write` og " +
+          "`customers.manage`. Alle linje- og totalsummer regnes på nytt på " +
+          "serveren; klienten kan ikke sende totaler.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/QuoteCreate" },
+              examples: {
+                simple: {
+                  summary: "Tilbud med to linjer",
+                  value: {
+                    title: "Service av varmepumpe",
+                    customerId: "cm_customer",
+                    validUntil: "2026-12-31",
+                    vatRate: "25",
+                    lines: [
+                      {
+                        description: "Arbeid",
+                        quantity: "2",
+                        unit: "time",
+                        unitPrice: "950",
+                        vatRate: "25",
+                      },
+                      {
+                        description: "Fyllmasse",
+                        quantity: "1",
+                        unit: "stk",
+                        unitPrice: "250",
+                        vatRate: "25",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Tilbudet er opprettet.",
+            headers: {
+              Location: {
+                description: "URI til det nye tilbudet.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/quotes/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Quotes"],
+        operationId: "getQuote",
+        summary: "Hent tilbud",
+        description:
+          "Henter et tilbud med linjer, versjoner og fakturareferanser. " +
+          "Tilbud utenfor brukerens avdeling eller kunde gir 404.",
+        responses: {
+          "200": {
+            description: "Tilbudet.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: { data: { $ref: "#/components/schemas/QuoteDetail" } },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      patch: {
+        tags: ["Quotes"],
+        operationId: "updateQuote",
+        summary: "Oppdater tilbud",
+        description:
+          "Oppdaterer et tilbud som fortsatt er i kladd. Felt som utelates " +
+          "bevares. Linjer og totaler regnes på nytt på serveren. Sendte " +
+          "tilbud gir 409.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/QuotePatch" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Oppdatert tilbud.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: { data: { $ref: "#/components/schemas/QuoteDetail" } },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/quotes/{id}/send": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      post: {
+        tags: ["Quotes"],
+        operationId: "sendQuote",
+        summary: "Send tilbud",
+        description:
+          "Fryser linjene i en versjon, utsteder en engangslenke og legger " +
+          "e-posten i utboksen. Selve godkjenningstokenet returneres ikke; " +
+          "det sendes bare til kunden.",
+        responses: {
+          "200": {
+            description: "Tilbudet er sendt.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id", "status", "version"],
+                      properties: {
+                        id: { type: "string" },
+                        status: { type: "string", enum: ["SENT"] },
+                        version: { type: "integer", minimum: 1 },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/orders": {
+      get: {
+        tags: ["Orders"],
+        operationId: "listExternalOrders",
+        summary: "List innmeldte ordrer",
+        description:
+          "Eksterne ordrer hvis oppdrag er i brukerens avdelings- eller " +
+          "kundeomfang. Hver ordre viser kilde, ekstern id og det mappede " +
+          "oppdraget.",
+        parameters: [
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+          {
+            name: "source",
+            in: "query",
+            description: "Filtrer på kildesystem.",
+            schema: { type: "string" },
+          },
+          {
+            name: "status",
+            in: "query",
+            description: "Filtrer på det mappede oppdragets status.",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Side med eksterne ordrer.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ExternalOrderList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Orders"],
+        operationId: "createExternalOrder",
+        summary: "Meld inn ordre",
+        description:
+          "Oppretter et oppdrag fra en ekstern ordre. Krever `orders:write` " +
+          "og `workorders.create`. `(source, externalId)` er idempotensnøkkelen: " +
+          "en replay med samme innhold returnerer samme ordre med 200 og " +
+          "headeren `Idempotent-Replay: true`. Samme nøkkel med annet innhold " +
+          "gir 409. `Idempotency-Key` kan brukes i tillegg.",
+        parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ExternalOrderCreate" },
+              examples: {
+                byOrgNumber: {
+                  summary: "Ordre med kunde oppgitt ved organisasjonsnummer",
+                  value: {
+                    source: "erp",
+                    externalId: "WO-2026-0042",
+                    orgNumber: "912345678",
+                    title: "Akutt service",
+                    description: "Lekkasje på varmtvannstank.",
+                    requestedDate: "2026-11-12",
+                    priority: "HIGH",
+                    lines: [
+                      {
+                        description: "Servicebesøk",
+                        quantity: "1",
+                        unit: "stk",
+                        unitPrice: "1250",
+                        vatRate: "25",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Ordren er allerede mottatt med samme innhold. Samme ordre returneres.",
+            headers: {
+              "Idempotent-Replay": {
+                description: "Satt til `true` ved replay.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/ExternalOrderDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "201": {
+            description: "Ordren er opprettet og mappet til et oppdrag.",
+            headers: {
+              Location: {
+                description: "URI til den innmeldte ordren.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/ExternalOrderDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/orders/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Orders"],
+        operationId: "getExternalOrder",
+        summary: "Hent innmeldt ordre",
+        responses: {
+          "200": {
+            description: "Ordren med payload og mappede oppdrag.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/ExternalOrderDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      patch: {
+        tags: ["Orders"],
+        operationId: "updateExternalOrder",
+        summary: "Endre status eller kanseller ordre",
+        description:
+          "Endrer status på det underliggende oppdraget, eller kansellerer " +
+          "med `cancel: true`. Kansellering krever `workorders.edit`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ExternalOrderPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Oppdatert ordre.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/ExternalOrderDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/items": {
+      get: {
+        tags: ["Inventory"],
+        operationId: "listInventoryItems",
+        summary: "List varer",
+        description:
+          "Aktive varer med beholdning, reservert mengde og tilgjengelig " +
+          "mengde i aktørens lokasjonsomfang.",
+        parameters: [
+          {
+            name: "q",
+            in: "query",
+            description: "Fritekstsøk i SKU og navn.",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Varer.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryItemList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/items/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Inventory"],
+        operationId: "getInventoryItem",
+        summary: "Hent vare",
+        description:
+          "Varen med beholdning per lokasjon, siste bevegelser og reservasjoner.",
+        responses: {
+          "200": {
+            description: "Varen.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/InventoryItemDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/locations": {
+      get: {
+        tags: ["Inventory"],
+        operationId: "listInventoryLocations",
+        summary: "List lagerlokasjoner",
+        responses: {
+          "200": {
+            description: "Lokasjoner i aktørens avdelingsomfang.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryLocationList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/stock": {
+      get: {
+        tags: ["Inventory"],
+        operationId: "listInventoryStock",
+        summary: "List beholdning",
+        description:
+          "Beholdning per vare og lokasjon. `itemId` og `locationId` er " +
+          "valgfrie filtre og kan kombineres.",
+        parameters: [
+          {
+            name: "itemId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "locationId",
+            in: "query",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Beholdningsrader.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryStockList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/reservations": {
+      post: {
+        tags: ["Inventory"],
+        operationId: "reserveInventoryStock",
+        summary: "Reserver deler",
+        description:
+          "Reserverer deler mot et oppdrag eller en visitt. Krever " +
+          "`inventory:write`. Beholdningen låses i transaksjonen; " +
+          "utilstrekkelig beholdning gir 409 med `inventory.insufficientStock`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/InventoryReservationCreate",
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Reservasjonen er opprettet.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id", "status", "quantity", "available"],
+                      properties: {
+                        id: { type: "string" },
+                        status: { type: "string", enum: ["ACTIVE"] },
+                        quantity: { type: "number" },
+                        available: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/reservations/{id}/release": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      post: {
+        tags: ["Inventory"],
+        operationId: "releaseInventoryReservation",
+        summary: "Frigjør reservasjon",
+        responses: {
+          "200": {
+            description: "Reservasjonen er frigjort.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id", "status"],
+                      properties: {
+                        id: { type: "string" },
+                        status: { type: "string", enum: ["RELEASED"] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/inventory/reservations/{id}/consume": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      post: {
+        tags: ["Inventory"],
+        operationId: "consumeInventoryReservation",
+        summary: "Forbruk reservasjon",
+        description:
+          "Trekker den reserverte mengden fra fysisk beholdning. " +
+          "Reservasjonen må være aktiv; en gjentatt forbruk gir 409.",
+        responses: {
+          "200": {
+            description: "Reservasjonen er forbrukt.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id", "status", "quantity"],
+                      properties: {
+                        id: { type: "string" },
+                        status: { type: "string", enum: ["CONSUMED"] },
+                        quantity: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -1486,6 +2183,16 @@ export const openApiDocument = {
         required: true,
         description: "Objektets id (cuid).",
         schema: { type: "string" },
+      },
+      IdempotencyKey: {
+        name: "Idempotency-Key",
+        in: "header",
+        required: false,
+        description:
+          "Valgfri sekundær idempotensnøkkel for POST. `(source, externalId)` " +
+          "er alltid den primære nøkkelen for innmeldte ordrer. Gjentatt kall " +
+          "med samme nøkkel og samme innhold returnerer samme ressurs.",
+        schema: { type: "string", maxLength: 500 },
       },
     },
     responses: {
@@ -2986,6 +3693,642 @@ export const openApiDocument = {
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
+      },
+      QuoteLineInput: {
+        type: "object",
+        required: ["description", "quantity", "unitPrice"],
+        properties: {
+          description: { type: "string", maxLength: 200 },
+          quantity: {
+            type: "string",
+            description: "Positiv desimalverdi, f.eks. \"2\" eller \"1.5\".",
+            example: "2",
+          },
+          unit: { type: "string", maxLength: 20, default: "stk" },
+          unitPrice: {
+            type: "string",
+            description: "Pris per enhet uten mva.",
+            example: "950.00",
+          },
+          vatRate: {
+            type: "string",
+            description: "Mva-sats i prosent. Faller tilbake til tilbudets sats.",
+            example: "25",
+          },
+        },
+        additionalProperties: false,
+      },
+      QuoteCreate: {
+        type: "object",
+        required: ["title", "lines"],
+        properties: {
+          title: { type: "string", maxLength: 200 },
+          customerId: { type: "string" },
+          customerName: { type: "string", maxLength: 200 },
+          contactId: { type: "string" },
+          workOrderId: { type: "string" },
+          contractId: { type: "string" },
+          productId: { type: "string" },
+          departmentId: {
+            type: "string",
+            description: "Bare administrator kan velge en annen avdeling.",
+          },
+          validUntil: { type: "string", format: "date" },
+          notes: { type: "string", maxLength: 2000 },
+          vatRate: { type: "string", example: "25" },
+          lines: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            items: { $ref: "#/components/schemas/QuoteLineInput" },
+          },
+        },
+        additionalProperties: false,
+      },
+      QuotePatch: {
+        type: "object",
+        description:
+          "Felt som utelates bevares. Minst ett felt må sendes. Sendte " +
+          "tilbud kan ikke endres.",
+        properties: {
+          title: { type: "string", maxLength: 200 },
+          customerId: { type: "string" },
+          customerName: { type: "string", maxLength: 200 },
+          contactId: { type: "string" },
+          workOrderId: { type: "string" },
+          contractId: { type: "string" },
+          productId: { type: "string" },
+          departmentId: { type: "string" },
+          validUntil: { type: ["string", "null"], format: "date" },
+          notes: { type: ["string", "null"], maxLength: 2000 },
+          vatRate: { type: "string", example: "25" },
+          lines: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            items: { $ref: "#/components/schemas/QuoteLineInput" },
+          },
+        },
+        additionalProperties: false,
+      },
+      QuoteLine: {
+        type: "object",
+        required: [
+          "id",
+          "description",
+          "quantity",
+          "unit",
+          "unitPrice",
+          "vatRate",
+          "lineTotal",
+          "lineVat",
+        ],
+        properties: {
+          id: { type: "string" },
+          sortOrder: { type: "integer", minimum: 0 },
+          description: { type: "string" },
+          quantity: { type: "string" },
+          unit: { type: "string" },
+          unitPrice: { type: "string" },
+          vatRate: { type: "string" },
+          lineTotal: { type: "string" },
+          lineVat: { type: "string" },
+        },
+      },
+      QuoteSummary: {
+        type: "object",
+        required: [
+          "id",
+          "title",
+          "status",
+          "version",
+          "total",
+          "customer",
+          "updatedAt",
+        ],
+        properties: {
+          id: { type: "string" },
+          quoteNumber: nullableString,
+          title: { type: "string" },
+          status: {
+            type: "string",
+            enum: ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"],
+          },
+          version: { type: "integer", minimum: 1 },
+          total: {
+            type: "string",
+            description: "Total inklusive mva, serialisert som desimalstreng.",
+            example: "312.50",
+          },
+          validUntil: { type: ["string", "null"], format: "date" },
+          customer: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      QuoteDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/QuoteSummary" },
+          {
+            type: "object",
+            properties: {
+              currency: { type: "string", example: "NOK" },
+              subtotal: { type: "string" },
+              vatTotal: { type: "string" },
+              vatRate: { type: "string" },
+              notes: nullableString,
+              customerName: nullableString,
+              contact: {
+                oneOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      name: { type: "string" },
+                      email: nullableString,
+                      phone: nullableString,
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+              workOrder: {
+                oneOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      title: { type: "string" },
+                      reference: { type: "string" },
+                      status: { type: "string" },
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+              contract: {
+                oneOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      title: { type: "string" },
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+              product: {
+                oneOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      model: { type: "string" },
+                      serialNumber: nullableString,
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+              department: { $ref: "#/components/schemas/Ref" },
+              lines: {
+                type: "array",
+                items: { $ref: "#/components/schemas/QuoteLine" },
+              },
+              versions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    version: { type: "integer" },
+                    status: { type: "string" },
+                    total: { type: "string" },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+              invoices: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    invoiceNumber: nullableString,
+                    status: { type: "string" },
+                    total: { type: "string" },
+                  },
+                },
+              },
+              sentAt: nullableDateTime,
+              acceptedAt: nullableDateTime,
+              rejectedAt: nullableDateTime,
+              convertedWorkOrderId: nullableString,
+              createdAt: { type: "string", format: "date-time" },
+              updatedAt: { type: "string", format: "date-time" },
+            },
+          },
+        ],
+      },
+      QuoteList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/QuoteSummary" },
+          },
+          meta: { $ref: "#/components/schemas/Meta" },
+        },
+      },
+      ExternalOrderLineInput: {
+        type: "object",
+        required: ["description", "quantity", "unitPrice"],
+        properties: {
+          description: { type: "string", maxLength: 200 },
+          quantity: { type: "string", example: "1" },
+          unit: { type: "string", maxLength: 20, default: "stk" },
+          unitPrice: { type: "string", example: "1250.00" },
+          vatRate: { type: "string", example: "25" },
+        },
+        additionalProperties: false,
+      },
+      ExternalOrderCreate: {
+        type: "object",
+        required: ["source", "externalId", "title"],
+        description:
+          "Kunde oppgis med `customerId`, `customerNumber` eller `orgNumber`. " +
+          "Dato oppgis med `requestedDate` eller `scheduledFor`.",
+        properties: {
+          source: {
+            type: "string",
+            maxLength: 64,
+            description: "Stabilt navn på kildesystemet, f.eks. `erp`.",
+          },
+          externalId: {
+            type: "string",
+            maxLength: 500,
+            description: "Ordrenummer i kildesystemet.",
+          },
+          customerId: { type: "string" },
+          customerNumber: { type: "string" },
+          orgNumber: { type: "string" },
+          siteId: { type: "string" },
+          departmentId: {
+            type: "string",
+            description:
+              "Bare administrator kan velge en annen avdeling. Ellers brukes " +
+              "brukerens avdeling.",
+          },
+          title: { type: "string", maxLength: 200 },
+          description: { type: "string", maxLength: 20000 },
+          requestedDate: { type: "string", format: "date" },
+          scheduledFor: { type: "string", format: "date" },
+          priority: {
+            type: "string",
+            enum: ["LOW", "NORMAL", "HIGH", "URGENT"],
+          },
+          lines: {
+            type: "array",
+            maxItems: 100,
+            items: { $ref: "#/components/schemas/ExternalOrderLineInput" },
+          },
+          payload: {
+            type: "object",
+            additionalProperties: true,
+            description:
+              "Valgfri metadata fra kildesystemet. Lagres uendret for sporing.",
+          },
+          externalPayload: {
+            type: "object",
+            additionalProperties: true,
+            description: "Alias for `payload`.",
+          },
+        },
+        additionalProperties: false,
+      },
+      ExternalOrderPatch: {
+        type: "object",
+        description:
+          "Send `status` eller `cancel: true` – ikke begge. Kansellering " +
+          "krever `workorders.edit`.",
+        properties: {
+          status: {
+            type: "string",
+            enum: [
+              "OPEN",
+              "PENDING",
+              "PLANNED",
+              "WAITING",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "CANCELLED",
+            ],
+          },
+          cancel: { type: "boolean", enum: [true] },
+          reason: {
+            type: "string",
+            description: "Påkrevd ved gjenåpning av et lukket oppdrag.",
+          },
+        },
+        additionalProperties: false,
+      },
+      ExternalOrderSummary: {
+        type: "object",
+        required: [
+          "id",
+          "source",
+          "externalId",
+          "receivedAt",
+          "totals",
+          "lines",
+          "workOrder",
+        ],
+        properties: {
+          id: { type: "string" },
+          source: { type: "string" },
+          externalId: { type: "string" },
+          idempotencyKey: nullableString,
+          priority: {
+            type: ["string", "null"],
+            enum: ["LOW", "NORMAL", "HIGH", "URGENT", null],
+          },
+          receivedAt: { type: "string", format: "date-time" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          customer: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          site: {
+            oneOf: [
+              {
+                type: "object",
+                required: ["id", "name"],
+                properties: {
+                  id: { type: "string" },
+                  name: { type: "string" },
+                },
+              },
+              { type: "null" },
+            ],
+          },
+          totals: {
+            type: "object",
+            required: ["currency", "subtotal", "vatTotal", "total"],
+            properties: {
+              currency: { type: "string", example: "NOK" },
+              subtotal: { type: "string" },
+              vatTotal: { type: "string" },
+              total: { type: "string" },
+            },
+          },
+          lines: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                quantity: { type: "string" },
+                unit: { type: "string" },
+                unitPrice: { type: "string" },
+                vatRate: { type: "string" },
+                lineTotal: { type: "string" },
+                lineVat: { type: "string" },
+              },
+            },
+          },
+          workOrder: {
+            type: "object",
+            required: ["id", "reference", "title", "status", "department"],
+            properties: {
+              id: { type: "string" },
+              reference: { type: "string" },
+              orderNumber: nullableString,
+              title: { type: "string" },
+              status: { type: "string" },
+              scheduledFor: { type: ["string", "null"], format: "date" },
+              scheduledTo: { type: ["string", "null"], format: "date" },
+              customerId: nullableString,
+              department: { $ref: "#/components/schemas/Ref" },
+            },
+          },
+        },
+      },
+      ExternalOrderDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/ExternalOrderSummary" },
+          {
+            type: "object",
+            properties: {
+              payload: {
+                oneOf: [
+                  { type: "object", additionalProperties: true },
+                  { type: "null" },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      ExternalOrderList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ExternalOrderSummary" },
+          },
+          meta: { $ref: "#/components/schemas/Meta" },
+        },
+      },
+      InventoryItem: {
+        type: "object",
+        required: [
+          "id",
+          "sku",
+          "name",
+          "unit",
+          "onHand",
+          "reserved",
+          "available",
+          "low",
+        ],
+        properties: {
+          id: { type: "string" },
+          sku: { type: "string" },
+          name: { type: "string" },
+          unit: { type: "string" },
+          minLevel: { type: "number" },
+          active: { type: "boolean" },
+          onHand: { type: "number" },
+          reserved: { type: "number" },
+          available: { type: "number" },
+          low: { type: "boolean" },
+          suggestedQuantity: { type: "number" },
+        },
+      },
+      InventoryItemList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/InventoryItem" },
+          },
+          meta: {
+            type: "object",
+            properties: { total: { type: "integer", minimum: 0 } },
+          },
+        },
+      },
+      InventoryItemDetail: {
+        type: "object",
+        required: ["item", "levels", "movements", "reservations"],
+        properties: {
+          item: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              sku: { type: "string" },
+              name: { type: "string" },
+              unit: { type: "string" },
+              minLevel: { type: "number" },
+              active: { type: "boolean" },
+              description: nullableString,
+            },
+          },
+          levels: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                locationId: { type: "string" },
+                locationName: { type: "string" },
+                locationType: { type: "string" },
+                quantity: { type: "number" },
+                reserved: { type: "number" },
+                available: { type: "number" },
+              },
+            },
+          },
+          movements: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                type: { type: "string" },
+                quantity: { type: "number" },
+                reason: nullableString,
+                locationName: { type: "string" },
+                workOrderId: nullableString,
+                visitId: nullableString,
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+          reservations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                status: { type: "string" },
+                quantity: { type: "number" },
+                locationId: { type: "string" },
+                locationName: { type: "string" },
+                workOrderId: nullableString,
+                visitId: nullableString,
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
+      InventoryLocation: {
+        type: "object",
+        required: ["id", "name", "type", "isActive"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string", enum: ["WAREHOUSE", "VAN"] },
+          departmentId: nullableString,
+          assignedUserId: nullableString,
+          isActive: { type: "boolean" },
+          itemCount: { type: "integer", minimum: 0 },
+          lowCount: { type: "integer", minimum: 0 },
+        },
+      },
+      InventoryLocationList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/InventoryLocation" },
+          },
+          meta: {
+            type: "object",
+            properties: { total: { type: "integer", minimum: 0 } },
+          },
+        },
+      },
+      InventoryStock: {
+        type: "object",
+        required: [
+          "itemId",
+          "sku",
+          "locationId",
+          "locationName",
+          "quantity",
+          "reserved",
+          "available",
+        ],
+        properties: {
+          itemId: { type: "string" },
+          sku: { type: "string" },
+          name: { type: "string" },
+          unit: { type: "string" },
+          locationId: { type: "string" },
+          locationName: { type: "string" },
+          locationType: { type: "string" },
+          quantity: { type: "number" },
+          reserved: { type: "number" },
+          available: { type: "number" },
+          low: { type: "boolean" },
+        },
+      },
+      InventoryStockList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/InventoryStock" },
+          },
+          meta: {
+            type: "object",
+            properties: { total: { type: "integer", minimum: 0 } },
+          },
+        },
+      },
+      InventoryReservationCreate: {
+        type: "object",
+        required: ["itemId", "locationId", "quantity"],
+        description:
+          "Minst ett av `workOrderId` og `visitId` må oppgis. Reservasjonen " +
+          "reduserer tilgjengelig beholdning uten å flytte fysisk vare.",
+        properties: {
+          itemId: { type: "string" },
+          locationId: { type: "string" },
+          quantity: { type: "number", exclusiveMinimum: 0 },
+          workOrderId: { type: "string" },
+          visitId: { type: "string" },
+          note: { type: "string", maxLength: 2000 },
+        },
+        additionalProperties: false,
       },
     },
   },

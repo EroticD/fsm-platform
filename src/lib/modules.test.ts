@@ -102,6 +102,9 @@ describe("modulkatalogen", () => {
     expect(moduleForPath("/api/v1/contracts")).toBe("contracts");
     expect(moduleForPath("/api/v1/equipment/abc")).toBe("equipment");
     expect(moduleForPath("/api/v1/work-orders")).toBe("api");
+    expect(moduleForPath("/api/v1/quotes/q1")).toBe("quotes");
+    expect(moduleForPath("/api/v1/inventory/items")).toBe("inventory");
+    expect(moduleForPath("/api/v1/orders")).toBe("api");
     expect(moduleForPath("/oppdrag/abc")).toBeNull();
   });
 

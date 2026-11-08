@@ -21,6 +21,12 @@ export const API_KEY_SCOPES = [
   "maintenance:write",
   "reports:read",
   "documents:read",
+  "quotes:read",
+  "quotes:write",
+  "orders:read",
+  "orders:write",
+  "inventory:read",
+  "inventory:write",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
@@ -87,6 +93,16 @@ export function requiredScopeForRequest(
   }
   if (resource === "reports") return "reports:read";
   if (resource === "documents") return "documents:read";
+  if (resource === "quotes") {
+    return write ? "quotes:write" : "quotes:read";
+  }
+  if (resource === "orders") {
+    return write ? "orders:write" : "orders:read";
+  }
+  if (resource === "inventory") {
+    // Alle mutasjoner ligger under /inventory, også reservasjoner.
+    return write ? "inventory:write" : "inventory:read";
+  }
 
   return null;
 }

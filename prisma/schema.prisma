@@ -1028,6 +1028,9 @@ model WorkOrder {
   /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
   maintenanceOccurrence MaintenancePlanOccurrence?
 
+  /// Innmeldt ordre fra et eksternt ordresystem. Unik per kilde og ekstern id.
+  externalOrder ExternalOrder?
+
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
   @@unique([contractId, scheduledFor])
@@ -1043,6 +1046,34 @@ model WorkOrder {
   @@index([deletedAt])
   @@index([departmentId, status, scheduledFor])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
+}
+
+/// Idempotent referanse for en ordre mottatt fra et eksternt ordresystem.
+/// `(source, externalId)` er alltid idempotensnøkkelen. `idempotencyKey` er en
+/// valgfri sekundær nøkkel fra `Idempotency-Key`-headeren. Selve payloaden og
+/// linjene lagres som JSON, slik at en replayed forespørsel kan sammenlignes og
+/// historikken er lesbar uten å følge relasjoner.
+model ExternalOrder {
+  id             String    @id @default(cuid())
+  source         String
+  externalId     String
+  idempotencyKey String?
+  workOrderId    String    @unique
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  priority       String?
+  /// SHA-256 av den normaliserte forespørselen. Ulike data på samme nøkkel
+  /// avvises med 409 i stedet for å overskrive en eksisterende ordre.
+  requestHash    String
+  payload        Json?
+  lines          Json?
+  receivedAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@unique([source, externalId])
+  @@unique([source, idempotencyKey])
+  @@index([workOrderId])
+  @@index([source, receivedAt])
 }
 
 /// En planlagt, tildelbar tidsblokk i et oppdrag. Et oppdrag kan ha flere

@@ -2582,6 +2582,12 @@
           "maintenanceWrite": "Wartung – schreiben",
           "reportsRead": "Berichte – lesen",
           "documentsRead": "Dokumente – lesen",
+          "quotesRead": "Angebote – lesen",
+          "quotesWrite": "Angebote – schreiben",
+          "ordersRead": "Aufträge – lesen",
+          "ordersWrite": "Aufträge – schreiben",
+          "inventoryRead": "Lager – lesen",
+          "inventoryWrite": "Lager – schreiben",
           "allLegacy": "Alle (älterer Schlüssel ohne Einschränkung)"
         },
         "revoke": "Widerrufen",

@@ -371,6 +371,15 @@ export type CreateWorkOrderInput = {
   mandatorySkillIds?: unknown[];
 };
 
+export type CreateWorkOrderTransactionOptions = {
+  /**
+   * Kjør opprettelsen i en eksisterende transaksjon. Brukes av
+   * `createExternalOrder`, slik at den eksterne referansen og oppdraget
+   * committes eller rulles tilbake sammen.
+   */
+  tx?: Prisma.TransactionClient;
+};
+
 /**
  * Oppretter et oppdrag. Administrator kan velge avdeling; alle andre oppretter
  * i sin egen avdeling. Montører og maler må faktisk finnes i avdelingen, ellers
@@ -379,6 +388,7 @@ export type CreateWorkOrderInput = {
 export async function createWorkOrder(
   user: Actor,
   input: CreateWorkOrderInput,
+  options: CreateWorkOrderTransactionOptions = {},
 ): Promise<CreateWorkOrderResult> {
   if (!user?.isActive || !hasPermission(user, "workorders.create")) {
     return { ok: false, error: "ikke-tilgang" };
@@ -507,7 +517,12 @@ export async function createWorkOrder(
 
   let id: string;
   try {
-    id = await prisma.$transaction(async (tx) => {
+    const run = <T>(
+      fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    ): Promise<T> =>
+      options.tx ? fn(options.tx) : prisma.$transaction(fn);
+
+    id = await run(async (tx) => {
       const newWorkOrder = await tx.workOrder.create({
         data: {
           title,
