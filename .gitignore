@@ -74,3 +74,7 @@ dist/
 # backupstatus skrives av drift på verten og leses read-only av appen.
 /monitoring/*
 !/monitoring/.gitkeep
+
+# dato-stemplede bevispakker fra scripts/compliance/collect-evidence.mjs
+# (kan inneholde drifts- og personopplysninger; skal ikke i git)
+/compliance-evidence/

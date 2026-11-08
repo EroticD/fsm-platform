@@ -349,6 +349,7 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | [`fsm-mobile`](https://github.com/EroticD/fsm-mobile) | Native Android-/iOS-app (eget repo) |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |
 | [`SECURITY.md`](SECURITY.md) | Sikkerhetsmodell og rapportering |
+| [`docs/compliance/README.md`](docs/compliance/README.md) | ISO/IEC 27001:2022 og SOC 2: omfang, SoA, risikoregister, policyer og bevisverktøy (readiness, ikke sertifisering) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Oppsett, tester og pull requests |
 
 ## Sikkerhet
