@@ -88,6 +88,79 @@ export type BackfillVisit = {
   sequence: number;
 };
 
+/** Feltene som avgjør om en eldre tidsstyrt visitt kan normaliseres trygt. */
+export type LegacyTimedVisit = BackfillVisit & {
+  enRouteAt: Date | null;
+  onSiteAt: Date | null;
+  doneAt: Date | null;
+  travelFromEndedAt: Date | null;
+};
+
+export type LegacyTimedReportReason =
+  | "multi-day"
+  | "invalid-range"
+  | "timestamp-outside-day";
+
+export type LegacyTimedNormalisation = {
+  date: string;
+  /** Oslo-midnatt for dagen (inklusiv). */
+  startsAt: Date;
+  /** Oslo-midnatt neste dag (eksklusiv). */
+  endsAt: Date;
+};
+
+/**
+ * Avgjør om én eldre tidsstyrt visitt kan gjøres om til den nye
+ * arbeidsdagsmodellen uten å gjette.
+ *
+ * Normalisering er bare trygt når visitten dekker nøyaktig én kalenderdag og
+ * alle registrerte tidspunkter ligger på samme dag. Da kan start/slutt utvides
+ * til hele arbeidsdagen mens `enRouteAt`, `onSiteAt`, `doneAt` og
+ * `travelFromEndedAt` står urørt. Vi lager aldri nye rader og kopierer aldri et
+ * tidsstempel, så fullført tid kan ikke dupliseres.
+ *
+ * Flerdagers tidsstyrte visiter og rader med tidspunkter utenfor dagen er
+ * tvetydige og rapporteres i stedet for å endres.
+ */
+export function planLegacyTimedNormalisation(
+  visit: LegacyTimedVisit,
+): LegacyTimedNormalisation | { reason: LegacyTimedReportReason } {
+  if (visit.allDay) return { reason: "invalid-range" };
+  if (
+    !(visit.startsAt instanceof Date) ||
+    !(visit.endsAt instanceof Date) ||
+    Number.isNaN(visit.startsAt.getTime()) ||
+    Number.isNaN(visit.endsAt.getTime()) ||
+    visit.endsAt.getTime() <= visit.startsAt.getTime()
+  ) {
+    return { reason: "invalid-range" };
+  }
+
+  const firstDate = dateOnlyInOslo(visit.startsAt);
+  const lastDate = dateOnlyInOslo(new Date(visit.endsAt.getTime() - 1));
+  if (firstDate !== lastDate) return { reason: "multi-day" };
+
+  const timestamps = [
+    visit.enRouteAt,
+    visit.onSiteAt,
+    visit.doneAt,
+    visit.travelFromEndedAt,
+  ];
+  for (const timestamp of timestamps) {
+    if (!timestamp) continue;
+    if (
+      !(timestamp instanceof Date) ||
+      Number.isNaN(timestamp.getTime()) ||
+      dateOnlyInOslo(timestamp) !== firstDate
+    ) {
+      return { reason: "timestamp-outside-day" };
+    }
+  }
+
+  const period = workDayPeriod(firstDate);
+  return { date: firstDate, ...period };
+}
+
 export type BackfillSplit = {
   /** Originalraden beholdes som første dag, med tidspunktene sine. */
   keep: { id: string; startsAt: Date; endsAt: Date; sequence: number };

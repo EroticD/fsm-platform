@@ -24,7 +24,11 @@ import {
   sniffFileMime,
 } from "@/lib/upload-validation";
 import { readMultipartUpload } from "@/lib/upload-multipart";
-import { checkUploadQuota } from "@/lib/upload-quota";
+import {
+  commitUploadQuota,
+  releaseUploadQuota,
+  reserveUploadQuota,
+} from "@/lib/upload-quota";
 import { moduleApiGuard } from "@/lib/module-guards";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +103,7 @@ export async function POST(request: Request) {
   const uploadDirPath = uploadDir();
   let tempPath: string | null = null;
   let filePath: string | null = null;
+  let quotaReservationId: string | null = null;
 
   const removeTemp = async () => {
     if (!tempPath) return;
@@ -303,16 +308,19 @@ export async function POST(request: Request) {
       return jsonError("mime_mismatch", 415, "errors.api.upload.mimeMismatch");
     }
 
-    // Kvoter kontrolleres etter at eierskapet er kjent, men før filen flyttes
-    // til den endelige mappen. Da blir det ingen orphan-fil ved avvisning.
-    const quota = await checkUploadQuota({
+    // Kvoter reserveres atomisk etter at eierskapet er kjent, men før filen
+    // flyttes til den endelige mappen. Da kan to samtidige opplastinger ikke
+    // begge passere grensen, og en avvist opplasting etterlater verken fil
+    // eller belastet kvote.
+    const reservation = await reserveUploadQuota({
       userId: user.id,
       customerId: ownerCustomerId,
       size: file.size,
     });
-    if (!quota.allowed) {
+    if (!reservation.allowed) {
       return jsonError("storage_quota_exceeded", 507, "errors.api.upload.quota");
     }
+    quotaReservationId = reservation.reservationId;
 
     const fileName = `${crypto.randomUUID()}.${fileExtension}`;
     const targetPath = path.join(/*turbopackIgnore: true*/ uploadDirPath, fileName);
@@ -390,7 +398,7 @@ export async function POST(request: Request) {
         departmentId,
         customerId: ownerCustomerId,
         uploadedById: user.id,
-      });
+      }, quotaReservationId);
     }
 
     // PDF-er og GIF-er flyttes direkte fra den midlertidige filen. Da slipper
@@ -411,7 +419,7 @@ export async function POST(request: Request) {
       departmentId,
       customerId: ownerCustomerId,
       uploadedById: user.id,
-    });
+    }, quotaReservationId);
   } catch (error) {
     console.error("Upload failed:", error);
     await removeTemp();
@@ -425,6 +433,13 @@ export async function POST(request: Request) {
     return jsonError("server_error", 500, "errors.api.upload.failed");
   } finally {
     await removeTemp();
+    // Frigjør en reservasjon som ikke ble fullført. Etter en vellykket commit
+    // er raden allerede slettet, så kallet er en idempotent no-op.
+    if (quotaReservationId) {
+      await releaseUploadQuota(quotaReservationId).catch((error) => {
+        console.error("Could not release upload quota reservation:", error);
+      });
+    }
   }
 }
 
@@ -446,16 +461,18 @@ async function storeUpload(input: {
   departmentId: string | null;
   customerId: string | null;
   uploadedById: string;
-}): Promise<Response> {
-  // Registrer metadata. Feiler det, fjernes filen igjen slik at disken ikke
-  // får filer uten tilgangsmetadata.
+}, reservationId: string): Promise<Response> {
+  // Registrer metadata og frigjør reservasjonen i samme transaksjon. Feiler
+  // det, fjernes filen igjen slik at disken ikke får filer uten
+  // tilgangsmetadata, og reservasjonen frigjøres av `finally` i ruten.
   try {
-    await prisma.upload.create({
-      data: {
+    const committed = await commitUploadQuota({
+      reservationId,
+      size: input.size,
+      upload: {
         storedName: input.fileName,
         originalName: cleanText(input.originalName, { maxLength: LIMITS.line }) || "file",
         mimeType: input.mimeType,
-        size: input.size,
         ownerType: input.ownerType,
         ownerId: input.ownerId,
         departmentId: input.departmentId,
@@ -463,11 +480,16 @@ async function storeUpload(input: {
         uploadedById: input.uploadedById,
       },
     });
+    if (!committed.ok) {
+      await fs.unlink(input.filePath).catch(() => undefined);
+      if (committed.reason === "quota") {
+        return jsonError("storage_quota_exceeded", 507, "errors.api.upload.quota");
+      }
+      return jsonError("save_failed", 500, "errors.api.upload.saveFailed");
+    }
   } catch (error) {
     console.error("Could not register upload:", error);
-    try {
-      await fs.unlink(input.filePath);
-    } catch {}
+    await fs.unlink(input.filePath).catch(() => undefined);
     return jsonError("save_failed", 500, "errors.api.upload.saveFailed");
   }
 

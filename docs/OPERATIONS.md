@@ -453,6 +453,23 @@ visiter beholder `travelFromEndedAt = null` til kjøringen lukkes manuelt med
 jobb. Skriptet rører ikke visiter som allerede dekker én dag, og skal ikke
 kjøres automatisk av appen eller i CI mot produksjon.
 
+Samme kjøring normaliserer også **eldre tidsstyrte enkeltdagsvisiter**
+(`allDay: false`). En slik rad får `allDay: true` og start/slutt på hele
+arbeidsdagen (Oslo-midnatt til neste midnatt). Status, notater, montører og
+alle tidsstempler står urørt; ingen nye rader opprettes, så et tidsstempel kan
+aldri dupliseres. Rader som ikke kan normaliseres uten å gjette, rapporteres
+eksplisitt og endres ikke:
+
+- tidsstyrt visitt over flere dager,
+- flere tidsstyrte visiter på samme oppdrag og dag,
+- dagen er allerede opptatt av en annen økt (heldagsøkt eller overlapp),
+- tidsstempel som ligger utenfor visittdagen,
+- ugyldig tidsrom, eller raden ble endret under `--apply`.
+
+Tørrkjøringen viser antall normaliserte og en linje per rapportert rad med
+årsak. Gå gjennom rapporten manuelt før `--apply`; tvetydige rader må ryddes i
+appen eller med en bevisst manuell beslutning.
+
 ### SLA-klokker uten aktiv avtale
 
 SLA-klokker skal bare finnes for oppdrag med en aktiv, datogyldig avtale og en
@@ -1079,8 +1096,15 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 - **Kvoter:** `UPLOAD_QUOTA_USER_MB` (standard 2048, rullerende 24 timer per
   bruker) og `UPLOAD_QUOTA_CUSTOMER_MB` (standard 10240, samlet per kunde).
   Overskridelse gir `507 storage_quota_exceeded`, og brukeren får en tydelig
-  feilmelding. Kvotene er en applikasjonssperre, ikke et garantert tak under
-  samtidige opplastinger; volumbegrensning i drift er fortsatt nødvendig.
+  feilmelding. Kvoten reserveres atomisk før filen flyttes til den endelige
+  mappen: en kortlevd `UploadQuotaReservation` teller sammen med ferdige
+  `Upload`-rader, og en transaksjonslåst advisory lock serialiserer kontroll og
+  innsetting per bruker/kunde. Samtidige opplastinger kan derfor ikke lenger
+  passere grensen sammen. Reservasjonen skrives om til en `Upload`-rad i samme
+  transaksjon som den slettes; avvises opplastingen, slettes både filen og
+  reservasjonen. Utløpte reservasjoner (15 min) ignoreres og ryddes av
+  `/api/cron/cleanup`. Volumbegrensning i drift er fortsatt nødvendig som
+  ytterste sikkerhet.
 - Midlertidige filer ligger i `UPLOAD_DIR/.tmp` og slettes når opplastingen
   feiler. Cron-jobben `/api/cron/cleanup` fjerner i tillegg filer som er eldre
   enn 24 timer etter en krasj. Sjekk at jobben kjører hvis diskbruken vokser.

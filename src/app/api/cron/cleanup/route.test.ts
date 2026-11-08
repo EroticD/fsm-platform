@@ -10,6 +10,9 @@ vi.mock("@/lib/upload-cleanup", () => ({
 vi.mock("@/lib/upload-multipart", () => ({
   cleanupUploadTempFiles: vi.fn(async () => ({ removed: 2 })),
 }));
+vi.mock("@/lib/upload-quota", () => ({
+  releaseExpiredUploadQuotaReservations: vi.fn(async () => 4),
+}));
 
 import { GET } from "./route";
 
@@ -50,6 +53,7 @@ describe("/api/cron/cleanup", () => {
       ok: true,
       checked: 3,
       released: 1,
+      reservationsReleased: 4,
       tempRemoved: 2,
     });
     expect(cleanup).toHaveBeenCalledTimes(1);

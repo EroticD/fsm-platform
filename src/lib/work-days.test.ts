@@ -4,7 +4,9 @@ import {
   coversOneWorkDay,
   enumerateWorkDays,
   planBackfillSplit,
+  planLegacyTimedNormalisation,
   workDayPeriod,
+  type LegacyTimedVisit,
 } from "@/lib/work-days";
 
 describe("arbeidsdager", () => {
@@ -108,5 +110,65 @@ describe("backfill av flerdagersvisiter", () => {
         sequence: 0,
       }),
     ).toBeNull();
+  });
+});
+
+describe("normalisering av eldre tidsstyrte visiter", () => {
+  function legacy(
+    overrides: Partial<LegacyTimedVisit> = {},
+  ): LegacyTimedVisit {
+    return {
+      id: "timed-1",
+      startsAt: new Date("2026-10-19T08:00:00.000Z"),
+      endsAt: new Date("2026-10-19T12:00:00.000Z"),
+      allDay: false,
+      sequence: 0,
+      enRouteAt: new Date("2026-10-19T07:30:00.000Z"),
+      onSiteAt: new Date("2026-10-19T08:00:00.000Z"),
+      doneAt: new Date("2026-10-19T11:30:00.000Z"),
+      travelFromEndedAt: null,
+      ...overrides,
+    };
+  }
+
+  it("utvider en entydig enkeltdagsvisitt til hele arbeidsdagen", () => {
+    const plan = planLegacyTimedNormalisation(legacy());
+
+    expect(plan).toMatchObject({
+      date: "2026-10-19",
+      startsAt: osloDayStart("2026-10-19"),
+      endsAt: osloDayStart("2026-10-20"),
+    });
+  });
+
+  it("rapporterer flerdagers tidsstyrte visiter uten å planlegge endring", () => {
+    expect(
+      planLegacyTimedNormalisation(
+        legacy({
+          startsAt: new Date("2026-10-19T08:00:00.000Z"),
+          endsAt: new Date("2026-10-21T12:00:00.000Z"),
+          doneAt: new Date("2026-10-21T11:30:00.000Z"),
+        }),
+      ),
+    ).toEqual({ reason: "multi-day" });
+  });
+
+  it("rapporterer tidsstempler som ligger utenfor visittdagen", () => {
+    expect(
+      planLegacyTimedNormalisation(
+        legacy({ doneAt: new Date("2026-10-20T00:30:00.000Z") }),
+      ),
+    ).toEqual({ reason: "timestamp-outside-day" });
+  });
+
+  it("rapporterer ugyldig eller allerede normalisert tidsrom", () => {
+    expect(
+      planLegacyTimedNormalisation(
+        legacy({ endsAt: new Date("2026-10-19T08:00:00.000Z") }),
+      ),
+    ).toEqual({ reason: "invalid-range" });
+    expect(
+      planLegacyTimedNormalisation(legacy({ allDay: true })),
+    ).toEqual({ reason: "invalid-range" });
   });
 });

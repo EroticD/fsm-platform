@@ -22,7 +22,10 @@ import {
   setVisitStatus,
 } from "@/server/visits";
 import { startClock } from "@/server/sla";
-import { splitMultiDayAllDayVisits } from "@/server/visit-backfill";
+import {
+  normaliseLegacyTimedVisits,
+  splitMultiDayAllDayVisits,
+} from "@/server/visit-backfill";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
@@ -651,5 +654,227 @@ describeIntegration("Backfill av flerdagersvisiter", () => {
     expect(
       await prisma.visit.count({ where: { workOrderId } }),
     ).toBe(3);
+  });
+});
+
+describeIntegration("Backfill av eldre tidsstyrte enkeltdagsvisiter", () => {
+  let departmentId = "";
+  let customerId = "";
+  let technicianId = "";
+  const createdOrders: string[] = [];
+
+  beforeAll(async () => {
+    const department = await prisma.department.create({
+      data: { name: unique("IT-legacy-timed-avd") },
+    });
+    departmentId = department.id;
+    const customer = await prisma.customer.create({
+      data: { name: unique("IT-legacy-timed-kunde"), departmentId },
+    });
+    customerId = customer.id;
+    const technician = await prisma.user.create({
+      data: {
+        name: unique("IT-legacy-timed-montør"),
+        role: "TECHNICIAN",
+        departmentId,
+        isActive: true,
+        permissionsCustomized: true,
+      },
+    });
+    technicianId = technician.id;
+  });
+
+  afterAll(async () => {
+    await prisma.workOrder.deleteMany({
+      where: { id: { in: createdOrders } },
+    });
+    await prisma.user.deleteMany({ where: { departmentId } });
+    await prisma.customer.deleteMany({ where: { departmentId } });
+    await prisma.department.deleteMany({ where: { id: departmentId } });
+  });
+
+  async function createOrder(scheduledFor: string, scheduledTo = "") {
+    const order = await prisma.workOrder.create({
+      data: {
+        reference: unique("REF"),
+        title: unique("IT-legacy-timed-oppdrag"),
+        departmentId,
+        customerId,
+        status: "OPEN",
+        scheduledFor: parseDateOnly(scheduledFor),
+        scheduledTo: parseDateOnly(scheduledTo || scheduledFor),
+        technicians: { connect: { id: technicianId } },
+      },
+    });
+    createdOrders.push(order.id);
+    return order.id;
+  }
+
+  async function createVisit(input: {
+    workOrderId: string;
+    startsAt: Date;
+    endsAt: Date;
+    allDay?: boolean;
+    status?: "PLANNED" | "DONE";
+    withLogs?: boolean;
+  }) {
+    return prisma.visit.create({
+      data: {
+        workOrderId: input.workOrderId,
+        sequence: 0,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        allDay: input.allDay ?? false,
+        status: input.status ?? "PLANNED",
+        ...(input.withLogs
+          ? {
+              enRouteAt: new Date("2026-11-10T07:30:00.000Z"),
+              onSiteAt: new Date("2026-11-10T08:00:00.000Z"),
+              doneAt: new Date("2026-11-10T11:30:00.000Z"),
+            }
+          : {}),
+        technicians: { create: [{ userId: technicianId }] },
+      },
+    });
+  }
+
+  it("normaliserer en entydig tidsstyrt dag uten å røre tidsstemplene", async () => {
+    const workOrderId = await createOrder("2026-11-10");
+    const visit = await createVisit({
+      workOrderId,
+      startsAt: new Date("2026-11-10T08:00:00.000Z"),
+      endsAt: new Date("2026-11-10T12:00:00.000Z"),
+      status: "DONE",
+      withLogs: true,
+    });
+
+    const dry = await normaliseLegacyTimedVisits(prisma, { dryRun: true });
+    expect(dry.reports.some((report) => report.id === visit.id)).toBe(false);
+    expect(dry.normalised).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.visit.findUniqueOrThrow({ where: { id: visit.id } }),
+    ).toMatchObject({ allDay: false, startsAt: visit.startsAt });
+
+    const applied = await normaliseLegacyTimedVisits(prisma);
+    expect(applied.reports.some((report) => report.id === visit.id)).toBe(false);
+
+    const normalised = await prisma.visit.findUniqueOrThrow({
+      where: { id: visit.id },
+    });
+    expect(normalised.allDay).toBe(true);
+    expect(normalised.startsAt).toEqual(osloDayStart("2026-11-10"));
+    expect(normalised.endsAt).toEqual(osloDayStart("2026-11-11"));
+    // Tidsloggen flyttes aldri og dupliseres aldri.
+    expect(normalised.enRouteAt).toEqual(visit.enRouteAt);
+    expect(normalised.onSiteAt).toEqual(visit.onSiteAt);
+    expect(normalised.doneAt).toEqual(visit.doneAt);
+    expect(normalised.status).toBe("DONE");
+    expect(
+      await prisma.visit.count({ where: { workOrderId } }),
+    ).toBe(1);
+
+    // Idempotent: raden er nå en heldagsøkt og skannes ikke igjen.
+    const second = await normaliseLegacyTimedVisits(prisma);
+    expect(second.reports.some((report) => report.id === visit.id)).toBe(false);
+    expect(
+      (await prisma.visit.findUniqueOrThrow({ where: { id: visit.id } }))
+        .allDay,
+    ).toBe(true);
+  });
+
+  it("rapporterer flere tidsstyrte visiter samme dag uten å endre dem", async () => {
+    const workOrderId = await createOrder("2026-11-12");
+    const morning = await createVisit({
+      workOrderId,
+      startsAt: new Date("2026-11-12T08:00:00.000Z"),
+      endsAt: new Date("2026-11-12T10:00:00.000Z"),
+    });
+    const afternoon = await createVisit({
+      workOrderId,
+      startsAt: new Date("2026-11-12T12:00:00.000Z"),
+      endsAt: new Date("2026-11-12T15:00:00.000Z"),
+    });
+
+    const result = await normaliseLegacyTimedVisits(prisma);
+    expect(result.reports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: morning.id,
+          reason: "several-same-day",
+        }),
+        expect.objectContaining({
+          id: afternoon.id,
+          reason: "several-same-day",
+        }),
+      ]),
+    );
+
+    const unchanged = await prisma.visit.findMany({
+      where: { id: { in: [morning.id, afternoon.id] } },
+      orderBy: { startsAt: "asc" },
+    });
+    expect(unchanged.map((visit) => visit.allDay)).toEqual([false, false]);
+    expect(unchanged[0].startsAt).toEqual(morning.startsAt);
+    expect(unchanged[1].endsAt).toEqual(afternoon.endsAt);
+  });
+
+  it("rapporterer en dag som allerede har en heldagsøkt uten å lage duplikat", async () => {
+    const workOrderId = await createOrder("2026-11-13");
+    const allDay = await createVisit({
+      workOrderId,
+      startsAt: osloDayStart("2026-11-13"),
+      endsAt: osloDayStart("2026-11-14"),
+      allDay: true,
+    });
+    const timed = await createVisit({
+      workOrderId,
+      startsAt: new Date("2026-11-13T09:00:00.000Z"),
+      endsAt: new Date("2026-11-13T13:00:00.000Z"),
+    });
+
+    const result = await normaliseLegacyTimedVisits(prisma);
+    expect(result.reports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: timed.id,
+          date: "2026-11-13",
+          reason: "work-day-conflict",
+        }),
+      ]),
+    );
+
+    expect(
+      await prisma.visit.findUniqueOrThrow({ where: { id: timed.id } }),
+    ).toMatchObject({ allDay: false, startsAt: timed.startsAt });
+    expect(
+      await prisma.visit.count({ where: { workOrderId } }),
+    ).toBe(2);
+    expect(allDay.id).toBeTruthy();
+  });
+
+  it("rapporterer tidsstyrte visiter over flere dager uten å dele dem", async () => {
+    const workOrderId = await createOrder("2026-11-16", "2026-11-18");
+    const multiDay = await createVisit({
+      workOrderId,
+      startsAt: new Date("2026-11-16T08:00:00.000Z"),
+      endsAt: new Date("2026-11-18T15:00:00.000Z"),
+    });
+
+    const result = await normaliseLegacyTimedVisits(prisma);
+    expect(result.reports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: multiDay.id,
+          reason: "multi-day",
+        }),
+      ]),
+    );
+
+    expect(
+      await prisma.visit.count({ where: { workOrderId } }),
+    ).toBe(1);
+    expect(
+      await prisma.visit.findUniqueOrThrow({ where: { id: multiDay.id } }),
+    ).toMatchObject({ allDay: false, endsAt: multiDay.endsAt });
   });
 });
