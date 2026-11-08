@@ -5,6 +5,26 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Residualer etter P2 v1
+- Lønnsomhet viser nå faktisk omsetning fra fakturaer side om side med
+  estimatet når `invoicing` er på. Netto fakturert beløp uten MVA, kreditnotaer
+  trekkes fra, kladder telles ikke, og CSV/audit merker om faktisk tall finnes.
+- Tilbud har fått utskriftsvisning `/tilbud/[id]/skriv` med samme print-til-PDF-
+  flyt som fakturaene.
+- Kundeoverføring støtter Ed25519-signaturer i tillegg til HMAC, med
+  modusvalg, nøkkelrotasjon og stabile feilkoder. Importpanelet har
+  passfrasefelt for krypterte `.fsmenc`-pakker.
+- Lager har fått leverandørregister, innkjøpsordrer og varemottak. Delvis og
+  fullt mottak øker beholdningen atomisk, overmottak avvises, og alle
+  overganger revideres.
+- Opplastingskvoten reserveres atomisk, slik at samtidige opplastinger ikke
+  lenger kan overskride grensen. Avviste opplastinger frigjør kvoten og etterlater
+  ingen filer.
+- Eldre tidsstyrte enkeltdagsvisiter kan normaliseres med et tørrkjørings-først-
+  skript; tvetydige rader rapporteres uten å endres.
+- P2-fragmentene for tilbud, fakturering, lager, utlegg og lønnsomhet er
+  oversatt til polsk og tysk.
+
 ### Modulær plattform, personvern og P2 v1
 - Ny modulkatalog med kjerne og av-/påslåbare moduler, `ModuleState`,
   admin-fane, avhengighetsvalidering, audit, `MODULE_PRESET`, gating av
@@ -24,7 +44,7 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
   kundeoverføring med durable jobber, signatur, valgfri AES-GCM-kryptering,
   versjonsmigrering og filavstemming. Funksjonene er modulgatede og har
   dokumenterte residualer (bl.a. ingen PSP/regnskapsintegrasjon, ingen
-  Ed25519, ingen ekstern lønnstjeneste).
+  leverandørfaktura og ingen ekstern lønnstjeneste).
 
 ### Arbeidsdager, tid og SLA
 - Oppdrag planlegges nå som rene datoer: **Dato for utførelse** og eventuell

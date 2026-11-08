@@ -108,17 +108,17 @@
       "draftInvoice": "Entwurfsrechnung"
     },
     "print": {
-      "action": "Print / PDF",
-      "back": "Back to the quote",
-      "print": "Print",
-      "document": "Quote",
-      "companyFallback": "My company",
-      "orgNumber": "Org. no.",
-      "issueDate": "Quote date",
-      "department": "Department",
+      "action": "Drucken / PDF",
+      "back": "Zurück zum Angebot",
+      "print": "Drucken",
+      "document": "Angebot",
+      "companyFallback": "Mein Unternehmen",
+      "orgNumber": "Org.-Nr.",
+      "issueDate": "Angebotsdatum",
+      "department": "Abteilung",
       "status": "Status",
-      "notes": "Notes",
-      "terms": "This is a quote, not an invoice. The quote is valid until {date}."
+      "notes": "Notizen",
+      "terms": "Dies ist ein Angebot, keine Rechnung. Das Angebot ist gültig bis {date}."
     },
     "approval": {
       "title": "Angebot genehmigen",

@@ -108,17 +108,17 @@
       "draftInvoice": "Szkic faktury"
     },
     "print": {
-      "action": "Print / PDF",
-      "back": "Back to the quote",
-      "print": "Print",
-      "document": "Quote",
-      "companyFallback": "My company",
-      "orgNumber": "Org. no.",
-      "issueDate": "Quote date",
-      "department": "Department",
+      "action": "Drukuj / PDF",
+      "back": "Powrót do oferty",
+      "print": "Drukuj",
+      "document": "Oferta",
+      "companyFallback": "Moja firma",
+      "orgNumber": "NIP",
+      "issueDate": "Data oferty",
+      "department": "Dział",
       "status": "Status",
-      "notes": "Notes",
-      "terms": "This is a quote, not an invoice. The quote is valid until {date}."
+      "notes": "Uwagi",
+      "terms": "To jest oferta, a nie faktura. Oferta jest ważna do {date}."
     },
     "approval": {
       "title": "Zatwierdź ofertę",

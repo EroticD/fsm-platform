@@ -203,8 +203,7 @@ det som allerede er levert.
 ## P3 — plattform og skala (krever godkjenning)
 
 P3 starter ikke uten produkt-/eiergodkjenning og en konkret kunde- eller
-driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon på
-`f5ba5b1`.
+driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev.
 
 | ID | Status | Det som gjenstår |
 | --- | --- | --- |
@@ -248,12 +247,13 @@ tillater det.
    `requireModule`/`requireModulePage`.
 2. **Plattformmuliggjører videre:** bruk modulkatalogen før nye produktmoduler
    bygges; ikke hardkod nye flater inn i navigasjon, actions eller workers.
-3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) bruker
-   REV-02-dataene til faktisk omsetning.
-4. **Felt og logistikk:** FLD-01 (M), OPS-05 (L). CUST-EXPORT-02 (L) kan gå
-   parallelt som egen data-/plattformstrøm.
-5. **Teknisk gjeld P2:** DATA-04, FLD-02, SEC-06. Disse er små nok til å tas
-   mellom større bølger.
+3. **Quote-to-cash:** REV-01 og REV-02 er levert, og BI-01 viser faktisk
+   omsetning fra fakturaene.
+4. **Felt og logistikk:** FLD-01, OPS-05 og CUST-EXPORT-02 er levert som v1,
+   med dokumenterte residualer (bl.a. leverandørfaktura, lønnstjeneste og
+   strømmende ZIP).
+5. **Teknisk gjeld P2:** DATA-04 og SEC-06 er levert. FLD-02 (automatisk
+   lukking av siste kjøring) gjenstår og krever en policybeslutning.
 6. **P3:** PLAT-01–12, NATIVE-01, SCH-02, AI-01 og INT-01. **Krever
    godkjenning** og en konkret kunde-/driftsbegrunnelse per oppgave.
 
