@@ -2,7 +2,7 @@
 
 This chapter is for office staff: you receive enquiries, create and plan work
 orders, assign technicians, follow up reports and keep customer, equipment and
-agreement data up to date. It applies to FSM Platform 0.8.11 (8 November 2026).
+agreement data up to date. It applies to FSM Platform 0.9.0 (8 November 2026).
 
 Work orders and service agreements belong to a department: you normally see only
 your own department, while an administrator sees everything. Customers,
@@ -517,7 +517,7 @@ Dispatch**. There you choose a **Mode**, adjust the **Weights** for **Skills**,
 **Distance**, **Travel time**, **Free time**, **SLA** and **Load**, and add
 territories with **Postal prefixes**, **Municipality codes** and **Radius (km)**.
 **Capacity plans** are shown in the capacity view but are not edited in
-**Settings** in 0.8.11. The same applies to skills, absence and working hours:
+**Settings** in 0.9.0. The same applies to skills, absence and working hours:
 dispatch and booking use them, but they have no separate form in **Settings**.
 
 ## Agreements, SLA and price lists
@@ -823,7 +823,7 @@ contains at least one deviation, the system automatically creates **one undated
 remediation work order** titled “Utbedring av avvik – …”. It inherits customer,
 department and contact, gets the submitter as technician, and describes the
 units and checkpoints. The generated title is Norwegian (“Utbedring av avvik –
-…”) in 0.8.11, even when the interface is English.
+…”) in 0.9.0, even when the interface is English.
 
 > **Note:** If a photo or signature is missing from the finished PDF, the PDF
 > shows a warning with the number of images that could not be loaded. The usual
