@@ -11,7 +11,8 @@
     "methods": {
       "BANK_TRANSFER": "Przelew bankowy",
       "CASH": "Gotówka",
-      "OTHER": "Inne"
+      "OTHER": "Inne",
+      "ONLINE": "Karta/Vipps"
     },
     "lines": {
       "line": "Pozycja {number}",
@@ -107,7 +108,7 @@
       "sending": "Wysyłanie …",
       "sendHint": "Po wysłaniu faktury pozycje zostaną zablokowane, a faktura otrzyma unikalny numer.",
       "paymentTitle": "Zarejestruj płatność",
-      "paymentHint": "Nie podłączono płatności kartą ani zewnętrznego dostawcy płatności. Zarejestruj ręczny przelew bankowy, gotówkę lub inną płatność.",
+      "paymentHint": "Zarejestruj ręczną płatność (przelew, gotówka lub inna). Płatności kartą odbywają się przez link do płatności powyżej i są rejestrowane automatycznie.",
       "amount": "Kwota",
       "paidAt": "Data zapłaty",
       "method": "Metoda",
@@ -130,7 +131,7 @@
       "document": "Faktura",
       "companyFallback": "Moja firma",
       "paymentTitle": "Płatność",
-      "paymentHint": "Zapłać przelewem bankowym, podając {reference} jako tytuł płatności. Płatność kartą nie jest obsługiwana."
+      "paymentHint": "Płatność odbywa się przelewem bankowym z {reference} jako tytułem. Jeśli faktura ma link do płatności, można zapłacić także kartą lub przez Vipps."
     },
     "settings": {
       "title": "Fakturowanie i oferty",
@@ -147,6 +148,90 @@
       "nextNumber": "Następny numer: faktura {invoice}, faktura korygująca {credit}.",
       "saving": "Zapisywanie …",
       "submit": "Zapisz ustawienia"
+    },
+    "payment": {
+      "title": "Link do płatności",
+      "hint": "Klient może zapłacić przez {provider} bezpiecznym linkiem. Dane karty obsługuje dostawca, nigdy ta aplikacja.",
+      "statusLabel": "Status płatności",
+      "openLink": "Otwórz link do płatności",
+      "creating": "Tworzenie …",
+      "createLink": "Utwórz link do płatności",
+      "recreateLink": "Utwórz nowy link do płatności",
+      "linkCreated": "Link do płatności został utworzony. Możesz go udostępnić klientowi.",
+      "disabled": "Dostawca płatności nie jest skonfigurowany.",
+      "unsupportedCurrency": "W tej wersji dostawca płatności obsługuje tylko NOK.",
+      "providerError": "Dostawca płatności odpowiedział nieoczekiwanie. Spróbuj ponownie.",
+      "rateLimited": "Dostawca płatności ogranicza liczbę żądań. Spróbuj ponownie za chwilę.",
+      "providers": {
+        "stripe": "Stripe",
+        "vipps": "Vipps MobilePay"
+      },
+      "status": {
+        "NONE": "Brak linku",
+        "PENDING": "Oczekuje na płatność",
+        "PAID": "Zapłacono",
+        "PARTIALLY_PAID": "Częściowo zapłacono",
+        "FAILED": "Niepowodzenie",
+        "EXPIRED": "Wygasł"
+      }
+    },
+    "accounting": {
+      "title": "Księgowość",
+      "provider": "Dostawca: {provider}",
+      "enabled": "Synchronizacja jest włączona.",
+      "disabledState": "Synchronizacja jest wyłączona.",
+      "statusLabel": "Status synchronizacji",
+      "externalNumber": "Faktura zewnętrzna",
+      "lastAttempt": "Ostatnia próba {date}",
+      "lastError": "Ostatni błąd",
+      "neverSynced": "Faktura nie została jeszcze zsynchronizowana.",
+      "enableHint": "Włącz synchronizację księgową w ustawieniach, aby używać ręcznej synchronizacji.",
+      "syncing": "Synchronizowanie …",
+      "retry": "Ponów synchronizację",
+      "sync": "Synchronizuj z księgowością",
+      "resetAction": "Zresetuj synchronizację",
+      "draftHint": "Wyślij fakturę przed synchronizacją z księgowością.",
+      "disabled": "Synchronizacja księgowa jest wyłączona.",
+      "notConfigured": "Dostawca księgowy nie jest skonfigurowany.",
+      "syncFailed": "Synchronizacja nie powiodła się. Błąd został zapisany i można spróbować ponownie.",
+      "concurrent": "Dla tej faktury trwa już synchronizacja.",
+      "synced": "Faktura została zsynchronizowana z księgowością.",
+      "alreadySynced": "Faktura była już zsynchronizowana. Nic nie wysłano ponownie.",
+      "exported": "Faktura została wyeksportowana do CSV. Żaden zewnętrzny system księgowy nie został zaktualizowany.",
+      "reset": "Synchronizacja została zresetowana i można ją uruchomić ponownie.",
+      "settingsTitle": "Integracja z księgowością",
+      "settingsHint": "Dostawcę i klucze ustawia się w środowisku. Tutaj zobaczysz status i możesz przetestować połączenie.",
+      "connection": "Połączenie",
+      "configured": "Skonfigurowano",
+      "mode": "Tryb",
+      "modeExport": "Eksport CSV (bez zapisu zewnętrznego)",
+      "modeApi": "API",
+      "lastTest": "Ostatni test",
+      "lastTestOk": "Połączenie działa",
+      "lastTestFailed": "Połączenie nie powiodło się",
+      "never": "Nigdy",
+      "lastSync": "Ostatnia synchronizacja",
+      "saving": "Zapisywanie …",
+      "enable": "Włącz synchronizację",
+      "disable": "Wyłącz synchronizację",
+      "testing": "Testowanie …",
+      "test": "Testuj połączenie",
+      "recentTitle": "Ostatnie synchronizacje",
+      "noSyncs": "Brak synchronizacji.",
+      "failedCount": "{count} faktur nie powiodło się i można spróbować ponownie.",
+      "providers": {
+        "fiken": "Fiken",
+        "tripletex": "Tripletex",
+        "poweroffice": "PowerOffice Go",
+        "csv": "CSV"
+      },
+      "status": {
+        "PENDING": "Oczekuje",
+        "SYNCED": "Zsynchronizowano",
+        "EXPORTED": "Wyeksportowano",
+        "FAILED": "Niepowodzenie",
+        "SKIPPED": "Pominięto"
+      }
     },
     "errors": {
       "generic": "Nie udało się wykonać działania.",
@@ -171,7 +256,10 @@
       "total": "Razem",
       "paid": "Zapłacono",
       "outstanding": "Do zapłaty",
-      "manualPayment": "Płatność odbywa się przelewem bankowym. Podaj numer faktury jako tytuł płatności. Płatność kartą nie jest obsługiwana."
+      "manualPayment": "Płatność odbywa się przelewem bankowym z numerem faktury jako tytułem. Jeśli faktura ma przycisk Zapłać, możesz też zapłacić kartą lub przez Vipps.",
+      "pay": "Zapłać",
+      "payHint": "Zostaniesz przekierowany na bezpieczną stronę płatności. Dane karty nigdy nie są nam udostępniane.",
+      "paymentPending": "Płatność zostanie zarejestrowana automatycznie po potwierdzeniu przez dostawcę. Może to potrwać kilka minut."
     }
   }
 }

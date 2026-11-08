@@ -318,6 +318,7 @@ model Customer {
   documents        Document[]
   quotes           Quote[]
   invoices         Invoice[]
+  accountingCustomers AccountingCustomer[]
 
   users User[]
 
@@ -2301,12 +2302,25 @@ enum InvoiceStatus {
   CREDITED
 }
 
-/// Hvordan en manuell betaling ble mottatt. Systemet har ingen PSP-integrasjon;
-/// alle betalinger registreres av et menneske.
+/// Hvordan en betaling ble mottatt. `ONLINE` er en betaling bekreftet av en
+/// betalingsleverandør (PSP); kortdata lagres aldri i systemet.
 enum PaymentMethod {
   BANK_TRANSFER
   CASH
   OTHER
+  ONLINE
+}
+
+/// Tilstanden til fakturaens betalingslenke. `NONE` betyr at ingen lenke er
+/// opprettet. Selve betalingen registreres som en `Payment` når webhooken
+/// bekrefter den.
+enum PaymentLinkStatus {
+  NONE
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  FAILED
+  EXPIRED
 }
 
 /// Ett tilbud med linjer og en revisjonshistorikk. Versjonen økes hver gang
@@ -2456,6 +2470,16 @@ model Invoice {
   outstanding Decimal @db.Decimal(12, 2) @default(0)
   vatRate     Decimal @db.Decimal(5, 2) @default(25)
 
+  /// Betalingslenke opprettet hos PSP. Bare URL og leverandørens id lagres –
+  /// aldri kortdata eller hemmeligheter. `paymentStatus` speiler lenkens
+  /// tilstand, ikke fakturaens bokføring.
+  paymentProvider    String?
+  paymentLinkId      String?
+  paymentLinkUrl     String?
+  paymentStatus      PaymentLinkStatus @default(NONE)
+  paymentLinkCreatedAt DateTime?
+  paymentLinkUpdatedAt DateTime?
+
   issueDate DateTime? @db.Date
   dueDate   DateTime? @db.Date
   notes     String?
@@ -2472,6 +2496,7 @@ model Invoice {
   lines       InvoiceLine[]
   payments    Payment[]
   creditNotes CreditNote[]
+  accountingSyncs AccountingSync[]
 
   @@index([customerId])
   @@index([departmentId])
@@ -2480,6 +2505,8 @@ model Invoice {
   @@index([workOrderId])
   @@index([quoteId])
   @@index([createdAt])
+  @@index([paymentProvider, paymentLinkId])
+  @@index([paymentStatus])
 }
 
 model InvoiceLine {
@@ -2514,10 +2541,19 @@ model Payment {
   /// betalingsrad, aldri et dobbeltbeløp.
   idempotencyKey String?
   createdById    String?
+  /// PSP-metadata. `providerEventId` er leverandørens hendelses-id;
+  /// `providerReference` er betalingens id hos leverandøren. Begge er
+  /// idempotensgrunnlag og inneholder aldri kortdata.
+  provider          String?
+  providerEventId   String?
+  providerReference String?
   createdAt      DateTime @default(now())
 
   @@unique([invoiceId, idempotencyKey])
+  @@unique([provider, providerEventId])
   @@index([invoiceId, paidAt])
+  @@index([provider, providerReference])
+  accountingPayments AccountingPayment[]
 }
 
 model CreditNote {
@@ -2551,6 +2587,101 @@ model BillingSettings {
   nextCreditNoteNumber Int    @default(1)
   updatedAt           DateTime @default(now()) @updatedAt
   updatedById         String?
+}
+
+// ---------------------------------------------------------------------------
+// Betaling (PSP) og regnskap
+// ---------------------------------------------------------------------------
+
+/// Status for en regnskapssynk. `EXPORTED` brukes av CSV-fallbacken: filen er
+/// laget lokalt og er ikke skrevet til et eksternt system.
+enum AccountingSyncStatus {
+  PENDING
+  SYNCED
+  EXPORTED
+  FAILED
+  SKIPPED
+}
+
+/// Installasjonsnivå for regnskapsintegrasjonen. Selve leverandøren og
+/// hemmelighetene kommer fra miljøet; raden styrer om synk er slått på og
+/// husker siste test/synk for administratorpanelet.
+model AccountingSettings {
+  id            String @id @default("default")
+  provider      String @default("csv")
+  enabled       Boolean @default(false)
+  lastTestedAt  DateTime?
+  lastTestOk    Boolean?
+  lastTestError String?
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  updatedAt     DateTime @default(now()) @updatedAt
+  updatedById   String?
+}
+
+/// Kobling mellom en kunde i FSM og samme kunde hos regnskapsleverandøren.
+/// Unik per leverandør, slik at en ny synk gjenbruker ekstern id.
+model AccountingCustomer {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  provider   String
+  externalId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([customerId, provider])
+  @@index([provider, externalId])
+}
+
+/// Tilstand for én faktura hos én regnskapsleverandør. `idempotencyKey` er
+/// stabil per faktura/leverandør, slik at gjentatte synkeforsøk gjenbruker
+/// raden i stedet for å lage et nytt eksternt dokument.
+model AccountingSync {
+  id        String @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  provider  String
+  status    AccountingSyncStatus @default(PENDING)
+  idempotencyKey String @unique
+
+  externalCustomerId    String?
+  externalInvoiceId     String?
+  externalInvoiceNumber String?
+
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  payments AccountingPayment[]
+
+  @@unique([invoiceId, provider])
+  @@index([provider, status])
+  @@index([lastAttemptAt])
+}
+
+/// Betalingssynk per betalingsrad. Idempotensnøkkelen hindrer at samme
+/// betaling bokføres to ganger hos regnskapsleverandøren.
+model AccountingPayment {
+  id         String @id @default(cuid())
+  syncId     String
+  sync       AccountingSync @relation(fields: [syncId], references: [id], onDelete: Cascade)
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  provider   String
+  status     AccountingSyncStatus @default(PENDING)
+  idempotencyKey String @unique
+  externalId String?
+  attemptCount Int @default(0)
+  lastAttemptAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([syncId, paymentId])
+  @@index([provider, status])
 }
 
 // ---------------------------------------------------------------------------

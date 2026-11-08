@@ -11,12 +11,18 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { formatDateLocalized } from "@/lib/dates";
 import { formatAmount } from "@/lib/billing";
+import { paymentProviderInfo } from "@/lib/payments/provider";
+import { accountingProviderInfo } from "@/lib/accounting/provider";
+import { getAccountingSettings } from "@/server/accounting";
 import { getInvoice } from "@/server/invoices";
 import {
+  createPaymentLinkAction,
   registerCreditNoteAction,
   registerPaymentAction,
   sendInvoiceAction,
+  syncInvoiceAccountingAction,
 } from "../actions";
+import { resetAccountingSyncAction } from "../accounting-actions";
 
 const TONE: Record<string, string> = {
   DRAFT: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
@@ -40,7 +46,14 @@ export default async function InvoiceDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; sent?: string; payment?: string; credit?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    sent?: string;
+    payment?: string;
+    credit?: string;
+    paymentLink?: string;
+    accounting?: string;
+  }>;
 }) {
   await requireModulePage("invoicing");
   const user = await getCurrentUser();
@@ -55,6 +68,10 @@ export default async function InvoiceDetailPage({
   const canManage = hasPermission(user, "customers.manage");
   const payable = ["SENT", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status);
   const creditable = payable && Number(invoice.outstanding.toString()) > 0;
+  const paymentInfo = paymentProviderInfo();
+  const accountingInfo = accountingProviderInfo();
+  const accountingSettings = canManage ? await getAccountingSettings() : null;
+  const accountingSync = invoice.accountingSyncs[0] ?? null;
   const errorMessages: Record<string, string> = {
     forbidden: t("invoicing.errors.forbidden"),
     invalid: t("invoicing.errors.invalid"),
@@ -66,6 +83,14 @@ export default async function InvoiceDetailPage({
     "invoice.notCreditable": t("invoicing.errors.notCreditable"),
     "invoice.amountTooHigh": t("invoicing.errors.amountTooHigh"),
     "invoice.duplicateNumber": t("invoicing.errors.duplicateNumber"),
+    "payments.disabled": t("invoicing.payment.disabled"),
+    "payments.unsupportedCurrency": t("invoicing.payment.unsupportedCurrency"),
+    "payments.providerError": t("invoicing.payment.providerError"),
+    "payments.rateLimited": t("invoicing.payment.rateLimited"),
+    "accounting.disabled": t("invoicing.accounting.disabled"),
+    "accounting.notConfigured": t("invoicing.accounting.notConfigured"),
+    "accounting.syncFailed": t("invoicing.accounting.syncFailed"),
+    "accounting.concurrent": t("invoicing.accounting.concurrent"),
   };
   const errorMessage = query.error
     ? (errorMessages[query.error] ?? t("invoicing.errors.generic"))
@@ -113,6 +138,22 @@ export default async function InvoiceDetailPage({
         {query.credit ? (
           <p role="status" className="rounded-xl border border-[#e4c98f] bg-[#fdf5e4] px-4 py-3 text-sm font-bold text-[#6b4808]">
             {t("invoicing.detail.creditSaved")}
+          </p>
+        ) : null}
+        {query.paymentLink ? (
+          <p role="status" className="rounded-xl border border-[#b6d7a6] bg-[#edf8e8] px-4 py-3 text-sm font-bold text-[#255d17]">
+            {t("invoicing.payment.linkCreated")}
+          </p>
+        ) : null}
+        {query.accounting ? (
+          <p role="status" className="rounded-xl border border-[#b6d7a6] bg-[#edf8e8] px-4 py-3 text-sm font-bold text-[#255d17]">
+            {query.accounting === "already"
+              ? t("invoicing.accounting.alreadySynced")
+              : query.accounting === "exported"
+                ? t("invoicing.accounting.exported")
+                : query.accounting === "reset"
+                  ? t("invoicing.accounting.reset")
+                  : t("invoicing.accounting.synced")}
           </p>
         ) : null}
 
@@ -212,6 +253,135 @@ export default async function InvoiceDetailPage({
               </form>
             </div>
             <p className="mt-2 text-xs text-[var(--muted,#62685f)]">{t("invoicing.detail.sendHint")}</p>
+          </section>
+        ) : null}
+
+        {canManage && payable ? (
+          <section className={CARD}>
+            <h2 className="text-lg font-extrabold">{t("invoicing.payment.title")}</h2>
+            {paymentInfo.configured && paymentInfo.provider ? (
+              <>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+                  {t("invoicing.payment.hint", {
+                    provider: t(`invoicing.payment.providers.${paymentInfo.provider}`),
+                  })}
+                </p>
+                {invoice.paymentLinkUrl && invoice.paymentStatus === "PENDING" ? (
+                  <div className="mt-3 rounded-xl border border-[var(--line,#dedcd1)] p-3">
+                    <p className="text-xs font-bold uppercase text-[var(--muted,#62685f)]">
+                      {t("invoicing.payment.statusLabel")}
+                    </p>
+                    <p className="text-sm font-bold">
+                      {t(`invoicing.payment.status.${invoice.paymentStatus}`)}
+                    </p>
+                    <a
+                      href={invoice.paymentLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${BUTTON} mt-2`}
+                    >
+                      {t("invoicing.payment.openLink")}
+                    </a>
+                  </div>
+                ) : null}
+                <form action={createPaymentLinkAction} className="mt-3">
+                  <input type="hidden" name="id" value={invoice.id} />
+                  <SubmitButton
+                    className={PRIMARY}
+                    pendingLabel={t("invoicing.payment.creating")}
+                  >
+                    <Icon name="mail" className="h-4 w-4" />
+                    {invoice.paymentLinkUrl
+                      ? t("invoicing.payment.recreateLink")
+                      : t("invoicing.payment.createLink")}
+                  </SubmitButton>
+                </form>
+              </>
+            ) : (
+              <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+                {t("invoicing.payment.notConfigured")}
+              </p>
+            )}
+          </section>
+        ) : null}
+
+        {canManage ? (
+          <section className={CARD}>
+            <h2 className="text-lg font-extrabold">{t("invoicing.accounting.title")}</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+              {t("invoicing.accounting.provider", {
+                provider: t(`invoicing.accounting.providers.${accountingInfo.provider}`),
+              })}
+              {" · "}
+              {accountingSettings?.enabled
+                ? t("invoicing.accounting.enabled")
+                : t("invoicing.accounting.disabledState")}
+            </p>
+            {accountingSync ? (
+              <div className="mt-3 space-y-1 text-sm">
+                <p>
+                  <span className="font-bold">{t("invoicing.accounting.statusLabel")}: </span>
+                  {t(`invoicing.accounting.status.${accountingSync.status}`)}
+                </p>
+                {accountingSync.externalInvoiceNumber ? (
+                  <p>
+                    <span className="font-bold">{t("invoicing.accounting.externalNumber")}: </span>
+                    {accountingSync.externalInvoiceNumber}
+                  </p>
+                ) : null}
+                {accountingSync.lastAttemptAt ? (
+                  <p className="text-xs text-[var(--muted,#62685f)]">
+                    {t("invoicing.accounting.lastAttempt", {
+                      date: formatDateLocalized(accountingSync.lastAttemptAt, locale),
+                    })}
+                  </p>
+                ) : null}
+                {accountingSync.lastError ? (
+                  <p className="text-xs font-bold text-[var(--risk-text,#b42318)]">
+                    {t("invoicing.accounting.lastError")}: {accountingSync.lastError}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
+                {t("invoicing.accounting.neverSynced")}
+              </p>
+            )}
+            {!accountingSettings?.enabled ? (
+              <p className="mt-3 text-xs leading-5 text-[var(--muted,#62685f)]">
+                {t("invoicing.accounting.enableHint")}
+              </p>
+            ) : invoice.status !== "DRAFT" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <form action={syncInvoiceAccountingAction}>
+                  <input type="hidden" name="id" value={invoice.id} />
+                  <SubmitButton
+                    className={BUTTON}
+                    pendingLabel={t("invoicing.accounting.syncing")}
+                  >
+                    <Icon name="sync" className="h-4 w-4" />
+                    {accountingSync?.status === "FAILED"
+                      ? t("invoicing.accounting.retry")
+                      : t("invoicing.accounting.sync")}
+                  </SubmitButton>
+                </form>
+                {user.role === "ADMIN" && accountingSync?.status === "FAILED" ? (
+                  <form action={resetAccountingSyncAction}>
+                    <input type="hidden" name="id" value={invoice.id} />
+                    <SubmitButton
+                      className={BUTTON}
+                      pendingLabel={t("invoicing.accounting.syncing")}
+                    >
+                      {t("invoicing.accounting.resetAction")}
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs leading-5 text-[var(--muted,#62685f)]">
+                {t("invoicing.accounting.draftHint")}
+              </p>
+            )}
           </section>
         ) : null}
 

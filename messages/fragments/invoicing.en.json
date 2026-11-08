@@ -11,7 +11,8 @@
     "methods": {
       "BANK_TRANSFER": "Bank transfer",
       "CASH": "Cash",
-      "OTHER": "Other"
+      "OTHER": "Other",
+      "ONLINE": "Card/Vipps"
     },
     "lines": {
       "line": "Line {number}",
@@ -107,7 +108,7 @@
       "sending": "Sending …",
       "sendHint": "When the invoice is sent, the lines are frozen and a unique invoice number is assigned.",
       "paymentTitle": "Register payment",
-      "paymentHint": "No card payment or external payment provider is connected. Register a manual bank transfer, cash or other.",
+      "paymentHint": "Register a manual payment (bank transfer, cash or other). Card payments happen through the payment link above and are registered automatically.",
       "amount": "Amount",
       "paidAt": "Paid date",
       "method": "Method",
@@ -130,7 +131,7 @@
       "document": "Invoice",
       "companyFallback": "My company",
       "paymentTitle": "Payment",
-      "paymentHint": "Pay by bank transfer and use {reference} as the payment reference. Card payment is not supported."
+      "paymentHint": "Payment is made by bank transfer using {reference} as the reference. If the invoice has a payment link, it can also be paid by card or Vipps."
     },
     "settings": {
       "title": "Invoicing and quotes",
@@ -147,6 +148,90 @@
       "nextNumber": "Next number: invoice {invoice}, credit note {credit}.",
       "saving": "Saving …",
       "submit": "Save settings"
+    },
+    "payment": {
+      "title": "Payment link",
+      "hint": "The customer can pay with {provider} through a secure link. Card data is handled by the provider, never by this app.",
+      "statusLabel": "Payment status",
+      "openLink": "Open payment link",
+      "creating": "Creating …",
+      "createLink": "Create payment link",
+      "recreateLink": "Create a new payment link",
+      "linkCreated": "The payment link was created. You can share it with the customer.",
+      "disabled": "The payment provider is not configured.",
+      "unsupportedCurrency": "The payment provider only supports NOK in this version.",
+      "providerError": "The payment provider did not respond as expected. Try again.",
+      "rateLimited": "The payment provider is rate limiting requests. Try again shortly.",
+      "providers": {
+        "stripe": "Stripe",
+        "vipps": "Vipps MobilePay"
+      },
+      "status": {
+        "NONE": "No link",
+        "PENDING": "Awaiting payment",
+        "PAID": "Paid",
+        "PARTIALLY_PAID": "Partially paid",
+        "FAILED": "Failed",
+        "EXPIRED": "Expired"
+      }
+    },
+    "accounting": {
+      "title": "Accounting",
+      "provider": "Provider: {provider}",
+      "enabled": "Sync is enabled.",
+      "disabledState": "Sync is disabled.",
+      "statusLabel": "Sync status",
+      "externalNumber": "External invoice",
+      "lastAttempt": "Last attempt {date}",
+      "lastError": "Last error",
+      "neverSynced": "The invoice has not been synchronised yet.",
+      "enableHint": "Enable accounting sync in settings to use manual sync.",
+      "syncing": "Synchronising …",
+      "retry": "Retry sync",
+      "sync": "Sync to accounting",
+      "resetAction": "Reset sync",
+      "draftHint": "Send the invoice before synchronising it to accounting.",
+      "disabled": "Accounting sync is disabled.",
+      "notConfigured": "The accounting provider is not configured.",
+      "syncFailed": "The sync failed. The error is saved and can be retried.",
+      "concurrent": "A sync is already running for this invoice.",
+      "synced": "The invoice was synchronised to accounting.",
+      "alreadySynced": "The invoice was already synchronised. Nothing was sent again.",
+      "exported": "The invoice was exported to CSV. No external accounting provider was updated.",
+      "reset": "The sync was reset and can be run again.",
+      "settingsTitle": "Accounting integration",
+      "settingsHint": "The provider and keys are set in the environment. Here you can see status and test the connection.",
+      "connection": "Connection",
+      "configured": "Configured",
+      "mode": "Mode",
+      "modeExport": "CSV export (no external write)",
+      "modeApi": "API",
+      "lastTest": "Last test",
+      "lastTestOk": "The connection works",
+      "lastTestFailed": "The connection failed",
+      "never": "Never",
+      "lastSync": "Last sync",
+      "saving": "Saving …",
+      "enable": "Enable sync",
+      "disable": "Disable sync",
+      "testing": "Testing …",
+      "test": "Test connection",
+      "recentTitle": "Recent syncs",
+      "noSyncs": "No syncs yet.",
+      "failedCount": "{count} invoice(s) failed and can be retried.",
+      "providers": {
+        "fiken": "Fiken",
+        "tripletex": "Tripletex",
+        "poweroffice": "PowerOffice Go",
+        "csv": "CSV"
+      },
+      "status": {
+        "PENDING": "Pending",
+        "SYNCED": "Synchronised",
+        "EXPORTED": "Exported",
+        "FAILED": "Failed",
+        "SKIPPED": "Skipped"
+      }
     },
     "errors": {
       "generic": "The action could not be completed.",
@@ -171,7 +256,10 @@
       "total": "Total",
       "paid": "Paid",
       "outstanding": "Outstanding",
-      "manualPayment": "Payment is made by bank transfer. Use the invoice number as the reference. Card payment is not supported."
+      "manualPayment": "Payment is made by bank transfer using the invoice number as the reference. If the invoice has a Pay button, you can also pay by card or Vipps.",
+      "pay": "Pay",
+      "payHint": "You will be sent to a secure payment page. Card data is never shared with us.",
+      "paymentPending": "The payment is registered automatically when the provider confirms it. It may take a few minutes."
     }
   }
 }

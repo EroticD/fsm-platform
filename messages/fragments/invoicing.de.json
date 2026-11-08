@@ -11,7 +11,8 @@
     "methods": {
       "BANK_TRANSFER": "Banküberweisung",
       "CASH": "Barzahlung",
-      "OTHER": "Sonstige"
+      "OTHER": "Sonstige",
+      "ONLINE": "Karte/Vipps"
     },
     "lines": {
       "line": "Position {number}",
@@ -107,7 +108,7 @@
       "sending": "Wird gesendet …",
       "sendHint": "Beim Senden werden die Positionen eingefroren und eine eindeutige Rechnungsnummer vergeben.",
       "paymentTitle": "Zahlung registrieren",
-      "paymentHint": "Es ist keine Kartenzahlung und kein externer Zahlungsdienstleister angebunden. Registrieren Sie eine manuelle Banküberweisung, Barzahlung oder Sonstiges.",
+      "paymentHint": "Erfassen Sie eine manuelle Zahlung (Banküberweisung, Barzahlung oder anderes). Kartenzahlungen erfolgen über den Zahlungslink oben und werden automatisch registriert.",
       "amount": "Betrag",
       "paidAt": "Zahlungsdatum",
       "method": "Methode",
@@ -130,7 +131,7 @@
       "document": "Rechnung",
       "companyFallback": "Meine Firma",
       "paymentTitle": "Zahlung",
-      "paymentHint": "Zahlen Sie per Banküberweisung und geben Sie {reference} als Zahlungsreferenz an. Kartenzahlung wird nicht unterstützt."
+      "paymentHint": "Die Zahlung erfolgt per Banküberweisung mit {reference} als Referenz. Hat die Rechnung einen Zahlungslink, kann auch per Karte oder Vipps bezahlt werden."
     },
     "settings": {
       "title": "Abrechnung und Angebote",
@@ -147,6 +148,90 @@
       "nextNumber": "Nächste Nummer: Rechnung {invoice}, Gutschrift {credit}.",
       "saving": "Wird gespeichert …",
       "submit": "Einstellungen speichern"
+    },
+    "payment": {
+      "title": "Zahlungslink",
+      "hint": "Der Kunde kann über einen sicheren Link mit {provider} bezahlen. Kartendaten werden vom Anbieter verarbeitet, nie von dieser App.",
+      "statusLabel": "Zahlungsstatus",
+      "openLink": "Zahlungslink öffnen",
+      "creating": "Wird erstellt …",
+      "createLink": "Zahlungslink erstellen",
+      "recreateLink": "Neuen Zahlungslink erstellen",
+      "linkCreated": "Der Zahlungslink wurde erstellt. Sie können ihn mit dem Kunden teilen.",
+      "disabled": "Der Zahlungsanbieter ist nicht konfiguriert.",
+      "unsupportedCurrency": "Der Zahlungsanbieter unterstützt in dieser Version nur NOK.",
+      "providerError": "Der Zahlungsanbieter hat unerwartet geantwortet. Versuchen Sie es erneut.",
+      "rateLimited": "Der Zahlungsanbieter begrenzt Anfragen. Versuchen Sie es gleich noch einmal.",
+      "providers": {
+        "stripe": "Stripe",
+        "vipps": "Vipps MobilePay"
+      },
+      "status": {
+        "NONE": "Kein Link",
+        "PENDING": "Wartet auf Zahlung",
+        "PAID": "Bezahlt",
+        "PARTIALLY_PAID": "Teilweise bezahlt",
+        "FAILED": "Fehlgeschlagen",
+        "EXPIRED": "Abgelaufen"
+      }
+    },
+    "accounting": {
+      "title": "Buchhaltung",
+      "provider": "Anbieter: {provider}",
+      "enabled": "Die Synchronisierung ist aktiviert.",
+      "disabledState": "Die Synchronisierung ist deaktiviert.",
+      "statusLabel": "Synchronisierungsstatus",
+      "externalNumber": "Externe Rechnung",
+      "lastAttempt": "Letzter Versuch {date}",
+      "lastError": "Letzter Fehler",
+      "neverSynced": "Die Rechnung wurde noch nicht synchronisiert.",
+      "enableHint": "Aktivieren Sie die Buchhaltungssynchronisierung in den Einstellungen, um die manuelle Synchronisierung zu nutzen.",
+      "syncing": "Synchronisierung …",
+      "retry": "Synchronisierung wiederholen",
+      "sync": "Mit Buchhaltung synchronisieren",
+      "resetAction": "Synchronisierung zurücksetzen",
+      "draftHint": "Senden Sie die Rechnung, bevor Sie sie mit der Buchhaltung synchronisieren.",
+      "disabled": "Die Buchhaltungssynchronisierung ist deaktiviert.",
+      "notConfigured": "Der Buchhaltungsanbieter ist nicht konfiguriert.",
+      "syncFailed": "Die Synchronisierung ist fehlgeschlagen. Der Fehler wurde gespeichert und kann wiederholt werden.",
+      "concurrent": "Für diese Rechnung läuft bereits eine Synchronisierung.",
+      "synced": "Die Rechnung wurde mit der Buchhaltung synchronisiert.",
+      "alreadySynced": "Die Rechnung war bereits synchronisiert. Es wurde nichts erneut gesendet.",
+      "exported": "Die Rechnung wurde als CSV exportiert. Es wurde kein externer Buchhaltungsanbieter aktualisiert.",
+      "reset": "Die Synchronisierung wurde zurückgesetzt und kann erneut ausgeführt werden.",
+      "settingsTitle": "Buchhaltungsintegration",
+      "settingsHint": "Anbieter und Schlüssel werden in der Umgebung gesetzt. Hier sehen Sie den Status und können die Verbindung testen.",
+      "connection": "Verbindung",
+      "configured": "Konfiguriert",
+      "mode": "Modus",
+      "modeExport": "CSV-Export (kein externes Schreiben)",
+      "modeApi": "API",
+      "lastTest": "Letzter Test",
+      "lastTestOk": "Die Verbindung funktioniert",
+      "lastTestFailed": "Die Verbindung ist fehlgeschlagen",
+      "never": "Nie",
+      "lastSync": "Letzte Synchronisierung",
+      "saving": "Speichern …",
+      "enable": "Synchronisierung aktivieren",
+      "disable": "Synchronisierung deaktivieren",
+      "testing": "Wird getestet …",
+      "test": "Verbindung testen",
+      "recentTitle": "Letzte Synchronisierungen",
+      "noSyncs": "Noch keine Synchronisierungen.",
+      "failedCount": "{count} Rechnung(en) sind fehlgeschlagen und können wiederholt werden.",
+      "providers": {
+        "fiken": "Fiken",
+        "tripletex": "Tripletex",
+        "poweroffice": "PowerOffice Go",
+        "csv": "CSV"
+      },
+      "status": {
+        "PENDING": "Ausstehend",
+        "SYNCED": "Synchronisiert",
+        "EXPORTED": "Exportiert",
+        "FAILED": "Fehlgeschlagen",
+        "SKIPPED": "Übersprungen"
+      }
     },
     "errors": {
       "generic": "Die Aktion konnte nicht abgeschlossen werden.",
@@ -171,7 +256,10 @@
       "total": "Gesamt",
       "paid": "Bezahlt",
       "outstanding": "Offen",
-      "manualPayment": "Die Zahlung erfolgt per Banküberweisung. Verwenden Sie die Rechnungsnummer als Referenz. Kartenzahlung wird nicht unterstützt."
+      "manualPayment": "Die Zahlung erfolgt per Banküberweisung mit der Rechnungsnummer als Referenz. Hat die Rechnung eine Bezahlen-Schaltfläche, können Sie auch per Karte oder Vipps bezahlen.",
+      "pay": "Bezahlen",
+      "payHint": "Sie werden auf eine sichere Zahlungsseite weitergeleitet. Kartendaten werden nie mit uns geteilt.",
+      "paymentPending": "Die Zahlung wird automatisch registriert, sobald der Anbieter sie bestätigt. Das kann einige Minuten dauern."
     }
   }
 }
