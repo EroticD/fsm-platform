@@ -288,6 +288,17 @@ export default function SettingsTabs({
         )}
         {isAdmin && (
           <Link
+            href="?tab=oppdragsstatus"
+            ref={currentTab === "oppdragsstatus" ? activeRef : undefined}
+            className={linkClass(currentTab === "oppdragsstatus")}
+            aria-current={currentTab === "oppdragsstatus" ? "page" : undefined}
+          >
+            <Icon name="check" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.workOrderStatus")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
             href="?tab=roller"
             ref={currentTab === "roller" ? activeRef : undefined}
             className={linkClass(currentTab === "roller")}

@@ -917,6 +917,32 @@ enum WorkStatus {
   OPEN
 }
 
+/// Hvordan en oppdragsstatus oppfører seg i lister, rapporter og lukkelogikk.
+/// Administratoren kan endre dette uten å endre selve statusverdiene.
+enum WorkOrderStatusCategory {
+  OPEN
+  PLANNED
+  CLOSED
+}
+
+/// Installationsspesifikk funksjon for hver innebygde oppdragsstatus.
+model WorkOrderStatusSetting {
+  status      WorkStatus             @id
+  category    WorkOrderStatusCategory @default(OPEN)
+  sortOrder   Int                    @default(0)
+  isActive    Boolean                @default(true)
+  updatedAt   DateTime               @updatedAt
+  updatedById String?
+}
+
+/// Standard status for nye oppdrag. PENDING betyr «åpen, venter på planlegging».
+model WorkOrderSettings {
+  id            String     @id @default("default")
+  defaultStatus WorkStatus @default(PENDING)
+  updatedAt     DateTime   @updatedAt
+  updatedById   String?
+}
+
 /// Kundens bestilling fra kundeportalen. Én bestilling hører til nøyaktig ett
 /// oppdrag, og beholder ønsket tid, utstyr og kontaktperson som et snapshot.
 enum BookingRequestStatus {
@@ -971,7 +997,7 @@ model WorkOrder {
   scheduledFor          DateTime?  @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
   scheduledTo           DateTime?  @db.Date
-  status                WorkStatus @default(PLANNED)
+  status                WorkStatus @default(PENDING)
   creatorName           String?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @default(now()) @updatedAt

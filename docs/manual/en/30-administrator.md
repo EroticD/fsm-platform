@@ -547,3 +547,11 @@ use.
 The administrator chapter covers setup and governance; the office and technician chapters cover daily use. **Department and role** determine which work orders and actions staff see; the customer portal is controlled by the customer link. **Templates, SLA, branding and SMS** provide the forms, deadlines and messages staff work with. **Legal hold** freezes data for all parties.
 
 See `10-office.md` for customer cards, work orders, agreements, the booking queue and reports. See `20-technician.md` for the field app, offline drafts, forms, submission and tracking. See `90-reference.md` for concepts, error codes and reference material.
+
+Administrators can choose which work order statuses are open, planned or
+closed under **Settings → Work order status**. The default setup keeps the
+built-in statuses. New work orders start as “open, waiting for planning”
+(PENDING) unless another open or planned default is selected. A status marked
+as closed counts as finished in lists, search, reports, the portal,
+notifications, routing and locking. At least one open and one closed status
+must be active. Changes are audited.

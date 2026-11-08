@@ -21,7 +21,24 @@
       "evidence": "Bevis",
       "modules": "Moduler",
       "email": "E-post",
-      "push": "Pushvarsler"
+      "push": "Pushvarsler",
+      "workOrderStatus": "Oppdragsstatus"
+    },
+    "workOrderStatus": {
+      "title": "Oppdragsstatuser",
+      "description": "Styr hvilke statuser som er åpne, planlagte eller lukkede, og hvilken status nye oppdrag får.",
+      "defaultStatus": "Standardstatus for nye oppdrag",
+      "defaultHint": "Nye oppdrag starter som åpne og venter på planlegging med mindre du velger en annen åpen eller planlagt status.",
+      "status": "Status",
+      "category": "Funksjon",
+      "order": "Rekkefølge",
+      "active": "Aktiv",
+      "hint": "En status med funksjonen «Lukket» regnes som avsluttet i lister, rapporter og låsing. Minst én åpen og én lukket status må være aktiv.",
+      "save": "Lagre statusoppsett",
+      "reset": "Nullstill til standard",
+      "saved": "Statusoppsettet er lagret.",
+      "error": "Statusoppsettet kunne ikke lagres. Kontroller at minst én åpen og én lukket status er aktiv.",
+      "categories": { "OPEN": "Åpen", "PLANNED": "Planlagt", "CLOSED": "Lukket" }
     },
     "branding": {
       "title": "White-label Innstillinger",

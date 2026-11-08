@@ -1,6 +1,7 @@
 // i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
 // handlingsstrenger. De oversettes ved visning i `src/lib/audit-actions.ts`.
 import { Prisma } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyWorkOrderEvent } from "./notifications";
@@ -1499,7 +1500,7 @@ export async function submitReport(
         const completed = await tx.workOrder.updateMany({
           where: {
             id: workOrderId,
-            status: { notIn: ["COMPLETED", "CANCELLED"] },
+            status: { notIn: statusKeysByCategory("CLOSED") },
           },
           data: { status: "COMPLETED" },
         });

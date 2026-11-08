@@ -5,6 +5,7 @@ import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { Skeleton } from "@/components/Skeleton";
 import Icon, { type IconName } from "@/components/icons";
 import {
@@ -73,12 +74,9 @@ const QUEUE_TOTAL_LIMIT = 15;
 // listen for å finne nok unike oppdrag til den siste gruppen.
 const UNASSIGNED_SCAN_LIMIT = QUEUE_TOTAL_LIMIT + GROUP_LIMIT + 1;
 
-const AWAITING_STATUSES: WorkStatus[] = [
-  "OPEN",
-  "PENDING",
-  "PLANNED",
-  "WAITING",
-];
+function awaitingStatuses(): WorkStatus[] {
+  return [...statusKeysByCategory("OPEN"), ...statusKeysByCategory("PLANNED")];
+}
 
 // Tavlekortene henter litt flere rader enn den kompakte køen, men alltid
 // avgrenset. Kolonnene kappes til `BOARD_COLUMN_LIMIT` etter prioritering.
@@ -108,7 +106,7 @@ function todayWhere(
     AND: [
       scope,
       visibleStatus,
-      { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+      { status: { notIn: statusKeysByCategory("CLOSED") } },
       scheduledTodayWhere(startOfToday, endOfToday),
     ],
   };
@@ -126,7 +124,7 @@ function overdueWhere(
       {
         scheduledFor: { lt: startOfToday },
         OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
+        status: { notIn: statusKeysByCategory("CLOSED") },
       },
     ],
   };
@@ -142,7 +140,7 @@ function unassignedWhere(
       visibleStatus,
       {
         technicians: { none: {} },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
+        status: { notIn: statusKeysByCategory("CLOSED") },
       },
     ],
   };
@@ -335,7 +333,7 @@ async function DashboardOverview({
         AND: [
           scope,
           visibleStatus,
-          { status: { in: [...AWAITING_STATUSES, "IN_PROGRESS"] } },
+          { status: { in: awaitingStatuses() } },
         ],
       },
       _count: { _all: true },
@@ -437,7 +435,7 @@ async function DashboardOverview({
   const countByStatus = (status: WorkStatus) =>
     statusGroups.find((group) => group.status === status)?._count._all ?? 0;
   const inProgressCount = countByStatus("IN_PROGRESS");
-  const awaitingCount = AWAITING_STATUSES.reduce(
+  const awaitingCount = awaitingStatuses().reduce(
     (sum, status) => sum + countByStatus(status),
     0,
   );

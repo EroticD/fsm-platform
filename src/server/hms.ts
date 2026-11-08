@@ -1,4 +1,5 @@
 import type { HmsFormType } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import type { AccessUser } from "@/lib/access";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
@@ -180,7 +181,7 @@ export async function getHmsOverview(
     ? await prisma.workOrder.findMany({
         where: {
           ...workOrderScopeFor(actor),
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
         },
         orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }],
         take: 100,

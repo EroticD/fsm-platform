@@ -572,3 +572,11 @@ Administratorkapitlet beskriver oppsett og styring; kontor- og teknikerkapitlene
 - **Bevaringsplikt** fryser data for alle parter; bare administrator kan oppheve den.
 
 Se `10-kontor.md` for kundekort, oppdrag, avtaler, bookingkø og rapporter. Se `20-tekniker.md` for feltapp, offline-kladd, skjema, innsending og sporing. Se `90-oppslag.md` for begreper, feilkoder og oppslag.
+
+Administrator kan tilpasse hvilke oppdragsstatuser som er åpne, planlagte
+eller lukkede under **Innstillinger → Oppdragsstatus**. Standardoppsettet
+beholder de innebygde statusene. Nye oppdrag starter som «åpen, venter på
+planlegging» (PENDING) med mindre du velger en annen åpen eller planlagt
+standardstatus. En status markert som lukket regnes som avsluttet i lister,
+søk, rapporter, portal, varsler, ruting og låsing. Minst én åpen og én lukket
+status må være aktiv. Endringer revideres.

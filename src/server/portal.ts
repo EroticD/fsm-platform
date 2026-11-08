@@ -1,6 +1,7 @@
 // i18n-ignore-file: kundeportalens varsler og revisjonshandlinger lagres som
 // data. Varselmaler lokaliseres i Phase 5B (C-23).
 import type { Prisma } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import {
@@ -591,7 +592,7 @@ export async function createBooking(
       const openBookings = await tx.workOrder.count({
         where: {
           customerId,
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
           deletedAt: null,
         },
       });
@@ -1592,7 +1593,7 @@ export async function getPortalReportHistory(
   const where = {
     customerId: access.data.customerId,
     deletedAt: null,
-    status: { in: ["COMPLETED", "CANCELLED"] as ("COMPLETED" | "CANCELLED")[] },
+    status: { in: statusKeysByCategory("CLOSED") },
   };
 
   const [items, total] = await Promise.all([

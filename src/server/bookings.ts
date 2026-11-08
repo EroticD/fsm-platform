@@ -9,7 +9,7 @@ import {
   BOOKING_TIME_VALUE,
   requestedWindow,
 } from "@/lib/booking-time";
-import { OPEN_STATUSES } from "@/lib/work-order-status";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
 import { enqueueBookingEmail } from "./email-outbox";
@@ -473,7 +473,7 @@ export async function confirmBooking(
       await tx.workOrder.updateMany({
         where: {
           id: booking.workOrder.id,
-          status: { in: [...OPEN_STATUSES] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
         },
         data: { status: "PLANNED" },
       });

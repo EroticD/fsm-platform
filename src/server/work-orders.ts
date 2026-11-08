@@ -41,7 +41,7 @@ import {
 } from "@/lib/schemas";
 import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
-import { isClosedStatus } from "@/lib/work-order-status";
+import { isClosedStatus, statusKeysByCategory } from "@/lib/work-order-status";
 import {
   createDefaultVisit,
   DailyVisitConflictError,
@@ -50,6 +50,7 @@ import {
   recomputeWorkOrderSchedule,
 } from "./visits";
 import { startClock } from "./sla";
+import { getDefaultWorkOrderStatus } from "./work-order-status-settings";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -515,6 +516,8 @@ export async function createWorkOrder(
   const geoHash = addressHash(address.query);
   const coordinates = geoHash ? await geocodeAddress(address.query, address) : null;
 
+  const defaultStatus = await getDefaultWorkOrderStatus();
+
   let id: string;
   try {
     const run = <T>(
@@ -543,7 +546,7 @@ export async function createWorkOrder(
           scheduledFor,
           scheduledTo,
           creatorName: user.name || user.email || "Kontor",
-          status: "PENDING",
+          status: defaultStatus,
           technicians: {
             connect: technicianIds.map((id) => ({ id })),
           },
@@ -679,7 +682,7 @@ export async function updateWorkOrder(
   }
   // Et fullført oppdrag er låst. Rapporter kan være låst uten at oppdraget er
   // fullført; det skal ikke hindre redigering.
-  if (["COMPLETED", "CANCELLED"].includes(currentWorkOrder.status)) {
+  if (isClosedStatus(currentWorkOrder.status as WorkStatus)) {
     return { ok: false, error: "workorder-locked" };
   }
 
@@ -1095,7 +1098,7 @@ export async function updateWorkOrderDate(
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
   if (existing.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
+  if (isClosedStatus(existing.status as WorkStatus)) {
     return { ok: false, error: "ikke-funnet" };
   }
 
@@ -1170,7 +1173,7 @@ export async function updateWorkOrderDate(
         where: {
           id: before.id,
           legalHold: false,
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
         },
         data: { scheduledFor, scheduledTo: nextScheduledTo },
       });
@@ -1238,7 +1241,7 @@ export async function addTemplate(
   const access = await requireAccess(user, permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
   if (access.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
+  if (isClosedStatus(access.status as WorkStatus)) return { ok: false, error: "workorder-locked" };
 
   const parsed = workOrderTemplateSchema.safeParse({
     templateId: rawId(rawTemplateId),
@@ -1313,7 +1316,7 @@ export async function setTags(
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
   if (access.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
+  if (isClosedStatus(access.status as WorkStatus)) return { ok: false, error: "workorder-locked" };
 
   const tagNames = cleanTagNames(rawTagNames);
 
@@ -1356,7 +1359,7 @@ export async function setContact(
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
   if (access.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
+  if (isClosedStatus(access.status as WorkStatus)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
@@ -1412,7 +1415,7 @@ export async function addContactToCustomer(
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
   if (access.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
+  if (isClosedStatus(access.status as WorkStatus)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
@@ -1483,7 +1486,7 @@ async function changeTechnician(
   const access = await requireAccess(user, options.permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
   if (access.legalHold) return { ok: false, error: "legal-hold" };
-  if (["COMPLETED", "CANCELLED"].includes(access.status)) {
+  if (isClosedStatus(access.status as WorkStatus)) {
     return { ok: false, error: "workorder-locked" };
   }
 
@@ -1802,6 +1805,8 @@ export async function cloneWorkOrder(
   });
   if (!source) return { ok: false, error: "ikke-funnet" };
 
+  const cloneDefaultStatus = await getDefaultWorkOrderStatus();
+
   try {
     const id = await prisma.$transaction(async (tx) => {
       const created = await tx.workOrder.create({
@@ -1821,7 +1826,7 @@ export async function cloneWorkOrder(
           scheduledFor: source.scheduledFor,
           scheduledTo: source.scheduledTo,
           creatorName: user.name || user.email || "Kontor",
-          status: "PENDING",
+          status: cloneDefaultStatus,
           technicians: { connect: source.technicians.map((tech) => ({ id: tech.id })) },
           templates: { connect: source.templates.map((template) => ({ id: template.id })) },
           tags: {

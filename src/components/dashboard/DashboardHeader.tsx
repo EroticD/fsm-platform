@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
@@ -20,7 +21,7 @@ async function OrderCount({
       AND: [
         scope,
         visibleStatus,
-        { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+        { status: { notIn: statusKeysByCategory("CLOSED") } },
       ],
     },
   });

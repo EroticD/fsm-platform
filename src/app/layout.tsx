@@ -21,6 +21,7 @@ import OfflineDraftLock from "@/components/OfflineDraftLock";
 import OfflineSessionGuard from "@/components/OfflineSessionGuard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import { listEnabledModules } from "@/server/modules";
+import { loadWorkOrderStatusConfig } from "@/server/work-order-status-settings";
 
 const openSans = Open_Sans({
   variable: "--font-open-sans",
@@ -81,7 +82,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     : [];
   // Modultilstandene leses én gang per forespørsel og sendes til menyen.
   // Kjernen er alltid med; en DB-feil faller tilbake til alle aktive moduler.
-  const enabledModules = await listEnabledModules();
+  const [enabledModules] = await Promise.all([
+    listEnabledModules(),
+    loadWorkOrderStatusConfig(),
+  ]);
   // Merkevaren hentes én gang på serveren, slik at første maling får riktig
   // navn, logo og farge uten en ekstra klientforespørsel.
   const branding = await prisma.branding.findFirst().catch(() => null);

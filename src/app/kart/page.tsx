@@ -1,4 +1,5 @@
 import { requireModulePage } from "@/lib/module-guards";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -165,7 +166,7 @@ export default async function MapPage({
       workOrderScope(user),
       { latitude: null },
       { longitude: null },
-      { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+      { status: { notIn: statusKeysByCategory("CLOSED") } },
       {
         OR: [
           { address: { not: null } },

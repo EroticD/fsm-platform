@@ -24,6 +24,7 @@ import EmailSettingsTab from "@/components/settings/EmailSettingsTab";
 import PushSettingsTab from "@/components/settings/PushSettingsTab";
 import SamlSettingsSection from "@/components/settings/SamlSettingsSection";
 import FieldPolicyMatrix from "@/components/settings/FieldPolicyMatrix";
+import WorkOrderStatusSettingsTab from "@/components/settings/WorkOrderStatusSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
 import WorkforceSettingsTab from "@/components/settings/WorkforceSettingsTab";
 import ModulesTab from "@/components/settings/ModulesTab";
@@ -34,6 +35,7 @@ import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getMapSettingsView } from "@/server/map-settings";
 import { getEmailSettingsView } from "@/server/email-outbox";
+import { getWorkOrderStatusSettings } from "@/server/work-order-status-settings";
 import { isSmtpConfigured } from "@/lib/email";
 import { samlConfigErrors, samlProviderConfigs } from "@/lib/saml";
 import { getCurrentUser } from "@/lib/session";
@@ -68,6 +70,10 @@ import {
   saveEmailSettingsAction,
   sendTestEmailAction,
 } from "./email-actions";
+import {
+  resetWorkOrderStatusAction,
+  saveWorkOrderStatusAction,
+} from "./status-actions";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -326,6 +332,10 @@ export default async function SettingsPage({
     currentTab === "sso" && isAdmin ? samlConfigErrors() : [];
   const emailSettings =
     currentTab === "email" && isAdmin ? await getEmailSettingsView(user) : null;
+  const statusSettings =
+    currentTab === "oppdragsstatus" && isAdmin
+      ? await getWorkOrderStatusSettings(user)
+      : null;
 
   const slaSettings =
     currentTab === "sla" && canSla
@@ -625,6 +635,16 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "push" && isAdmin && <PushSettingsTab />}
+
+        {currentTab === "oppdragsstatus" && isAdmin && statusSettings?.ok && (
+          <WorkOrderStatusSettingsTab
+            view={statusSettings.data}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            save={saveWorkOrderStatusAction}
+            reset={resetWorkOrderStatusAction}
+          />
+        )}
 
         {currentTab === "dispatch" && canDispatch && dispatchSettings?.ok && (
           <DispatchSettingsTab

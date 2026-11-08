@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -39,7 +40,7 @@ export async function geocodeMissingAction() {
         workOrderScope(user),
         { latitude: null },
         { longitude: null },
-        { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+        { status: { notIn: statusKeysByCategory("CLOSED") } },
         {
           OR: [
             { address: { not: null } },

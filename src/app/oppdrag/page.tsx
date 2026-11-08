@@ -4,6 +4,7 @@ import { readableTextColor } from "@/lib/colors";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
@@ -62,12 +63,18 @@ const STATUS_TONE: Record<string, string> = {
 // Hjelpere (utenfor komponenten slik at render forblir ren)
 // ---------------------------------------------------------------------------
 
-// Samme definisjoner som dashbordet bruker, slik at tallene stemmer.
-// «Nye» er oppdrag som ennå ikke er planlagt eller satt i gang. Den er et
-// bevisst snevrere utvalg enn «Aktive», som også tar med påbegynte oppdrag.
-const NEW_STATUSES: WorkStatus[] = ["OPEN", "PENDING"];
-const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING"];
-const CLOSED_STATUSES: WorkStatus[] = ["COMPLETED", "CANCELLED"];
+// Statusgruppene leses fra det administrative oppsettet. «Nye» er åpne
+// statuser; «venter» tar med både åpne og planlagte. Lukkede statuser er de
+// administratoren har markert som lukket.
+function newStatuses(): WorkStatus[] {
+  return statusKeysByCategory("OPEN");
+}
+function awaitingStatuses(): WorkStatus[] {
+  return [...statusKeysByCategory("OPEN"), ...statusKeysByCategory("PLANNED")];
+}
+function closedStatuses(): WorkStatus[] {
+  return statusKeysByCategory("CLOSED");
+}
 const PAGE_SIZE = 20;
 
 type SortKey = "urgency" | "newest";
@@ -183,9 +190,9 @@ function whereFor(
   switch (view) {
     case "apne":
       // «Nye» er oppdrag som ikke er planlagt eller påbegynt ennå.
-      return { status: { in: NEW_STATUSES } };
+      return { status: { in: newStatuses() } };
     case "venter":
-      return { status: { in: AWAITING_STATUSES } };
+      return { status: { in: awaitingStatuses() } };
     case "pagaaende":
       return { status: "IN_PROGRESS" };
     case "idag":
@@ -193,17 +200,17 @@ function whereFor(
       // Streng `lt` mot neste dags midnatt – ellers teller morgendagens
       // oppdrag med når de starter kl. 00:00.
       return {
-        status: { notIn: CLOSED_STATUSES },
+        status: { notIn: closedStatuses() },
         ...scheduledTodayWhere(startOfToday, endOfToday),
       };
     case "forfalte":
       return {
         scheduledFor: { lt: startOfToday },
         OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
-        status: { notIn: CLOSED_STATUSES },
+        status: { notIn: closedStatuses() },
       };
     case "ikke-tildelt":
-      return { technicians: { none: {} }, status: { notIn: CLOSED_STATUSES } };
+      return { technicians: { none: {} }, status: { notIn: closedStatuses() } };
     case "fullforte":
       return { status: "COMPLETED" };
     case "kansellerte":
@@ -211,7 +218,7 @@ function whereFor(
     default:
       // Standardoversikten viser aktive/kommende oppdrag. Fullførte og
       // kansellerte er historikk og vises bare i historikkfanene.
-      return { status: { notIn: CLOSED_STATUSES } };
+      return { status: { notIn: closedStatuses() } };
   }
 }
 
@@ -357,10 +364,10 @@ export default async function WorkOrdersPage({
 
   const viewCounts: Record<ViewKey, number> = {
     alle: statusGroups
-      .filter((group) => !CLOSED_STATUSES.includes(group.status))
+      .filter((group) => !closedStatuses().includes(group.status))
       .reduce((sum, group) => sum + group._count._all, 0),
-    apne: sumStatuses(NEW_STATUSES),
-    venter: sumStatuses(AWAITING_STATUSES),
+    apne: sumStatuses(newStatuses()),
+    venter: sumStatuses(awaitingStatuses()),
     pagaaende: countByStatus("IN_PROGRESS"),
     idag: todayCount,
     forfalte: overdueCount,
@@ -636,7 +643,7 @@ export default async function WorkOrdersPage({
                       const overdue =
                         scheduledEnd !== null &&
                         scheduledEnd < dates.startOfToday &&
-                        !CLOSED_STATUSES.includes(wo.status);
+                        !closedStatuses().includes(wo.status);
                       return (
                         <tr
                           key={wo.id}
@@ -785,7 +792,7 @@ export default async function WorkOrdersPage({
                   const overdue =
                     scheduledEnd !== null &&
                     scheduledEnd < dates.startOfToday &&
-                    !CLOSED_STATUSES.includes(wo.status);
+                    !closedStatuses().includes(wo.status);
                   return (
                     <div key={wo.id}>
                       <Link

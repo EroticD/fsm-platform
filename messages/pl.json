@@ -2330,7 +2330,24 @@
         "evidence": "Dowody",
         "modules": "Moduły",
         "email": "E-mail",
-        "push": "Powiadomienia push"
+        "push": "Powiadomienia push",
+        "workOrderStatus": "Status zlecenia"
+      },
+      "workOrderStatus": {
+        "title": "Statusy zleceń",
+        "description": "Określ, które statusy są otwarte, zaplanowane lub zamknięte, oraz jaki status otrzymują nowe zlecenia.",
+        "defaultStatus": "Domyślny status nowych zleceń",
+        "defaultHint": "Nowe zlecenia zaczynają jako otwarte i oczekujące na planowanie, chyba że wybierzesz inny otwarty lub zaplanowany status.",
+        "status": "Status",
+        "category": "Funkcja",
+        "order": "Kolejność",
+        "active": "Aktywny",
+        "hint": "Status z funkcją „Zamknięty” jest traktowany jako zakończony na listach, w raportach i przy blokadzie. Musi być aktywny co najmniej jeden otwarty i jeden zamknięty status.",
+        "save": "Zapisz ustawienia statusów",
+        "reset": "Przywróć domyślne",
+        "saved": "Ustawienia statusów zostały zapisane.",
+        "error": "Nie udało się zapisać ustawień statusów. Sprawdź, czy aktywny jest co najmniej jeden otwarty i jeden zamknięty status.",
+        "categories": { "OPEN": "Otwarty", "PLANNED": "Zaplanowany", "CLOSED": "Zamknięty" }
       },
       "branding": {
         "title": "Ustawienia white label",

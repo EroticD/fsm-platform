@@ -1,6 +1,7 @@
 // i18n-ignore-file: varseltitler og -tekster lagres i databasen uten key/params-
 // kolonner. Render-tid-oversettelse krever skjemaendring i Phase 5B (C-23).
 import { randomUUID } from "node:crypto";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -570,7 +571,7 @@ export async function notifyOverdueWorkOrders(
     where: {
       deletedAt: null,
       scheduledFor: { lt: today },
-      status: { notIn: ["COMPLETED", "CANCELLED"] },
+      status: { notIn: statusKeysByCategory("CLOSED") },
     },
     select: { id: true, title: true },
     take: 100,

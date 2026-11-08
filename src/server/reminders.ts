@@ -1,6 +1,7 @@
 // i18n-ignore-file: revisjonsloggen lagrer stabile handlingsstrenger på samme
 // måte som de øvrige tjenestene; de oversettes ved visning.
 import { Prisma } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { formatDateLocalized } from "@/lib/dates";
@@ -454,7 +455,7 @@ export async function scheduleDueReminders(
         workOrder: {
           deletedAt: null,
           departmentId: rule.departmentId,
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
         },
       },
       orderBy: { startsAt: "asc" },

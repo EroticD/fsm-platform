@@ -2330,7 +2330,24 @@
         "evidence": "Nachweise",
         "modules": "Module",
         "email": "E-Mail",
-        "push": "Push-Benachrichtigungen"
+        "push": "Push-Benachrichtigungen",
+        "workOrderStatus": "Status von Arbeitsaufträgen"
+      },
+      "workOrderStatus": {
+        "title": "Status von Arbeitsaufträgen",
+        "description": "Legen Sie fest, welche Status offen, geplant oder geschlossen sind und welchen Status neue Arbeitsaufträge erhalten.",
+        "defaultStatus": "Standardstatus für neue Arbeitsaufträge",
+        "defaultHint": "Neue Arbeitsaufträge starten offen und warten auf Planung, sofern Sie keinen anderen offenen oder geplanten Status wählen.",
+        "status": "Status",
+        "category": "Funktion",
+        "order": "Reihenfolge",
+        "active": "Aktiv",
+        "hint": "Ein Status mit der Funktion „Geschlossen“ gilt in Listen, Berichten und bei der Sperre als abgeschlossen. Mindestens ein offener und ein geschlossener Status müssen aktiv sein.",
+        "save": "Statuseinstellungen speichern",
+        "reset": "Auf Standard zurücksetzen",
+        "saved": "Die Statuseinstellungen wurden gespeichert.",
+        "error": "Die Statuseinstellungen konnten nicht gespeichert werden. Prüfen Sie, ob mindestens ein offener und ein geschlossener Status aktiv ist.",
+        "categories": { "OPEN": "Offen", "PLANNED": "Geplant", "CLOSED": "Geschlossen" }
       },
       "branding": {
         "title": "White-Label-Einstellungen",

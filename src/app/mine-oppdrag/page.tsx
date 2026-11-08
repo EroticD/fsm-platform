@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { revalidatePath } from "next/cache";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -387,7 +388,7 @@ export default async function TechnicianDashboard({
     : {};
 
   const openStatus: Prisma.WorkOrderWhereInput = {
-    status: { notIn: ["COMPLETED", "CANCELLED"] },
+    status: { notIn: statusKeysByCategory("CLOSED") },
   };
   const assignedBase: Prisma.WorkOrderWhereInput = {
     AND: [accessScope, searchOr],

@@ -21,7 +21,24 @@
       "evidence": "Evidence",
       "modules": "Modules",
       "email": "Email",
-      "push": "Push notifications"
+      "push": "Push notifications",
+      "workOrderStatus": "Work order status"
+    },
+    "workOrderStatus": {
+      "title": "Work order statuses",
+      "description": "Control which statuses are open, planned or closed, and which status new work orders receive.",
+      "defaultStatus": "Default status for new work orders",
+      "defaultHint": "New work orders start as open and waiting for planning unless you choose another open or planned status.",
+      "status": "Status",
+      "category": "Function",
+      "order": "Order",
+      "active": "Active",
+      "hint": "A status with the function «Closed» counts as finished in lists, reports and locking. At least one open and one closed status must be active.",
+      "save": "Save status settings",
+      "reset": "Reset to defaults",
+      "saved": "Status settings were saved.",
+      "error": "The status settings could not be saved. Check that at least one open and one closed status are active.",
+      "categories": { "OPEN": "Open", "PLANNED": "Planned", "CLOSED": "Closed" }
     },
     "branding": {
       "title": "White-label settings",

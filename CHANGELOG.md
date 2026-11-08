@@ -5,6 +5,17 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Konfigurerbare oppdragsstatuser
+- Ny adminfane **Oppdragsstatus** der hver innebygde status kan merkes som
+  åpen, planlagt eller lukket, aktiveres/deaktiveres og sorteres.
+- Standardoppsettet er uendret: OPEN/PENDING er åpne, PLANNED/WAITING/
+  IN_PROGRESS er planlagte, og COMPLETED/CANCELLED er lukkede.
+- Nye oppdrag starter som **PENDING** (åpen, venter på planlegging). Standard
+  status kan endres i samme fane, men kan ikke være en lukket status.
+- Lister, søk, rapporter, portal, varsler, ruting og låsing bruker den
+  konfigurerte lukkefunksjonen i stedet for hardkodede COMPLETED/CANCELLED.
+- Endringer revideres, og minst én åpen og én lukket status må være aktiv.
+
 ### Kunde- og kontaktisolasjon
 - Tilbuds- og fakturaskjemaene viser ikke kontaktfeltet før en kunde er valgt.
 - Kontaktene hentes per valgt kunde fra et serveravgrenset endepunkt og

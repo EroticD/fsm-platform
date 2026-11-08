@@ -198,7 +198,7 @@ describe("confirmBooking", () => {
     expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
       where: {
         id: "wo-1",
-        status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"] },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
       },
       data: { status: "PLANNED" },
     });

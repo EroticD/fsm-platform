@@ -16,6 +16,7 @@ export type SettingsTabKey =
   | "email"
   | "push"
   | "dispatch"
+  | "oppdragsstatus"
   | "roller"
   | "avdelinger"
   | "api"
@@ -58,6 +59,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "email",
   "push",
   "dispatch",
+  "oppdragsstatus",
   "roller",
   "avdelinger",
   "api",
@@ -141,6 +143,8 @@ export function isSettingsTabAllowed(
       return permissions.isAdmin;
     case "dispatch":
       return permissions.canDispatch;
+    case "oppdragsstatus":
+      return permissions.isAdmin;
     case "roller":
     case "avdelinger":
     case "api":
