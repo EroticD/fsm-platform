@@ -45,7 +45,10 @@ vi.mock("@/components/IsoDateInput", () => ({ default: () => null }));
 vi.mock("@/app/kalender/CalendarShell", () => ({
   default: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("./actions", () => ({ applyRouteOrderAction: vi.fn() }));
+vi.mock("./actions", () => ({
+  applyRouteOrderAction: vi.fn(),
+  optimizeRouteAction: vi.fn(),
+}));
 
 import RoutePage from "./page";
 
@@ -106,6 +109,11 @@ beforeEach(() => {
           totalDistanceKm: 12,
           totalTravelMinutes: 20,
           totalWaitingMinutes: 10,
+          baselineTravelMinutes: 35,
+          baselineDistanceKm: 20,
+          savedTravelMinutes: 15,
+          savedDistanceKm: 8,
+          orderChanged: true,
           startAt: new Date("2026-11-03T09:00:00.000Z"),
           finishAt: new Date("2026-11-03T10:00:00.000Z"),
           provider: "haversine",
@@ -125,9 +133,28 @@ describe("ruteplan-side", () => {
     expect(html).toContain("Ola Montør");
     expect(html).toContain("calendar.route.totalDrive");
     expect(html).toContain("calendar.route.applyOrder");
+    expect(html).toContain("dispatch.routeOptimizer.optimize");
     expect(html).toContain("calendar.route.skippedMissingCoordinates");
     expect(html).toContain('name="visitId"');
     expect(html).toContain('value="visit-1"');
+  });
+
+  it("viser før/etter-sammendrag når ruten er optimalisert", async () => {
+    const html = renderToStaticMarkup(
+      await RoutePage({
+        searchParams: Promise.resolve({
+          dato: "2026-11-03",
+          optimaliser: "1",
+        }),
+      }),
+    );
+
+    expect(html).toContain("dispatch.routeOptimizer.previewTitle");
+    expect(html).toContain("dispatch.routeOptimizer.beforeTravel");
+    expect(html).toContain("dispatch.routeOptimizer.afterTravel");
+    expect(html).toContain("dispatch.routeOptimizer.savedTravel");
+    expect(html).toContain("dispatch.routeOptimizer.changed");
+    expect(html).toContain("dispatch.routeOptimizer.optimizeHint");
   });
 
   it("redirecter brukere uten tildelingsrettighet", async () => {

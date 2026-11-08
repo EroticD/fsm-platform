@@ -33,6 +33,31 @@ function firstErrorCode(details: unknown): string | null {
 }
 
 /**
+ * Viser optimaliseringsforslaget med før/etter-sammendrag. Ingenting flyttes
+ * her; kontoret må fortsatt trykke «Bruk rekkefølge», som revisjonslogges.
+ */
+export async function optimizeRouteAction(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("calendar"))) redirect("/");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const date = cleanText(formData.get("dato"), { maxLength: 10 });
+  const technicianId = readId(formData, "tekniker");
+  if (
+    !hasPermission(user, "workorders.update") &&
+    !hasPermission(user, "workorders.assign") &&
+    !hasPermission(user, "dispatch.configure")
+  ) {
+    redirect(hrefWith(date, technicianId, { feil: ROUTE_ERROR_CODES.forbidden }));
+  }
+  if (!date) {
+    redirect(hrefWith(date, technicianId, { feil: ROUTE_ERROR_CODES.invalid }));
+  }
+
+  redirect(hrefWith(date, technicianId, { optimaliser: "1" }));
+}
+
+/**
  * Bruker den foreslåtte rekkefølgen. Rekkefølgen sendes som skjulte felt i
  * samme orden som ruten viste den, men tjenestelaget regner planen på nytt og
  * avviser hele endringen hvis noe er endret i mellomtiden.

@@ -10,6 +10,25 @@ export type RouteWindow = {
   endsAt: Date;
   /** Tjenestetid. Standard er hele vinduets lengde. */
   serviceMinutes?: number;
+  /**
+   * Prioritet 0–3. Høyere verdi gjør at visitten foretrekkes tidligere i
+   * nærmeste-nabo-valget. Standard er 0.
+   */
+  priority?: number;
+  /** Kompetansekrav. Tom liste betyr ingen krav. */
+  requiredSkillIds?: string[];
+};
+
+export type RouteUnassignedReason =
+  | "missing_coordinates"
+  | "outside_time_window"
+  | "missing_skills"
+  | "working_hours"
+  | "ineligible";
+
+export type RouteUnassigned = {
+  id: string;
+  reason: RouteUnassignedReason;
 };
 
 /** Ett stopp i den beregnede kjøreplanen. */
@@ -27,20 +46,39 @@ export type RouteStop = {
   distanceKm: number;
 };
 
+export type RouteBaseline = {
+  /** Rekkefølgen slik den var planlagt før optimalisering. */
+  order: string[];
+  totalTravelMinutes: number;
+  totalDistanceKm: number;
+  totalWaitingMinutes: number;
+};
+
 export type OptimisedRoute = {
   order: RouteWindow[];
+  /** Visiter som ikke fikk plass, i innsendt rekkefølge. */
   skipped: string[];
+  /** Samme visiter med en stabil årsak. */
+  unassigned: RouteUnassigned[];
   totalDistanceKm: number;
   totalTravelMinutes: number;
-  /** Sum ventetid før visittenes tidsvinduer åpner. */
+  /** Sum ventetid før visittenes tidsvindu åpner. */
   totalWaitingMinutes: number;
   stops: RouteStop[];
   finishAt: Date | null;
+  /** Beregnet kjøretid/avstand for den opprinnelige rekkefølgen. */
+  baseline: RouteBaseline;
+  baselineTravelMinutes: number;
+  baselineDistanceKm: number;
+  savedTravelMinutes: number;
+  savedDistanceKm: number;
+  /** True når optimaliseringen faktisk endret rekkefølgen. */
+  changed: boolean;
 };
 
 type Schedule = {
   order: RouteWindow[];
-  skipped: string[];
+  unassigned: RouteUnassigned[];
   travel: number;
   distance: number;
   waiting: number;
@@ -48,6 +86,16 @@ type Schedule = {
   finishAt: Date;
   feasible: boolean;
 };
+
+type ScheduleOptions = {
+  start: Coordinates | null;
+  startAt: Date;
+  startIndex: number;
+  workingStart: Date | null;
+  workingEnd: Date | null;
+};
+
+const DEFAULT_PRIORITY_WEIGHT_MINUTES = 5;
 
 function minutes(value: Date): number {
   return value.getTime() / 60_000;
@@ -60,24 +108,49 @@ function serviceFor(visit: RouteWindow): number {
   return Math.max(0, minutes(visit.endsAt) - minutes(visit.startsAt));
 }
 
+function priorityFor(visit: RouteWindow): number {
+  const value = Number(visit.priority ?? 0);
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(3, Math.max(0, Math.round(value)));
+}
+
+function missingSkills(
+  visit: RouteWindow,
+  technicianSkillIds: readonly string[] | undefined,
+): boolean {
+  if (technicianSkillIds === undefined) return false;
+  const required = visit.requiredSkillIds ?? [];
+  if (required.length === 0) return false;
+  const available = new Set(technicianSkillIds);
+  return required.some((skillId) => !available.has(skillId));
+}
+
+function effectiveStart(
+  startAt: Date,
+  workingStart: Date | null,
+): Date {
+  return workingStart && workingStart.getTime() > startAt.getTime()
+    ? workingStart
+    : startAt;
+}
+
 /**
  * Bygger en kjøreplan for en gitt rekkefølge. En visitt som ikke kan nås
- * innenfor tidsvinduet hoppes over i stedet for å bryte vinduet. Da kan
- * ruteoptimaliseringen aldri flytte en jobb utenfor avtalt tid.
+ * innenfor tidsvinduet, eller som ikke blir ferdig innen arbeidsdagens slutt,
+ * hoppes over i stedet for å bryte vinduet. Da kan ruteoptimaliseringen aldri
+ * flytte en jobb utenfor avtalt tid eller arbeidstid.
  */
 function schedule(
   visits: RouteWindow[],
   matrix: TravelEstimate[][],
   indexById: Map<string, number>,
-  start: Coordinates | null,
-  startAt: Date,
-  startIndex: number,
+  options: ScheduleOptions,
 ): Schedule {
   const ordered: RouteWindow[] = [];
-  const skipped: string[] = [];
+  const unassigned: RouteUnassigned[] = [];
   const stops: RouteStop[] = [];
-  let cursor = startIndex;
-  let clock = startAt;
+  let cursor = options.startIndex;
+  let clock = effectiveStart(options.startAt, options.workingStart);
   let travel = 0;
   let distance = 0;
   let waiting = 0;
@@ -85,18 +158,21 @@ function schedule(
   for (const visit of visits) {
     const target = indexById.get(visit.id);
     if (target === undefined || !visit.point) {
-      skipped.push(visit.id);
+      unassigned.push({
+        id: visit.id,
+        reason: !visit.point ? "missing_coordinates" : "ineligible",
+      });
       continue;
     }
 
     const leg =
       cursor >= 0
         ? matrix[cursor]?.[target]
-        : start
-          ? matrix[startIndex]?.[target]
+        : options.start
+          ? matrix[options.startIndex]?.[target]
           : undefined;
     if (!leg) {
-      skipped.push(visit.id);
+      unassigned.push({ id: visit.id, reason: "ineligible" });
       continue;
     }
 
@@ -104,14 +180,24 @@ function schedule(
     const service = serviceFor(visit);
     const earliest = visit.startsAt;
     const latestStart = new Date(visit.endsAt.getTime() - service * 60_000);
-    const startTime = new Date(Math.max(arrival.getTime(), earliest.getTime()));
+    const startTime = new Date(
+      Math.max(arrival.getTime(), earliest.getTime(), clock.getTime()),
+    );
 
     if (startTime.getTime() > latestStart.getTime()) {
-      skipped.push(visit.id);
+      unassigned.push({ id: visit.id, reason: "outside_time_window" });
       continue;
     }
 
     const endTime = new Date(startTime.getTime() + service * 60_000);
+    if (
+      options.workingEnd &&
+      endTime.getTime() > options.workingEnd.getTime()
+    ) {
+      unassigned.push({ id: visit.id, reason: "working_hours" });
+      continue;
+    }
+
     const waitMinutes = Math.max(
       0,
       Math.round((startTime.getTime() - arrival.getTime()) / 60_000),
@@ -135,21 +221,40 @@ function schedule(
 
   return {
     order: ordered,
-    skipped,
+    unassigned,
     travel: Math.round(travel),
     distance: Math.round(distance * 1000) / 1000,
     waiting: Math.round(waiting),
     stops,
     finishAt: clock,
-    feasible: skipped.length === 0,
+    feasible: unassigned.length === 0,
   };
 }
 
+function uniqueUnassigned(rows: RouteUnassigned[]): RouteUnassigned[] {
+  const seen = new Set<string>();
+  const result: RouteUnassigned[] = [];
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    result.push(row);
+  }
+  return result;
+}
+
 /**
- * Nearest-neighbour + 2-opt over dagens visiter. Rekkefølgen er deterministisk:
- * lik reisetid brytes på visitt-id. Hvis en bedre rekkefølge ikke er mulig
- * innenfor tidsvinduene, beholder vi den forrige. Funksjonen er ren og gjør
- * ingen database- eller nettverkskall.
+ * Nearest-neighbour + 2-opt over dagens visiter.
+ *
+ * - Tidsvinduene respekteres alltid; en visitt som ikke får plass rapporteres
+ *   med årsak i stedet for å flyttes ulovlig.
+ * - Kompetansekrav filtreres før ruten beregnes når montørens kompetanse er
+ *   oppgitt.
+ * - Arbeidstiden begrenser både start og ferdig-tid når den er oppgitt.
+ * - Prioritet (0–3) trekker en visitt fram i nærmeste-nabo-valget. 2-opt
+ *   forbedrer deretter kjørelengden innenfor de samme grensene.
+ *
+ * Rekkefølgen er deterministisk: lik reisetid brytes på prioritet, deretter
+ * visitt-id. Funksjonen er ren og gjør ingen database- eller nettverkskall.
  */
 export function optimiseRoute(input: {
   visits: RouteWindow[];
@@ -161,62 +266,153 @@ export function optimiseRoute(input: {
   indexById?: Map<string, number>;
   /** Sikkerhetsgrense for 2-opt; standard er 200 iterasjoner. */
   maxIterations?: number;
+  /** Arbeidstid for dagen. Ingen grense når den er utelatt. */
+  workingHours?: { start: Date; end: Date } | null;
+  /** Montørens gyldige kompetanse. Utelatt betyr «ikke kontroller». */
+  technicianSkillIds?: readonly string[];
+  /** Minutter høyere prioritet kan «spare» i nærmeste-nabo-valget. */
+  priorityWeightMinutes?: number;
 }): OptimisedRoute {
-  const visits = input.visits.filter((visit) => visit.point);
-  if (visits.length === 0) {
-    return {
-      order: [],
-      skipped: input.visits.map((visit) => visit.id),
-      totalDistanceKm: 0,
-      totalTravelMinutes: 0,
-      totalWaitingMinutes: 0,
-      stops: [],
-      finishAt: input.startAt,
-    };
+  const workingStart = input.workingHours?.start ?? null;
+  const workingEnd = input.workingHours?.end ?? null;
+  const baselineStart = effectiveStart(input.startAt, workingStart);
+
+  const eligible: RouteWindow[] = [];
+  const prefiltered: RouteUnassigned[] = [];
+  for (const visit of input.visits) {
+    if (!visit.point) {
+      prefiltered.push({ id: visit.id, reason: "missing_coordinates" });
+      continue;
+    }
+    if (missingSkills(visit, input.technicianSkillIds)) {
+      prefiltered.push({ id: visit.id, reason: "missing_skills" });
+      continue;
+    }
+    eligible.push(visit);
   }
 
   const offset = input.start ? 1 : 0;
   const indexById =
     input.indexById ??
-    new Map(visits.map((visit, index) => [visit.id, index + offset]));
-  const remaining = [...visits].sort((a, b) => a.id.localeCompare(b.id));
+    new Map(eligible.map((visit, index) => [visit.id, index + offset]));
+
+  const emptyBaseline: RouteBaseline = {
+    order: [],
+    totalTravelMinutes: 0,
+    totalDistanceKm: 0,
+    totalWaitingMinutes: 0,
+  };
+
+  if (eligible.length === 0) {
+    return {
+      order: [],
+      skipped: input.visits.map((visit) => visit.id),
+      unassigned: uniqueUnassigned(prefiltered),
+      totalDistanceKm: 0,
+      totalTravelMinutes: 0,
+      totalWaitingMinutes: 0,
+      stops: [],
+      finishAt: baselineStart,
+      baseline: emptyBaseline,
+      baselineTravelMinutes: 0,
+      baselineDistanceKm: 0,
+      savedTravelMinutes: 0,
+      savedDistanceKm: 0,
+      changed: false,
+    };
+  }
+
+  const scheduleOptions: ScheduleOptions = {
+    start: input.start,
+    startAt: input.startAt,
+    startIndex: input.startIndex,
+    workingStart,
+    workingEnd,
+  };
+
+  // «Før»-bildet er dagens rekkefølge, ikke en sortert kopi. Da kan
+  // kontoret se nøyaktig hva optimaliseringen sparte.
+  const baselineSchedule = schedule(
+    eligible,
+    input.matrix,
+    indexById,
+    scheduleOptions,
+  );
+
+  const remaining = [...eligible];
   const greedy: RouteWindow[] = [];
   let cursor = input.startIndex;
-  let clock = input.startAt;
+  let clock = baselineStart;
+  const priorityWeight = Math.min(
+    30,
+    Math.max(0, input.priorityWeightMinutes ?? DEFAULT_PRIORITY_WEIGHT_MINUTES),
+  );
 
   while (remaining.length > 0) {
-    let best: { visit: RouteWindow; index: number; leg: TravelEstimate } | null =
-      null;
+    let best: {
+      visit: RouteWindow;
+      index: number;
+      leg: TravelEstimate;
+      score: number;
+      arrival: Date;
+    } | null = null;
 
     for (const visit of remaining) {
       const target = indexById.get(visit.id);
       if (target === undefined) continue;
       const leg = input.matrix[cursor]?.[target];
       if (!leg) continue;
-      const arrival = clock.getTime() + leg.durationMinutes * 60_000;
+      const arrival = new Date(
+        clock.getTime() + leg.durationMinutes * 60_000,
+      );
       const service = serviceFor(visit);
       const latestStart = visit.endsAt.getTime() - service * 60_000;
-      if (arrival > latestStart) continue;
+      if (arrival.getTime() > latestStart) continue;
+      if (
+        workingEnd &&
+        Math.max(arrival.getTime(), visit.startsAt.getTime()) +
+          service * 60_000 >
+          workingEnd.getTime()
+      ) {
+        continue;
+      }
+
+      const priority = priorityFor(visit);
+      const score = Math.max(
+        0,
+        leg.durationMinutes - priority * priorityWeight,
+      );
 
       if (
         !best ||
-        leg.durationMinutes < best.leg.durationMinutes ||
-        (leg.durationMinutes === best.leg.durationMinutes &&
+        score < best.score ||
+        (score === best.score &&
+          leg.durationMinutes < best.leg.durationMinutes) ||
+        (score === best.score &&
+          leg.durationMinutes === best.leg.durationMinutes &&
+          priority > priorityFor(best.visit)) ||
+        (score === best.score &&
+          leg.durationMinutes === best.leg.durationMinutes &&
+          priority === priorityFor(best.visit) &&
           visit.id.localeCompare(best.visit.id) < 0)
       ) {
-        best = { visit, index: target, leg };
+        best = {
+          visit,
+          index: target,
+          leg,
+          score,
+          arrival,
+        };
       }
     }
 
     if (!best) break;
     greedy.push(best.visit);
     remaining.splice(remaining.indexOf(best.visit), 1);
+    const service = serviceFor(best.visit);
     clock = new Date(
-      Math.max(
-        clock.getTime() + best.leg.durationMinutes * 60_000,
-        best.visit.startsAt.getTime(),
-      ) +
-        serviceFor(best.visit) * 60_000,
+      Math.max(best.arrival.getTime(), best.visit.startsAt.getTime()) +
+        service * 60_000,
     );
     cursor = best.index;
   }
@@ -225,10 +421,38 @@ export function optimiseRoute(input: {
     greedy,
     input.matrix,
     indexById,
-    input.start,
-    input.startAt,
-    input.startIndex,
+    scheduleOptions,
   );
+
+  // Visiter som nærmeste-nabo ikke tok med må få en årsak. Uten dette ville
+  // en visitt som ble avvist allerede i valgfasen (f.eks. fordi den ikke ble
+  // ferdig innen arbeidstidens slutt) forsvinne fra `unassigned`.
+  const greedyUnassigned: RouteUnassigned[] = [];
+  for (const visit of remaining) {
+    const target = indexById.get(visit.id);
+    const leg = target === undefined ? undefined : input.matrix[cursor]?.[target];
+    if (target === undefined || !leg) {
+      greedyUnassigned.push({ id: visit.id, reason: "ineligible" });
+      continue;
+    }
+    const arrival = new Date(clock.getTime() + leg.durationMinutes * 60_000);
+    const service = serviceFor(visit);
+    const start = Math.max(arrival.getTime(), visit.startsAt.getTime());
+    const latestStart = visit.endsAt.getTime() - service * 60_000;
+    if (start > latestStart) {
+      greedyUnassigned.push({
+        id: visit.id,
+        reason: "outside_time_window",
+      });
+    } else if (
+      workingEnd &&
+      start + service * 60_000 > workingEnd.getTime()
+    ) {
+      greedyUnassigned.push({ id: visit.id, reason: "working_hours" });
+    } else {
+      greedyUnassigned.push({ id: visit.id, reason: "ineligible" });
+    }
+  }
 
   const maxIterations = input.maxIterations ?? 200;
   let improved = true;
@@ -249,9 +473,7 @@ export function optimiseRoute(input: {
           candidate,
           input.matrix,
           indexById,
-          input.start,
-          input.startAt,
-          input.startIndex,
+          scheduleOptions,
         );
         if (next.feasible && next.travel < bestSchedule.travel) {
           bestSchedule = next;
@@ -261,17 +483,44 @@ export function optimiseRoute(input: {
     }
   }
 
+  const unassigned = uniqueUnassigned([
+    ...prefiltered,
+    ...greedyUnassigned,
+    ...bestSchedule.unassigned,
+  ]);
+  const skipped = input.visits
+    .map((visit) => visit.id)
+    .filter((id) => !bestSchedule.order.some((row) => row.id === id));
+
+  const baselineTravel = Math.round(baselineSchedule.travel);
+  const baselineDistance =
+    Math.round(baselineSchedule.distance * 1000) / 1000;
+  const changed =
+    baselineSchedule.order.length !== bestSchedule.order.length ||
+    baselineSchedule.order.some(
+      (visit, index) => visit.id !== bestSchedule.order[index]?.id,
+    );
+
   return {
     order: bestSchedule.order,
-    skipped: input.visits
-      .filter(
-        (visit) => !bestSchedule.order.some((row) => row.id === visit.id),
-      )
-      .map((visit) => visit.id),
+    skipped,
+    unassigned,
     totalDistanceKm: bestSchedule.distance,
     totalTravelMinutes: bestSchedule.travel,
     totalWaitingMinutes: bestSchedule.waiting,
     stops: bestSchedule.stops,
     finishAt: bestSchedule.finishAt,
+    baseline: {
+      order: baselineSchedule.order.map((visit) => visit.id),
+      totalTravelMinutes: baselineTravel,
+      totalDistanceKm: baselineDistance,
+      totalWaitingMinutes: baselineSchedule.waiting,
+    },
+    baselineTravelMinutes: baselineTravel,
+    baselineDistanceKm: baselineDistance,
+    savedTravelMinutes: baselineTravel - bestSchedule.travel,
+    savedDistanceKm:
+      Math.round((baselineDistance - bestSchedule.distance) * 1000) / 1000,
+    changed,
   };
 }

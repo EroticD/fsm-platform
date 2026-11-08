@@ -103,6 +103,25 @@
       "utilisationShort": "Auslastung",
       "noTechnicians": "Keine aktiven Techniker in der Abteilung."
     },
+    "routeOptimizer": {
+      "optimize": "Route optimieren",
+      "previewTitle": "Vor und nach der Optimierung",
+      "beforeTravel": "Fahrzeit vorher",
+      "afterTravel": "Fahrzeit nachher",
+      "beforeDistance": "Strecke vorher",
+      "afterDistance": "Strecke nachher",
+      "savedTravel": "Eingesparte Fahrzeit",
+      "savedDistance": "Eingesparte Strecke",
+      "changed": "Die Route wurde geändert. Prüfen Sie die Reihenfolge, bevor Sie sie anwenden.",
+      "unchanged": "Der Tag ist bereits in der besten Reihenfolge. Es wird nichts verschoben.",
+      "optimizeHint": "Die Optimierung verschiebt nichts. Mit „Reihenfolge anwenden“ wird gespeichert; die Änderung wird protokolliert.",
+      "providerTomTom": "TomTom mit Verkehr",
+      "providerHere": "HERE mit Verkehr",
+      "skippedMissingSkills": "erforderliche Qualifikation fehlt",
+      "skippedWorkingHours": "passt nicht in die Arbeitszeit",
+      "skippedAbsence": "kollidiert mit eingetragener Abwesenheit",
+      "skippedIneligible": "kann auf dieser Route nicht eingeplant werden"
+    },
     "errors": {
       "invalid": "Ungültige Daten.",
       "forbidden": "Kein Zugriff auf die Disposition.",

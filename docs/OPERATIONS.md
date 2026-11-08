@@ -210,15 +210,32 @@ OSRM_BASE_URL=https://osrm.example.com
 # TRACKING_AVERAGE_SPEED_KMH=50
 ```
 
+Vil du i tillegg ha trafikkbevisst ETA, aktiveres TomTom eller HERE. De brukes
+bare for én strekning; flerpunktsmatrisen går fortsatt til OSRM:
+
+```dotenv
+TRAFFIC_PROVIDER=tomtom          # tomtom | here
+TOMTOM_API_KEY=...               # eller HERE_API_KEY for here
+# TRAFFIC_TIMEOUT_MS=8000
+# TRAFFIC_CACHE_TTL_MS=60000
+# TRAFFIC_RATE_LIMIT_PER_MINUTE=60
+```
+
 - `OSRM_BASE_URL` må være serverbar og uten innlogging i nettleseren. Nøkler og
-  URL-er leses bare på serveren.
+  URL-er leses bare på serveren. Trafikknøkkelen sendes aldri i URL-er appen
+  logger.
 - Ruteleverandøren har `ROUTING_TIMEOUT_MS` (standard 60 000 ms, tillatt
   1 000–120 000). Ved feil, timeout eller ugyldig svar faller både ruteplanen og
   ETA-en tilbake til den lokale beregningen, og ruteplanen merker dette med
   **Beregning: Lokal estimering**.
-- Ruteplanen kaller `/table` én gang per montør (maks 50 stopp). Sporings-ETA
-  kaller `/route` for én strekning. Resultatene caches i ett minutt per
-  avrundede koordinatnøkkel.
+- Trafikkleverandøren har `TRAFFIC_TIMEOUT_MS` (standard 8 000 ms), cache i
+  `TRAFFIC_CACHE_TTL_MS` (standard 60 s) og et tak på
+  `TRAFFIC_RATE_LIMIT_PER_MINUTE` (standard 60). Over taket, eller ved feil,
+  brukes OSRM og deretter haversine. Se `docs/ROUTING.md` for kostnader,
+  leverandøroppsett og algoritmegrenser.
+- Ruteplanen kaller OSRM `/table` én gang per montør (maks 50 stopp).
+  Sporings-ETA kaller trafikkleverandøren eller OSRM `/route` for én strekning.
+  Resultatene caches i ett minutt per avrundede koordinatnøkkel.
 - ETA-en regnes fra siste `VisitLocationPing` til arbeidsstedets koordinater.
   Ping eldre enn **ti minutter** regnes som stale: da vises planlagt tid og
   «sist kjente posisjon», ikke en live ETA. Ingen koordinater, adresse eller navn

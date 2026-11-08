@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     user: { findMany: vi.fn() },
     visit: { findMany: vi.fn(), update: vi.fn() },
     absence: { findMany: vi.fn() },
+    businessHours: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -68,6 +69,7 @@ function visitRow(overrides: {
   title?: string;
   status?: string;
   workOrderStatus?: string;
+  requiredSkills?: Array<{ skillId: string; mandatory: boolean }>;
 }) {
   return {
     id: overrides.id,
@@ -87,6 +89,8 @@ function visitRow(overrides: {
       longitude: overrides.lng === undefined ? 6.15 : overrides.lng,
       legalHold: false,
       status: (overrides.workOrderStatus ?? "OPEN") as WorkStatus,
+      skillRequirements: overrides.requiredSkills ?? [],
+      slaClocks: [],
       site: null,
       customer: {
         id: "cust-1",
@@ -112,6 +116,7 @@ beforeEach(() => {
   mocks.prisma.visit.findMany.mockResolvedValue([]);
   mocks.prisma.visit.update.mockResolvedValue({});
   mocks.prisma.absence.findMany.mockResolvedValue([]);
+  mocks.prisma.businessHours.findMany.mockResolvedValue([]);
   mocks.audit.mockResolvedValue(undefined);
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
 });
@@ -229,6 +234,137 @@ describe("planTechnicianRoute", () => {
         visitId: "uten",
         reason: "missing_coordinates",
       }),
+    ]);
+  });
+
+  it("rapporterer manglende kompetanse som årsak", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+          requiredSkills: [{ skillId: "el-kontroll", mandatory: true }],
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      technicianSkillIds: [],
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        visitId: "b",
+        reason: "missing_skills",
+      }),
+    ]);
+  });
+
+  it("respekterer arbeidstid og rapporterer årsak", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "sen",
+          startsAt: "2026-11-03T15:30:00.000Z",
+          endsAt: "2026-11-03T17:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      workingHours: {
+        start: new Date("2026-11-03T08:00:00.000Z"),
+        end: new Date("2026-11-03T16:00:00.000Z"),
+      },
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ visitId: "sen", reason: "working_hours" }),
+    ]);
+  });
+
+  it("merker en allerede ordnet dag uten endring", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 5, 30],
+        [5, 0, 5],
+        [30, 5, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a", "b"]);
+    expect(result.orderChanged).toBe(false);
+    expect(result.savedTravelMinutes).toBe(0);
+    expect(result.savedDistanceKm).toBe(0);
+  });
+
+  it("rapporterer fravær som konfliktårsak", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      absences: [
+        {
+          startsAt: new Date("2026-11-03T10:15:00.000Z"),
+          endsAt: new Date("2026-11-03T10:45:00.000Z"),
+        },
+      ],
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ visitId: "b", reason: "absence" }),
     ]);
   });
 
@@ -416,6 +552,9 @@ describe("ruteplan-tjeneste", () => {
         metadata: expect.objectContaining({
           technicianId: "tech-1",
           provider: "haversine",
+          savedTravelMinutes: expect.any(Number),
+          savedDistanceKm: expect.any(Number),
+          orderChanged: expect.any(Boolean),
         }),
       }),
     );
