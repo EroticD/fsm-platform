@@ -103,8 +103,9 @@
   QR-koder på utstyr støttes med globalt unike verdier (`b79ed94`).
 - **Rute og ETA** — ruteplanlegger med nærmeste nabo + 2-opt, valgfri OSRM og
   lokal fallback, «Bruk rekkefølge» med overlapp-/fraværssjekk, og sanntids
-  ETA i sporingen (`978ceee`). Trafikkdata, dynamisk omruting og
-  turn-by-turn gjenstår, se **SCH-02**.
+  ETA i sporingen (`978ceee`). Trafikkbevisst ETA (TomTom/HERE med
+  OSRM/haversine-fallback) er levert, se [`ROUTING.md`](ROUTING.md); dynamisk
+  omruting underveis og turn-by-turn gjenstår, se **SCH-02**.
 
 ### Kalender, arbeidsdag og rettelser
 
@@ -166,7 +167,7 @@ Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet t
 
 | ID | Prioritet | Størrelse | Avhengigheter | Status | Akseptanse |
 | --- | --- | --- | --- | --- | --- |
-| **REV-01** · Tilbud og estimater | P2 | L | ARCH-01 | **Levert v1.** Tilbud, linjer, versjoner, portal-token, godkjenning/avslag, konvertering til oppdrag og utskriftsvisning. Residual: utskrift/PDF er nettleserens print-til-PDF (ingen server-generert PDF eller e-postutsending), og det finnes ingen avansert god/bedre/best-mal. | Tilbudsbygger med linjer, mengder, rabatt og versjonering; gode/bedre/beste-varianter; godkjenning i kundeportalen med sporbar signatur/kvittering; konvertering til oppdrag uten å miste historikk; avviste/utløpte tilbud håndteres; alt revideres og tilgangstestes. |
+| **REV-01** · Tilbud og estimater | P2 | L | ARCH-01 | **Levert v1.** Tilbud, linjer, versjoner, portal-token, godkjenning/avslag, konvertering til oppdrag og utskriftsvisning. Residual: utskrift/PDF er nettleserens print-til-PDF (ingen server-generert PDF), og det finnes ingen avansert god/bedre/best-mal. E-postutsending av tilbud går via den durabelige utboksen. | Tilbudsbygger med linjer, mengder, rabatt og versjonering; gode/bedre/beste-varianter; godkjenning i kundeportalen med sporbar signatur/kvittering; konvertering til oppdrag uten å miste historikk; avviste/utløpte tilbud håndteres; alt revideres og tilgangstestes. |
 | **REV-02** · Fakturering og betaling | P2 | L | REV-01 | **Levert v1.** Faktura, MVA, delbetaling, kreditnota, forfalt-sveip, CSV, portalvisning, Stripe/Vipps-betalingslenker og regnskapssynk for Fiken/Tripletex/PowerOffice Go. Residual: ingen refusjon/capture via PSP, bare NOK, manuell regnskapssynk og ingen e-faktura. | Faktura fra fullført oppdrag/rapport med linjer, MVA, kreditnota og betalingsstatus; betalingslenke og avstemming; regnskapseksport med idempotent synk; delvis betaling/avskrivning håndteres; tester dekker MVA, kreditnota og dobbeltsynk. |
 | **OPS-05** · Lager, deler og innkjøp | P2 | L | ARCH-01 | **Levert v1.** Lager/bil, beholdning, atomiske bevegelser, reservasjon/forbruk, kjøpsforslag, leverandørregister, innkjøpsordre og varemottak. Residual: ingen leverandørfaktura/regnskapsintegrasjon, ordreutsending eller retur. | Saldo per lager/bil; reservasjon mot oppdrag og visit; forbruk trekkes ved fullført arbeid; innkjøpsforslag ved minimumsnivå; leverandør og innkjøpsordre med bestilling, avbestilling og delvis/fullt mottak som øker beholdningen atomisk; overmottak avvises; sporbarhet på del/serie/lot der relevant; justeringer og tellinger revideres; tester dekker reservasjon, negativ saldo, samtidige uttak og samtidige mottak. |
 | **FLD-01** · Kjøring, utlegg og lønnseksport | P2 | M | Arbeidsdager/tid | **Levert v1.** Kjøretur, utlegg med kvittering, godkjenning og idempotent CSV-eksport. Residual: ingen direkte lønnssystemintegrasjon. | Kjøretur kan logges per dag/montør med start/stopp/avstand og formål; kvittering/utlegg festes til oppdrag med beløp, MVA og kategori; godkjenning/avvisning; lønnseksport i avtalt format med periode, timer, reise og utlegg; eksporten er idempotent og revideres; tester dekker avrunding, MVA og avviste utlegg. |
@@ -213,7 +214,7 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev
 | --- | --- | --- |
 | **PLAT-01** · S3/objektlagring | **Implementert (verifiseres med ekte S3).** `StorageDriver` med lokal og S3/MinIO-driver, `/uploads`-URL-er og nøkler uendret, gjenopptakbar `storage:migrate`. Se [`STORAGE.md`](STORAGE.md). | Gjenstår: røyktest mot ekte S3/MinIO med legitimasjon og versjonering; lasttest av store PDF-er. |
 | **PLAT-02** · Redis/BullMQ | **Implementert (verifiseres med ekte Redis).** Redis-varsling for PDF-kø, Redis rate limit og cache; database er standard og fallback. Se [`SCALING.md`](SCALING.md). | Gjenstår: lasttest med 2+ replikaer mot ekte Redis/Postgres, og vurdering av BullMQ dersom behovet blir større. |
-| **PLAT-03** · Utgående signerte webhooks | **Åpen.** Bare innkommende SMS-webhook finnes. | Retry, idempotens, dead letter, HMAC-signering, abonnements-/innstillings-UI og tester. |
+| **PLAT-03** · Utgående signerte webhooks | **Åpen.** Innkommende webhooks finnes for SMS og betaling; utgående signerte webhooks mangler. | Retry, idempotens, dead letter, HMAC-signering, abonnements-/innstillings-UI og tester. |
 | **PLAT-04** · SSO/OIDC/SAML + SCIM | **Levert v1.** OIDC, SAML 2.0 SP, SCIM 2.0 Users og Groups, replay-vakt og break-glass er levert. Residual: Entra group overage via Graph, IdP-metadata redigeres bare med miljøvariabler, og SAML er testet med én selvsignert test-IdP (ikke en ekte tenant i CI). | Entra group overage via Graph eller dokumentert begrensning; flere IdP-spesifikke røyktester; se [`manual/nb/31-sso-scim.md`](manual/nb/31-sso-scim.md) og [`OPERATIONS.md`](OPERATIONS.md). |
 | **PLAT-05** · Avansert RBAC/field-level + separation of duties | **Levert v1 for feltnivå.** Feltgrupper for kundekontakt, fakturabeløp, rapportsignaturer og lønnsbeløp håndheves i lesetjenester, API, søk og eksport, med tester per rolle. Residual: matrisen er rollebasert og skrivebeskyttet i UI; pliktsegregering (to-personers godkjenning) gjenstår. | Scoped roller, redigerbar feltmatrise, godkjenningsflyt som krever to personer, tester for hver rolle og pliktsegregering. Se [`RBAC.md`](RBAC.md). |
 | **PLAT-06** · HA/DR/PITR | **Delvis levert.** `docker-compose.ha.yml` med app-replikaer, Redis, delt S3, WAL-arkiv, verifisert base-backup og `restore-pitr.sh`; RPO/RTO og sjekklister i [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md) og [`SCALING.md`](SCALING.md). | Gjenstår: reell restore-øvelse mot ekte Postgres/S3/Redis, målt RTO, failover-test og lasttest. Compose har ingen automatisk DB-failover (bruk managed PostgreSQL/Patroni). |
@@ -228,18 +229,22 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev
 
 - **NATIVE-01 · Signert native app og push** — Android- og iOS-prosjektene
   ligger i det egne repoet [`fsm-mobile`](https://github.com/EroticD/fsm-mobile), med oppsettside for serveradresse,
-  native lagring, ikoner/splash og sjudøgns offline-cache. Signerte
-  butikkbygg, FCM/APNs, butikkoppføring og enhetstester gjenstår; se
-  `fsm-mobile`-repoets `docs/NATIVE.md`. Ingen push i dag.
-- **SCH-02 · Trafikk, dynamisk omruting og turn-by-turn** — ruteplan og ETA er
-  levert; trafikkdata, omruting underveis og turn-by-turn i feltappen mangler.
+  native lagring, ikoner/splash, sjudøgns offline-cache og pushflyt. Server-side
+  push (FCM/APNs-utboks) og native tokenregistrering er levert, se
+  [`PUSH.md`](PUSH.md). Signerte butikkbygg med ekte nøkler, ekte
+  FCM/APNs-legitimasjon, butikkoppføring og fysisk enhetstest gjenstår; se
+  `fsm-mobile`-repoets `docs/NATIVE.md`.
+- **SCH-02 · Dynamisk omruting og turn-by-turn** — ruteplan, ETA og
+  trafikkbevisst ETA er levert; omruting underveis og turn-by-turn i feltappen
+  mangler.
 - **AI-01 · Copilot, IoT, prediktivt vedlikehold og AR** — verken
   AI-assistent, stemmeintake, IoT-inntak, prediktiv analyse eller AR er
   implementert. Krever egen produktbeslutning, datagrunnlag og
   personvernsvurdering.
-- **INT-01 · Regnskap/CRM/betaling og utgående webhooks** — API v1 med
-  scopes/OpenAPI finnes; konnektorer og utgående webhooks mangler. Se også
-  REV-02 og PLAT-03.
+- **INT-01 · CRM og utgående webhooks** — API v1 med scopes/OpenAPI,
+  betaling (Stripe/Vipps) og regnskapssynk (Fiken/Tripletex/PowerOffice/CSV)
+  finnes som v1; CRM-konnektorer og utgående webhooks mangler. Se også REV-02
+  og PLAT-03.
 
 ---
 
