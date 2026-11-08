@@ -698,9 +698,11 @@
       "defaultSuffix": " (standard)",
       "departmentHelp": "Ansatte må være i en avdeling for å kunne opprette og se oppdrag.",
       "contact": "Kontaktperson",
-      "contactRequired": "(påkrevd for kundeportal)",
+      "customer": "Kunde",
+      "chooseCustomer": "Velg kunde",
+      "loadingContacts": "Henter kontakter …",
+      "noContacts": "Ingen kontakter for denne kunden.",
       "noContact": "-- Ingen kontaktperson --",
-      "contactHelp": "Kobler brukeren til kunden og gir tilgang til kundeportalen.",
       "info": "Nye brukere er inaktive. Etter at du har opprettet dem får du en invitasjonslenke de kan bruke til å sette eget passord. Deretter må du aktivere kontoen her.",
       "submit": "Opprett og lag invitasjon"
     },

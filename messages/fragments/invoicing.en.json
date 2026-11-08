@@ -66,6 +66,8 @@
       "chooseCustomer": "Choose customer",
       "contact": "Contact",
       "noContact": "No contact",
+      "loadingContacts": "Loading contacts …",
+      "noContacts": "No contacts are registered for this customer.",
       "workOrder": "Work order",
       "noWorkOrder": "Not linked to a work order",
       "workOrderHint": "Only completed work orders can be invoiced.",

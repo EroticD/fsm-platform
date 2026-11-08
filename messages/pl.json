@@ -3101,9 +3101,11 @@
         "defaultSuffix": " (domyślny)",
         "departmentHelp": "Pracownicy muszą należeć do działu, aby tworzyć i przeglądać zlecenia.",
         "contact": "Osoba kontaktowa",
-        "contactRequired": "(wymagane dla portalu klienta)",
+        "customer": "Klient",
+        "chooseCustomer": "Wybierz klienta",
+        "loadingContacts": "Ładowanie kontaktów …",
+        "noContacts": "Brak kontaktów dla tego klienta.",
         "noContact": "-- Brak osoby kontaktowej --",
-        "contactHelp": "Łączy użytkownika z klientem i daje dostęp do portalu klienta.",
         "info": "Nowi użytkownicy są nieaktywni. Po ich utworzeniu otrzymasz link zaproszenia, za pomocą którego mogą ustawić własne hasło. Następnie musisz aktywować konto tutaj.",
         "submit": "Utwórz i wygeneruj zaproszenie"
       },

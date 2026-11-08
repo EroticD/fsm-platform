@@ -5,6 +5,15 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Kunde- og kontaktisolasjon
+- Tilbuds- og fakturaskjemaene viser ikke kontaktfeltet før en kunde er valgt.
+- Kontaktene hentes per valgt kunde fra et serveravgrenset endepunkt og
+  filtreres på nytt i klienten; kontakter fra andre kunder kan ikke vises
+  eller sendes inn.
+- Innstillinger for nye kundeportalbrukere bruker samme kunde-først-velger.
+- Serveren avviser fortsatt kontakt som ikke tilhører kunden, og fakturakladder
+  kan nå også fjerne en kontakt.
+
 ### Manuell rute og rekkefølge
 - Ruteplanleggeren har nummerfelt per stopp (1/2/3/4). Lagring normaliserer
   rekkefølgen, lagrer `Visit.routeSequence` og flytter tidspunktene med samme

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import SubmitButton from "@/components/SubmitButton";
 import LineItemsEditor, { type EditableLine } from "@/components/billing/LineItemsEditor";
+import CustomerContactSelect from "@/components/billing/CustomerContactSelect";
 
 const LABEL =
   "mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
@@ -27,7 +28,7 @@ export type QuoteFormDefaults = {
 
 export type QuoteFormOptions = {
   customers: Array<{ id: string; name: string; customerNumber: string | null }>;
-  contacts: Array<{ id: string; name: string; customerId: string; customerName: string }>;
+  contacts: Array<{ id: string; name: string; customerId: string; role?: string | null }>;
   workOrders: Array<{ id: string; title: string; reference: string }>;
   contracts: Array<{ id: string; title: string; customerId: string }>;
   products: Array<{ id: string; model: string; customerId: string }>;
@@ -62,29 +63,20 @@ export default async function QuoteForm({
             <span className={LABEL}>{t("quotes.form.title")}</span>
             <input name="title" defaultValue={defaults.title} required maxLength={200} className={INPUT} />
           </label>
-          <label>
-            <span className={LABEL}>{t("quotes.form.customer")}</span>
-            <select name="customerId" defaultValue={defaults.customerId} required className={INPUT}>
-              <option value="">{t("quotes.form.chooseCustomer")}</option>
-              {options.customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                  {customer.customerNumber ? ` · ${customer.customerNumber}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className={LABEL}>{t("quotes.form.contact")}</span>
-            <select name="contactId" defaultValue={defaults.contactId} className={INPUT}>
-              <option value="">{t("quotes.form.noContact")}</option>
-              {options.contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} · {contact.customerName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CustomerContactSelect
+            customers={options.customers}
+            defaultCustomerId={defaults.customerId}
+            defaultContactId={defaults.contactId}
+            initialContacts={options.contacts}
+            labels={{
+              customer: t("quotes.form.customer"),
+              chooseCustomer: t("quotes.form.chooseCustomer"),
+              contact: t("quotes.form.contact"),
+              noContact: t("quotes.form.noContact"),
+              loadingContacts: t("quotes.form.loadingContacts"),
+              noContacts: t("quotes.form.noContacts"),
+            }}
+          />
           <label>
             <span className={LABEL}>{t("quotes.form.workOrder")}</span>
             <select name="workOrderId" defaultValue={defaults.workOrderId} className={INPUT}>

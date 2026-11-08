@@ -27,17 +27,12 @@ export default async function NewInvoicePage({
   const t = await getTranslations("common");
   const params = await searchParams;
   const settings = await getBillingSettings();
-  const [customers, contacts, workOrders, reports, quotes, departments] = await Promise.all([
+  const [customers, workOrders, reports, quotes, departments] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       take: 500,
       select: { id: true, name: true, customerNumber: true },
-    }),
-    prisma.contact.findMany({
-      orderBy: { name: "asc" },
-      take: 500,
-      select: { id: true, name: true, customerId: true, customer: { select: { name: true } } },
     }),
     prisma.workOrder.findMany({
       where: { deletedAt: null, status: "COMPLETED" },
@@ -108,12 +103,7 @@ export default async function NewInvoicePage({
           }}
           options={{
             customers,
-            contacts: contacts.map((contact) => ({
-              id: contact.id,
-              name: contact.name,
-              customerId: contact.customerId,
-              customerName: contact.customer.name,
-            })),
+            contacts: [],
             workOrders,
             reports: reports.map((report) => ({
               id: report.id,

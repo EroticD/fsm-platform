@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import SubmitButton from "@/components/SubmitButton";
 import LineItemsEditor, { type EditableLine } from "@/components/billing/LineItemsEditor";
+import CustomerContactSelect from "@/components/billing/CustomerContactSelect";
 
 const LABEL =
   "mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
@@ -27,7 +28,7 @@ export type InvoiceFormDefaults = {
 
 export type InvoiceFormOptions = {
   customers: Array<{ id: string; name: string; customerNumber: string | null }>;
-  contacts: Array<{ id: string; name: string; customerId: string; customerName: string }>;
+  contacts: Array<{ id: string; name: string; customerId: string; role?: string | null }>;
   workOrders: Array<{ id: string; title: string; reference: string }>;
   reports: Array<{ id: string; name: string | null; reportNumber: string | null; workOrderTitle: string }>;
   quotes: Array<{ id: string; title: string; quoteNumber: string | null; customerName: string }>;
@@ -58,29 +59,20 @@ export default async function InvoiceForm({
           {t("invoicing.form.details")}
         </h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label>
-            <span className={LABEL}>{t("invoicing.form.customer")}</span>
-            <select name="customerId" defaultValue={defaults.customerId} required className={INPUT}>
-              <option value="">{t("invoicing.form.chooseCustomer")}</option>
-              {options.customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                  {customer.customerNumber ? ` · ${customer.customerNumber}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className={LABEL}>{t("invoicing.form.contact")}</span>
-            <select name="contactId" defaultValue={defaults.contactId} className={INPUT}>
-              <option value="">{t("invoicing.form.noContact")}</option>
-              {options.contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} · {contact.customerName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CustomerContactSelect
+            customers={options.customers}
+            defaultCustomerId={defaults.customerId}
+            defaultContactId={defaults.contactId}
+            initialContacts={options.contacts}
+            labels={{
+              customer: t("invoicing.form.customer"),
+              chooseCustomer: t("invoicing.form.chooseCustomer"),
+              contact: t("invoicing.form.contact"),
+              noContact: t("invoicing.form.noContact"),
+              loadingContacts: t("invoicing.form.loadingContacts"),
+              noContacts: t("invoicing.form.noContacts"),
+            }}
+          />
           <label>
             <span className={LABEL}>{t("invoicing.form.workOrder")}</span>
             <select name="workOrderId" defaultValue={defaults.workOrderId} className={INPUT}>

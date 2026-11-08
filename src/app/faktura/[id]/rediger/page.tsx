@@ -42,9 +42,13 @@ export default async function EditInvoicePage({
       select: { id: true, name: true, customerNumber: true },
     }),
     prisma.contact.findMany({
+      where: {
+        customerId: invoice.customerId,
+        customer: { deletedAt: null },
+      },
       orderBy: { name: "asc" },
       take: 500,
-      select: { id: true, name: true, customerId: true, customer: { select: { name: true } } },
+      select: { id: true, name: true, role: true, customerId: true },
     }),
     prisma.workOrder.findMany({
       where: { deletedAt: null, status: "COMPLETED" },
@@ -111,8 +115,8 @@ export default async function EditInvoicePage({
             contacts: contacts.map((contact) => ({
               id: contact.id,
               name: contact.name,
+              role: contact.role,
               customerId: contact.customerId,
-              customerName: contact.customer.name,
             })),
             workOrders,
             reports: reports.map((report) => ({

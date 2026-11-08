@@ -3101,9 +3101,11 @@
         "defaultSuffix": " (Standard)",
         "departmentHelp": "Mitarbeiter müssen einer Abteilung angehören, um Aufträge erstellen und sehen zu können.",
         "contact": "Kontaktperson",
-        "contactRequired": "(erforderlich für das Kundenportal)",
+        "customer": "Kunde",
+        "chooseCustomer": "Kunde wählen",
+        "loadingContacts": "Kontakte werden geladen …",
+        "noContacts": "Keine Kontakte für diesen Kunden.",
         "noContact": "-- Keine Kontaktperson --",
-        "contactHelp": "Verknüpft den Benutzer mit dem Kunden und gewährt Zugriff auf das Kundenportal.",
         "info": "Neue Benutzer sind inaktiv. Nachdem Sie sie erstellt haben, erhalten Sie einen Einladungslink, mit dem sie ihr eigenes Passwort festlegen können. Anschließend müssen Sie das Konto hier aktivieren.",
         "submit": "Erstellen und Einladung generieren"
       },

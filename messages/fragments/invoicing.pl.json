@@ -66,6 +66,8 @@
       "chooseCustomer": "Wybierz klienta",
       "contact": "Osoba kontaktowa",
       "noContact": "Brak osoby kontaktowej",
+      "loadingContacts": "Ładowanie kontaktów …",
+      "noContacts": "Brak kontaktów zarejestrowanych dla tego klienta.",
       "workOrder": "Zlecenie",
       "noWorkOrder": "Nie powiązano ze zleceniem",
       "workOrderHint": "Fakturować można tylko zakończone zlecenia.",

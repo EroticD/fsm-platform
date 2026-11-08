@@ -698,9 +698,11 @@
       "defaultSuffix": " (default)",
       "departmentHelp": "Employees must belong to a department to create and see work orders.",
       "contact": "Contact person",
-      "contactRequired": "(required for the customer portal)",
+      "customer": "Customer",
+      "chooseCustomer": "Choose customer",
+      "loadingContacts": "Loading contacts …",
+      "noContacts": "No contacts for this customer.",
       "noContact": "-- No contact person --",
-      "contactHelp": "Links the user to the customer and gives access to the customer portal.",
       "info": "New users are inactive. After you create them, you get an invitation link they can use to set their own password. Then you must activate the account here.",
       "submit": "Create and generate invitation"
     },

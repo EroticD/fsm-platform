@@ -597,7 +597,7 @@ export async function createInvoice(
         data: {
           status: "DRAFT",
           customerId: source.customerId,
-          contactId: source.contactId ?? undefined,
+          contactId: source.contactId,
           departmentId: source.departmentId!,
           workOrderId: source.workOrderId ?? undefined,
           reportId: source.reportId ?? undefined,
@@ -683,7 +683,7 @@ export async function updateInvoice(
       where: { id: cleanId, status: "DRAFT" },
       data: {
         customerId: source.customerId,
-        contactId: source.contactId ?? undefined,
+        contactId: source.contactId,
         departmentId: source.departmentId!,
         workOrderId: source.workOrderId ?? undefined,
         reportId: source.reportId ?? undefined,

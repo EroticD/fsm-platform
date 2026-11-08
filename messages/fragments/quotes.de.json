@@ -56,6 +56,8 @@
       "chooseCustomer": "Kunde auswählen",
       "contact": "Kontaktperson",
       "noContact": "Keine Kontaktperson",
+      "loadingContacts": "Kontakte werden geladen …",
+      "noContacts": "Für diesen Kunden sind keine Kontakte erfasst.",
       "workOrder": "Auftrag",
       "noWorkOrder": "Keinem Auftrag zugeordnet",
       "contract": "Servicevertrag",

@@ -66,6 +66,8 @@
       "chooseCustomer": "Velg kunde",
       "contact": "Kontaktperson",
       "noContact": "Ingen kontaktperson",
+      "loadingContacts": "Henter kontakter …",
+      "noContacts": "Ingen kontakter er registrert for denne kunden.",
       "workOrder": "Oppdrag",
       "noWorkOrder": "Ikke koblet til oppdrag",
       "workOrderHint": "Bare fullførte oppdrag kan faktureres.",
