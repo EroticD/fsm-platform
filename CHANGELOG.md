@@ -5,6 +5,19 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Native Android- og iOS-app
+- Android- og iOS-prosjektene er gjort klare til test. Appen starter på en
+  lokal oppsettside der brukeren skriver inn FSM-serverens URL; adressen lagres
+  native og er ikke bygget inn i appen.
+- Serveradressen kan endres fra innloggingssiden eller **Innstillinger →
+  Server**. Appen går da tilbake til oppsettsiden.
+- Native ikoner, splash, kamera-/posisjonstillatelser og versjon er satt opp.
+- Feltappens service worker cacher nå alle samme-opprinnelse GET-sider,
+  API-GET og filer under `/uploads/` i **7 døgn** per bruker. Cacheene slettes
+  ved utlogging, utløpt økt og «Bytt server», og appen ber om persistent
+  lagring.
+- Se `docs/NATIVE.md` for bygg, lokal testserver, signering og test-sjekkliste.
+
 ### Residualer etter P2 v1
 - Lønnsomhet viser nå faktisk omsetning fra fakturaer side om side med
   estimatet når `invoicing` er på. Netto fakturert beløp uten MVA, kreditnotaer

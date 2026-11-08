@@ -10,16 +10,21 @@ const LEGACY_RECENT_SEARCH_KEY = "fsm:recent-searches";
  * forrige brukerens oppdragssider offline.
  */
 export const OFFLINE_PAGE_CACHE = "fsm-pages-v1";
+/** Cachenavn for API-GET og filer under /uploads/. */
+export const OFFLINE_API_CACHE = "fsm-api-v1";
+export const OFFLINE_FILE_CACHE = "fsm-files-v1";
 
 /** Cachen service workeren bruker for offline-markøren (se public/sw.js). */
 export const OFFLINE_META_CACHE = "fsm-offline-meta";
 
 /**
- * Hvor lenge en side kan serveres fra offline-cachen. Selv om økten teknisk
- * sett fortsatt er gyldig, skal en mistet/delt enhet ikke kunne vise kundedata
- * på ubestemt tid. Åtte timer er kortere enn NextAuth-økten (12 timer).
+ * Hvor lenge sider, API-svar og filer kan serveres fra offline-cachen.
+ *
+ * Sju døgn er produktkravet for feltappen: en montør skal kunne åpne appen og
+ * se tidligere hentede data gjennom en hel arbeidsuke uten nett. Cacheene er
+ * brukerscopede og slettes ved utlogging, utløpt økt og «bytt server».
  */
-export const OFFLINE_CACHE_TTL_MS = 8 * 60 * 60 * 1000;
+export const OFFLINE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Avgjør om en cache-oppføring med tidsstempel `cachedAt` kan serveres ved
@@ -46,6 +51,30 @@ export function isCacheEntryFresh(
 /** Cachenavnet service workeren bruker for én bruker. */
 export function offlinePageCacheName(userId: string): string {
   return `${OFFLINE_PAGE_CACHE}:${userId}`;
+}
+
+/**
+ * Ber nettleseren beholde CacheStorage/IndexedDB under lagringspress.
+ *
+ * Uten `persist()` kan nettleseren kaste offline-data når enheten er full.
+ * Kallet er en anbefaling, ikke en garanti, og feiler stille i privat modus.
+ */
+export async function requestPersistentOfflineStorage(): Promise<boolean> {
+  try {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.storage ||
+      typeof navigator.storage.persist !== "function"
+    ) {
+      return false;
+    }
+    if (typeof navigator.storage.persisted === "function") {
+      if (await navigator.storage.persisted()) return true;
+    }
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -121,6 +150,10 @@ export async function clearOfflineSessionCaches(): Promise<void> {
             (key) =>
               key === OFFLINE_PAGE_CACHE ||
               key.startsWith(`${OFFLINE_PAGE_CACHE}:`) ||
+              key === OFFLINE_API_CACHE ||
+              key.startsWith(`${OFFLINE_API_CACHE}:`) ||
+              key === OFFLINE_FILE_CACHE ||
+              key.startsWith(`${OFFLINE_FILE_CACHE}:`) ||
               key === OFFLINE_META_CACHE,
           )
           .map((key) => caches.delete(key)),

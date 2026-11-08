@@ -4,49 +4,399 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#101310" />
-    <title>FSM felt</title>
+    <title>FSM felt – velg server</title>
     <style>
       :root {
         color-scheme: dark;
         background: #101310;
         color: #f2efe6;
-        font-family: system-ui, sans-serif;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --signal: #d8ff3e;
+        --ink: #101310;
+        --paper: #f2efe6;
+        --muted: #b9b6ac;
+        --line: #34372f;
+        --surface: #1b1e18;
       }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
+        min-height: 100dvh;
         display: grid;
         place-items: center;
-        padding: 2rem;
-        padding-bottom: calc(2rem + env(safe-area-inset-bottom));
-        text-align: center;
+        padding: 1.25rem;
+        padding-top: calc(1.25rem + env(safe-area-inset-top));
+        padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
       }
       main {
-        max-width: 28rem;
+        width: 100%;
+        max-width: 30rem;
+      }
+      .mark {
+        width: 3.4rem;
+        height: 3.4rem;
+        display: grid;
+        place-items: center;
+        border-radius: 0.9rem;
+        background: var(--signal);
+        color: var(--ink);
+        font-weight: 900;
+        font-size: 1.4rem;
+        letter-spacing: -0.06em;
+        margin-bottom: 1rem;
+        box-shadow: 3px 3px 0 #000;
       }
       h1 {
-        margin: 0 0 0.75rem;
-        font-size: 1.5rem;
+        margin: 0 0 0.35rem;
+        font-size: 1.65rem;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
       }
-      p {
-        margin: 0.5rem 0;
+      .lead {
+        margin: 0 0 1.35rem;
+        color: var(--muted);
         line-height: 1.5;
-        color: #c9c6bc;
+        font-size: 0.95rem;
       }
+      form {
+        display: grid;
+        gap: 0.75rem;
+      }
+      label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .field {
+        display: grid;
+        gap: 0.4rem;
+      }
+      input[type="url"] {
+        width: 100%;
+        min-height: 3rem;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 0.65rem;
+        background: #0b0d09;
+        color: var(--paper);
+        font: inherit;
+        font-size: 1rem;
+      }
+      input[type="url"]:focus-visible {
+        outline: 2px solid var(--signal);
+        outline-offset: 2px;
+      }
+      button {
+        min-height: 3rem;
+        border: 1px solid var(--paper);
+        border-radius: 0.65rem;
+        padding: 0.75rem 1rem;
+        background: var(--signal);
+        color: var(--ink);
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 2px 2px 0 var(--paper);
+      }
+      button:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--paper); }
+      button[disabled] { opacity: 0.55; cursor: not-allowed; }
+      button.secondary {
+        background: transparent;
+        color: var(--paper);
+        box-shadow: none;
+        border-color: var(--line);
+        font-weight: 700;
+      }
+      .status {
+        min-height: 1.4rem;
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+      .status[data-kind="error"] { color: #ff9a8a; }
+      .status[data-kind="ok"] { color: var(--signal); }
+      .current {
+        margin: 1rem 0 0;
+        padding: 0.85rem 0.95rem;
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        background: var(--surface);
+        font-size: 0.875rem;
+        line-height: 1.45;
+        word-break: break-all;
+      }
+      .current strong { display: block; margin-bottom: 0.2rem; color: var(--paper); }
+      .current span { color: var(--muted); }
+      .note {
+        margin: 1.15rem 0 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.55;
+      }
+      .note strong { color: var(--paper); }
+      details {
+        margin-top: 1rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.55;
+      }
+      summary { cursor: pointer; color: var(--paper); font-weight: 700; }
       code {
-        color: #d8ff3e;
+        color: var(--signal);
+        overflow-wrap: anywhere;
+      }
+      .actions { display: grid; gap: 0.6rem; }
+      @media (min-width: 480px) {
+        .actions { grid-template-columns: 1fr auto; }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>FSM felt</h1>
-      <p>
-        Det native skallet er bygget uten en serveradresse. Kjør
-        <code>CAPACITOR_SERVER_URL=https://… npm run native:sync</code> og bygg
-        appen på nytt.
+      <div class="mark" aria-hidden="true">FSM</div>
+      <h1 id="title">Velg FSM-server</h1>
+      <p class="lead" id="lead">
+        Skriv inn adressen til FSM-plattformen. Adressen lagres på denne enheten
+        og brukes neste gang appen åpnes. Den er ikke bygget inn i appen.
       </p>
-      <p>Den installerte PWA-en virker fortsatt i nettleseren.</p>
+
+      <div id="current" class="current" hidden>
+        <strong>Lagret server</strong>
+        <span id="current-url"></span>
+      </div>
+
+      <form id="server-form" novalidate>
+        <div class="field">
+          <label for="server-url" id="url-label">Serveradresse</label>
+          <input
+            id="server-url"
+            name="serverUrl"
+            type="url"
+            inputmode="url"
+            autocomplete="url"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="https://felt.example.no"
+            required
+          />
+        </div>
+        <div class="actions">
+          <button type="submit" id="connect">Koble til</button>
+          <button type="button" id="resume" class="secondary" hidden>Bruk lagret server</button>
+          <button type="button" id="forget" class="secondary" hidden>Glem server</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <p class="note">
+        <strong>Offline:</strong> Data du har åpnet, lagres i minst 7 dager slik
+        at appen kan brukes uten nett. Logg ut eller bytt server for å slette
+        lokal data. Bruk alltid HTTPS i produksjon.
+      </p>
+
+      <details>
+        <summary>Trenger du hjelp?</summary>
+        <p>
+          Adressen er den samme som du bruker i nettleseren, for eksempel
+          <code>https://felt.firma.no</code>. For lokal testing kan du bruke
+          <code>http://10.0.2.2:3000</code> på Android-emulatoren eller
+          <code>http://localhost:3000</code> på iOS-simulatoren.
+        </p>
+        <p>
+          Hvis serveren ikke svarer, kontroller at telefonen er på nett og at
+          adressen peker til en kjørende FSM-installasjon med gyldig sertifikat.
+        </p>
+      </details>
     </main>
+
+    <script>
+      window.__FSM_SHELL__ = true;
+      (function () {
+        var form = document.getElementById("server-form");
+        var input = document.getElementById("server-url");
+        var status = document.getElementById("status");
+        var connect = document.getElementById("connect");
+        var forget = document.getElementById("forget");
+        var resume = document.getElementById("resume");
+        var current = document.getElementById("current");
+        var currentUrl = document.getElementById("current-url");
+        var title = document.getElementById("title");
+        var lead = document.getElementById("lead");
+        var urlLabel = document.getElementById("url-label");
+        var lang = (navigator.language || "nb").toLowerCase().indexOf("en") === 0 ? "en" : "nb";
+
+        if (lang === "en") {
+          document.documentElement.lang = "en";
+          title.textContent = "Choose FSM server";
+          lead.textContent =
+            "Enter the address of your FSM platform. The address is stored on this device and used the next time the app opens. It is not built into the app.";
+          urlLabel.textContent = "Server address";
+          connect.textContent = "Connect";
+          forget.textContent = "Forget server";
+          resume.textContent = "Use saved server";
+          document.querySelector(".note").innerHTML =
+            "<strong>Offline:</strong> Data you have opened is stored for at least 7 days so the app can be used without a network. Log out or change server to delete local data. Always use HTTPS in production.";
+          input.placeholder = "https://field.example.com";
+        }
+
+        function getPlugin() {
+          var cap = window.Capacitor;
+          return cap && cap.Plugins ? cap.Plugins.ServerConfig : null;
+        }
+
+        function setStatus(message, kind) {
+          status.textContent = message || "";
+          if (kind) status.setAttribute("data-kind", kind);
+          else status.removeAttribute("data-kind");
+        }
+
+        function normalize(value) {
+          var raw = String(value || "").trim();
+          if (!raw) return null;
+          if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = "https://" + raw;
+          var parsed;
+          try {
+            parsed = new URL(raw);
+          } catch (error) {
+            return null;
+          }
+          if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+            return null;
+          }
+          if (!parsed.hostname) return null;
+          parsed.hash = "";
+          var path = parsed.pathname.replace(/\/+$/, "");
+          parsed.pathname = path || "/";
+          return parsed.toString().replace(/\/$/, "");
+        }
+
+        function isLocalHost(hostname) {
+          return (
+            hostname === "localhost" ||
+            hostname === "127.0.0.1" ||
+            hostname === "10.0.2.2" ||
+            hostname === "10.0.3.2" ||
+            hostname === "[::1]" ||
+            /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+            /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+            /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+          );
+        }
+
+        function showCurrent(url) {
+          if (!url) {
+            current.hidden = true;
+            forget.hidden = true;
+            resume.hidden = true;
+            return;
+          }
+          current.hidden = false;
+          forget.hidden = false;
+          resume.hidden = false;
+          currentUrl.textContent = url;
+          input.value = url;
+          setStatus("Trykk «Koble til» for å bytte, eller fortsett med lagret server.", "ok");
+        }
+
+        async function loadCurrent() {
+          var plugin = getPlugin();
+          if (!plugin || !plugin.get) return;
+          try {
+            var result = await plugin.get();
+            if (result && result.url) showCurrent(result.url);
+          } catch (error) {
+            // Uten lagret server viser vi bare skjemaet.
+          }
+        }
+
+        form.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          var url = normalize(input.value);
+          if (!url) {
+            setStatus(lang === "en" ? "Enter a valid http(s) URL." : "Skriv inn en gyldig http(s)-adresse.", "error");
+            input.focus();
+            return;
+          }
+
+          var parsed = new URL(url);
+          if (parsed.protocol !== "https:" && !isLocalHost(parsed.hostname)) {
+            setStatus(
+              lang === "en"
+                ? "Use HTTPS. HTTP is only allowed for local testing addresses."
+                : "Bruk HTTPS. HTTP er bare tillatt for lokale testadresser.",
+              "error",
+            );
+            return;
+          }
+
+          connect.disabled = true;
+          setStatus(lang === "en" ? "Connecting…" : "Kobler til …");
+
+          var plugin = getPlugin();
+          try {
+            if (plugin && plugin.set) {
+              await plugin.set({ url: url });
+              setStatus(lang === "en" ? "Opening FSM…" : "Åpner FSM …", "ok");
+              return;
+            }
+
+            // Nettleserforhåndsvisning av skallet, uten native bro.
+            try {
+              window.localStorage.setItem("fsm:server-url", url);
+            } catch (error) {
+              // Privat modus.
+            }
+            window.location.replace(url);
+          } catch (error) {
+            connect.disabled = false;
+            setStatus(
+              lang === "en"
+                ? "Could not save the address. Try again."
+                : "Kunne ikke lagre adressen. Prøv igjen.",
+              "error",
+            );
+          }
+        });
+
+        resume.addEventListener("click", async function () {
+          var plugin = getPlugin();
+          if (!plugin || !plugin.resume) return;
+          resume.disabled = true;
+          try {
+            await plugin.resume();
+          } catch (error) {
+            resume.disabled = false;
+            setStatus(lang === "en" ? "Could not open the saved server." : "Kunne ikke åpne lagret server.", "error");
+          }
+        });
+
+        forget.addEventListener("click", async function () {
+          var plugin = getPlugin();
+          if (!plugin || !plugin.clear) return;
+          forget.disabled = true;
+          try {
+            await plugin.clear();
+          } catch (error) {
+            forget.disabled = false;
+            setStatus(lang === "en" ? "Could not clear the address." : "Kunne ikke fjerne adressen.", "error");
+          }
+        });
+
+        // Vent kort på at Capacitor-broen injiseres i den lokale siden.
+        var attempts = 0;
+        var timer = window.setInterval(function () {
+          attempts += 1;
+          if (getPlugin() || attempts >= 20) {
+            window.clearInterval(timer);
+            void loadCurrent();
+          }
+        }, 100);
+      })();
+    </script>
   </body>
 </html>

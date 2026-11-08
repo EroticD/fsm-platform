@@ -115,7 +115,7 @@ driften:
 
 | Område | Standard | Slik overstyrer du |
 | --- | --- | --- |
-| Offline | 8 timers sidecache og 7 dagers lokale rapportkladder | `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` (valgfri, bygges inn i klienten) |
+| Offline | 7 døgns side-, API- og filcache og 7 dagers lokale rapportkladder | `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` (valgfri, bygges inn i klienten) |
 | Database | Runtime-rollen må være DML-only i produksjon; ellers 503 fra `/api/ready` | `DATABASE_RUNTIME_URL`/`DATABASE_MIGRATION_URL`; bevisst unntak med `ALLOW_DB_DDL_ROLE=true` |
 | Proxy | `TRUST_PROXY=false` (IP-limits inaktive); produksjon krever eksplisitt hoppantall når den er true | `TRUST_PROXY=true` + `TRUST_PROXY_HOPS`, se «Proxy og klient-IP» |
 | Backup | Daglig kryptert backup med sjekksum og statusfil; produksjon nekter å ta backup uten `BACKUP_AGE_RECIPIENT` | `BACKUP_REMOTE`, `REQUIRE_BACKUP_ENCRYPTION=true`, se «Backup og restore» |
@@ -1359,27 +1359,34 @@ viseren og beholder `object-src 'none'`.
 
 ## Native feltapp (Capacitor)
 
-Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet laster den
-driftede HTTPS-adressen i en WebView; appen er fortsatt server-rendret og kan
-ikke eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
+Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet starter på
+en lokal oppsettside der brukeren skriver inn serveradressen; adressen lagres
+native og er ikke bygget inn i appen. Deretter lastes den driftede
+FSM-installasjonen i en WebView. Appen er fortsatt server-rendret og kan ikke
+eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
 [`NATIVE.md`](NATIVE.md).
 
 ```bash
 npm ci
-npx cap add android          # én gang per klone; android/ er ikke i git
-npx cap add ios              # krever macOS + Xcode
-CAPACITOR_SERVER_URL=https://felt.example.no npm run native:sync
-npm run native:build:android # debug-AAB/APK med debug-nøkkel
+npx cap sync                # android/ og ios/ er sjekket inn
+npm run native:build:android # debug-APK med debug-nøkkel
 npm run native:open:android  # eller native:open:ios på macOS
 ```
 
-- `CAPACITOR_SERVER_URL` må være HTTPS. `cleartext` er av.
+- Første oppstart viser oppsettsiden. Brukeren skriver inn f.eks.
+  `https://felt.example.no`; adressen kan endres fra innstillingene eller
+  innloggingssiden.
+- HTTP er bare tillatt for lokal testing (localhost, emulator, private
+  LAN-adresser). Produksjon skal bruke HTTPS.
+- Service workeren cacher sider, API-GET og `/uploads/`-filer i **7 døgn** per
+  bruker. Cacheene slettes ved utlogging, utløpt økt og «Bytt server».
 - Kamera i WebView krever `CAMERA`-tillatelse på Android og
   `NSCameraUsageDescription` på iOS. Uten tillatelse bruker skanneren manuell
-  inntasting.
+  inntasting. Posisjon krever tilsvarende tillatelser.
 - Signeringsnøkler, `google-services.json`, `GoogleService-Info.plist` og
   Apple-sertifikater skal ikke i git eller i CI-loggen.
 - Push (FCM/APNs) er ikke satt opp. Butikkklar signering og oppføring gjenstår;
   se `NATIVE.md`.
 - Etter en ny appversjon: `npm run native:sync`, bygg på nytt og rull ut. PWA-en
   oppdateres separat gjennom service worker-meldingen i appen.
+- Native ikoner og splash genereres med `npm run native:assets`.
