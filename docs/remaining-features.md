@@ -1,8 +1,11 @@
-# Gjenstående arbeid etter 0.8.11
+# Gjenstående arbeid etter 0.9.0
 
-> **Status snapshot 0.8.11:** 2026-11-08, `master` @ `ca756be`.
-> `package.json` er 0.8.11. Taggen `v0.8.11` peker på denne utgivelsen, som
-> inneholder FullCalendar 7, arbeidsdager/tid/reise og live feltstatus.
+> **Status snapshot 0.9.0:** 2026-11-08, `master` @ `ba27b80`.
+> `package.json` er 0.9.0. Taggen `v0.9.0` peker på denne utgivelsen, som
+> inneholder modulær plattform/P2 v1, betalinger/regnskap, e-post/push,
+> OSM/Google-ruting med overtid, manuell ruterekkefølge, SAML/SCIM/felt-RBAC,
+> S3/Redis/HA/PITR, API v1 for tilbud/ordrer/lager, konfigurerbare
+> oppdragsstatuser og kunde-/kontaktisolasjon.
 >
 > **Dette er den reelle gjenstående køen.** Leverte ting står under
 > [«Levert»](#levert-ikke-dupliser) og skal ikke gjenåpnes som nye oppgaver.
@@ -11,9 +14,9 @@
 | Felt | Verdi |
 | --- | --- |
 | Dato | 2026-11-08 |
-| Kodegren | `master` @ `ca756be` |
-| Versjon | 0.8.11 (`v0.8.11`) |
-| Denne doc-endringen | `release/v0.8.11` |
+| Kodegren | `master` @ `ba27b80` |
+| Versjon | 0.9.0 (`v0.9.0`) |
+| Denne doc-endringen | `release/v0.9.0` |
 | Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
 | P0 | Ingen åpne P0 funnet på denne commiten |
 
@@ -206,7 +209,7 @@ det som allerede er levert.
 ## P3 — plattform og skala (krever godkjenning)
 
 P3 starter ikke uten produkt-/eiergodkjenning og en konkret kunde- eller
-driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev.
+driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.9.0/dev.
 
 | ID | Status | Det som gjenstår |
 | --- | --- | --- |

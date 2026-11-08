@@ -5,6 +5,19 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.9.0 — 2026-11-08
+
+**Utgivelsessammendrag:** 0.9.0 samler dev-arbeidet til en modulær
+plattform med P2 v1 (tilbud, fakturering, lager, utlegg, lønnsomhet og
+kundeoverføring), betalinger og regnskapssynk, vedvarende e-postutboks og
+pushvarsler, ruting på OpenStreetMap/OSRM med valgfri Google Routes API og
+overtidsplanlegging, manuell ruterekkefølge, SAML 2.0/SCIM-grupper og
+feltnivå-RBAC, S3/Redis/HA/PITR, API v1 for tilbud, ordrer og lager,
+konfigurerbare oppdragsstatuser og kunde-/kontaktisolasjon. Manualen og
+skjermbildene er oppdatert for utgivelsen.
+
 ### Konfigurerbare oppdragsstatuser
 - Ny adminfane **Oppdragsstatus** der hver innebygde status kan merkes som
   åpen, planlagt eller lukket, aktiveres/deaktiveres og sorteres.

@@ -1,6 +1,6 @@
 # Reference, glossary and troubleshooting
 
-*Applies to FSM Platform version 0.8.11, 8 November 2026.*
+*Applies to FSM Platform version 0.9.0, 8 November 2026.*
 
 This chapter is the reference section. It explains permissions, statuses and terms across roles, shows how features connect, and helps you find where to look when something is missing.
 
@@ -267,7 +267,7 @@ A portal user is always linked to a contact at a customer. The contact can have 
 
 Check therefore that the user is active and belongs to the right customer, that the contact belongs to the same customer, that the delegation is active, and that the sub-permission for the missing area is enabled.
 
-> **Note:** In 0.8.11 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
+> **Note:** In 0.9.0 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
 
 ### Calendar: date, visit and window
 
@@ -362,7 +362,7 @@ The field surface saves drafts locally when the connection disappears. The draft
 
 When you report a problem, it helps to collect the information below. Write briefly what you did, what you expected, and what actually happened.
 
-- **Version:** FSM Platform 0.8.11, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
+- **Version:** FSM Platform 0.9.0, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
 - **Time:** Date and time with time zone, preferably Europe/Oslo.
 - **User:** Email, role, department and any customer. Never provide passwords or one-time codes.
 - **Case:** Work order number or ID, title, customer and date. For a report: report number or ID. For a booking: reference. For a contract: contract number.
