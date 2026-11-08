@@ -1,6 +1,7 @@
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { apiError, apiJson } from "@/lib/api-response";
 import { hasPermission } from "@/lib/permissions";
+import { CUSTOMER_CONTACT_FIELDS, redactRecord } from "@/lib/field-rbac";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -109,9 +110,35 @@ export async function GET(
   }
 
   const { _count, ...detail } = customer;
+  const safe = redactRecord(auth.actor, detail, {
+    group: "customerContact",
+    fields: {
+      ...CUSTOMER_CONTACT_FIELDS,
+      // Ansvarlig montørs e-post er intern kontaktinfo, ikke kundekontakt.
+      email: "email",
+      phone: "phone",
+    },
+    customerId: customer.id,
+  });
+  const safeContacts = customer.contacts.map((contact) =>
+    redactRecord(auth.actor, contact, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+  const safePortalUsers = customer.users.map((user) =>
+    redactRecord(auth.actor, user, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
 
   return apiJson({
-    ...detail,
+    ...safe,
+    contacts: safeContacts,
+    users: safePortalUsers,
     counts: {
       contacts: _count.contacts,
       products: _count.products,

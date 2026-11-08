@@ -78,6 +78,42 @@
         "not_found": "Das Token wurde nicht gefunden.",
         "error": "Das SCIM-Token konnte nicht verarbeitet werden."
       }
+    },
+    "saml": {
+      "title": "SAML-2.0-Anbieter",
+      "description": "SAML wird mit SAML_PROVIDERS und SAML_<NAME>_-Variablen konfiguriert. Jeder Anbieter prüft signierte Assertions, Audience, Empfänger und Zeitfenster und weist Wiederholungen zurück.",
+      "configErrors": "Die SAML-Konfiguration enthält Fehler, die in der Umgebung behoben werden müssen:",
+      "empty": "Es sind keine SAML-Anbieter konfiguriert. Setzen Sie SAML_PROVIDERS und die zugehörigen Variablen.",
+      "active": "Aktiv",
+      "entityId": "SP-Entity-ID",
+      "acsUrl": "ACS-URL",
+      "groupsAttribute": "Gruppenattribut",
+      "provisioning": "Automatische Bereitstellung",
+      "autoProvisionActive": "Ein – neue Benutzer werden aktiviert",
+      "autoProvisionInactive": "Ein – neue Benutzer sind inaktiv",
+      "autoProvisionOff": "Aus – der Benutzer muss vorher existieren",
+      "idpInitiatedOn": "Vom IdP initiierte Anmeldung ist erlaubt; Signatur- und Replay-Prüfung bleiben aktiv.",
+      "idpInitiatedOff": "Nur vom SP initiierte Anmeldung ist erlaubt.",
+      "help": "Metadaten werden unter /api/auth/saml/<slug>/metadata veröffentlicht. Siehe docs/OPERATIONS.md und docs/manual/en/30-administrator.md. Änderungen erfordern einen Neustart der App."
+    },
+    "fieldPolicy": {
+      "title": "RBAC auf Feldebene",
+      "description": "Sensible Felder werden auf dem Server maskiert, bevor Daten API, Suche, Export oder Oberfläche erreichen. Die folgende Matrix gilt standardmäßig für die Rollen.",
+      "field": "Feldgruppe",
+      "full": "Voll",
+      "own": "Eigene",
+      "none": "Maskiert",
+      "note": "ADMIN und OFFICE behalten den bisherigen Zugriff. Techniker sehen eigene Lohn- und Spesenbeträge, aber keine Kundenkontaktdaten oder Rechnungsbeträge. Das Kundenportal sieht nur eigene Daten.",
+      "overrideNote": "Ein Administrator kann ein einzelnes Feld ausdrücklich mit dem Schlüssel fields.<gruppe> in den Berechtigungen des Benutzers vergeben. Der Schlüssel kann den Zugriff nur erweitern, nie ADMIN vergeben.",
+      "fields": {
+        "customerContact": "Kundenkontakt, E-Mail und Telefon",
+        "billingAmounts": "Rechnungs- und Zahlungsbeträge",
+        "reportSignatures": "Berichtssignaturen",
+        "payrollAmounts": "Lohn- und Spesenbeträge"
+      }
     }
+  },
+  "saml": {
+    "signInWith": "Mit {provider} anmelden (SAML)"
   }
 }

@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/permissions";
 import { moduleIsOn } from "@/lib/modules";
 import { readModuleStates } from "@/server/modules";
 import { canViewAllDepartmentReports } from "@/lib/report-scope";
+import { canSeeField, maskEmail, maskPhone } from "@/lib/field-rbac";
 import {
   parseSearchFilters,
   workOrderFilterWhere,
@@ -982,29 +983,46 @@ export async function performSearch(
       icon: "🏢",
       total: totals.customer.total,
       capped: totals.customer.capped,
-      items: rankedCustomers.map(({ item: c, score }) => ({
-        id: c.id,
-        title: c.name,
-        subtitleParts: subtitleParts(
-          c.customerNumber
-            ? {
-                key: "components.search.subtitles.customerNumber",
-                params: { number: c.customerNumber },
-              }
-            : null,
-          c.orgNumber
-            ? {
-                key: "components.search.subtitles.orgNumber",
-                params: { number: c.orgNumber },
-              }
-            : null,
-          c.city ? { text: c.city } : null,
-          c.phone ? { text: c.phone } : null,
-          c.email ? { text: c.email } : null,
-        ),
-        href: `/kunder/${c.id}`,
-        score,
-      })),
+      items: rankedCustomers.map(({ item: c, score }) => {
+        const contactVisible = canSeeField(user, "customerContact", {
+          customerId: c.id,
+        });
+        return {
+          id: c.id,
+          title: c.name,
+          subtitleParts: subtitleParts(
+            c.customerNumber
+              ? {
+                  key: "components.search.subtitles.customerNumber",
+                  params: { number: c.customerNumber },
+                }
+              : null,
+            c.orgNumber
+              ? {
+                  key: "components.search.subtitles.orgNumber",
+                  params: { number: c.orgNumber },
+                }
+              : null,
+            c.city ? { text: c.city } : null,
+            c.phone
+              ? {
+                  text: contactVisible
+                    ? c.phone
+                    : maskPhone(c.phone) ?? c.phone,
+                }
+              : null,
+            c.email
+              ? {
+                  text: contactVisible
+                    ? c.email
+                    : maskEmail(c.email) ?? c.email,
+                }
+              : null,
+          ),
+          href: `/kunder/${c.id}`,
+          score,
+        };
+      }),
     },
     {
       kind: "workOrder",
@@ -1101,18 +1119,27 @@ export async function performSearch(
       icon: "👤",
       total: totals.contact.total,
       capped: totals.contact.capped,
-      items: rankedContacts.map(({ item: c, score }) => ({
-        id: c.id,
-        title: c.name,
-        subtitleParts: subtitleParts(
-          c.customer?.name ? { text: c.customer.name } : null,
-          c.role ? { text: c.role } : null,
-          c.phone ? { text: c.phone } : null,
-          c.email ? { text: c.email } : null,
-        ),
-        href: `/kunder/${c.customerId}?tab=kontakter`,
-        score,
-      })),
+      items: rankedContacts.map(({ item: c, score }) => {
+        const contactVisible = canSeeField(user, "customerContact", {
+          customerId: c.customerId,
+        });
+        return {
+          id: c.id,
+          title: c.name,
+          subtitleParts: subtitleParts(
+            c.customer?.name ? { text: c.customer.name } : null,
+            c.role ? { text: c.role } : null,
+            c.phone
+              ? { text: contactVisible ? c.phone : maskPhone(c.phone) ?? c.phone }
+              : null,
+            c.email
+              ? { text: contactVisible ? c.email : maskEmail(c.email) ?? c.email }
+              : null,
+          ),
+          href: `/kunder/${c.customerId}?tab=kontakter`,
+          score,
+        };
+      }),
     },
     {
       kind: "report",

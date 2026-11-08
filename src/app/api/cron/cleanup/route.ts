@@ -3,6 +3,7 @@ import { cleanupAbandonedUploads } from "@/lib/upload-cleanup";
 import { releaseExpiredUploadQuotaReservations } from "@/lib/upload-quota";
 import { cleanupUploadTempFiles } from "@/lib/upload-multipart";
 import { uploadDir } from "@/lib/uploads";
+import prisma from "@/lib/prisma";
 import { safeEqual } from "@/lib/secrets";
 import { moduleEnabled } from "@/server/modules";
 
@@ -33,8 +34,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 401 });
   }
 
+  // SAML-cachen skal ryddes uavhengig av dokumentmodulen. En utløpt
+  // AuthnRequest/replay-rad er død og skal ikke bli liggende.
+  const samlCacheRemoved = await prisma.samlCacheEntry
+    .deleteMany({ where: { expiresAt: { lte: new Date() } } })
+    .then((result) => result.count)
+    .catch(() => 0);
+
   if (!(await moduleEnabled("documents"))) {
-    return NextResponse.json({ error: "module_disabled" }, { status: 404 });
+    return NextResponse.json({ error: "module_disabled", samlCacheRemoved }, { status: 404 });
   }
 
   const result = await cleanupAbandonedUploads();
@@ -50,6 +58,7 @@ export async function GET(request: Request) {
     ...result,
     reservationsReleased,
     tempRemoved: temp.removed,
+    samlCacheRemoved,
   });
 }
 

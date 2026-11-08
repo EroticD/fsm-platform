@@ -78,6 +78,42 @@
         "not_found": "Fant ikke tokenet.",
         "error": "Kunne ikke behandle SCIM-tokenet."
       }
+    },
+    "saml": {
+      "title": "SAML 2.0-leverandører",
+      "description": "SAML konfigureres med SAML_PROVIDERS og SAML_<NAVN>_-variabler. Hver leverandør validerer signert assertion, audience, mottaker og tidsvindu, og avviser replay.",
+      "configErrors": "SAML-konfigurasjonen har feil som må rettes i miljøet:",
+      "empty": "Ingen SAML-leverandører er konfigurert. Sett SAML_PROVIDERS og de tilhørende variablene.",
+      "active": "Aktiv",
+      "entityId": "SP entity id",
+      "acsUrl": "ACS-URL",
+      "groupsAttribute": "Gruppeattributt",
+      "provisioning": "Auto-provisjonering",
+      "autoProvisionActive": "På – nye brukere aktiveres",
+      "autoProvisionInactive": "På – nye brukere er inaktive",
+      "autoProvisionOff": "Av – brukeren må finnes på forhånd",
+      "idpInitiatedOn": "IdP-initierte innlogginger er tillatt; replay- og signaturkontroll er fortsatt aktiv.",
+      "idpInitiatedOff": "Bare SP-initierte innlogginger er tillatt.",
+      "help": "Metadata publiseres på /api/auth/saml/<slug>/metadata. Se docs/OPERATIONS.md og docs/manual/nb/31-sso-scim.md. Endringer krever ny appstart."
+    },
+    "fieldPolicy": {
+      "title": "Feltnivå-RBAC",
+      "description": "Sensitive felt maskeres på serveren før data når API, søk, eksport eller grensesnitt. Matrisen under er standard for rollene.",
+      "field": "Feltgruppe",
+      "full": "Full",
+      "own": "Egne",
+      "none": "Maskert",
+      "note": "ADMIN og OFFICE beholder dagens tilgang. Montører ser egne lønns- og utleggsbeløp, men ikke kundekontakt eller fakturabeløp. Kundeportalen ser bare egne data.",
+      "overrideNote": "En administrator kan gi et enkeltfelt eksplisitt med nøkkelen fields.<gruppe> i brukerens rettigheter. Nøkkelen kan bare utvide tilgang, aldri gi ADMIN.",
+      "fields": {
+        "customerContact": "Kundekontakt, e-post og telefon",
+        "billingAmounts": "Faktura- og betalingsbeløp",
+        "reportSignatures": "Rapportsignaturer",
+        "payrollAmounts": "Lønns- og utleggsbeløp"
+      }
     }
+  },
+  "saml": {
+    "signInWith": "Logg inn med {provider} (SAML)"
   }
 }

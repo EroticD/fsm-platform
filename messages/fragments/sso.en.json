@@ -78,6 +78,42 @@
         "not_found": "The token was not found.",
         "error": "Could not process the SCIM token."
       }
+    },
+    "saml": {
+      "title": "SAML 2.0 providers",
+      "description": "SAML is configured with SAML_PROVIDERS and SAML_<NAME>_ variables. Every provider validates the signed assertion, audience, recipient and time window, and rejects replays.",
+      "configErrors": "The SAML configuration has errors that must be fixed in the environment:",
+      "empty": "No SAML providers are configured. Set SAML_PROVIDERS and the corresponding variables.",
+      "active": "Active",
+      "entityId": "SP entity ID",
+      "acsUrl": "ACS URL",
+      "groupsAttribute": "Groups attribute",
+      "provisioning": "Auto-provisioning",
+      "autoProvisionActive": "On – new users are activated",
+      "autoProvisionInactive": "On – new users are inactive",
+      "autoProvisionOff": "Off – the user must exist in advance",
+      "idpInitiatedOn": "IdP-initiated sign-in is allowed; replay and signature checks remain active.",
+      "idpInitiatedOff": "Only SP-initiated sign-in is allowed.",
+      "help": "Metadata is published at /api/auth/saml/<slug>/metadata. See docs/OPERATIONS.md and docs/manual/en/30-administrator.md. Changes require an app restart."
+    },
+    "fieldPolicy": {
+      "title": "Field-level RBAC",
+      "description": "Sensitive fields are masked on the server before data reaches the API, search, exports or the UI. The matrix below is the role default.",
+      "field": "Field group",
+      "full": "Full",
+      "own": "Own",
+      "none": "Masked",
+      "note": "ADMIN and OFFICE keep today's access. Technicians see their own payroll and expense amounts, but not customer contact details or invoice amounts. The customer portal sees only its own data.",
+      "overrideNote": "An administrator can grant a single field explicitly with the key fields.<group> in the user's permissions. The key can only widen access, never grant ADMIN.",
+      "fields": {
+        "customerContact": "Customer contact, email and phone",
+        "billingAmounts": "Invoice and payment amounts",
+        "reportSignatures": "Report signatures",
+        "payrollAmounts": "Payroll and expense amounts"
+      }
     }
+  },
+  "saml": {
+    "signInWith": "Sign in with {provider} (SAML)"
   }
 }

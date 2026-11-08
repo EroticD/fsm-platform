@@ -22,6 +22,8 @@ export type SsoProviderConfig = {
   /** NextAuth-providerens id, også brukt i callback-URL-en. */
   id: string;
   displayName: string;
+  /** OIDC er standard. SAML-leverandører bruker de samme kontoreglene. */
+  protocol?: "oidc" | "saml";
   issuer: string;
   discoveryUrl: string;
   clientId: string;
@@ -35,6 +37,13 @@ export type SsoProviderConfig = {
   groupsClaim: string;
   groupRoleMap: Record<string, string>;
   syncRoles: boolean;
+  /**
+   * Valgfri avdelingsmapping fra grupper. Brukes bare når den er eksplisitt
+   * satt, og kan aldri gi en ukjent avdeling: da avvises innloggingen.
+   */
+  departmentClaim?: string | null;
+  groupDepartmentMap?: Record<string, string>;
+  syncDepartment?: boolean;
 };
 
 export type SsoConfig = {
@@ -130,6 +139,58 @@ export function parseGroupRoleMap(
   return { map, error: null };
 }
 
+/**
+ * Som `parseGroupRoleMap`, men verdiene bevares som skrevet fordi de peker på
+ * avdelingsnavn (som ikke er versalfølsomme i databasen, men skal vises riktig).
+ */
+export function parseGroupDepartmentMap(
+  value: string | undefined,
+): { map: Record<string, string>; error: string | null } {
+  const raw = value?.trim() ?? "";
+  if (!raw) return { map: {}, error: null };
+
+  const map: Record<string, string> = {};
+  const add = (group: unknown, department: unknown): string | null => {
+    if (typeof group !== "string" || typeof department !== "string") {
+      return "invalid";
+    }
+    const key = group.trim();
+    const name = department.trim();
+    if (!key || !name) return "invalid";
+    if (map[key] && map[key] !== name) return "duplicate";
+    map[key] = name;
+    return null;
+  };
+
+  if (raw.startsWith("{")) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { map, error: "ugyldig JSON i avdelingsmapping" };
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { map, error: "avdelingsmapping må være et JSON-objekt" };
+    }
+    for (const [group, department] of Object.entries(parsed)) {
+      const error = add(group, department);
+      if (error) return { map, error: `ugyldig avdelingsmapping (${error})` };
+    }
+    return { map, error: null };
+  }
+
+  for (const pair of raw.split(",")) {
+    if (!pair.trim()) continue;
+    const separator = pair.indexOf("=");
+    if (separator <= 0) {
+      return { map, error: "avdelingsmapping må være gruppe=Avdeling" };
+    }
+    const error = add(pair.slice(0, separator), pair.slice(separator + 1));
+    if (error) return { map, error: `ugyldig avdelingsmapping (${error})` };
+  }
+  return { map, error: null };
+}
+
 /** Standard discovery-URL når den ikke er satt eksplisitt. */
 export function ssoDiscoveryUrl(issuer: string): string {
   return `${issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`;
@@ -196,6 +257,8 @@ export function readSsoConfig(
     const { map: groupRoleMap, error: mapError } = parseGroupRoleMap(
       envValue(env, slug, "GROUP_ROLE_MAP"),
     );
+    const { map: groupDepartmentMap, error: departmentMapError } =
+      parseGroupDepartmentMap(envValue(env, slug, "GROUP_DEPARTMENT_MAP"));
 
     if (!issuer && !discoveryUrl) {
       errors.push(`SSO ${slug}: ISSUER eller DISCOVERY_URL mangler`);
@@ -206,6 +269,7 @@ export function readSsoConfig(
     if (!clientSecret) errors.push(`SSO ${slug}: CLIENT_SECRET mangler`);
     if (!displayName) errors.push(`SSO ${slug}: DISPLAY_NAME er tom`);
     if (mapError) errors.push(`SSO ${slug}: ${mapError}`);
+    if (departmentMapError) errors.push(`SSO ${slug}: ${departmentMapError}`);
     if (defaultRole === "CUSTOMER") {
       errors.push(`SSO ${slug}: DEFAULT_ROLE kan ikke være CUSTOMER`);
     }
@@ -237,6 +301,11 @@ export function readSsoConfig(
       groupsClaim,
       groupRoleMap,
       syncRoles: parseBoolean(envValue(env, slug, "SYNC_ROLES")),
+      protocol: "oidc",
+      departmentClaim:
+        envValue(env, slug, "DEPARTMENT_CLAIM")?.trim() || null,
+      groupDepartmentMap,
+      syncDepartment: parseBoolean(envValue(env, slug, "SYNC_DEPARTMENT")),
     });
   }
 
@@ -396,6 +465,54 @@ export function ssoRoleFromGroups(
     return { role: null, matchedGroups, conflict: distinct };
   }
   return { role: distinct[0] ?? null, matchedGroups, conflict: [] };
+}
+
+export type SsoDepartmentMapping = {
+  department: string | null;
+  matchedGroups: string[];
+  /** Flere grupper peker på ulike avdelinger. Da brukes ingen av dem. */
+  conflict: string[];
+};
+
+/**
+ * Avdeling fra et eksplisitt claim eller fra gruppemapping. Claimet vinner,
+ * fordi det er et bevisst attributt fra IdP-en. En konflikt gir ingen
+ * avdeling – vi velger aldri en tilfeldig av flere.
+ */
+export function ssoDepartmentFromClaims(
+  claims: SsoClaims,
+  groups: readonly string[],
+  config: Pick<
+    SsoProviderConfig,
+    "departmentClaim" | "groupDepartmentMap"
+  >,
+): SsoDepartmentMapping {
+  if (config.departmentClaim) {
+    const value = claimValue(claims, config.departmentClaim);
+    if (typeof value === "string" && value.trim()) {
+      return {
+        department: value.trim(),
+        matchedGroups: [],
+        conflict: [],
+      };
+    }
+  }
+
+  const map = config.groupDepartmentMap ?? {};
+  const matchedGroups: string[] = [];
+  const departments = new Set<string>();
+  for (const group of groups) {
+    const department = map[group];
+    if (!department) continue;
+    matchedGroups.push(group);
+    departments.add(department);
+  }
+
+  const distinct = Array.from(departments);
+  if (distinct.length > 1) {
+    return { department: null, matchedGroups, conflict: distinct };
+  }
+  return { department: distinct[0] ?? null, matchedGroups, conflict: [] };
 }
 
 export type SsoTwoFactorGate = "ok" | "enroll" | "verify";

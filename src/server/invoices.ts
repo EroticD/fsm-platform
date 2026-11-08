@@ -18,6 +18,12 @@ import {
   roundMoney,
   type RawLine,
 } from "@/lib/billing";
+import {
+  BILLING_AMOUNT_FIELDS,
+  CUSTOMER_CONTACT_FIELDS,
+  fieldAccess,
+  redactRecord,
+} from "@/lib/field-rbac";
 import { resolvePortalAccess } from "./portal-access";
 import { quoteScopeFor } from "./quotes";
 import { assertModule } from "./modules";
@@ -129,6 +135,23 @@ function canManageInvoices(actor: ServiceActor): boolean {
 function requireManage(actor: ServiceActor): ServiceFailure | null {
   if (!canManageInvoices(actor)) return fail("forbidden");
   return null;
+}
+
+/**
+ * Feltnivå-RBAC for fakturabeløp. ADMIN/OFFICE og kunden selv ser alt;
+ * montører og andre interne uten eksplisitt feltilgang får maskerte beløp.
+ * Feltnavnene settes til null, og `redactedFields` forteller UI/API hvorfor.
+ */
+function redactInvoiceAmounts<T extends object>(
+  actor: ServiceActor,
+  invoice: T,
+  customerId: string | null,
+): T {
+  return redactRecord(actor, invoice, {
+    group: "billingAmounts",
+    fields: BILLING_AMOUNT_FIELDS,
+    customerId,
+  }) as T;
 }
 
 export async function getBillingSettings() {
@@ -483,7 +506,12 @@ export async function listInvoices(
     }),
     prisma.invoice.count({ where }),
   ]);
-  return ok({ invoices, total });
+  return ok({
+    invoices: invoices.map((invoice) =>
+      redactInvoiceAmounts(actor, invoice, invoice.customer.id),
+    ),
+    total,
+  });
 }
 
 export async function getInvoice(actor: ServiceActor, invoiceId: string) {
@@ -517,7 +545,22 @@ export async function getInvoice(actor: ServiceActor, invoiceId: string) {
     },
   });
   if (!invoice) return fail("not_found");
-  return ok(invoice);
+  const contact = invoice.contact
+    ? redactRecord(actor, invoice.contact, {
+        group: "customerContact",
+        fields: CUSTOMER_CONTACT_FIELDS,
+        customerId: invoice.customerId,
+      })
+    : null;
+  return ok({
+    ...redactInvoiceAmounts(actor, invoice, invoice.customerId),
+    customer: redactRecord(actor, invoice.customer, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: invoice.customerId,
+    }),
+    contact,
+  });
 }
 
 export async function createInvoice(
@@ -1211,6 +1254,9 @@ export async function exportInvoicesCsv(
       quote: { select: { quoteNumber: true } },
     },
   });
+  const billingVisible = !fieldAccess(actor, "billingAmounts").masked;
+  const amount = (value: { toFixed: (digits: number) => string }): string =>
+    billingVisible ? value.toFixed(2) : "••••";
   const header = [
     "Fakturanummer",
     "Status",
@@ -1238,12 +1284,12 @@ export async function exportInvoicesCsv(
     invoice.issueDate ? toDateOnly(invoice.issueDate) : "",
     invoice.dueDate ? toDateOnly(invoice.dueDate) : "",
     invoice.currency,
-    invoice.subtotal.toFixed(2),
-    invoice.vatTotal.toFixed(2),
-    invoice.total.toFixed(2),
-    invoice.paidTotal.toFixed(2),
-    invoice.creditedTotal.toFixed(2),
-    invoice.outstanding.toFixed(2),
+    amount(invoice.subtotal),
+    amount(invoice.vatTotal),
+    amount(invoice.total),
+    amount(invoice.paidTotal),
+    amount(invoice.creditedTotal),
+    amount(invoice.outstanding),
     invoice.workOrder?.reference ?? "",
     invoice.quote?.quoteNumber ?? "",
   ]);
@@ -1310,7 +1356,7 @@ export async function getPortalInvoices(
   ]);
   return ok({
     invoices: invoices.map((invoice) => ({
-      ...invoice,
+      ...redactInvoiceAmounts(actor, invoice, access.data.customerId),
       status: invoice.status as InvoiceStatusValue,
     })),
     total,
@@ -1339,7 +1385,9 @@ export async function getPortalInvoice(actor: ServiceActor, invoiceId: string) {
     },
   });
   if (!invoice) return fail("not_found");
-  return ok(invoice);
+  return ok(
+    redactInvoiceAmounts(actor, invoice, access.data.customerId),
+  );
 }
 
 export type BillingSettingsInput = {
