@@ -340,7 +340,7 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | [`docs/MODULES.md`](docs/MODULES.md) | Modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av |
 | [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, Azure-native backup, øvelser og sjekklister |
 | [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
-| `fsm-mobile` (eget repo) | Native Android-/iOS-app |
+| [`fsm-mobile`](https://github.com/EroticD/fsm-mobile) | Native Android-/iOS-app (eget repo) |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |
 | [`SECURITY.md`](SECURITY.md) | Sikkerhetsmodell og rapportering |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Oppsett, tester og pull requests |

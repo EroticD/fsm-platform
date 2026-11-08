@@ -1359,7 +1359,7 @@ viseren og beholder `object-src 'none'`.
 
 ## Native feltapp
 
-Android- og iOS-appen ligger i et eget repo: **`fsm-mobile`**. Plattformen
+Android- og iOS-appen ligger i et eget repo: [`fsm-mobile`](https://github.com/EroticD/fsm-mobile). Plattformen
 inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.
 
 - Appen starter på en lokal oppsettside der brukeren skriver inn URL-en til
