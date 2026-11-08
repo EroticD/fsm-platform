@@ -41,7 +41,8 @@
     "native:open:android": "npx cap open android",
     "native:open:ios": "npx cap open ios",
     "native:build:android": "npx cap sync android && cd android && ./gradlew assembleDebug",
-    "native:doctor": "npx cap doctor"
+    "native:doctor": "npx cap doctor",
+    "native:assets": "node scripts/generate-mobile-assets.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",

@@ -83,7 +83,7 @@ Har kunden allerede QR-etiketter fra et annet system, virker de også: Kontoret 
 5. Åpne PDF-er du trenger mens du er på nett.
 6. Ikke tøm nettleser- eller appdata.
 
-Side-cachen varer i åtte timer; lokale kladder i sju dager.
+Side-, API- og filcachen varer i sju døgn; lokale kladder i sju dager.
 
 ## Mine oppdrag / I dag
 
@@ -372,7 +372,7 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Øktknappene mangler / status låst** | Dagen eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne dager og oppdrag kan endres |
 | **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, manglende tilgang eller aktivt innhold som ikke kan saniteres | Kom på nett, åpne via **Se rapport (PDF)**, last ned filen, og meld fra hvis tilgang mangler |
 | **Bilde mangler i PDF** | Filen er slettet, mangler metadata eller tilhører et annet oppdrag | Last opp bildet på nytt fra rapporten, og generer PDF-en igjen |
-| **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn åtte timer | Åpne jobben på nytt mens du er på nett, og hold appen installert |
+| **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn sju døgn | Åpne jobben på nytt mens du er på nett, og hold appen installert |
 
 ## Slik henger teknikerarbeidet sammen med resten
 

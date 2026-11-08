@@ -471,3 +471,83 @@ describe("service worker – sync-hendelse", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+function loadWorkerFunctions() {
+  const listeners = new Map<string, (event: unknown) => void>();
+  const sandbox = {
+    self: {
+      location: { origin: "https://fsm.example" },
+      navigator: { onLine: true },
+      addEventListener(type: string, handler: (event: unknown) => void) {
+        listeners.set(type, handler);
+      },
+      clients: { matchAll: vi.fn(async () => []) },
+      skipWaiting: vi.fn(),
+      registration: { sync: { register: vi.fn() } },
+    },
+    caches: {
+      open: vi.fn(async () => ({
+        keys: vi.fn(async () => []),
+        match: vi.fn(async () => undefined),
+        put: vi.fn(async () => undefined),
+        delete: vi.fn(async () => true),
+      })),
+      keys: vi.fn(async () => []),
+      match: vi.fn(async () => undefined),
+      delete: vi.fn(async () => true),
+    },
+    indexedDB: undefined,
+    fetch: vi.fn(),
+    URL,
+    Request,
+    Response,
+    TextEncoder,
+    TextDecoder,
+    console,
+    setTimeout,
+    clearTimeout,
+  };
+  vm.runInNewContext(swSource, sandbox, { filename: "public/sw.js" });
+  return sandbox as typeof sandbox & {
+    isCacheablePage: (pathname: string) => boolean;
+    isCacheableApi: (pathname: string) => boolean;
+    shouldEnsureHtml: (pathname: string) => boolean;
+    isFreshCacheEntry: (cachedAt: number, now: number) => boolean;
+  };
+}
+
+describe("service worker – cache-valg", () => {
+  const worker = loadWorkerFunctions();
+
+  it("cacher vanlige app- og portalsider, men ikke innlogging eller statiske filer", () => {
+    expect(worker.isCacheablePage("/")).toBe(true);
+    expect(worker.isCacheablePage("/oppdrag")).toBe(true);
+    expect(worker.isCacheablePage("/kundeportal/faktura")).toBe(true);
+    expect(worker.isCacheablePage("/logg-inn")).toBe(false);
+    expect(worker.isCacheablePage("/_next/static/chunk.js")).toBe(false);
+    expect(worker.isCacheablePage("/manifest.webmanifest")).toBe(false);
+  });
+
+  it("cacher API-GET, men ikke auth, eksport, cron, webhooks eller SCIM", () => {
+    expect(worker.isCacheableApi("/api/v1/work-orders")).toBe(true);
+    expect(worker.isCacheableApi("/api/oppdrag")).toBe(true);
+    expect(worker.isCacheableApi("/api/auth/session")).toBe(false);
+    expect(worker.isCacheableApi("/api/faktura/eksport")).toBe(false);
+    expect(worker.isCacheableApi("/api/cron/recurring")).toBe(false);
+    expect(worker.isCacheableApi("/api/webhooks/sms/twilio")).toBe(false);
+    expect(worker.isCacheableApi("/api/scim/v2/Users")).toBe(false);
+    expect(worker.isCacheableApi("/api/health")).toBe(false);
+  });
+
+  it("beholder cache i sju døgn", () => {
+    const now = Date.UTC(2026, 10, 8, 12, 0, 0);
+    expect(worker.isFreshCacheEntry(now - 7 * 24 * 60 * 60 * 1000 + 1, now)).toBe(true);
+    expect(worker.isFreshCacheEntry(now - 7 * 24 * 60 * 60 * 1000 - 1, now)).toBe(false);
+  });
+
+  it("forhåndslaster bare felt og viktige innganger som HTML", () => {
+    expect(worker.shouldEnsureHtml("/mine-oppdrag/wo1")).toBe(true);
+    expect(worker.shouldEnsureHtml("/oppdrag")).toBe(true);
+    expect(worker.shouldEnsureHtml("/innstillinger")).toBe(false);
+  });
+});

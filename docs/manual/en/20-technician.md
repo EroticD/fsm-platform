@@ -83,7 +83,7 @@ fetches content from the internet.
 5. Open any report PDFs you need while online.
 6. Do not clear browser or app data.
 
-The page cache lasts eight hours; local drafts last seven days.
+The page, API and file cache lasts seven days; local drafts last seven days.
 
 ## My work orders / Today
 

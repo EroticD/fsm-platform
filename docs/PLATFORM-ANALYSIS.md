@@ -339,8 +339,9 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 - **AI og optimalisering.** Ingen scheduling-optimering, Copilot, prediktivt
   vedlikehold eller IoT. Dette er bordstake i enterprise og i ferd med å bli
   det i mid-market.
-- **Mobil.** PWA/Capacitor er funksjonelt, men ikke en signert butikkapp med
-  push, bakgrunnssynk og offline-kø i samme modenhet som Jobber/HCP.
+- **Mobil.** Native Android-/iOS-prosjekter med runtime servervalg og
+  sjudøgns offline-cache finnes, men signert butikkbygg, push,
+  bakgrunnssynk og enhets-QA gjenstår før de er på Jobber/HCP-nivå.
 - **Integrasjoner.** REST-API finnes, men ikke et konnektorbibliotek,
   webhooks, regnskap, e-faktura eller markedsføringsverktøy.
 - **Skala.** Én appprosessmodell, DB-basert kø, ingen S3/Redis/HA/PITR.
@@ -440,8 +441,9 @@ hva som er teknisk morsomt. P3-punkter krever eiergodkjenning.
    - Hvorfor: uten dette taper vi nesten alle Jobber/HCP-dealer.
 2. **E-postlevering av tilbud, faktura og bookingbekreftelse**
    - I dag deles lenker manuelt. Konkurrentene sender automatisk.
-3. **Signert mobilapp med push**
-   - Capacitor-skallet finnes; butikkbygg, FCM/APNs og offline-kø gjenstår.
+3. **Signer og publiser mobilappen**
+   - Native prosjekter, servervalg og 7-dagers cache er levert; signering,
+     FCM/APNs, butikkinnhold og enhetstest gjenstår.
 4. **Ruteoptimalisering og trafikk (eller dokumentert integrasjon)**
    - Vi har ruteplan/ETA, men ikke optimalisering. Dette er en synlig
      demo-funksjon.

@@ -11,7 +11,10 @@ import {
   retryFailedDrafts,
   type DraftSummary,
 } from "@/lib/offline/draft-outbox";
-import { announceOfflineUser } from "@/lib/offline/cache";
+import {
+  announceOfflineUser,
+  requestPersistentOfflineStorage,
+} from "@/lib/offline/cache";
 import {
   requestDraftBackgroundSync,
   SYNC_END_EVENT,
@@ -68,11 +71,13 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
   );
 
   // Ved innlogging bekrefter vi hvilken bruker som eier de lokale kladdene, og
-  // hvilken bruker service workeren skal scope side-cachen til.
+  // hvilken bruker service workeren skal scope side-cachen til. Vi ber også om
+  // at nettleseren beholder offline-dataene gjennom hele sjudøgnsvinduet.
   useEffect(() => {
     if (!userId) return;
     rememberOfflineUser(userId);
     announceOfflineUser(userId);
+    void requestPersistentOfflineStorage();
     // En ny innlogging skal umiddelbart kunne gjenoppta en kø som ble liggende
     // fra forrige økt. Registreringen er en no-op uten SyncManager.
     void requestDraftBackgroundSync();
