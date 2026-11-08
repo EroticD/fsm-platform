@@ -12,7 +12,7 @@ trail; they do not change work order locking or the report. All amounts are
 calculated on the server. The client cannot submit totals that differ from the
 lines.
 
-![Figure: Quote list with status, customer and total](../../screenshots/manual/tilbud-liste.jpg)
+![Figure: Quote list with status, customer and total](../../../screenshots/manual/tilbud-liste.jpg)
 
 *Figure: The quote list collects drafts, sent and accepted quotes.*
 
@@ -110,7 +110,7 @@ scheduled invoicing job. A payment carries an idempotency key, so double clicks
 and repeated webhooks never produce a double amount. Refunds are not created
 from the payment provider; use a credit note.
 
-![Figure: Invoice with payment status, outstanding amount and payment link](../../screenshots/manual/faktura-betaling.jpg)
+![Figure: Invoice with payment status, outstanding amount and payment link](../../../screenshots/manual/faktura-betaling.jpg)
 
 *Figure: The invoice shows lines, payments and outstanding amount together.*
 
@@ -169,7 +169,7 @@ Accounting sync is manual and per invoice. It creates or reuses the customer,
 invoice and positive payments at the provider, stores external IDs and a
 retryable state. It never pretends an external call succeeded.
 
-![Figure: Accounting settings with provider, test and last sync](../../screenshots/manual/regnskap-innstillinger.jpg)
+![Figure: Accounting settings with provider, test and last sync](../../../screenshots/manual/regnskap-innstillinger.jpg)
 
 *Figure: Accounting settings show the selected provider and whether the
 integration is active.*
@@ -273,3 +273,15 @@ reconciliation and that no invoice is stuck in **Draft**.
 | Accounting sync is **Failed** | Wrong key, account code or VAT setup | Read `lastError`, fix the cause and sync again |
 | CSV appears as **Exported** | CSV is an export, not a sync | Import the file into accounting; no external state changed |
 | The credit note is rejected | The amount exceeds the outstanding amount | Check payments and outstanding first |
+
+## Customer and contact
+
+The contact field is shown only after a customer has been selected. The
+contacts are loaded for that customer and contain only people who actually
+belong to the customer. Changing the customer clears the contact and reloads
+the list, so a contact from another customer can neither be selected nor
+submitted.
+
+The server validates the same rule on save. If a contact does not belong to the
+selected customer, the quote or invoice is rejected even if the form is
+bypassed.

@@ -92,7 +92,7 @@ Start appen på nytt. Åpne **Innstillinger → SSO og SCIM**. Leverandøren ska
 vises som **Aktiv**, med issuer, standardrolle og tillatte domener. Røde
 konfigurasjonsfeil betyr at en påkrevd variabel mangler eller er ugyldig.
 
-![Figur: SSO og SCIM med SAML-leverandør og status](../../screenshots/manual/innstillinger-saml.jpg)
+![Figur: SSO og SCIM med SAML-leverandør og status](../../../screenshots/manual/innstillinger-saml.jpg)
 
 *Figur: SAML konfigureres per leverandør og vises med status i innstillingene.*
 
@@ -217,7 +217,7 @@ rollen og kan ikke gi ADMIN. I v1 settes den med direkte database-/API-tilgang,
 fordi innstillingenes vanlige rettighetsliste filtrerer bort ukjente nøkler.
 En redigerbar feltmatrise i UI er residual.
 
-![Figur: Feltpolicy-matrisen for sensitive felt](../../screenshots/manual/innstillinger-feltpolicy.jpg)
+![Figur: Feltpolicy-matrisen for sensitive felt](../../../screenshots/manual/innstillinger-feltpolicy.jpg)
 
 *Figur: Feltpolicyen viser hvilke roller som ser hvilke feltgrupper.*
 

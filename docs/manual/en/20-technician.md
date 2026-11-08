@@ -4,7 +4,7 @@ The field app for the **Technician** role: sign-in, My work orders, work order d
 
 The bottom bar has **Today** (`/mine-oppdrag`), **Work orders**, **Notifications** and **More**. **More** opens the same menu as the hamburger button at the top. Language, notification sound, reports, customers/equipment and settings are in that menu.
 
-![Figure: Today with the next job, overdue and available work orders](../../screenshots/pages/mobile/mine-oppdrag.jpg)
+![Figure: Today with the next job, overdue and available work orders](../../../screenshots/pages/mobile/mine-oppdrag.jpg)
 
 *Figure: Today is the field app's home screen.*
 
@@ -227,7 +227,7 @@ If it says **No checklists are linked to this work order yet**, you cannot fill 
 
 The form opens at `/mine-oppdrag/<work-order-id>/skjema/<template-id>`.
 
-![Figure: The report form with units, checkpoints and signature](../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
+![Figure: The report form with units, checkpoints and signature](../../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
 
 *Figure: The report form is built for one hand and an unstable network.*
 

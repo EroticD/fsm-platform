@@ -92,7 +92,7 @@ Restart the app. Open **Settings → SSO and SCIM**. The provider should appear 
 **Active**, with issuer, default role and allowed domains. Red configuration
 errors mean a required variable is missing or invalid.
 
-![Figure: SSO and SCIM with SAML provider and status](../../screenshots/manual/innstillinger-saml.jpg)
+![Figure: SSO and SCIM with SAML provider and status](../../../screenshots/manual/innstillinger-saml.jpg)
 
 *Figure: SAML is configured per provider and shown with status in settings.*
 
@@ -218,7 +218,7 @@ from the role and cannot grant ADMIN. In v1 it is set through direct
 database/API access, because the settings permission list filters out unknown
 keys. An editable field matrix in the UI is a residual.
 
-![Figure: Field policy matrix for sensitive fields](../../screenshots/manual/innstillinger-feltpolicy.jpg)
+![Figure: Field policy matrix for sensitive fields](../../../screenshots/manual/innstillinger-feltpolicy.jpg)
 
 *Figure: The field policy shows which roles see which field groups.*
 

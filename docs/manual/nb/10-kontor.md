@@ -17,7 +17,7 @@ referansedata og faktureringen skjer utenfor plattformen.
 Dashbordet ligger på `/` og har tittelen **Planlegging**. Øverst står dato,
 ukenummer, antall oppdrag og **Sanntid**.
 
-![Figur: Dashbordet med kø, unntak og feltstatus](../../screenshots/pages/desktop/dashbord.jpg)
+![Figur: Dashbordet med kø, unntak og feltstatus](../../../screenshots/pages/desktop/dashbord.jpg)
 
 *Figur: Dashbordet er kontorets utgangspunkt for dagen.*
 
@@ -122,7 +122,7 @@ Oppdragslisten ligger på `/oppdrag` med fanene **Aktive**, **Nye**, **Ikke
 startet**, **Påbegynt**, **I dag**, **Forfalte**, **Ikke tildelt**,
 **Fullførte** og **Kansellerte**.
 
-![Figur: Oppdragslisten med status, dato og montør](../../screenshots/pages/desktop/oppdrag.jpg)
+![Figur: Oppdragslisten med status, dato og montør](../../../screenshots/pages/desktop/oppdrag.jpg)
 
 *Figur: Oppdragslisten er arbeidskøen på tvers av kunder og datoer.*
 
@@ -167,7 +167,7 @@ Du kan tildele flere montører; **Fjern** tar en av. Tildelingen gjelder hele
 oppdraget. Kontoret planlegger bare datoene; hver dato blir én arbeidsdag i
 feltportalen.
 
-![Figur: Oppdragsdetaljen med status, dager og sjekklister](../../screenshots/pages/desktop/oppdrag-detalj.jpg)
+![Figur: Oppdragsdetaljen med status, dager og sjekklister](../../../screenshots/pages/desktop/oppdrag-detalj.jpg)
 
 *Figur: Oppdragsdetaljen samler status, kontakt, dager og rapporter.*
 
@@ -188,7 +188,7 @@ betyr automatisk rekkefølge. Så snart minst én visitt for montøren og dagen 
 et manuelt nummer, sorterer planleggeren etter nummeret og hopper over
 nærmeste-nabo/2-opt.
 
-![Figur: Dager og tid med rekkefølgenummer per arbeidsdag](../../screenshots/manual/oppdrag-rekkefolge.jpg)
+![Figur: Dager og tid med rekkefølgenummer per arbeidsdag](../../../screenshots/manual/oppdrag-rekkefolge.jpg)
 
 *Figur: Rekkefølgenummeret på hver arbeidsdag styrer ruten uten å endre tiden.*
 
@@ -498,7 +498,7 @@ og avbrytes helt ved overlapp med en fast visitt eller registrert ferie/sykdom.
 Fullførte og kansellerte visiter flyttes aldri. Hvis planen er endret siden den
 ble vist, får du beskjed om å laste siden på nytt.
 
-![Figur: Ruteplanleggeren med nummerfelt per stopp](../../screenshots/manual/rute-manuell-rekkefolge.jpg)
+![Figur: Ruteplanleggeren med nummerfelt per stopp](../../../screenshots/manual/rute-manuell-rekkefolge.jpg)
 
 *Figur: Manuell rekkefølge settes med 1/2/3/4 i ruteplanleggeren.*
 
@@ -506,7 +506,7 @@ Se på nummerfeltet ved hvert stopp og på summen nederst. Rekkefølgen er et
 forslag helt til du trykker **Manuell rekkefølge** eller **Bruk rekkefølge**.
 Nummereringen endrer ikke datoen; den endrer rekkefølgen innenfor dagen.
 
-![Figur: Overtid vises per stopp og i rutesammendraget](../../screenshots/manual/rute-overtid.jpg)
+![Figur: Overtid vises per stopp og i rutesammendraget](../../../screenshots/manual/rute-overtid.jpg)
 
 *Figur: Overtid per stopp og total overtid for dagen.*
 
@@ -693,7 +693,7 @@ kostnad er fylt inn. Kjøpsforslaget er en beregnet lesevisning og bestiller
 ingenting automatisk. Leverandørfaktura, fakturakontroll, ordreutsending til
 leverandør, retur/kreditnota og serie-/lotsporing er ikke en del av v1.
 
-![Figur: Innkjøpsordre med leverandør, linjer og varemottak](../../screenshots/manual/lager-innkjop.jpg)
+![Figur: Innkjøpsordre med leverandør, linjer og varemottak](../../../screenshots/manual/lager-innkjop.jpg)
 
 *Figur: Innkjøpsordren viser status, linjer og hva som gjenstår å motta.*
 
@@ -749,7 +749,7 @@ type;bruker;dato;referanse;beskrivelse;mengde;enhet;belop;mva
 visittens tidsstempler; modulen lager ingen egen timeføring. Det finnes ingen
 integrasjon mot en ekstern lønnsleverandør – CSV-kontrakten er grensesnittet.
 
-![Figur: Godkjenning av kjøreturer og utlegg](../../screenshots/manual/utlegg-godkjenning.jpg)
+![Figur: Godkjenning av kjøreturer og utlegg](../../../screenshots/manual/utlegg-godkjenning.jpg)
 
 *Figur: Kontoret godkjenner eller avviser rader før lønns-CSV-en låses.*
 
@@ -783,7 +783,7 @@ omsetning påvirker ikke resultatberegningen; den er fortsatt basert på estimat
 Maks 5 000 oppdrag, 5 000 fakturaer og 366 dager per rapport. CSV-eksporten er
 deterministisk og revisjonslogges med filter, radantall og sjekksum.
 
-![Figur: Lønnsomhet med estimert og faktisk inntekt](../../screenshots/manual/lonnsomhet-kpi.jpg)
+![Figur: Lønnsomhet med estimert og faktisk inntekt](../../../screenshots/manual/lonnsomhet-kpi.jpg)
 
 *Figur: KPI-ene viser estimat og faktisk omsetning side om side.*
 

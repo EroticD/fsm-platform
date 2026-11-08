@@ -301,7 +301,7 @@ narrow role and use `scripts/create-api-key.mjs` with `API_KEY_USER_EMAIL`,
 
 Each key can make **120 requests per minute**; exceeding the limit returns `429` with `Retry-After`. Pagination uses `page` and `limit` (maximum 100). OpenAPI 3.1 is at `/api/v1/openapi.json`; documentation with examples is in `docs/API.md`.
 
-![Figure: API keys with scopes, owner and last used](../../screenshots/manual/api-oversikt.jpg)
+![Figure: API keys with scopes, owner and last used](../../../screenshots/manual/api-oversikt.jpg)
 
 *Figure: The API overview shows keys, scopes and last used.*
 
@@ -346,7 +346,7 @@ several app instances share the queue. Rows left in `SENDING` by a crashed
 process are reset after 15 minutes. If the module for an event is off, the
 message is postponed rather than discarded.
 
-![Figure: Automatic email settings with test send](../../screenshots/manual/innstillinger-email.jpg)
+![Figure: Automatic email settings with test send](../../../screenshots/manual/innstillinger-email.jpg)
 
 *Figure: Automatic email is controlled per event, with sender and test.*
 
@@ -381,7 +381,7 @@ URLs. Operational metrics are in `/api/metrics` as
 `fsm_push_messages{status="pending"}` and
 `fsm_push_messages{status="dead_letter"}`.
 
-![Figure: Push settings with provider status and device cleanup](../../screenshots/manual/innstillinger-push.jpg)
+![Figure: Push settings with provider status and device cleanup](../../../screenshots/manual/innstillinger-push.jpg)
 
 *Figure: Push settings show whether FCM and APNs are configured.*
 

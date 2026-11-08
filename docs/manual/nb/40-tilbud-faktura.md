@@ -11,7 +11,7 @@ regnskap er egne data med egne rettigheter og revisjonsspor; de påvirker ikke
 oppdragets låsing eller rapporten. Alle beløp regnes på serveren. Klienten kan
 ikke sende inn ferdige totaler som avviker fra linjene.
 
-![Figur: Tilbudslisten med status, kunde og totalsum](../../screenshots/manual/tilbud-liste.jpg)
+![Figur: Tilbudslisten med status, kunde og totalsum](../../../screenshots/manual/tilbud-liste.jpg)
 
 *Figur: Tilbudslisten samler kladder, sendte og godkjente tilbud.*
 
@@ -109,7 +109,7 @@ planlagte fakturajobben. En betaling arver idempotensnøkkel, slik at dobbeltkli
 og gjentatte webhooks ikke gir dobbeltbeløp. Refusjon opprettes ikke fra
 betalingsleverandøren; bruk kreditnota.
 
-![Figur: Faktura med betalingsstatus, utestående og betalingslenke](../../screenshots/manual/faktura-betaling.jpg)
+![Figur: Faktura med betalingsstatus, utestående og betalingslenke](../../../screenshots/manual/faktura-betaling.jpg)
 
 *Figur: Fakturaen viser linjer, betalinger og utestående i samme bilde.*
 
@@ -167,7 +167,7 @@ Regnskapssynken er manuell og per faktura. Den oppretter eller gjenbruker kunde,
 faktura og positive betalinger hos leverandøren, lagrer eksterne id-er og en
 retrybar tilstand. Den later aldri som et eksternt kall lyktes.
 
-![Figur: Regnskapsinnstillinger med leverandør, test og siste synk](../../screenshots/manual/regnskap-innstillinger.jpg)
+![Figur: Regnskapsinnstillinger med leverandør, test og siste synk](../../../screenshots/manual/regnskap-innstillinger.jpg)
 
 *Figur: Regnskapsinnstillingene viser valgt leverandør og om integrasjonen er
 aktiv.*
@@ -272,3 +272,14 @@ avstemming og at ingen fakturaer står fast i **Kladd**.
 | Regnskapssynken står som **Feilet** | Feil nøkkel, kontokode eller MVA-oppsett | Les `lastError`, rett årsaken og synkroniser på nytt |
 | CSV vises som **Eksportert** | CSV er eksport, ikke synk | Importer filen i regnskapet; ingen ekstern tilstand er endret |
 | Kreditnota avvises | Beløpet overstiger utestående | Kontroller betalinger og utestående først |
+
+## Kunde og kontaktperson
+
+Kontaktfeltet vises først når du har valgt kunde. Kontaktene som vises, hentes
+for den valgte kunden og inneholder bare personer som faktisk tilhører kunden.
+Bytter du kunde, tømmes kontaktvalget og listen lastes på nytt. En kontakt fra
+en annen kunde kan derfor verken velges eller sendes inn.
+
+Serveren validerer det samme ved lagring. Hvis en kontakt ikke tilhører den
+valgte kunden, avvises tilbudet eller fakturaen selv om noen skulle omgå
+skjemaet.

@@ -23,7 +23,7 @@
   },
   "images": [
     {
-      "file": "screenshots/manual/rute-manuell-rekkefølge.jpg",
+      "file": "screenshots/manual/rute-manuell-rekkefolge.jpg",
       "route": "/kalender/rute",
       "selector": "[data-manual-route-form]",
       "role": "admin",
@@ -69,7 +69,7 @@
       "capturedAt": "2026-11-08T12:21:59.088Z"
     },
     {
-      "file": "screenshots/manual/oppdrag-rekkefølge.jpg",
+      "file": "screenshots/manual/oppdrag-rekkefolge.jpg",
       "route": "/oppdrag/cmw7rieln000ovtfj6pwca3tc",
       "selector": "[data-workorder-route-sequence]",
       "role": "admin",

@@ -4,7 +4,7 @@ Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
 
-![Figur: I dag med neste jobb, forfalte og ledige oppdrag](../../screenshots/pages/mobile/mine-oppdrag.jpg)
+![Figur: I dag med neste jobb, forfalte og ledige oppdrag](../../../screenshots/pages/mobile/mine-oppdrag.jpg)
 
 *Figur: I dag er feltappens startsiden.*
 
@@ -228,7 +228,7 @@ Står det **Ingen sjekklister er knyttet til dette oppdraget ennå**, kan du ikk
 
 Skjemaet åpnes på `/mine-oppdrag/<oppdrag-id>/skjema/<mal-id>`.
 
-![Figur: Rapportskjemaet med enheter, sjekkpunkter og signatur](../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
+![Figur: Rapportskjemaet med enheter, sjekkpunkter og signatur](../../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
 
 *Figur: Rapportskjemaet er bygget for én hånd og ustabilt nett.*
 

@@ -325,7 +325,7 @@ integrasjonsbruker med smal rolle og bruk `scripts/create-api-key.mjs` med
 
 Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429` med `Retry-After`. Paginering bruker `page` og `limit` (maks 100). OpenAPI 3.1 ligger på `/api/v1/openapi.json`; dokumentasjon med eksempler i `docs/API.md`.
 
-![Figur: API-nøkler med scopes, eier og sist brukt](../../screenshots/manual/api-oversikt.jpg)
+![Figur: API-nøkler med scopes, eier og sist brukt](../../../screenshots/manual/api-oversikt.jpg)
 
 *Figur: API-oversikten viser nøkler, scopes og sist brukt.*
 
@@ -371,7 +371,7 @@ flere app-instanser kan dele køen. Rader som blir stående i `SENDING` av en
 krasjet prosess settes tilbake etter 15 minutter. Er modulen for en hendelse av,
 utsettes meldingen i stedet for å forkastes.
 
-![Figur: Innstillinger for automatisk e-post med testutsending](../../screenshots/manual/innstillinger-email.jpg)
+![Figur: Innstillinger for automatisk e-post med testutsending](../../../screenshots/manual/innstillinger-email.jpg)
 
 *Figur: Automatisk e-post styres per hendelse, med avsender og test.*
 
@@ -405,7 +405,7 @@ som starter med `/`; appen skal aldri åpne eksterne URL-er. Driftsmålinger lig
 i `/api/metrics` som `fsm_push_messages{status="pending"}` og
 `fsm_push_messages{status="dead_letter"}`.
 
-![Figur: Pushinnstillinger med leverandørstatus og enhetsrydding](../../screenshots/manual/innstillinger-push.jpg)
+![Figur: Pushinnstillinger med leverandørstatus og enhetsrydding](../../../screenshots/manual/innstillinger-push.jpg)
 
 *Figur: Pushinnstillingene viser om FCM og APNs er konfigurert.*
 

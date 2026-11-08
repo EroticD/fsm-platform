@@ -16,7 +16,7 @@ invoicing happens outside the platform.
 
 The dashboard is at `/` and is titled **Planning**.
 
-![Figure: Dashboard with queue, exceptions and field status](../../screenshots/pages/desktop/dashbord.jpg)
+![Figure: Dashboard with queue, exceptions and field status](../../../screenshots/pages/desktop/dashbord.jpg)
 
 *Figure: The dashboard is the office's starting point for the day.*
 
@@ -123,7 +123,7 @@ The work order list is at `/oppdrag` with the views **Active**, **New**, **Not
 started**, **In progress**, **Today**, **Overdue**, **Unassigned**,
 **Completed** and **Cancelled**.
 
-![Figure: Work order list with status, date and technician](../../screenshots/pages/desktop/oppdrag.jpg)
+![Figure: Work order list with status, date and technician](../../../screenshots/pages/desktop/oppdrag.jpg)
 
 *Figure: The work order list is the queue across customers and dates.*
 
@@ -168,7 +168,7 @@ You can assign several technicians; **Remove** takes one off. The assignment
 applies to the whole work order. The office only plans the dates; each date
 becomes one workday in the field app.
 
-![Figure: Work order detail with status, days and checklists](../../screenshots/pages/desktop/oppdrag-detalj.jpg)
+![Figure: Work order detail with status, days and checklists](../../../screenshots/pages/desktop/oppdrag-detalj.jpg)
 
 *Figure: The work order detail gathers status, contact, days and reports.*
 
@@ -188,7 +188,7 @@ moves the times when you approve the order there. An empty field or 0 means
 automatic order. As soon as at least one visit for the technician and day has a
 manual number, the planner sorts by number and skips nearest-neighbour/2-opt.
 
-![Figure: Days and time with an order number per workday](../../screenshots/manual/oppdrag-rekkefolge.jpg)
+![Figure: Days and time with an order number per workday](../../../screenshots/manual/oppdrag-rekkefolge.jpg)
 
 *Figure: The order number on each workday controls the route without changing
 the time.*
@@ -495,7 +495,7 @@ entirely on overlap with a fixed visit or registered holiday/sickness. Completed
 and cancelled visits are never moved. If the plan has changed since it was
 shown, you are asked to reload the page.
 
-![Figure: Route planner with an order field per stop](../../screenshots/manual/rute-manuell-rekkefolge.jpg)
+![Figure: Route planner with an order field per stop](../../../screenshots/manual/rute-manuell-rekkefolge.jpg)
 
 *Figure: Manual order is set with 1/2/3/4 in the route planner.*
 
@@ -503,7 +503,7 @@ Look at the number field at each stop and the summary at the bottom. The order i
 a suggestion until you select **Manual order** or **Use order**. The numbering
 does not change the date; it changes the order within the day.
 
-![Figure: Overtime shown per stop and in the route summary](../../screenshots/manual/rute-overtid.jpg)
+![Figure: Overtime shown per stop and in the route summary](../../../screenshots/manual/rute-overtid.jpg)
 
 *Figure: Overtime per stop and total overtime for the day.*
 
@@ -688,7 +688,7 @@ filled in. The purchase suggestion is a calculated read-only view and orders
 nothing automatically. Supplier invoices, invoice control, sending orders to the
 supplier, returns/credit notes and serial/lot tracking are not part of v1.
 
-![Figure: Purchase order with supplier, lines and goods receipt](../../screenshots/manual/lager-innkjop.jpg)
+![Figure: Purchase order with supplier, lines and goods receipt](../../../screenshots/manual/lager-innkjop.jpg)
 
 *Figure: The purchase order shows status, lines and what remains to receive.*
 
@@ -745,7 +745,7 @@ from the visit timestamps; the module does not create its own time recording.
 There is no integration with an external payroll provider – the CSV contract is
 the interface.
 
-![Figure: Approval of mileage and expenses](../../screenshots/manual/utlegg-godkjenning.jpg)
+![Figure: Approval of mileage and expenses](../../../screenshots/manual/utlegg-godkjenning.jpg)
 
 *Figure: The office approves or rejects rows before the payroll CSV is locked.*
 
@@ -782,7 +782,7 @@ is still based on the estimate. The limit is 5,000 work orders, 5,000 invoices
 and 366 days per report. CSV export is deterministic and audit-logged with
 filter, row count and checksum.
 
-![Figure: Profitability with estimated and actual revenue](../../screenshots/manual/lonnsomhet-kpi.jpg)
+![Figure: Profitability with estimated and actual revenue](../../../screenshots/manual/lonnsomhet-kpi.jpg)
 
 *Figure: The KPIs show estimated and actual revenue side by side.*
 
