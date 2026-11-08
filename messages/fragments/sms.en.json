@@ -171,5 +171,43 @@
         "missing_email": "Missing email address"
       }
     }
+  },
+  "email": {
+    "settings": {
+      "title": "Automatic e-mail",
+      "description": "Transactional e-mail is sent from a durable outbox. Here you control the sender, reply-to address and which events send e-mail.",
+      "smtpOn": "SMTP is configured. The outbox sends e-mail in the background.",
+      "smtpOff": "SMTP is not configured. E-mail stays queued until the SMTP variables are set.",
+      "smtpHint": "SMTP host, username and password are set in SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS. The password is never shown here.",
+      "fromName": "Sender name",
+      "fromAddress": "Sender address",
+      "fromPlaceholder": "Empty = the SMTP user",
+      "replyTo": "Reply-to address",
+      "replyPlaceholder": "Optional",
+      "fromHint": "The sender address must be accepted by the SMTP provider. Empty fields use the SMTP user and the branding company name.",
+      "eventsTitle": "Events",
+      "eventsHint": "Turn off an event to stop sending it automatically. The event is still recorded in the system; only the e-mail stops.",
+      "events": {
+        "quoteSent": "Quote sent",
+        "invoiceSent": "Invoice sent",
+        "paymentReceived": "Payment received",
+        "bookingRequested": "Date request received",
+        "bookingConfirmed": "Booking confirmed",
+        "bookingCancelled": "Booking cancelled",
+        "workOrderAssigned": "Job assigned to technician"
+      },
+      "save": "Save e-mail settings",
+      "saved": "The e-mail settings have been saved.",
+      "testTitle": "Send test e-mail",
+      "testHint": "Send a test message through the outbox to confirm that SMTP and the sender address work.",
+      "testRecipient": "Recipient",
+      "testSend": "Send test",
+      "testSent": "The test e-mail has been sent.",
+      "testPrivacy": "The test is only sent to the address you enter and is not stored as an event.",
+      "errorForbidden": "You do not have permission to change the e-mail settings.",
+      "errorInvalid": "The sender address or reply-to address is invalid.",
+      "errorSmtp": "SMTP is not configured, so the test could not be sent.",
+      "errorSend": "The e-mail could not be sent. Check the SMTP setup and try again."
+    }
   }
 }

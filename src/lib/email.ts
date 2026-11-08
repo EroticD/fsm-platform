@@ -36,7 +36,7 @@ export function safeEmailError(error: unknown): string {
 }
 
 /** Er SMTP konfigurert i .env? */
-function isSmtpConfigured() {
+export function isSmtpConfigured() {
   return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 

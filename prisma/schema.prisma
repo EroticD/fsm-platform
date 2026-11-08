@@ -1910,6 +1910,66 @@ model NotificationPreference {
   @@unique([userId, type])
 }
 
+enum EmailMessageStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+/// Vedvarende utboks for transaksjons-e-post.
+///
+/// Hendelser legger en rad i denne tabellen i stedet for å sende SMTP i
+/// request-stien. Jobbworkeren henter én rad med `FOR UPDATE SKIP LOCKED`,
+/// renderer malen og sender via den eksisterende SMTP-transporten. Raden er
+/// idempotent på `idempotencyKey`, slik at et dobbeltklikk eller en gjentatt
+/// hendelse aldri gir to e-poster.
+model EmailMessage {
+  id             String             @id @default(cuid())
+  to             String
+  subject        String
+  /// Hendelsesnøkkelen, f.eks. `quoteSent` eller `bookingConfirmed`.
+  template       String
+  /// Maldata. Inneholder personopplysninger frem til sending; etter vellykket
+  /// sending tømmes feltet fordi det ikke lenger trengs for retry.
+  payload        Json
+  locale         String             @default("nb")
+  status         EmailMessageStatus @default(PENDING)
+  attempts       Int                @default(0)
+  nextAttemptAt  DateTime           @default(now())
+  /// Kort, PII-fri feilkode (f.eks. `ECONNECTION`). Aldri rå SMTP-melding.
+  lastError      String?
+  /// Unik nøkkel per hendelse/mottaker. Gjør enqueue idempotent.
+  idempotencyKey String             @unique
+  /// Kort lease mens en instans sender, så en krasjet prosess kan ryddes.
+  lockedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@index([createdAt])
+}
+
+/// Globale innstillinger for transaksjons-e-post. Én rad med id "default".
+/// Av/på per hendelsestype og avsender/reply-to. SMTP-hemmelighetene ligger
+/// fortsatt i miljøvariabler og vises aldri her.
+model EmailSettings {
+  id               String   @id @default("default")
+  fromName         String?
+  fromAddress      String?
+  replyTo          String?
+  quoteSent        Boolean  @default(true)
+  invoiceSent      Boolean  @default(true)
+  paymentReceived  Boolean  @default(true)
+  bookingRequested Boolean  @default(true)
+  bookingConfirmed Boolean  @default(true)
+  bookingCancelled Boolean  @default(true)
+  workOrderAssigned Boolean @default(true)
+  updatedAt        DateTime @default(now()) @updatedAt
+  updatedById      String?
+}
+
 model SavedSearch {
   id        String   @id @default(cuid())
   userId    String

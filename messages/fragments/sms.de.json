@@ -171,5 +171,43 @@
         "missing_email": "E-Mail-Adresse fehlt"
       }
     }
+  },
+  "email": {
+    "settings": {
+      "title": "Automatische E-Mail",
+      "description": "Transaktions-E-Mails werden aus einem dauerhaften Postausgang gesendet. Hier steuern Sie Absender, Antwortadresse und welche Ereignisse E-Mails senden.",
+      "smtpOn": "SMTP ist konfiguriert. Der Postausgang sendet E-Mails im Hintergrund.",
+      "smtpOff": "SMTP ist nicht konfiguriert. E-Mails bleiben in der Warteschlange, bis die SMTP-Variablen gesetzt sind.",
+      "smtpHint": "SMTP-Host, Benutzername und Passwort werden in SMTP_HOST, SMTP_PORT, SMTP_USER und SMTP_PASS gesetzt. Das Passwort wird hier nie angezeigt.",
+      "fromName": "Absendername",
+      "fromAddress": "Absenderadresse",
+      "fromPlaceholder": "Leer = SMTP-Benutzer",
+      "replyTo": "Antwortadresse",
+      "replyPlaceholder": "Optional",
+      "fromHint": "Die Absenderadresse muss vom SMTP-Anbieter akzeptiert werden. Leere Felder verwenden den SMTP-Benutzer und den Firmennamen aus dem Branding.",
+      "eventsTitle": "Ereignisse",
+      "eventsHint": "Schalten Sie ein Ereignis aus, um den automatischen Versand zu stoppen. Das Ereignis wird weiterhin im System gespeichert; nur die E-Mail entfällt.",
+      "events": {
+        "quoteSent": "Angebot gesendet",
+        "invoiceSent": "Rechnung gesendet",
+        "paymentReceived": "Zahlung erhalten",
+        "bookingRequested": "Terminanfrage erhalten",
+        "bookingConfirmed": "Buchung bestätigt",
+        "bookingCancelled": "Buchung storniert",
+        "workOrderAssigned": "Auftrag dem Techniker zugewiesen"
+      },
+      "save": "E-Mail-Einstellungen speichern",
+      "saved": "Die E-Mail-Einstellungen wurden gespeichert.",
+      "testTitle": "Test-E-Mail senden",
+      "testHint": "Senden Sie eine Testnachricht über den Postausgang, um SMTP und die Absenderadresse zu prüfen.",
+      "testRecipient": "Empfänger",
+      "testSend": "Test senden",
+      "testSent": "Die Test-E-Mail wurde gesendet.",
+      "testPrivacy": "Der Test wird nur an die eingegebene Adresse gesendet und nicht als Ereignis gespeichert.",
+      "errorForbidden": "Sie haben keine Berechtigung, die E-Mail-Einstellungen zu ändern.",
+      "errorInvalid": "Die Absenderadresse oder Antwortadresse ist ungültig.",
+      "errorSmtp": "SMTP ist nicht konfiguriert, daher konnte der Test nicht gesendet werden.",
+      "errorSend": "Die E-Mail konnte nicht gesendet werden. Prüfen Sie die SMTP-Konfiguration und versuchen Sie es erneut."
+    }
   }
 }

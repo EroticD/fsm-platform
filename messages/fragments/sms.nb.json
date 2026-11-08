@@ -171,5 +171,43 @@
         "missing_email": "Mangler e-postadresse"
       }
     }
+  },
+  "email": {
+    "settings": {
+      "title": "Automatisk e-post",
+      "description": "Transaksjons-e-post sendes fra en vedvarende utboks. Her styrer du avsender, svaradresse og hvilke hendelser som skal sende e-post.",
+      "smtpOn": "SMTP er konfigurert. Utboksen sender e-post i bakgrunnen.",
+      "smtpOff": "SMTP er ikke konfigurert. E-post blir liggende i køen til SMTP-variablene er satt.",
+      "smtpHint": "SMTP-vert, brukernavn og passord settes i miljøvariablene SMTP_HOST, SMTP_PORT, SMTP_USER og SMTP_PASS. Passordet vises aldri her.",
+      "fromName": "Avsendernavn",
+      "fromAddress": "Avsenderadresse",
+      "fromPlaceholder": "Tomt = SMTP-brukeren",
+      "replyTo": "Svaradresse",
+      "replyPlaceholder": "Valgfri",
+      "fromHint": "Avsenderadressen må være en adresse SMTP-leverandøren godtar. Tomme felt bruker SMTP-brukeren og bedriftsnavnet fra merkevaren.",
+      "eventsTitle": "Hendelser",
+      "eventsHint": "Slå av en hendelse for å slutte å sende den automatisk. Hendelsen lagres fortsatt i systemet; bare e-posten stoppes.",
+      "events": {
+        "quoteSent": "Tilbud sendt",
+        "invoiceSent": "Faktura sendt",
+        "paymentReceived": "Betaling mottatt",
+        "bookingRequested": "Datoforespørsel mottatt",
+        "bookingConfirmed": "Booking bekreftet",
+        "bookingCancelled": "Booking kansellert",
+        "workOrderAssigned": "Oppdrag tildelt montør"
+      },
+      "save": "Lagre e-postinnstillinger",
+      "saved": "E-postinnstillingene er lagret.",
+      "testTitle": "Send test-e-post",
+      "testHint": "Send en testmelding gjennom utboksen for å bekrefte at SMTP og avsenderadressen virker.",
+      "testRecipient": "Mottaker",
+      "testSend": "Send test",
+      "testSent": "Test-e-posten er sendt.",
+      "testPrivacy": "Testen sendes bare til adressen du skriver inn, og lagres ikke som en hendelse.",
+      "errorForbidden": "Du har ikke tilgang til å endre e-postinnstillingene.",
+      "errorInvalid": "Avsenderadressen eller svaradressen er ugyldig.",
+      "errorSmtp": "SMTP er ikke konfigurert, så testen kunne ikke sendes.",
+      "errorSend": "E-posten kunne ikke sendes. Sjekk SMTP-oppsettet og prøv igjen."
+    }
   }
 }

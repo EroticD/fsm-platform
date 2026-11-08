@@ -20,6 +20,11 @@ import {
   startTransferWorker,
 } from "@/lib/customer-transfer/worker";
 import { startReminderWorker } from "@/server/reminders";
+import {
+  EMAIL_OUTBOX_INTERVAL_MS,
+  processEmailOutbox,
+  requeueStaleEmailMessages,
+} from "@/server/email-outbox";
 import { moduleEnabled } from "@/server/modules";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -112,6 +117,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmBookingHoldCleanupStarted?: boolean;
   __fsmLocationPingCleanupStarted?: boolean;
   __fsmSmsWorkerStarted?: boolean;
+  __fsmEmailOutboxWorkerStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -718,6 +724,41 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
 }
 
 /**
+ * Sender transaksjons-e-post fra den vedvarende utboksen.
+ *
+ * Uten SMTP er hvert tick en trygg no-op; radene blir liggende PENDING uten å
+ * telle som mislykkede forsøk. Når SMTP er konfigurert, sender vi i små batcher
+ * og sover kortere så lenge køen faktisk har arbeid.
+ */
+async function runEmailOutboxLoop(): Promise<void> {
+  await sleep(2_000);
+
+  for (;;) {
+    try {
+      const result = await processEmailOutbox();
+      await sleep(
+        result.claimed > 0 ? 1_000 : EMAIL_OUTBOX_INTERVAL_MS,
+      );
+    } catch (error) {
+      logger.error("E-postutboks: uventet feil i worker", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sleep(EMAIL_OUTBOX_INTERVAL_MS);
+    }
+  }
+}
+
+/** Starter utboks-workeren én gang per prosess. */
+export function startEmailOutboxWorker(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmEmailOutboxWorkerStarted) return;
+  scope.__fsmEmailOutboxWorkerStarted = true;
+
+  void requeueStaleEmailMessages();
+  void runEmailOutboxLoop();
+}
+
+/**
  * Starter jobbkøen i denne prosessen. Kalles fra `instrumentation.ts`, og
  * kjører bare én gang per prosess – også når Next.js laster modulen på nytt.
  */
@@ -808,6 +849,10 @@ export async function startJobWorker(): Promise<void> {
   const notificationTimer = setInterval(processNotifications, 60_000);
   notificationTimer.unref?.();
 
+  // Transaksjons-e-post (tilbud, faktura, betaling og booking) sendes fra
+  // EmailMessage-utboksen. Request-stien legger bare raden i køen.
+  startEmailOutboxWorker();
+
   // Planlegg og send påminnelser fra den vedvarende jobbkøen. SMTP- eller
   // leverandørfeil påvirker derfor aldri request-stien, og hver utsendelse
   // har en egen rad i ReminderDispatch med retry og historikk.
@@ -841,6 +886,7 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmBookingHoldCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;
+  scope.__fsmEmailOutboxWorkerStarted = false;
   resetTransferWorkerForTests();
   // SMS-workeren har eget startflagg; nullstilles her slik at tester som
   // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.
