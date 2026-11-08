@@ -88,10 +88,16 @@ export default async function QuoteDetailPage({
           }
           icon={<Icon name="file" className="h-5 w-5" />}
           actions={
-            <Link href="/tilbud" className={BUTTON}>
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("quotes.detail.back")}
-            </Link>
+            <>
+              <Link href={`/tilbud/${quote.id}/skriv`} className={BUTTON}>
+                <Icon name="file" className="h-4 w-4" />
+                {t("quotes.print.action")}
+              </Link>
+              <Link href="/tilbud" className={BUTTON}>
+                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+                {t("quotes.detail.back")}
+              </Link>
+            </>
           }
         />
 

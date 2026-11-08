@@ -107,6 +107,19 @@
       "invoices": "Fakturaer",
       "draftInvoice": "Fakturakladd"
     },
+    "print": {
+      "action": "Skriv ut / PDF",
+      "back": "Tilbake til tilbudet",
+      "print": "Skriv ut",
+      "document": "Tilbud",
+      "companyFallback": "Min bedrift",
+      "orgNumber": "Org.nr.",
+      "issueDate": "Tilbudsdato",
+      "department": "Avdeling",
+      "status": "Status",
+      "notes": "Notater",
+      "terms": "Dette er et tilbud, ikke en faktura. Tilbudet er gyldig til {date}."
+    },
     "approval": {
       "title": "Godkjenn tilbud",
       "eyebrow": "Tilbud til godkjenning",

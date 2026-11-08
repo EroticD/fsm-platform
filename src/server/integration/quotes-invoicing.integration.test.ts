@@ -10,6 +10,7 @@ import {
   createQuote,
   createQuoteVersion,
   expireQuotes,
+  getQuote,
   getQuoteByToken,
   sendQuote,
   updateQuote,
@@ -91,12 +92,14 @@ async function createDraftQuote(options: {
   lines?: Array<Record<string, unknown>>;
   vatRate?: unknown;
   productId?: string;
+  withLinks?: boolean;
 } = {}) {
+  const withLinks = options.withLinks ?? true;
   const result = await createQuote(officeActor, {
     title: unique("Tilbud"),
     customerId: options.customerId ?? customerAId,
-    contactId: contactAId,
-    productId: options.productId ?? productAId,
+    contactId: withLinks ? contactAId : undefined,
+    productId: withLinks ? (options.productId ?? productAId) : undefined,
     validUntil: "2027-12-31",
     vatRate: options.vatRate,
     lines:
@@ -510,6 +513,17 @@ describeIntegration("tilbud og fakturering mot ekte PostgreSQL", () => {
     expect(denied.ok).toBe(false);
     if (!denied.ok) expect(denied.reason).toBe("forbidden");
 
+    const quoteAId = await createDraftQuote();
+    const quoteBId = await createDraftQuote({ customerId: customerBId, withLinks: false });
+
+    const ownQuote = await getQuote(officeActor, quoteAId);
+    expect(ownQuote.ok).toBe(true);
+    const quoteForB = await getQuote(officeActor, quoteBId);
+    expect(quoteForB.ok).toBe(true);
+    const noAccess = await getQuote(limitedActor, quoteAId);
+    expect(noAccess.ok).toBe(false);
+    if (!noAccess.ok) expect(noAccess.reason).toBe("not_found");
+
     const invoiceB = await createSentInvoice({
       customerId: customerBId,
       lines: [{ description: "Kunde B", quantity: 1, unitPrice: 200, vatRate: 25 }],
@@ -536,6 +550,14 @@ describeIntegration("tilbud og fakturering mot ekte PostgreSQL", () => {
     const cross = await getPortalInvoice(customerAActor, invoiceB.id);
     expect(cross.ok).toBe(false);
     if (!cross.ok) expect(cross.reason).toBe("not_found");
+
+    // Utskriftsvisningen bruker samme tjenestelag som detaljsiden. En
+    // kundeportalbruker skal derfor aldri kunne lese en annen kundes tilbud.
+    const crossQuote = await getQuote(customerAActor, quoteBId);
+    expect(crossQuote.ok).toBe(false);
+    if (!crossQuote.ok) expect(crossQuote.reason).toBe("not_found");
+    const ownQuoteViaPortal = await getQuote(customerAActor, quoteAId);
+    expect(ownQuoteViaPortal.ok).toBe(true);
   });
 
   it("markerer forfalte fakturaer og eksporterer stabil CSV", async () => {

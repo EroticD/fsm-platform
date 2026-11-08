@@ -107,6 +107,19 @@
       "invoices": "Invoices",
       "draftInvoice": "Draft invoice"
     },
+    "print": {
+      "action": "Print / PDF",
+      "back": "Back to the quote",
+      "print": "Print",
+      "document": "Quote",
+      "companyFallback": "My company",
+      "orgNumber": "Org. no.",
+      "issueDate": "Quote date",
+      "department": "Department",
+      "status": "Status",
+      "notes": "Notes",
+      "terms": "This is a quote, not an invoice. The quote is valid until {date}."
+    },
     "approval": {
       "title": "Approve quote",
       "eyebrow": "Quote for approval",
