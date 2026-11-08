@@ -225,6 +225,7 @@ export default function CustomerTransferTab({
 
   const [importing, setImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [passphrase, setPassphrase] = useState("");
   const [importJob, setImportJob] = useState<Job | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<TransferUiError | null>(null);
@@ -326,19 +327,23 @@ export default function CustomerTransferTab({
     setImportResult(null);
     setImportJob(null);
     try {
-      const response = await fetch(
-        `/api/innstillinger/kunder/import?filename=${encodeURIComponent(file.name)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/zip" },
-          body: file,
-        },
-      );
+      // Passfrasen sendes bare som et multipart-felt i denne forespørselen.
+      // Den skrives aldri til jobb-JSON, database eller logger, og tømmes fra
+      // React-state så snart serveren har tatt imot pakken.
+      const form = new FormData();
+      form.append("file", file);
+      if (passphrase) form.append("passphrase", passphrase);
+      const response = await fetch("/api/innstillinger/kunder/import", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
       if (!response.ok) {
         setImportError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
       const job = (await response.json()) as Job;
+      setPassphrase("");
       setImportJob(job);
       await runDryRun(job.id);
     } catch {
@@ -436,6 +441,7 @@ export default function CustomerTransferTab({
 
   function resetImport() {
     setImportFile(null);
+    setPassphrase("");
     setImportJob(null);
     setPreview(null);
     setPreviewError(null);
@@ -653,19 +659,56 @@ export default function CustomerTransferTab({
         </p>
 
         <label className="flex flex-col gap-1 text-xs font-bold">
+          {t("settings.customerTransfer.import.passphraseLabel")}
+          <input
+            type="password"
+            name="transfer-passphrase"
+            autoComplete="off"
+            spellCheck={false}
+            className={FIELD}
+            value={passphrase}
+            onChange={(event) => setPassphrase(event.target.value)}
+            placeholder={t("settings.customerTransfer.import.passphrasePlaceholder")}
+          />
+        </label>
+        <p className="text-xs text-[var(--muted,#62685f)]">
+          {t("settings.customerTransfer.import.passphraseHelp")}
+        </p>
+
+        <label className="flex flex-col gap-1 text-xs font-bold">
           {t("settings.customerTransfer.import.fileLabel")}
           <input
             ref={fileRef}
             type="file"
-            accept=".zip,application/zip"
+            accept=".zip,.fsmenc,application/zip"
             className={FIELD}
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               setImportFile(file);
-              if (file) void uploadImport(file);
+              setImportError(null);
+              setPreviewError(null);
+              setPreview(null);
+              // Vanlige ZIP-pakker kan lastes opp med en gang. En kryptert
+              // .fsmenc-pakke venter til administratoren har skrevet passfrasen
+              // og trykker «Last opp og valider».
+              if (file && !file.name.toLowerCase().endsWith(".fsmenc")) {
+                void uploadImport(file);
+              }
             }}
           />
         </label>
+        {importFile && !importing && !importResult && (
+          <div>
+            <button
+              type="button"
+              className={SECONDARY}
+              onClick={() => void uploadImport(importFile)}
+            >
+              <Icon name="file" className="h-4 w-4" />
+              {t("settings.customerTransfer.import.upload")}
+            </button>
+          </div>
+        )}
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"

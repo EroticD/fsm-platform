@@ -32,7 +32,9 @@ describe("CustomerTransferTab", () => {
     expect(html).toContain("settings.customerTransfer.warningTitle");
     expect(html).toContain("Kunde A");
     expect(html).toContain('type="file"');
-    expect(html).toContain('accept=".zip,application/zip"');
+    expect(html).toContain('accept=".zip,.fsmenc,application/zip"');
+    expect(html).toContain('type="password"');
+    expect(html).toContain("settings.customerTransfer.import.passphraseLabel");
   });
 
   it("krever bekreftelse før eksportknappen kan brukes", () => {

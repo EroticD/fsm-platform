@@ -31,16 +31,24 @@
 >   row and the checksum inside the transaction.
 > - **Package signatures.** HMAC-SHA256 over the manifest and
 >   `checksums.sha256`, written to `manifest.sig` when
->   `CUSTOMER_TRANSFER_SIGNING_KEY` is set. Import verifies before trusting the
->   package and rejects tampered or unknown-key signatures. Key generation,
->   rotation and the trust model are documented in `docs/OPERATIONS.md`.
+>   `CUSTOMER_TRANSFER_SIGNING_KEY` is set. An asymmetric Ed25519 mode signs the
+>   same canonical material and writes `manifest.sig.ed25519` when
+>   `CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY` (and/or the public key on the
+>   receiving side) is configured. Import verifies signatures before trusting
+>   the package. `CUSTOMER_TRANSFER_SIGNATURE_MODE` selects `hmac`, `ed25519`,
+>   `both` or `any`; key generation, rotation, recovery and the trust model are
+>   documented in `docs/OPERATIONS.md`. Tampered packages, wrong asymmetric
+>   keys and missing required signatures are rejected with stable codes
+>   (`signature_invalid`, `signature_untrusted`, `signature_missing`).
 >   `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` rejects unsigned packages.
 > - **Optional package encryption.** A versioned AES-256-GCM envelope with a
 >   scrypt-derived key (`N=32768, r=8, p=1`) and random salt/IV. It is a real,
 >   reviewed Node `crypto` scheme, not ZIP passwords. CLI:
 >   `npm run transfer:encrypt` / `npm run transfer:decrypt`; import accepts a
 >   `.fsmenc` envelope with a passphrase in the multipart `passphrase` field
->   (or `X-Transfer-Passphrase` for CLI use). The passphrase is never stored.
+>   (or `X-Transfer-Passphrase` for CLI use). The admin import tab now has a
+>   password field for `.fsmenc` files. The passphrase is never stored,
+>   persisted in job JSON or logged. Export-side encryption remains a CLI step.
 > - **Cross-version handling.** Exports use schema `1.1` (adds a deterministic
 >   `packageId`). Imports accept the explicit list `1.0` and `1.1`;
 >   `1.0 → 1.1` is a deterministic migrator. Other versions, including a future
@@ -64,17 +72,20 @@
 >   caps remain. Streaming storage/S3-minio is future work.
 > - The durable worker is a polling loop in the app process, not a separate
 >   queue service. A deployment with zero app processes has no worker.
-> - Encryption is an outer envelope applied after export (CLI) or before upload;
->   there is no passphrase field in the existing admin UI yet. The CLI/API flow
->   is real and documented, but the UI prompts packaged with the settings tab
->   are residual.
+> - Encryption is an outer envelope applied after export (CLI) or before upload.
+>   The admin import tab can decrypt `.fsmenc` with a passphrase; exporting an
+>   encrypted file directly from the download button is still a CLI step
+>   (`npm run transfer:encrypt`). The CLI/API flow is real and documented.
 > - No automatic periodic reconciliation of arbitrary orphan files. Only files
 >   named in a transfer job's ledger are touched, which is intentional: a
 >   generic “delete files without a row” scanner would be unsafe.
-> - Signatures are HMAC (shared secret), not asymmetric Ed25519. This protects
->   tampering between installations that share a key; it does not provide
->   third-party non-repudiation. Multi-recipient trust needs a future key
->   exchange/Ed25519 design.
+> - Ed25519 adds asymmetric verification: the receiving installation only needs
+>   the public key, and the private key never has to be shared. It is still one
+>   shared deployment signing identity, not per-user non-repudiation. HMAC
+>   remains a shared-secret scheme. In `any` mode a valid HMAC signature is
+>   accepted when Ed25519 is absent, so a deployment that still trusts the HMAC
+>   key allows that downgrade by policy; use `both` or `ed25519` for strict
+>   asymmetric-only enforcement. Automatic key distribution is not implemented.
 > - Signature images are still excluded by default; the legal basis for
 >   signatures/HMS data must be assessed before enabling the option.
 > - Audit snapshot is provenance only. Source audit rows are exported to
