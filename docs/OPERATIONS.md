@@ -1357,36 +1357,19 @@ viseren og beholder `object-src 'none'`.
    `docker compose -f docker-compose.prod.yml up -d app`. Ved DB-utfall: start
    Postgres først, deretter appen.
 
-## Native feltapp (Capacitor)
+## Native feltapp
 
-Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet starter på
-en lokal oppsettside der brukeren skriver inn serveradressen; adressen lagres
-native og er ikke bygget inn i appen. Deretter lastes den driftede
-FSM-installasjonen i en WebView. Appen er fortsatt server-rendret og kan ikke
-eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
-[`NATIVE.md`](NATIVE.md).
+Android- og iOS-appen ligger i et eget repo: **`fsm-mobile`**. Plattformen
+inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.
 
-```bash
-npm ci
-npx cap sync                # android/ og ios/ er sjekket inn
-npm run native:build:android # debug-APK med debug-nøkkel
-npm run native:open:android  # eller native:open:ios på macOS
-```
+- Appen starter på en lokal oppsettside der brukeren skriver inn URL-en til
+  FSM-installasjonen. Adressen lagres native og er ikke bygget inn.
+- Serveradressen kan endres fra tannhjulet nederst i appen.
+- Plattformens service worker cacher sider, API-GET og `/uploads/`-filer i
+  **7 døgn** per bruker. Cacheene slettes ved utlogging, utløpt økt og «Bytt
+  server».
+- Bygg, signering, lokal testserver og butikkoppføring er dokumentert i
+  `fsm-mobile`-repoets `README.md` og `docs/NATIVE.md`.
 
-- Første oppstart viser oppsettsiden. Brukeren skriver inn f.eks.
-  `https://felt.example.no`; adressen kan endres fra innstillingene eller
-  innloggingssiden.
-- HTTP er bare tillatt for lokal testing (localhost, emulator, private
-  LAN-adresser). Produksjon skal bruke HTTPS.
-- Service workeren cacher sider, API-GET og `/uploads/`-filer i **7 døgn** per
-  bruker. Cacheene slettes ved utlogging, utløpt økt og «Bytt server».
-- Kamera i WebView krever `CAMERA`-tillatelse på Android og
-  `NSCameraUsageDescription` på iOS. Uten tillatelse bruker skanneren manuell
-  inntasting. Posisjon krever tilsvarende tillatelser.
-- Signeringsnøkler, `google-services.json`, `GoogleService-Info.plist` og
-  Apple-sertifikater skal ikke i git eller i CI-loggen.
-- Push (FCM/APNs) er ikke satt opp. Butikkklar signering og oppføring gjenstår;
-  se `NATIVE.md`.
-- Etter en ny appversjon: `npm run native:sync`, bygg på nytt og rull ut. PWA-en
-  oppdateres separat gjennom service worker-meldingen i appen.
-- Native ikoner og splash genereres med `npm run native:assets`.
+Plattformen må fortsatt angi riktig `NEXTAUTH_URL` og `AUTH_TRUST_HOST`, og
+bruke HTTPS i produksjon. Push (FCM/APNs) er ikke satt opp.

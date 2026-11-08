@@ -222,10 +222,11 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev
 
 **Andre P3-kandidater (ikke startet):**
 
-- **NATIVE-01 · Signert native app og push** — Android- og iOS-prosjektene er
-  levert med oppsettside for serveradresse, native lagring, ikoner/splash og
-  sjudøgns offline-cache. Signerte butikkbygg, FCM/APNs, butikkoppføring og
-  enhetstester gjenstår; se [`NATIVE.md`](NATIVE.md). Ingen push i dag.
+- **NATIVE-01 · Signert native app og push** — Android- og iOS-prosjektene
+  ligger i det egne repoet `fsm-mobile`, med oppsettside for serveradresse,
+  native lagring, ikoner/splash og sjudøgns offline-cache. Signerte
+  butikkbygg, FCM/APNs, butikkoppføring og enhetstester gjenstår; se
+  `fsm-mobile`-repoets `docs/NATIVE.md`. Ingen push i dag.
 - **SCH-02 · Trafikk, dynamisk omruting og turn-by-turn** — ruteplan og ETA er
   levert; trafikkdata, omruting underveis og turn-by-turn i feltappen mangler.
 - **AI-01 · Copilot, IoT, prediktivt vedlikehold og AR** — verken

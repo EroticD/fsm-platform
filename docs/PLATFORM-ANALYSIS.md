@@ -55,7 +55,7 @@ ikke en enterprise-suite.
 | Produkttype | Modulær monolitt, én app + én PostgreSQL-database per installasjon |
 | Stack | Next.js 16, React 19, TypeScript, Prisma 7, PostgreSQL, Tailwind-basert designsystem |
 | Kjøring | Docker Compose, Caddy/TLS, Azure-guide, backup/restore-skript |
-| Klienter | Responsiv web, PWA, Capacitor-skall for iOS/Android, offline-kladder |
+| Klienter | Responsiv web, PWA og native Android/iOS i eget `fsm-mobile`-repo, med servervalg ved oppstart og 7 døgns offline-cache |
 | Språk | Norsk, engelsk, polsk, tysk (nb/en/pl/de) |
 | Valuta/format | NOK, norsk MVA og norske adresser; CSV til regnskap/lønn |
 | Lisens | BUSL-1.1 (source-available, ikke OSI-open source) |
@@ -339,8 +339,8 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 - **AI og optimalisering.** Ingen scheduling-optimering, Copilot, prediktivt
   vedlikehold eller IoT. Dette er bordstake i enterprise og i ferd med å bli
   det i mid-market.
-- **Mobil.** Native Android-/iOS-prosjekter med runtime servervalg og
-  sjudøgns offline-cache finnes, men signert butikkbygg, push,
+- **Mobil.** Native Android-/iOS-prosjekter i `fsm-mobile` har runtime
+  servervalg og sjudøgns offline-cache, men signert butikkbygg, push,
   bakgrunnssynk og enhets-QA gjenstår før de er på Jobber/HCP-nivå.
 - **Integrasjoner.** REST-API finnes, men ikke et konnektorbibliotek,
   webhooks, regnskap, e-faktura eller markedsføringsverktøy.

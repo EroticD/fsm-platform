@@ -20,7 +20,8 @@
 /.next/
 /out/
 
-# Capacitor-plattformer genereres lokalt med `npx cap add android|ios`
+# Native appen ligger i det egne `fsm-mobile`-repoet. Ignorer lokale
+# Capacitor-genererte prosjekter hvis de skulle dukke opp her.
 /android/
 /ios/
 
