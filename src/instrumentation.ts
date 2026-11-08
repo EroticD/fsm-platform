@@ -36,14 +36,18 @@ export async function register() {
   if (process.env.PDF_JOB_WORKER !== "false") {
     try {
       const { startJobWorker } = await import("@/lib/job-worker");
-      startJobWorker();
+      await startJobWorker();
     } catch (error) {
       console.error("Kunne ikke starte jobbkøen for PDF-tekst:", error);
     }
   }
 
-  // SMS-køen har sin egen markør og kan kjøre uavhengig av PDF-workeren.
-  if (process.env.SMS_WORKER !== "false") {
+  // SMS-køen og påminnelsene er SMS-modulen. Er modulen av, startes de ikke,
+  // og cron-endepunktene avviser dem på samme måte.
+  const { moduleEnabled } = await import("@/server/modules");
+  const smsEnabled = await moduleEnabled("sms");
+
+  if (smsEnabled && process.env.SMS_WORKER !== "false") {
     try {
       const { startSmsWorker } = await import("@/server/sms");
       startSmsWorker();
@@ -54,7 +58,7 @@ export async function register() {
 
   // Påminnelser har eget startflagg. De starter også når PDF-workeren er slått
   // av, men bare én gang selv om jobbworkeren allerede har startet dem.
-  if (process.env.REMINDER_WORKER !== "false") {
+  if (smsEnabled && process.env.REMINDER_WORKER !== "false") {
     try {
       const { startReminderWorker } = await import("@/server/reminders");
       startReminderWorker();

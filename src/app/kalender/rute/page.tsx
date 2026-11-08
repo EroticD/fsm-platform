@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -18,7 +19,11 @@ import {
   type RouteSkippedReason,
 } from "@/server/route-plan";
 import { VISIT_STATUS_LABEL_KEYS } from "@/lib/visit-status";
-import { applyRouteOrderAction } from "./actions";
+import {
+  applyRouteOrderAction,
+  optimizeRouteAction,
+  saveManualOrderAction,
+} from "./actions";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -31,8 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const SKIPPED_KEYS: Record<RouteSkippedReason, string> = {
   missing_coordinates: "calendar.route.skippedMissingCoordinates",
-  outside_time_window: "calendar.route.skippedOutsideWindow",
   limit: "calendar.route.skippedLimit",
+  missing_skills: "dispatch.routeOptimizer.skippedMissingSkills",
+  overtime_limit: "calendar.route.skippedOvertimeLimit",
+  absence: "dispatch.routeOptimizer.skippedAbsence",
+  ineligible: "dispatch.routeOptimizer.skippedIneligible",
+};
+
+const PROVIDER_KEYS: Record<string, string> = {
+  google: "calendar.route.providerGoogle",
+  osrm: "calendar.route.providerOsrm",
+  haversine: "calendar.route.providerLocal",
 };
 
 const ERROR_KEYS: Record<string, string> = {
@@ -59,9 +73,12 @@ export default async function RoutePage({
     dato?: string | string[];
     tekniker?: string | string[];
     anvendt?: string | string[];
+    manuelt?: string | string[];
     feil?: string | string[];
+    optimaliser?: string | string[];
   }>;
 }) {
+  await requireModulePage("calendar");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/kalender");
@@ -72,7 +89,9 @@ export default async function RoutePage({
   const date = firstParam(params.dato) || todayInOslo();
   const technicianId = (firstParam(params.tekniker) ?? "").trim();
   const applied = firstParam(params.anvendt);
+  const manualSaved = firstParam(params.manuelt);
   const error = firstParam(params.feil);
+  const showOptimisation = firstParam(params.optimaliser) !== undefined;
 
   const [plan, technicians, mapSettings] = await Promise.all([
     getRoutePlan(user, { date, technicianId: technicianId || undefined }),
@@ -149,6 +168,14 @@ export default async function RoutePage({
             <Icon name="search" className="h-4 w-4" />
             {t("calendar.route.show")}
           </button>
+          <button
+            type="submit"
+            formAction={optimizeRouteAction}
+            className="min-h-10 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+          >
+            <Icon name="route" className="mr-1 inline h-4 w-4" />
+            {t("dispatch.routeOptimizer.optimize")}
+          </button>
           <Link
             href="/kalender/dispatch"
             className="min-h-10 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
@@ -173,6 +200,15 @@ export default async function RoutePage({
           className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4 text-sm font-bold text-[var(--ink,#101310)]"
         >
           {t("calendar.route.applied", { count: Number(applied) || 0 })}
+        </div>
+      )}
+
+      {manualSaved === "1" && (
+        <div
+          role="status"
+          className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-4 text-sm font-bold text-[#283509]"
+        >
+          {t("calendar.route.manualOrderSaved")}
         </div>
       )}
 
@@ -227,7 +263,10 @@ export default async function RoutePage({
                   {technicianPlan.technicianName}
                 </h2>
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+              <dl
+                data-route-overtime
+                className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5"
+              >
                 <div>
                   <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalDrive")}
@@ -260,20 +299,121 @@ export default async function RoutePage({
                 </div>
                 <div>
                   <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    {t("calendar.route.totalOvertime")}
+                  </dt>
+                  <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                    {t("calendar.route.minutes", {
+                      count: technicianPlan.totalOvertimeMinutes,
+                    })}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("calendar.route.provider")}
                   </dt>
                   <dd className="font-black text-[var(--ink,#101310)]">
-                    {technicianPlan.provider === "osrm"
-                      ? t("calendar.route.providerOsrm")
-                      : t("calendar.route.providerLocal")}
+                    {t(
+                      PROVIDER_KEYS[technicianPlan.provider] ??
+                        "calendar.route.providerLocal",
+                    )}
                   </dd>
                 </div>
               </dl>
             </div>
 
+            {showOptimisation && (
+              <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
+                <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  {t("dispatch.routeOptimizer.previewTitle")}
+                </h3>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.beforeTravel")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.minutes", {
+                        count: technicianPlan.baselineTravelMinutes ?? 0,
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.afterTravel")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.minutes", {
+                        count: technicianPlan.totalTravelMinutes,
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.beforeDistance")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.km", {
+                        count: Math.round(
+                          technicianPlan.baselineDistanceKm ?? 0,
+                        ),
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.afterDistance")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.km", {
+                        count: Math.round(technicianPlan.totalDistanceKm),
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.savedTravel")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.minutes", {
+                        count: technicianPlan.savedTravelMinutes ?? 0,
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("dispatch.routeOptimizer.savedDistance")}
+                    </dt>
+                    <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                      {t("calendar.route.km", {
+                        count: Math.round(
+                          technicianPlan.savedDistanceKm ?? 0,
+                        ),
+                      })}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
+                  {technicianPlan.orderChanged
+                    ? t("dispatch.routeOptimizer.changed")
+                    : t("dispatch.routeOptimizer.unchanged")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+                  {t("dispatch.routeOptimizer.optimizeHint")}
+                </p>
+              </div>
+            )}
+
             {technicianPlan.fallbackUsed && (
               <p className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs font-medium text-[var(--muted,#62685f)]">
                 {t("calendar.route.fallback")}
+              </p>
+            )}
+
+            {technicianPlan.totalOvertimeMinutes > 0 && (
+              <p className="rounded-lg border border-[#e7c98a] bg-[#fff8e6] p-3 text-xs font-bold text-[var(--ink,#101310)]">
+                {t("calendar.route.overtimeNotice", {
+                  minutes: technicianPlan.totalOvertimeMinutes,
+                })}
               </p>
             )}
 
@@ -317,6 +457,9 @@ export default async function RoutePage({
                           {t("calendar.route.planned")}
                         </th>
                         <th scope="col" className="px-2 py-2">
+                          {t("calendar.route.overtime")}
+                        </th>
+                        <th scope="col" className="px-2 py-2">
                           {t("calendar.route.travel")}
                         </th>
                         <th scope="col" className="px-2 py-2">
@@ -343,6 +486,29 @@ export default async function RoutePage({
                           </td>
                           <td className="px-2 py-3 text-[var(--muted,#62685f)]">
                             {formatDateTimeLocalized(stop.plannedStartsAt, locale)}
+                          </td>
+                          <td className="px-2 py-3 tabular-nums">
+                            <span
+                              className={
+                                stop.overtimeMinutes > 0
+                                  ? "font-black text-[var(--risk-text,#b42318)]"
+                                  : "text-[var(--muted,#62685f)]"
+                              }
+                            >
+                              {t("calendar.route.minutes", {
+                                count: stop.overtimeMinutes,
+                              })}
+                            </span>
+                            {stop.outsideTimeWindow && (
+                              <span className="mt-1 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                                {t("calendar.route.outsideTimeWindow")}
+                              </span>
+                            )}
+                            {stop.outsideWorkingHours && (
+                              <span className="mt-1 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                                {t("calendar.route.outsideWorkingHours")}
+                              </span>
+                            )}
                           </td>
                           <td className="px-2 py-3 tabular-nums text-[var(--muted,#62685f)]">
                             {t("calendar.route.minutes", {
@@ -376,6 +542,54 @@ export default async function RoutePage({
                     </tbody>
                   </table>
                 </div>
+
+                <form
+                  action={saveManualOrderAction}
+                  data-manual-route-form
+                  className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3"
+                >
+                  <input type="hidden" name="dato" value={date} />
+                  <input type="hidden" name="tekniker" value={technicianPlan.technicianId} />
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("calendar.route.manualOrder")}
+                    </h3>
+                    <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted,#62685f)]">
+                      {t("calendar.route.manualOrderHint")}
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {technicianPlan.stops.map((stop) => (
+                      <label
+                        key={stop.visitId}
+                        className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-2 text-xs"
+                      >
+                        <span className="w-6 shrink-0 text-center font-black tabular-nums text-[var(--muted,#62685f)]">
+                          {stop.sequence}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-bold text-[var(--ink,#101310)]">
+                          {stop.workOrderTitle}
+                        </span>
+                        <input
+                          type="number"
+                          name={`sequence-${stop.visitId}`}
+                          min={1}
+                          max={9999}
+                          defaultValue={stop.manualSequence ?? stop.sequence}
+                          aria-label={`${t("calendar.route.manualOrderSequence")}: ${stop.workOrderTitle}`}
+                          className="h-9 w-16 shrink-0 rounded-md border border-[var(--line,#dedcd1)] bg-white px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#101310)]"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+                  >
+                    <Icon name="check" className="h-4 w-4" />
+                    {t("calendar.route.manualOrder")}
+                  </button>
+                </form>
 
                 <form action={applyRouteOrderAction} className="flex flex-wrap items-center gap-3 border-t border-[var(--line,#dedcd1)] pt-3">
                   <input type="hidden" name="dato" value={date} />

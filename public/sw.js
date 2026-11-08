@@ -1,22 +1,28 @@
 /* FSM feltapp – statisk service worker.
  *
  * Offline-modell:
- *  - Feltportalens sider (`/mine-oppdrag`, oppdragsdetaljer og rapporterings-
- *    skjemaet) caches network-first, både som HTML og som RSC-payload. Da kan
- *    montøren både åpne appen på nytt og navigere mellom oppdrag uten nett.
- *  - Hver bruker har sin egen side-cache, `fsm-pages-v1:<userId>`. Brukeren
- *    meldes inn fra offline-banneret og lagres som en markør i CacheStorage, så
- *    den overlever at workeren restartes. Ved utlogging slettes alle cacher.
- *  - Hver side-cache-oppføring har et tidsstempel i samme cache. Oppføringer
- *    eldre enn åtte timer slettes og serveres aldri, og en 401/403 eller
- *    omdirigering til innlogging tømmer side-cachene og markøren.
+ *  - Alle samme-opprinnelse GET-sider caches network-first, både som HTML og
+ *    som RSC-payload. Montøren kan dermed åpne appen på nytt og navigere mellom
+ *    tidligere besøkte sider uten nett.
+ *  - API-GET og filer under `/uploads/` caches network-first med samme TTL.
+ *    CSV/PDF-eksport, autentisering, cron, webhooks, SCIM og helse/metrics
+ *    holdes utenfor.
+ *  - Hver bruker har egne cacher: `fsm-pages-v1:<userId>`,
+ *    `fsm-api-v1:<userId>` og `fsm-files-v1:<userId>`. Brukeren meldes inn fra
+ *    offline-banneret og lagres som en markør i CacheStorage, så den overlever
+ *    at workeren restartes. Ved utlogging slettes alle cacher.
+ *  - Hver cache-oppføring har et tidsstempel i samme cache. Oppføringer eldre
+ *    enn sju døgn slettes og serveres aldri. En 401 eller omdirigering til
+ *    innlogging tømmer cacheene og markøren.
  *  - RSC-navigasjon som mangler cache får feile, slik at Next.js faller tilbake
  *    til en vanlig nettlesernavigasjon. Den treffer da HTML-cachen eller
  *    offline-siden.
  *  - Statiske filer og offline-siden caches cache-first.
  */
-const CACHE = "fsm-static-v6";
+const CACHE = "fsm-static-v7";
 const PAGE_CACHE_PREFIX = "fsm-pages-v1:";
+const API_CACHE_PREFIX = "fsm-api-v1:";
+const FILE_CACHE_PREFIX = "fsm-files-v1:";
 const LEGACY_PAGE_CACHE = "fsm-pages-v1";
 const META_CACHE = "fsm-offline-meta";
 const OFFLINE_USER_KEY = "/__fsm/offline-user";
@@ -25,7 +31,11 @@ const OFFLINE_SCRIPT_URL = "/offline.js";
 const LOGIN_PATH = "/logg-inn";
 
 /** Samme grense som OFFLINE_CACHE_TTL_MS i src/lib/offline/cache.ts. */
-const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_PAGE_ENTRIES = 400;
+const MAX_API_ENTRIES = 800;
+const MAX_FILE_ENTRIES = 200;
+const PREFETCH_PAGES = ["/mine-oppdrag"];
 
 const HTML_KIND = "html";
 const RSC_KIND = "rsc";
@@ -85,6 +95,129 @@ function isStaticAsset(pathname) {
     pathname.endsWith(".woff2") ||
     pathname.endsWith(".woff")
   );
+}
+
+/**
+ * Sider som kan caches for offline bruk. Alle autentiserte appflater er med,
+ * inkludert kundeportalen. Innlogging, API, opplastinger og statiske filer
+ * håndteres egne steder.
+ */
+function isCacheablePage(pathname) {
+  if (!pathname || pathname === "/") return true;
+  if (isLoginPath(pathname)) return false;
+  return !(
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/uploads/") ||
+    pathname.startsWith("/offline") ||
+    pathname === "/sw.js" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/icon-") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/android-chrome-") ||
+    pathname.startsWith("/apple-touch-icon") ||
+    pathname.startsWith("/maskable-") ||
+    pathname.endsWith(".woff2") ||
+    pathname.endsWith(".woff")
+  );
+}
+
+/**
+ * API-GET som kan caches. Eksport, autentisering, offline-synk, cron,
+ * webhooks, SCIM og driftsendepunkter holdes utenfor.
+ */
+function isCacheableApi(pathname) {
+  if (!pathname.startsWith("/api/")) return false;
+  if (pathname.startsWith("/api/auth/")) return false;
+  if (pathname.startsWith("/api/offline/")) return false;
+  if (pathname.startsWith("/api/cron/")) return false;
+  if (pathname.startsWith("/api/webhooks/")) return false;
+  if (pathname.startsWith("/api/scim/")) return false;
+  if (pathname.startsWith("/api/upload")) return false;
+  if (pathname === "/api/health" || pathname === "/api/metrics") return false;
+  if (pathname.includes("/export") || pathname.includes("/eksport")) return false;
+  return true;
+}
+
+function shouldEnsureHtml(pathname) {
+  return isFieldPage(pathname);
+}
+
+function apiCacheName(userId) {
+  return `${API_CACHE_PREFIX}${userId}`;
+}
+
+function fileCacheName(userId) {
+  return `${FILE_CACHE_PREFIX}${userId}`;
+}
+
+/** Syntetisk nøkkel for tidsstempelet til en API-/filoppføring. */
+function ttlMetaKey(request, kind) {
+  const url = new URL(request.url);
+  url.searchParams.set("__fsm_meta", kind);
+  return new Request(url.toString(), { method: "GET" });
+}
+
+async function trimCache(cache, kind, maxEntries) {
+  try {
+    const keys = await cache.keys();
+    const data = keys.filter((key) => !new URL(key.url).searchParams.has("__fsm_meta"));
+    if (data.length <= maxEntries) return;
+    const entries = [];
+    for (const key of data) {
+      const meta = await cache.match(ttlMetaKey(key, kind));
+      entries.push({
+        key,
+        at: meta ? Number((await meta.text()).trim()) : 0,
+      });
+    }
+    entries.sort((a, b) => a.at - b.at);
+    for (const entry of entries.slice(0, data.length - maxEntries)) {
+      await cache.delete(entry.key);
+      await cache.delete(ttlMetaKey(entry.key, kind));
+    }
+  } catch {
+    // CacheStorage kan være utilgjengelig eller full.
+  }
+}
+
+async function cacheWithTtl(cacheName, request, response, kind, maxEntries) {
+  try {
+    const cache = await caches.open(cacheName);
+    const cachedAt = Date.now();
+    await cache.put(request, response.clone());
+    await cache.put(
+      ttlMetaKey(request, kind),
+      new Response(String(cachedAt), {
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      }),
+    );
+    await trimCache(cache, kind, maxEntries);
+  } catch {
+    // CacheStorage kan være full eller utilgjengelig.
+  }
+}
+
+async function matchWithTtl(cacheName, request, kind) {
+  try {
+    const cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    if (!cached) return null;
+    const meta = await cache.match(ttlMetaKey(request, kind));
+    const cachedAt = meta ? Number((await meta.text()).trim()) : Number.NaN;
+    if (!isFreshCacheEntry(cachedAt, Date.now())) {
+      await Promise.all([
+        cache.delete(request),
+        cache.delete(ttlMetaKey(request, kind)),
+      ]);
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
 }
 
 function pageCacheName(userId) {
@@ -551,14 +684,25 @@ async function handleDraftSyncEvent() {
 async function clearSessionCaches() {
   try {
     const userId = await readOfflineUser();
-    const own = userId ? pageCacheName(userId) : null;
+    const own = userId
+      ? new Set([
+          pageCacheName(userId),
+          apiCacheName(userId),
+          fileCacheName(userId),
+        ])
+      : null;
     const keys = await caches.keys();
     await Promise.all(
       keys
         .filter((key) => {
           if (key === LEGACY_PAGE_CACHE) return true;
-          if (own) return key === own;
-          return key.startsWith(PAGE_CACHE_PREFIX);
+          if (!key.startsWith(PAGE_CACHE_PREFIX) &&
+              !key.startsWith(API_CACHE_PREFIX) &&
+              !key.startsWith(FILE_CACHE_PREFIX)) {
+            return false;
+          }
+          if (own) return own.has(key);
+          return true;
         })
         .map((key) => caches.delete(key)),
     );
@@ -614,9 +758,10 @@ function isLoginPath(pathname) {
 }
 
 /** En nettverksforespørsel som viser at økten er borte eller avvist. */
-function isAuthFailure(response, url, assumeLoginRedirect = false) {
+function isAuthFailure(response, url, assumeLoginRedirect = false, includeForbidden = true) {
   if (!response) return false;
-  if (response.status === 401 || response.status === 403) return true;
+  if (response.status === 401) return true;
+  if (includeForbidden && response.status === 403) return true;
   // Navigasjonsforespørsler kan ha redirect-mode «manual». Da er målet skjult,
   // men en omdirigering fra en feltside er i praksis innlogging.
   if (assumeLoginRedirect && response.type === "opaqueredirect") return true;
@@ -671,7 +816,7 @@ async function ensureHtmlCached(url, userId) {
     ) {
       const responsePath = new URL(response.url, url).pathname;
       if (responsePath === url.pathname) {
-        await cachePageResponse(url, HTML_KIND, response, userId);
+        void cachePageResponse(url, HTML_KIND, response, userId);
       }
     }
   } catch {
@@ -719,24 +864,24 @@ async function offlineFallback() {
 }
 
 async function navigationResponse(request, url) {
-  const fieldPage = isFieldPage(url.pathname);
+  const cacheable = isCacheablePage(url.pathname);
   try {
     const response = await fetch(request);
-    if (isAuthFailure(response, url, fieldPage)) {
+    if (isAuthFailure(response, url, isFieldPage(url.pathname))) {
       await clearSessionCaches();
       return response;
     }
-    if (fieldPage && response.ok) {
-      // Ikke cache en innloggingsomdirigering under oppdragssidens URL.
+    if (cacheable && response.ok) {
+      // Ikke cache en innloggingsomdirigering under sidens URL.
       const responsePath = new URL(response.url, url).pathname;
       if (responsePath === url.pathname) {
         const userId = await readOfflineUser();
-        await cachePageResponse(url, HTML_KIND, response, userId);
+        void cachePageResponse(url, HTML_KIND, response, userId);
       }
     }
     return response;
   } catch {
-    if (fieldPage) {
+    if (cacheable) {
       const userId = await readOfflineUser();
       const cached = await matchPage(url, HTML_KIND, userId);
       if (cached) return cached;
@@ -746,26 +891,26 @@ async function navigationResponse(request, url) {
 }
 
 async function rscResponse(request, url, prefetch) {
-  const fieldPage = isFieldPage(url.pathname);
+  const cacheable = isCacheablePage(url.pathname);
   try {
     const response = await fetch(request);
-    if (isAuthFailure(response, url, fieldPage)) {
+    if (isAuthFailure(response, url, isFieldPage(url.pathname))) {
       await clearSessionCaches();
       return response;
     }
     const contentType = response.headers.get("content-type") || "";
     if (
-      fieldPage &&
+      cacheable &&
       !prefetch &&
       response.ok &&
       contentType.startsWith("text/x-component")
     ) {
       const userId = await readOfflineUser();
-      await cachePageResponse(url, RSC_KIND, response, userId);
+      void cachePageResponse(url, RSC_KIND, response, userId);
     }
     return response;
   } catch {
-    if (fieldPage) {
+    if (cacheable) {
       const userId = await readOfflineUser();
       const cached = await matchPage(url, RSC_KIND, userId);
       if (cached) return cached;
@@ -783,9 +928,9 @@ async function nextDataResponse(request, url) {
       await clearSessionCaches();
       return response;
     }
-    if (response.ok) {
+    if (response.ok && isCacheablePage(url.pathname)) {
       const userId = await readOfflineUser();
-      await cachePageResponse(url, RSC_KIND, response, userId);
+      void cachePageResponse(url, RSC_KIND, response, userId);
     }
     return response;
   } catch {
@@ -793,6 +938,126 @@ async function nextDataResponse(request, url) {
     const cached = await matchPage(url, RSC_KIND, userId);
     if (cached) return cached;
     throw new Error("offline-next-data");
+  }
+}
+
+/**
+ * API-GET caches per bruker. På nett brukes alltid ferskt svar; ved nettfeil
+ * serveres et svar som er yngre enn sju døgn. Eksport og auth er aldri med.
+ */
+async function apiResponse(request, url) {
+  try {
+    const response = await fetch(request);
+    if (isAuthFailure(response, url, false, false)) {
+      await clearSessionCaches();
+      return response;
+    }
+    const cacheControl = response.headers.get("cache-control") || "";
+    const userId = await readOfflineUser();
+    if (
+      response.ok &&
+      userId &&
+      !cacheControl.toLowerCase().includes("no-store")
+    ) {
+      void cacheWithTtl(
+        apiCacheName(userId),
+        request,
+        response,
+        "api",
+        MAX_API_ENTRIES,
+      );
+    }
+    return response;
+  } catch {
+    const userId = await readOfflineUser();
+    if (userId) {
+      const cached = await matchWithTtl(apiCacheName(userId), request, "api");
+      if (cached) return cached;
+    }
+    return new Response(
+      JSON.stringify({
+        error: "offline",
+        message: "Ingen nettforbindelse og ingen lagret data for denne forespørselen.",
+      }),
+      {
+        status: 503,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      },
+    );
+  }
+}
+
+/** Dokumenter, bilder og PDF-er under /uploads/ caches per bruker. */
+async function fileResponse(request, url) {
+  try {
+    const response = await fetch(request);
+    if (isAuthFailure(response, url, false, false)) {
+      await clearSessionCaches();
+      return response;
+    }
+    const userId = await readOfflineUser();
+    if (response.ok && userId) {
+      void cacheWithTtl(
+        fileCacheName(userId),
+        request,
+        response,
+        "file",
+        MAX_FILE_ENTRIES,
+      );
+    }
+    return response;
+  } catch {
+    const userId = await readOfflineUser();
+    if (userId) {
+      const cached = await matchWithTtl(fileCacheName(userId), request, "file");
+      if (cached) return cached;
+    }
+    return offlineFallback();
+  }
+}
+
+/**
+ * Sletter utløpte side-, API- og filoppføringer. Kalles ved aktivering og
+ * maksimalt hvert sjette døgn, slik at gamle data ikke blir liggende igjen på
+ * enheten etter at de er eldre enn sju døgn.
+ */
+async function purgeExpiredCaches() {
+  try {
+    const names = await caches.keys();
+    const perUser = names.filter(
+      (name) =>
+        name.startsWith(PAGE_CACHE_PREFIX) ||
+        name.startsWith(API_CACHE_PREFIX) ||
+        name.startsWith(FILE_CACHE_PREFIX),
+    );
+    const now = Date.now();
+    for (const name of perUser) {
+      const cache = await caches.open(name);
+      const requests = await cache.keys();
+      for (const request of requests) {
+        const url = new URL(request.url);
+        if (url.searchParams.has("__fsm_meta")) continue;
+        const pageKind = url.searchParams.get("__fsm");
+        let metaKey;
+        if (pageKind && !pageKind.endsWith("-meta")) {
+          metaKey = pageMetaKey(url, pageKind);
+        } else if (name.startsWith(API_CACHE_PREFIX)) {
+          metaKey = ttlMetaKey(request, "api");
+        } else if (name.startsWith(FILE_CACHE_PREFIX)) {
+          metaKey = ttlMetaKey(request, "file");
+        } else {
+          continue;
+        }
+        const meta = await cache.match(metaKey);
+        const cachedAt = meta ? Number((await meta.text()).trim()) : Number.NaN;
+        if (!isFreshCacheEntry(cachedAt, now)) {
+          await cache.delete(request);
+          await cache.delete(metaKey);
+        }
+      }
+    }
+  } catch {
+    // CacheStorage kan være utilgjengelig.
   }
 }
 
@@ -816,12 +1081,15 @@ self.addEventListener("activate", (event) => {
             (key) =>
               key !== CACHE &&
               key !== META_CACHE &&
-              !key.startsWith(PAGE_CACHE_PREFIX),
+              !key.startsWith(PAGE_CACHE_PREFIX) &&
+              !key.startsWith(API_CACHE_PREFIX) &&
+              !key.startsWith(FILE_CACHE_PREFIX),
           )
           .map((key) => caches.delete(key)),
       ),
     ),
   );
+  event.waitUntil(purgeExpiredCaches());
   self.clients.claim();
 });
 
@@ -873,22 +1141,29 @@ self.addEventListener("message", (event) => {
     event.waitUntil(
       (async () => {
         await writeOfflineUser(userId);
-        const own = pageCacheName(userId);
+        const ownPage = pageCacheName(userId);
+        const ownApi = apiCacheName(userId);
+        const ownFiles = fileCacheName(userId);
         const keys = await caches.keys();
         await Promise.all(
           keys
-            .filter(
-              (key) =>
-                (key.startsWith(PAGE_CACHE_PREFIX) && key !== own) ||
-                key === LEGACY_PAGE_CACHE,
-            )
+            .filter((key) => {
+              if (key === LEGACY_PAGE_CACHE) return true;
+              if (!key.startsWith(PAGE_CACHE_PREFIX) &&
+                  !key.startsWith(API_CACHE_PREFIX) &&
+                  !key.startsWith(FILE_CACHE_PREFIX)) {
+                return false;
+              }
+              return key !== ownPage && key !== ownApi && key !== ownFiles;
+            })
             .map((key) => caches.delete(key)),
         );
-        // Sørg for at selve oppdragslisten finnes offline, selv om brukeren
-        // aldri har lastet den på nytt etter at workeren ble aktiv.
-        await ensureHtmlCached(
-          new URL("/mine-oppdrag", self.location.origin),
-          userId,
+        // Forhåndslast de viktigste inngangene, slik at en full omlasting
+        // offline fungerer selv om brukeren bare har navigert med RSC.
+        await Promise.allSettled(
+          PREFETCH_PAGES.map((path) =>
+            ensureHtmlCached(new URL(path, self.location.origin), userId),
+          ),
         );
       })(),
     );
@@ -934,11 +1209,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/uploads/") ||
-    url.pathname === "/sw.js"
-  ) {
+  if (url.pathname === "/sw.js") return;
+
+  if (url.pathname.startsWith("/api/")) {
+    if (!isCacheableApi(url.pathname)) return;
+    event.respondWith(apiResponse(request, url));
+    return;
+  }
+
+  if (url.pathname.startsWith("/uploads/")) {
+    event.respondWith(fileResponse(request, url));
     return;
   }
 
@@ -990,7 +1270,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(rscResponse(request, url, prefetch));
     // RSC-navigasjonen gir bare et fragment. Sørg for at hele siden også
     // finnes som HTML, slik at en full omlasting offline fungerer.
-    if (!prefetch && isFieldPage(url.pathname)) {
+    if (!prefetch && shouldEnsureHtml(url.pathname)) {
       event.waitUntil(
         readOfflineUser().then((userId) =>
           ensureHtmlCached(url, userId ?? undefined),

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   cancelBookingFromOffice,
   confirmBooking,
@@ -59,6 +60,7 @@ function queuePath(
 }
 
 export async function confirmBookingAction(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("booking"))) redirect("/");
   const current = await getCurrentUser();
   if (!current) redirect("/api/auth/signin");
   const bookingId = formText(formData, "bookingId");
@@ -88,6 +90,7 @@ export async function confirmBookingAction(formData: FormData): Promise<void> {
 export async function cancelBookingOfficeAction(
   formData: FormData,
 ): Promise<void> {
+  if (!(await moduleEnabled("booking"))) redirect("/");
   const current = await getCurrentUser();
   if (!current) return;
   const result = await cancelBookingFromOffice(current, {

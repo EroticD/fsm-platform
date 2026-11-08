@@ -3,6 +3,23 @@
 > Azure-oppsett med VM, Docker Compose og PostgreSQL Flexible Server er
 > beskrevet i [`AZURE.md`](AZURE.md).
 
+## Moduler og presets
+
+Installasjonsnivåmoduler (kalender, rapporter, utstyr, avtaler, portal,
+dokumenter, SMS, kart, sporing, omtaler, API, SSO, offline med mer) styres i
+**Innstillinger → Moduler** av administrator. Data beholdes når en modul slås
+av; bare sider, handlinger, API-er og arbeidsjobber stenges.
+
+Første oppstart uten modulrader bruker `MODULE_PRESET`:
+
+- `full` (standard) – alle leverte moduler på. Eksisterende installasjoner som
+  oppgraderer får denne automatisk når variabelen ikke er satt.
+- `core` – bare kjerne (auth, brukere, avdelinger, kunder, oppdrag,
+  arbeidsdager/tid, revisjon og innstillinger).
+
+Se [`MODULES.md`](MODULES.md) for katalog, avhengighetsgraf, presets,
+oppgraderingsløp og kjente begrensninger.
+
 ## Produksjonssett: image-pinning
 
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
@@ -98,12 +115,15 @@ driften:
 
 | Område | Standard | Slik overstyrer du |
 | --- | --- | --- |
-| Offline | 8 timers sidecache og 7 dagers lokale rapportkladder | `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` (valgfri, bygges inn i klienten) |
+| Offline | 7 døgns side-, API- og filcache og 7 dagers lokale rapportkladder | `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` (valgfri, bygges inn i klienten) |
 | Database | Runtime-rollen må være DML-only i produksjon; ellers 503 fra `/api/ready` | `DATABASE_RUNTIME_URL`/`DATABASE_MIGRATION_URL`; bevisst unntak med `ALLOW_DB_DDL_ROLE=true` |
 | Proxy | `TRUST_PROXY=false` (IP-limits inaktive); produksjon krever eksplisitt hoppantall når den er true | `TRUST_PROXY=true` + `TRUST_PROXY_HOPS`, se «Proxy og klient-IP» |
 | Backup | Daglig kryptert backup med sjekksum og statusfil; produksjon nekter å ta backup uten `BACKUP_AGE_RECIPIENT` | `BACKUP_REMOTE`, `REQUIRE_BACKUP_ENCRYPTION=true`, se «Backup og restore» |
 | Overvåking | `/api/metrics` er av uten `METRICS_SECRET` | `METRICS_SECRET`, se «Overvåking og varsling» |
 | Opplasting | 4 samtidige kroppslesinger per instans, 50 MB per PDF, 2 GiB per bruker/24 t og 10 GiB per kunde | `UPLOAD_BODY_CONCURRENCY`, `UPLOAD_MAX_DOCUMENT_MB`, `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt sette egne grenser |
+| Lagring | Lokal disk (`STORAGE_DRIVER=local`); `/uploads/<filnavn>` er uendret | `STORAGE_DRIVER=s3` + `S3_*`, se [`STORAGE.md`](STORAGE.md) |
+| Kø/cache/rate limit | Database (`QUEUE_DRIVER=db`) | `QUEUE_DRIVER=redis` + `REDIS_URL`; `CACHE_DRIVER`/`RATE_LIMIT_DRIVER` kan overstyres, se [`SCALING.md`](SCALING.md) |
+| DB-tilkoblinger | 10 per appprosess (`DATABASE_POOL_MAX`) | Senk/hev bevisst; replikaer × pool må være under `max_connections` |
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
@@ -193,15 +213,35 @@ OSRM_BASE_URL=https://osrm.example.com
 # TRACKING_AVERAGE_SPEED_KMH=50
 ```
 
+Vil du i tillegg ha trafikkbevisst ETA, aktiveres Google Routes API. Det brukes
+bare for én strekning; flerpunktsmatrisen går fortsatt til OSRM, som er basert
+på OpenStreetMap og ikke har sanntidstrafikk:
+
+```dotenv
+GOOGLE_ROUTES_API_KEY=...
+# GOOGLE_ROUTES_TIMEOUT_MS=8000
+# GOOGLE_ROUTES_CACHE_TTL_MS=60000
+# GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE=60
+```
+
 - `OSRM_BASE_URL` må være serverbar og uten innlogging i nettleseren. Nøkler og
-  URL-er leses bare på serveren.
+  URL-er leses bare på serveren. Google-nøkkelen sendes som `X-Goog-Api-Key` og
+  havner aldri i URL-er appen logger.
 - Ruteleverandøren har `ROUTING_TIMEOUT_MS` (standard 60 000 ms, tillatt
   1 000–120 000). Ved feil, timeout eller ugyldig svar faller både ruteplanen og
   ETA-en tilbake til den lokale beregningen, og ruteplanen merker dette med
   **Beregning: Lokal estimering**.
-- Ruteplanen kaller `/table` én gang per montør (maks 50 stopp). Sporings-ETA
-  kaller `/route` for én strekning. Resultatene caches i ett minutt per
-  avrundede koordinatnøkkel.
+- Google Routes har `GOOGLE_ROUTES_TIMEOUT_MS` (standard 8 000 ms), cache i
+  `GOOGLE_ROUTES_CACHE_TTL_MS` (standard 60 s) og et tak på
+  `GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE` (standard 60). Over taket, eller ved
+  feil, brukes OSRM og deretter haversine. Se `docs/ROUTING.md` for kostnader,
+  leverandøroppsett og algoritmegrenser.
+- Ruteplanen kaller OSRM `/table` én gang per montør (maks 50 stopp).
+  Sporings-ETA kaller Google Routes eller OSRM `/route` for én strekning.
+  Resultatene caches i ett minutt per avrundede koordinatnøkkel.
+- Visiter som ikke rekker tidsvinduet eller arbeidstiden planlegges med
+  overtid. `ROUTE_ALLOW_OVERTIME` (standard `true`) og
+  `ROUTE_MAX_OVERTIME_MINUTES` (standard `0` = ingen grense) styrer dette.
 - ETA-en regnes fra siste `VisitLocationPing` til arbeidsstedets koordinater.
   Ping eldre enn **ti minutter** regnes som stale: da vises planlagt tid og
   «sist kjente posisjon», ikke en live ETA. Ingen koordinater, adresse eller navn
@@ -247,8 +287,8 @@ behandler større filer.
 - `GET /api/ready` — **readiness**. Uautentiserte kall får en kort status og
   billige database- og rollekontroller (rate-limitert per IP), slik at også
   Compose-healthchecken blir unhealthy når runtime-rollen kan DDL. Med
-  `READY_SECRET` eller `CRON_SECRET` sjekkes også skrivbart
-  opplastingsvolum og jobbkøen, og detaljene returneres. Returnerer 503 når
+  `READY_SECRET` eller `CRON_SECRET` sjekkes også lagring (`local` eller
+  `s3`) og jobbkøen, og detaljene returneres. Returnerer 503 når
   noe mangler, eller når `databaseRole.canDdl` er `true` i produksjon uten
   `ALLOW_DB_DDL_ROLE=true`.
 - `GET /api/metrics` — **driftsmålinger**, beskyttet med `METRICS_SECRET`.
@@ -367,6 +407,8 @@ Bekreft at meldingen faktisk kommer fram i kanalen. Systemd-enhetene i
 | `FsmDocumentJobsFailed` | > 0 i 15 min | `DocumentJob.lastError`, `/tmp` |
 | `FsmSmsDeadLetters` | > 0 i 15 min | `SmsMessage.lastError`, leverandør |
 | `FsmNotificationEmailFailures` | > 0 i 30 min | SMTP, `Notification.emailError` |
+| `FsmSlaCleanupStale` | utdatert i 30 min | `SlaCleanupRun`, `SLA_CLEANUP_*`, scheduler |
+| `FsmSlaCleanupFailed` | > 0 feilede siste 24 t | `SlaCleanupRun.error`, logger |
 
 ## Logger
 
@@ -434,11 +476,51 @@ visiter beholder `travelFromEndedAt = null` til kjøringen lukkes manuelt med
 jobb. Skriptet rører ikke visiter som allerede dekker én dag, og skal ikke
 kjøres automatisk av appen eller i CI mot produksjon.
 
+Samme kjøring normaliserer også **eldre tidsstyrte enkeltdagsvisiter**
+(`allDay: false`). En slik rad får `allDay: true` og start/slutt på hele
+arbeidsdagen (Oslo-midnatt til neste midnatt). Status, notater, montører og
+alle tidsstempler står urørt; ingen nye rader opprettes, så et tidsstempel kan
+aldri dupliseres. Rader som ikke kan normaliseres uten å gjette, rapporteres
+eksplisitt og endres ikke:
+
+- tidsstyrt visitt over flere dager,
+- flere tidsstyrte visiter på samme oppdrag og dag,
+- dagen er allerede opptatt av en annen økt (heldagsøkt eller overlapp),
+- tidsstempel som ligger utenfor visittdagen,
+- ugyldig tidsrom, eller raden ble endret under `--apply`.
+
+Tørrkjøringen viser antall normaliserte og en linje per rapportert rad med
+årsak. Gå gjennom rapporten manuelt før `--apply`; tvetydige rader må ryddes i
+appen eller med en bevisst manuell beslutning.
+
 ### SLA-klokker uten aktiv avtale
 
 SLA-klokker skal bare finnes for oppdrag med en aktiv, datogyldig avtale og en
 aktiv SLA-policy. Eldre data kan ha klokker uten slik dekning, eller klokker som
-peker på en annen policy enn avtalen nå gir. Rydd dem med:
+peker på en annen policy enn avtalen nå gir.
+
+**Automatisk opprydding.** Scheduleren kjører oppryddingen ved oppstart og
+deretter med `SLA_CLEANUP_INTERVAL_HOURS` (standard 6 timer). En ekstern cron
+kan i tillegg kalle `/api/cron/recurring`; en advisory-lås og en due-sjekk gjør
+at samtidige kall ikke dupliserer arbeid. Slås av med
+`SLA_CLEANUP_ENABLED=false` når en ekstern prosess eier jobben.
+
+- **Idempotent:** klokker som allerede er `CANCELLED` røres ikke, og klokker
+  med gyldig aktiv avtale og samme policy beholdes uendret. Hver kjøring
+  vurderer inntil 1000 klokker; en større engangsmengde tas over flere
+  intervaller eller med CLI-en.
+- **Transaksjon + revisjon:** hver kansellering skrives i samme transaksjon som
+  revisjonsloggen.
+- **Kjøringslogg:** hver kjøring får en rad i `SlaCleanupRun` med status,
+  antall vurderte/beholdte/kansellerte og eventuell feil. Feil kaster aldri
+  videre og stopper ikke de andre bakgrunnsjøbbene.
+- **Metrics/varsel:** `/api/metrics` eksponerer `fsm_sla_cleanup_enabled`,
+  `fsm_sla_cleanup_last_run_timestamp_seconds`,
+  `fsm_sla_cleanup_last_cancelled`, `fsm_sla_cleanup_failed_runs` og
+  `fsm_sla_cleanup_stale`. `deploy/monitoring/fsm-alerts.yml` varsler når
+  jobben er utdatert eller har feilet.
+
+Manuell kjøring er fortsatt tilgjengelig for feilsøking og engangsopprydding:
 
 ```bash
 # Tørrkjøring: viser kandidatene uten å skrive
@@ -448,11 +530,10 @@ npm run sla:cleanup
 npm run sla:cleanup -- --apply
 ```
 
-Klokker som allerede er `CANCELLED` røres ikke, og klokker med gyldig aktiv
-avtale og samme policy beholdes uendret. Hver kansellering skrives i samme
-transaksjon som revisjonsloggen. `sweepSlaClocks` og oppdragsdetaljen ignorerer
-kansellerte klokker, så de verken varsler eller vises i SLA-panelet. Ta backup
-og kjør mot en kopi/testdatabase før `--apply` i produksjon.
+Den manuelle kjøringen rører ikke `SlaCleanupRun`; den er bare et
+diagnoseverktøy. `sweepSlaClocks` og oppdragsdetaljen ignorerer kansellerte
+klokker, så de verken varsler eller vises i SLA-panelet. Ta backup og kjør mot
+en kopi/testdatabase før `--apply` i produksjon.
 
 ### Databaseroller (minste privilegium)
 
@@ -642,6 +723,11 @@ Etterpå: åpne et vedlegg i UI, og bekreft at filen finnes med riktig
 tilgangskontroll. `UPLOAD_DIR` må peke på samme sted som i produksjon
 (`/app/uploads` i containeren). Gjenopprett alltid database og opplastinger fra
 **samme tidsstempel**, ellers kan `Upload`-rader peke på filer som mangler.
+
+Med `STORAGE_DRIVER=s3` ligger filene i bucket, ikke i `fsm_uploads`. Da
+gjenopprettes de fra S3-versjonering/bucket-backup, ikke fra
+opplastingsarkivet. Bytt aldri driver uten å ha migrert og verifisert filene
+først; se [`STORAGE.md`](STORAGE.md).
 
 ### 4. Rollback-øvelse
 
@@ -853,7 +939,7 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 - Opprettelse, tilbakekalling og rotasjon logges i aktivitetsloggen. Sist brukt
   og utløp vises i listen. Utløpte og tilbakekalte nøkler gir `401`.
 
-## SSO (OIDC) og SCIM-provisjonering
+## SSO (OIDC/SAML) og SCIM-provisjonering
 
 SSO og SCIM er valgfritt og konfigureres utelukkende med miljøvariabler. Uten
 dem virker passordinnlogging som før. Passordinnloggingen fjernes aldri når SSO
@@ -939,8 +1025,60 @@ og nonce mot discovery-dokumentet.
   rolleobjektet som nøkler, så `SSO_ZITADEL_GROUPS_CLAIM` settes til
   `urn:zitadel:iam:org:project:roles`.
 
-SAML er ikke implementert. Entra ID, Keycloak, Authentik og Zitadel dekkes via
-OIDC; SAML kan legges til senere uten å endre kontomodellen.
+### SAML 2.0-leverandører
+
+SAML er additivt og bruker egne variabler, slik at OIDC-oppsettet er urørt.
+List leverandørene i `SAML_PROVIDERS`; hver får prefikset `SAML_<SLUG>_`.
+Signert assertion, audience, recipient og tidsvindu valideres av
+`@node-saml/node-saml`. Replay avvises av en databasebasert cache, slik at
+kontrollen også virker med flere appinstanser.
+
+```dotenv
+SAML_PROVIDERS=entra-saml
+SAML_ENTRA_SAML_DISPLAY_NAME=Entra SAML
+SAML_ENTRA_SAML_ENTRY_POINT=https://login.microsoftonline.com/<tenant-id>/saml2
+SAML_ENTRA_SAML_IDP_ISSUER=https://sts.windows.net/<tenant-id>/
+SAML_ENTRA_SAML_IDP_CERT=<base64-sertifikat eller PEM>
+SAML_ENTRA_SAML_SP_ENTITY_ID=https://fsm.example.no/api/auth/saml/entra-saml/metadata
+SAML_ENTRA_SAML_ACS_URL=https://fsm.example.no/api/auth/saml/entra-saml/acs
+SAML_ENTRA_SAML_ALLOWED_EMAIL_DOMAINS=example.no
+SAML_ENTRA_SAML_GROUPS_ATTRIBUTE=http://schemas.microsoft.com/ws/2008/06/identity/claims/groups
+SAML_ENTRA_SAML_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SAML_ENTRA_SAML_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+SAML_ENTRA_SAML_SYNC_ROLES=false
+SAML_ENTRA_SAML_SYNC_DEPARTMENT=false
+SAML_ENTRA_SAML_AUTO_PROVISION=false
+SAML_ENTRA_SAML_AUTO_PROVISION_ACTIVE=false
+SAML_ENTRA_SAML_DEFAULT_ROLE=USER
+```
+
+| Variabel | Betydning |
+| --- | --- |
+| `SAML_<SLUG>_ENTRY_POINT` / `_SSO_URL` | IdP-ens SingleSignOnService. Kan utelates når metadata er satt. |
+| `SAML_<SLUG>_METADATA_URL` / `_METADATA_XML` | Henter entry point og sertifikat fra IdP-metadata. URL-en må være http(s); redirects avvises. |
+| `SAML_<SLUG>_IDP_CERT` / `_CERT` | IdP-signeringssertifikat. Base64 uten headere normaliseres til PEM. |
+| `SAML_<SLUG>_IDP_ISSUER` | Forventet `Issuer` i assertionen. |
+| `SAML_<SLUG>_SP_ENTITY_ID` / `_ACS_URL` | SP-ens entity id og ACS. Standard utledes fra `APP_URL`/`NEXTAUTH_URL`. |
+| `SAML_<SLUG>_AUDIENCE` | Forventet audience. Standard lik SP entity id. |
+| `SAML_<SLUG>_WANT_ASSERTIONS_SIGNED` | Standard `true`; kan ikke slås av uten å svekke innloggingen. |
+| `SAML_<SLUG>_WANT_RESPONSE_SIGNED` | Krev signert respons i tillegg til assertion. Standard `false`. |
+| `SAML_<SLUG>_ALLOW_IDP_INITIATED` | Standard `false`. Når `true`, slås InResponseTo-kontrollen av, men signatur, audience, recipient, tid og replay er fortsatt aktiv. |
+| `SAML_<SLUG>_EMAIL_ATTRIBUTE` / `_NAME_ATTRIBUTE` / `_GROUPS_ATTRIBUTE` / `_DEPARTMENT_ATTRIBUTE` | Attributtnavnene i assertionen. E-post og grupper er påkrevde for kobling. |
+| `SAML_<SLUG>_GROUP_ROLE_MAP` / `_GROUP_DEPARTMENT_MAP` | Eksplisitt mapping fra gruppe til rolle/avdeling. Ukjent gruppe gir ingen endring. |
+| `SAML_<SLUG>_SYNC_ROLES` / `_SYNC_DEPARTMENT` | `true` oppdaterer eksisterende bruker ved innlogging. Standard `false`. |
+| `SAML_<SLUG>_AUTO_PROVISION` / `_AUTO_PROVISION_ACTIVE` / `_DEFAULT_ROLE` / `_DEFAULT_DEPARTMENT` | Samme trygge provisjoneringsregler som OIDC. `CUSTOMER` er ikke tillatt. |
+| `SAML_<SLUG>_SIGN_AUTHN_REQUEST` / `_SP_PRIVATE_KEY` | Signerer AuthnRequest. Krever begge. Standard av. |
+
+SP-metadata publiseres på
+`https://<app>/api/auth/saml/<slug>/metadata`. Registrer entity id og ACS-URL i
+IdP-en. Innlogging starter på `/api/auth/saml/<slug>/login`; ACS ligger på
+`/api/auth/saml/<slug>/acs`. SAML bruker samme konto-, rolle-, avdelings- og
+2FA-regler som OIDC, og kundeportalbrukere kan aldri kobles.
+
+**Replay og tid:** cachen ligger i `SamlCacheEntry` og ryddes automatisk når
+oppføringen utløper. En assertion kan bare brukes én gang, også når flere
+appinstanser deler database. Klokkeavvik godtas i fem sekunder; assertioner
+eldre enn fem minutter avvises.
 
 Appen leser claims fra **ID-tokenet**. Sørg for at grupper/roller er med der,
 ikke bare i userinfo. Entra ID utelater `groups` når brukeren er medlem av
@@ -979,6 +1117,9 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | `/api/scim/v2/Users` | `GET` | Liste med `filter`, `startIndex`, `count`. Støtter `eq`, `ne`, `co`, `sw`, `pr` og `and` på `userName`, `emails.value`, `externalId`, `active`, `id`, `displayName` og `role`. |
 | `/api/scim/v2/Users` | `POST` | Opprett bruker. `active=true` må sendes eksplisitt for at kontoen skal kunne logge inn. |
 | `/api/scim/v2/Users/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, deloppdater eller deaktiver. `DELETE` er myk deaktivering. |
+| `/api/scim/v2/Groups` | `GET` | Liste med `filter`, `startIndex`, `count`. Filter på `displayName`, `externalId`, `id` og `members`. |
+| `/api/scim/v2/Groups` | `POST` | Opprett gruppe med `displayName`, valgfri `externalId` og `members[].value` (lokal bruker-id). |
+| `/api/scim/v2/Groups/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, legg til/fjern medlemmer eller slett gruppen. Brukerne slettes aldri. |
 | `/api/scim/v2/ServiceProviderConfig` | `GET` | Kapabiliteter for IdP-oppsett. |
 
 - **Tokens:** opprettes under **Innstillinger → SSO og SCIM** av administrator.
@@ -1010,9 +1151,18 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   Overskridelse gir `429` med `Retry-After`.
 - **Feilformat:** alle feil, også 401/403/404/409, bruker
   `application/scim+json` og `{ "schemas": [«...Error»], "detail": ..., "status": "400" }`.
-- **Begrensninger:** SCIM Groups er ikke implementert. Rolle styres av `roles`
-  / `groups` på brukeren og den eksplisitte mappingen. SAML er ikke
-  implementert; Entra ID, Keycloak, Authentik og Zitadel bruker OIDC.
+- **SCIM Groups:** grupper speiles med `displayName`, `externalId` og
+  medlemmer. Et medlem er en lokal bruker-id. `PATCH` støtter `displayName`,
+  `externalId`, `members` (add/replace/remove) og
+  `members[value eq "…"]`. Gruppen gir bare tilgang når navnet finnes i
+  `SCIM_GROUP_ROLE_MAP` eller `SCIM_GROUP_DEPARTMENT_MAP`; uten mapping skjer
+  ingenting. Flere grupper som peker på ulike roller/avdelinger gir ingen
+  endring og en revisjonsrad. `ADMIN` krever fortsatt `SCIM_ALLOW_ADMIN=true`.
+  Brukerens `GET`-ressurs viser gruppene som `groups[].value/display`.
+  `DELETE` sletter gruppen og medlemskapene, men beholder brukerne.
+- **Feltnivå:** svar fra SCIM inneholder aldri passord, 2FA-hemmeligheter eller
+  andre interne felt. Se [`RBAC.md`](RBAC.md) for maskering av kundekontakt,
+  fakturabeløp, rapportsignaturer og lønnsbeløp.
 
 ### Break-glass og minste privilegium
 
@@ -1028,8 +1178,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 
 ## Disk, opplastinger og opprydding
 
-- Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`).
-- `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil.
+- Standard er lokal disk: filer ligger i `UPLOAD_DIR` (standard `./uploads`, i
+  Docker `/app/uploads`). Med `STORAGE_DRIVER=s3` ligger de i S3/MinIO, men
+  URL-ene er fortsatt `/uploads/<filnavn>`. Se [`STORAGE.md`](STORAGE.md).
+- `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil. Ruten
+  bruker samme lagringslag som opplastingen, så den virker uendret med S3.
 - Per-fil-grenser: 15 MB for bilder og 50 MB for PDF (`UPLOAD_MAX_IMAGE_MB`,
   `UPLOAD_MAX_DOCUMENT_MB`). Hele forespørselen avvises tidlig med 413 basert på
   `Content-Length`, og grensene håndheves på nytt mens multipart-kroppen
@@ -1038,11 +1191,20 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 - **Kvoter:** `UPLOAD_QUOTA_USER_MB` (standard 2048, rullerende 24 timer per
   bruker) og `UPLOAD_QUOTA_CUSTOMER_MB` (standard 10240, samlet per kunde).
   Overskridelse gir `507 storage_quota_exceeded`, og brukeren får en tydelig
-  feilmelding. Kvotene er en applikasjonssperre, ikke et garantert tak under
-  samtidige opplastinger; volumbegrensning i drift er fortsatt nødvendig.
-- Midlertidige filer ligger i `UPLOAD_DIR/.tmp` og slettes når opplastingen
-  feiler. Cron-jobben `/api/cron/cleanup` fjerner i tillegg filer som er eldre
-  enn 24 timer etter en krasj. Sjekk at jobben kjører hvis diskbruken vokser.
+  feilmelding. Kvoten reserveres atomisk før filen flyttes til den endelige
+  mappen: en kortlevd `UploadQuotaReservation` teller sammen med ferdige
+  `Upload`-rader, og en transaksjonslåst advisory lock serialiserer kontroll og
+  innsetting per bruker/kunde. Samtidige opplastinger kan derfor ikke lenger
+  passere grensen sammen. Reservasjonen skrives om til en `Upload`-rad i samme
+  transaksjon som den slettes; avvises opplastingen, slettes både filen og
+  reservasjonen. Utløpte reservasjoner (15 min) ignoreres og ryddes av
+  `/api/cron/cleanup`. Volumbegrensning i drift er fortsatt nødvendig som
+  ytterste sikkerhet.
+- Midlertidige filer ligger i `UPLOAD_TEMP_DIR` (standard `/tmp` i container,
+  `UPLOAD_DIR/.tmp` lokalt) og slettes når opplastingen feiler. Cron-jobben
+  `/api/cron/cleanup` fjerner i tillegg filer som er eldre enn 24 timer etter
+  en krasj. Sjekk at jobben kjører hvis diskbruken vokser. Ved S3 må
+  `UPLOAD_TEMP_DIR` være skrivbar og stor nok for OCR/PDF.
 - Grov kapasitetsberegning: 1000 PDF-er à 20 MB = ca. 20 GB, og backup arkiverer
   det samme én gang til. Lokale backupfiler dobler altså diskbehovet. Hold
   minst 30 % ledig disk, og legg backupene utenfor datadisk hvis mulig.
@@ -1068,22 +1230,140 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   andre rader refererer til den (`src/lib/upload-cleanup.ts`). Sjekk volumet
   etter store slettinger.
 
+### Personvern og sletting av kundedata
+
+- Admin-only flyt på kundekortet: **Mer → Personvern / Slett kundedata**.
+  Forhåndsvisningen viser antall berørte rader og blokkerer ved
+  `WorkOrder.legalHold`, `Report.legalHold` eller aktivt `AuditHold`.
+- Slettingen anonymiserer direkte identifikatorer i én databasetransaksjon.
+  Oppdrag, rapporter, revisjoner, signerte rapport-PDF-er, teknikersignaturer
+  og revisjonsloggen bevares. Kundens egne vedlegg og dokumentbibliotek slettes.
+- Signerte rapport-PDF-er bevares uendret som tjenestebevis og kan fortsatt
+  inneholde opprinnelige data. Det er et dokumentert retensjonsvalg, ikke en
+  feil. Se [`privacy-erasure.md`](privacy-erasure.md) for retensjonsmatrise,
+  prosedyre og bevis.
+- Etter store slettinger: kontroller lagringslaget for filer uten `Upload`-rad.
+  Tjenesten forsøker å rydde dem, men filer fra eldre data kan mangle metadata.
+  Sammenlign med `Upload.storedName` før manuell sletting. Ved S3 brukes
+  bucket-listingen med `S3_PREFIX`; slett aldri objekter manuelt uten denne
+  sammenligningen.
+
 ### Kundeoverføring (eksport/import)
 
-- Midlertidige kundepakker og staging ligger i `UPLOAD_DIR/.transfer/<jobbId>/`.
-  Mappen opprettes med `0700`, og `package.zip` skrives med `0600`.
+- Midlertidige kundepakker og staging ligger i lagringslaget under
+  `.transfer/<jobbId>/` (lokal disk: `UPLOAD_DIR/.transfer/<jobbId>/`; S3:
+  `S3_PREFIX/.transfer/<jobbId>/`). Med delt lagring kan importjobben kjøre på
+  en annen replika enn den som tok imot filen. `/uploads` nekter å serve
+  nøkler som starter med «.».
 - **Grenser:** maks 50 MiB per fil, 500 MiB per pakke (ukomprimert og
   komprimert), 20 000 ZIP-oppføringer og kompresjonsforhold 100:1. Hele pakken
-  holdes i minnet i v1, så den praktiske minnegrensen er også 500 MiB.
+  holdes i minnet, så den praktiske minnegrensen er også 500 MiB.
   `next.config.ts` (`proxyClientMaxBodySize`) er hevet til 512 MiB for å slippe
   importkroppen gjennom proxyen.
-- **Levetid:** eksportartefakter og importstaging utløper etter 24 timer.
-  Jobbworkeren kaller `cleanupExpiredTransfers()` hver time; den sletter
+- **Asynkrone jobber:** eksport starter som `PENDING`; bekreftet import blir
+  `QUEUED`. Workeren i `src/lib/customer-transfer/worker.ts` henter én jobb om
+  gangen med `FOR UPDATE SKIP LOCKED`, setter `RUNNING`, oppdaterer
+  `progressStage`/`progressProcessed`/`progressTotal` og avslutter som `READY`,
+  `COMPLETED` eller `FAILED`. Statusruten polles av UI-et. Workeren starter fra
+  `startJobWorker()` når `transfer`-modulen er på.
+- **Gjenopptak:** en `RUNNING`-jobb uten oppdatering i mer enn
+  `CUSTOMER_TRANSFER_STALE_JOB_MS` (standard 60 min) settes tilbake til
+  `PENDING` (eksport) eller `QUEUED` (import). Eksport bygges på nytt fra
+  scratch; importens databasetransaksjon er atomisk med jobbstatusen, så et
+  nytt forsøk kan ikke duplisere rader. `CUSTOMER_TRANSFER_JOB_RETENTION_DAYS`
+  styrer hvor lenge terminale jobbrader beholdes (standard 90 dager eksport,
+  365 dager import).
+- **Én aktiv import per pakke/kunde:** bekreftelse tar en PostgreSQL advisory
+  lock på pakkesjekksummen. En ny import av samme pakke mens en annen er
+  `QUEUED` eller `RUNNING` avvises med `409`. Selve anvendelsen låser også hver
+  eksisterende målkunde (sortert, for å unngå deadlock), slik at to ulike
+  pakker som treffer samme kunde serialiseres.
+- **Signatur (anbefalt):** to moduser kan brukes sammen. Begge signerer
+  manifestet og `checksums.sha256` med samme kanoniske payload.
+  - **HMAC-SHA256:** sett `CUSTOMER_TRANSFER_SIGNING_KEY` (minst 32 tegn,
+    f.eks. `openssl rand -base64 48`) på både kilde- og målinstallasjonen.
+    Eksporten legger signaturen i `manifest.sig`. Den er bakoverkompatibel med
+    alle eksisterende pakker.
+  - **Ed25519:** generer et nøkkelpar på kildeinstallasjonen:
+    `openssl genpkey -algorithm ED25519 -out transfer-ed25519-private.pem` og
+    `openssl pkey -in transfer-ed25519-private.pem -pubout -out transfer-ed25519-public.pem`.
+    Sett `CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY` på kilden og
+    `CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY` på mottakeren. PEM kan inneholde
+    ekte linjeskift eller escaped `\n` (nyttig i Docker/env-filer).
+    `CUSTOMER_TRANSFER_ED25519_KEY_ID` er en valgfri, ikke-hemmelig etikett for
+    logging. Eksporten legger signaturen i `manifest.sig.ed25519`.
+    På en installasjon som bare skal verifisere, settes bare den offentlige
+    nøkkelen. Setter man bare privatnøkkelen, utleder appen den offentlige
+    nøkkelen for egen verifisering; dette er praktisk i enkeltinstallasjoner.
+  - **Modus:** `CUSTOMER_TRANSFER_SIGNATURE_MODE` kan være `hmac`, `ed25519`,
+    `both` eller `any`. `hmac`/`ed25519` godtar bare den valgte algoritmen og
+    ignorerer den andre med en advarsel. `both` krever at begge signaturfilene
+    finnes og er gyldige. `any` krever minst én gyldig av de konfigurerte
+    algoritmene. Standard er `any` når både HMAC og Ed25519 er konfigurert,
+    ellers den ene konfigurerte algoritmen. Standardvalget bevarer gamle
+    HMAC-pakker etter at Ed25519 tas i bruk. En signatur som er til stede, men
+    ugyldig, avvises alltid – også i `any`.
+  - Sett `CUSTOMER_TRANSFER_REQUIRE_SIGNATURE=true` for å kreve signatur.
+    Pakker med feil nøkkel får `customer_transfer.signature_untrusted`, endret
+    innhold får `customer_transfer.signature_invalid`, og manglende påkrevd
+    signatur får `customer_transfer.signature_missing`.
+  - **Nøkkellagring:** private nøkler og HMAC-hemmeligheter skal aldri i git,
+    logger, pakken eller vanlige env-filer i klartekst. Bruk
+    secrets-manager/Docker secret, begrens lesetilgang og roter ved mistanke om
+    lekkasje. Den offentlige Ed25519-nøkkelen er ikke hemmelig og kan
+    distribueres over en verifisert kanal.
+  - **Rotasjon:** generer nytt nøkkelpar (eller ny HMAC-nøkkel), sett den nye
+    som aktiv signeringsnøkkel og legg den gamle offentlige nøkkelen i
+    `CUSTOMER_TRANSFER_ED25519_PUBLIC_KEYS_PREVIOUS` (kommaseparert PEM eller
+    JSON-array med PEM/`{id, publicKey}`). For HMAC legges den gamle nøkkelen i
+    `CUSTOMER_TRANSFER_SIGNING_KEYS_PREVIOUS` (kommaseparert). Nye pakker
+    signeres med den nye nøkkelen; gamle verifiseres med den gamle. Fjern gamle
+    verifiseringsnøkler når alle mellomliggende pakker er importert eller
+    utløpt.
+  - **Gjenoppretting:** mistes privatnøkkelen, kan nye pakker ikke signeres med
+    den. Generer et nytt par, distribuer den nye offentlige nøkkelen og behold
+    den gamle offentlige nøkkelen til gamle pakker er importert. Mistes en
+    offentlig nøkkel på mottakeren, kan pakken ikke verifiseres; skaff den fra
+    en verifisert kanal. Signer aldri om en mottatt pakke for å «reparere» den.
+  - **Trust model:** HMAC er et delt hemmelighetssystem. Det beviser at pakken
+    er laget av noen med nøkkelen, ikke hvem i en juridisk
+    ikke-fornektelsesforstand. Ed25519 fjerner behovet for å dele en hemmelighet
+    med mottakeren og gir asymmetrisk verifisering, men det er fortsatt én
+    felles signeringsidentitet for installasjonen – ikke per-bruker
+    ikke-fornektelse. I `any`-modus kan en gyldig HMAC-signatur godtas når
+    Ed25519 mangler; bruk `both` eller `ed25519` hvis bare asymmetrisk
+    verifisering skal være mulig.
+- **Valgfri kryptering:** `npm run transfer:encrypt -- pakke.zip pakke.fsmenc`
+  (eller `TRANSFER_PASSPHRASE=...`) lager et AES-256-GCM-omslag med
+  scrypt-nøkkel. Import kan ta imot `.fsmenc` med passfrasen i multipart-feltet
+  `passphrase`; CLI kan også dekryptere med `npm run transfer:decrypt`.
+  - **Admin-UI:** importfanen har et eget passordfelt for `.fsmenc`. Feltet
+    sendes bare som multipart `passphrase` i den ene opplastingsforespørselen,
+    tømmes fra React-state etter at pakken er tatt imot, og lagres aldri i DB,
+    jobb-JSON eller logg. Vanlige ZIP-pakker lastes opp uten passfrase.
+    Manglende passfrase gir `customer_transfer.passphrase_required`; feil
+    passfrase gir `customer_transfer.decryption_failed`. Begge vises som
+    oversatte feilmeldinger i UI-et.
+  - **Eksport:** nedlastingsknappen lager en vanlig ZIP. Skal pakken krypteres
+    før overføring, kjøres CLI-en etter nedlasting og `.fsmenc`-filen lastes opp
+    i mottakerens importfane. `X-Transfer-Passphrase` er bare for CLI og må ikke
+    logges av proxyer. Bruk TLS i tillegg.
+- **Levetid/opprydding:** eksportartefakter og importstaging utløper etter 24
+  timer. `cleanupExpiredTransfers()` kalles hver time, avstemmer filer, sletter
   staging, markerer jobben `EXPIRED` og fjerner forlatte kataloger uten levende
   jobb. Hjelperen kan også kalles manuelt ved diskmangel.
-- **Ingen offentlig URL:** ZIP-en serveres bare fra en autentisert
-  adminrute med `no-store`. Den skal aldri legges i `public/`, `/uploads` eller
-  en delt cache.
+- **Avstemming etter krasj:** importen skriver fillisten
+  `.transfer/<jobbId>/final-files.json` før første sluttfil. Jobben
+  `reconcileTransferFiles()` sletter bare navn fra denne listen, og bare når
+  `isUploadReferenced()` bekrefter at ingen attachment, dokument(versjon),
+  rapport, revisjon eller kladd peker på filen. Refererte filer slettes aldri.
+  Kjør manuelt med `npm run transfer:reconcile` dersom en import krasjet og
+  staging fortsatt finnes. Den skriver en JSON-oppsummering og er trygg å
+  gjenta. Slett aldri filer i `UPLOAD_DIR` manuelt uten å sammenligne med
+  `Upload.storedName` og referansetabellene.
+- **Ingen offentlig URL:** ZIP-en serveres bare fra en autentisert adminrute
+  med `no-store`. Den skal aldri legges i `public/`, `/uploads` eller en delt
+  cache.
 - **Ikke backup:** kundepakken er et overføringsverktøy for én eller flere
   kunder. Den erstatter ikke PostgreSQL-backup + uploadvolum, og den inneholder
   bevisst ikke passord, sesjoner, API-nøkler eller 2FA-hemmeligheter.
@@ -1092,14 +1372,11 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   globalt unike, også på tvers av kunder. En kollisjon i målbasen er en
   konflikt som blokkerer importen; den importeres aldri som en ny kobling på
   feil enhet. `Product.qrToken` gjenbrukes ikke.
-- **Overvåking:** følg diskbruk på `UPLOAD_DIR` og antall jobber med status
-  `FAILED`. Utløpte jobber skal forsvinne fra staging innen en time etter
-  `expiresAt`.
-- **Etter krasj under import:** DB-transaksjonen ruller tilbake, men filer som
-  allerede er skrevet til `UPLOAD_DIR` kan bli liggende uten `Upload`-rad fordi
-  v1 ikke har en egen avstemmingsjobb for ferdige filer. Sammenlign filsystemet
-  med `Upload.storedName` før du sletter noe manuelt; slett aldri filer som er
-  referert av en rad.
+- **Overvåking:** følg diskbruk på `UPLOAD_DIR`, antall `QUEUED`/`RUNNING` som
+  ikke beveger seg, og antall `FAILED`. Utløpte jobber skal forsvinne fra
+  staging innen en time etter `expiresAt`. Jobb-JSON inneholder bare ID-er,
+  antall, sjekksummer, regler og stabile feilkoder – aldri navn, e-post,
+  filnavn eller passfrase.
 
 ## Sanntid (SSE)
 
@@ -1110,15 +1387,24 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   med begrenset, eksponentiell backoff og gir opp etter fem forsøk, slik at en
   401/403 ikke gir en uendelig løkke.
 
-## Skalering
+## Skalering og HA
 
-- Rate limits og jobbkø ligger i databasen og deles mellom instanser.
-- Serviceavtale-genereringen bruker en PostgreSQL advisory lock, så bare én
-  instans genererer om gangen.
-- PDF-rendering har en prosesslokal semaphore (maks 2). Ved flere instanser
-  gjelder grensen per instans.
-- For større installasjoner: bytt lokal disk mot S3-kompatibel lagring og
-  vurder Redis/BullMQ for kø og rate limits (P4).
+- Standard: rate limits og jobbkø ligger i databasen og deles mellom instanser.
+  PDF-rendering har en prosesslokal semaphore (maks 2); grensen gjelder per
+  instans.
+- Med `QUEUE_DRIVER=redis` varsles jobber via Redis, men databasen er fortsatt
+  kilden til sannhet og fallback. `CACHE_DRIVER` og `RATE_LIMIT_DRIVER` kan
+  overstyres hver for seg.
+- Flere app-replikaer krever **delt opplastingslager** (`STORAGE_DRIVER=s3`).
+  Uten det får hver replika sin egen disk.
+- `DATABASE_POOL_MAX` (standard 10) ganger antall replikaer må være lavere enn
+  Postgres `max_connections`, med margin til migrasjoner og drift.
+- Bruk `docker-compose.ha.yml` og `deploy/ha/Caddyfile`. Se
+  [`SCALING.md`](SCALING.md) for topologi, utrulling, readiness og
+  kapasitetstesting.
+- For databasen: bruk managed PostgreSQL med replika/failover og PITR, eller
+  Patroni. Compose-profilen har WAL-arkiv og verifisert base-backup, men ingen
+  automatisk primærfailover.
 
 ## CI og publisering
 
@@ -1143,6 +1429,7 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | PDF mangler bilder eller signaturer | advarsel i PDF-en, `report_pdf_images_missing` i loggen, `Upload`-rad med riktig `ownerId`/`departmentId`/`customerId`, og at filen finnes i `UPLOAD_DIR` |
 | OCR henger | `DocumentJob`-status, `PDF_JOB_WORKER`, `TESSDATA_DIR`, full `/tmp` |
 | Serviceavtaler lages ikke | `RECURRING_SCHEDULER`, advisory lock, `nextServiceDate` |
+| SLA-oppryddingen kjører ikke | `SLA_CLEANUP_ENABLED`, `SLA_CLEANUP_INTERVAL_HOURS`, `SlaCleanupRun`, advisory lock, `fsm_sla_cleanup_stale` |
 | Disk full | `df -h /`, `docker system df -v`, opplastingsvolum, backupfiler |
 
 Rapport-PDF-er bygger inn bilder og signaturer fra `UPLOAD_DIR` bare når
@@ -1181,29 +1468,19 @@ viseren og beholder `object-src 'none'`.
    `docker compose -f docker-compose.prod.yml up -d app`. Ved DB-utfall: start
    Postgres først, deretter appen.
 
-## Native feltapp (Capacitor)
+## Native feltapp
 
-Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet laster den
-driftede HTTPS-adressen i en WebView; appen er fortsatt server-rendret og kan
-ikke eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
-[`NATIVE.md`](NATIVE.md).
+Android- og iOS-appen ligger i et eget repo: [`fsm-mobile`](https://github.com/EroticD/fsm-mobile). Plattformen
+inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.
 
-```bash
-npm ci
-npx cap add android          # én gang per klone; android/ er ikke i git
-npx cap add ios              # krever macOS + Xcode
-CAPACITOR_SERVER_URL=https://felt.example.no npm run native:sync
-npm run native:build:android # debug-AAB/APK med debug-nøkkel
-npm run native:open:android  # eller native:open:ios på macOS
-```
+- Appen starter på en lokal oppsettside der brukeren skriver inn URL-en til
+  FSM-installasjonen. Adressen lagres native og er ikke bygget inn.
+- Serveradressen kan endres fra tannhjulet nederst i appen.
+- Plattformens service worker cacher sider, API-GET og `/uploads/`-filer i
+  **7 døgn** per bruker. Cacheene slettes ved utlogging, utløpt økt og «Bytt
+  server».
+- Bygg, signering, lokal testserver og butikkoppføring er dokumentert i
+  `fsm-mobile`-repoets `README.md` og `docs/NATIVE.md`.
 
-- `CAPACITOR_SERVER_URL` må være HTTPS. `cleartext` er av.
-- Kamera i WebView krever `CAMERA`-tillatelse på Android og
-  `NSCameraUsageDescription` på iOS. Uten tillatelse bruker skanneren manuell
-  inntasting.
-- Signeringsnøkler, `google-services.json`, `GoogleService-Info.plist` og
-  Apple-sertifikater skal ikke i git eller i CI-loggen.
-- Push (FCM/APNs) er ikke satt opp. Butikkklar signering og oppføring gjenstår;
-  se `NATIVE.md`.
-- Etter en ny appversjon: `npm run native:sync`, bygg på nytt og rull ut. PWA-en
-  oppdateres separat gjennom service worker-meldingen i appen.
+Plattformen må fortsatt angi riktig `NEXTAUTH_URL` og `AUTH_TRUST_HOST`, og
+bruke HTTPS i produksjon. Push (FCM/APNs) er ikke satt opp.

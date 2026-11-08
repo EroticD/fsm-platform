@@ -2,6 +2,9 @@
 /**
  * Kansellerer SLA-klokker som ikke har dekning i en aktiv avtale.
  *
+ * Appens scheduler kjører oppryddingen automatisk. Dette skriptet er et
+ * diagnose-/engangsverktøy og skriver derfor ikke `SlaCleanupRun`.
+ *
  *   npm run sla:cleanup            # tørrkjøring (standard)
  *   npm run sla:cleanup -- --apply # skriv kanselleringene
  *
@@ -35,7 +38,10 @@ const prisma = new PrismaClient({
 const dryRun = !process.argv.includes("--apply");
 
 try {
-  const result = await cancelUncontractedSlaClocks(prisma, { dryRun });
+  const result = await cancelUncontractedSlaClocks(prisma, {
+    dryRun,
+    take: 10_000,
+  });
   const verb = result.dryRun ? "Vil kansellere" : "Kansellerte";
   console.log(
     `${verb} ${result.candidates.length} av ${result.scanned} vurderte SLA-klokker ` +

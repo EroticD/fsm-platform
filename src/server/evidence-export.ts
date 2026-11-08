@@ -1,5 +1,4 @@
 // i18n-ignore-file: arkivinnhold og revisjonshandlinger er data, ikke UI.
-import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
@@ -12,7 +11,8 @@ import {
   type ArchiveMissingFile,
   type ArchiveVerification,
 } from "@/lib/archive-manifest";
-import { uploadDir } from "@/lib/uploads";
+import { readUploadFile } from "@/lib/uploads";
+import { tryNormaliseStorageKey } from "@/lib/storage";
 import { sha256Hex } from "@/lib/zip";
 import {
   fail,
@@ -60,11 +60,10 @@ function safeArchiveName(name: string, fallback: string): string {
   return base || fallback;
 }
 
-function resolveUploadFile(storedName: string): string | null {
-  const root = path.resolve(uploadDir());
-  const filePath = path.resolve(root, storedName);
-  if (filePath !== root && !filePath.startsWith(root + path.sep)) return null;
-  return filePath;
+function resolveUploadKey(storedName: string): string | null {
+  // Bevispakken skal bare lese filer i opplastingsroten, aldri intern staging.
+  if (!/^[A-Za-z0-9._-]+$/.test(storedName)) return null;
+  return tryNormaliseStorageKey(storedName);
 }
 
 type EvidenceFile = {
@@ -143,14 +142,14 @@ async function collectWorkOrderFiles(
       upload.storedName || "fil",
     );
     const archivePath = `files/${safeArchiveName(upload.storedName, "fil")}-${safeName}`;
-    const filePath = resolveUploadFile(upload.storedName);
-    if (!filePath) {
+    const fileKey = resolveUploadKey(upload.storedName);
+    if (!fileKey) {
       missing.push({ path: archivePath, reason: "unsafe_path" });
       continue;
     }
 
     try {
-      const data = await fs.readFile(filePath);
+      const data = await readUploadFile(fileKey);
       files.push({ path: archivePath, data, kind: "attachment" });
     } catch {
       missing.push({ path: archivePath, reason: "file_not_found" });

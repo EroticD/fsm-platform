@@ -39,7 +39,8 @@
         "BOOKING": "Booking",
         "CONTRACT_DUE": "Serviceavtale",
         "OVERDUE": "Forfalt",
-        "CONTACT_UPDATE": "Kontaktoppdatering"
+        "CONTACT_UPDATE": "Kontaktoppdatering",
+        "INVOICE_PAID": "Faktura betalt"
       }
     },
     "notificationSettings": {
@@ -60,7 +61,8 @@
         "BOOKING": "Ny booking fra kundeportalen",
         "CONTRACT_DUE": "Serviceavtale forfaller",
         "OVERDUE": "Oppdrag er forfalt",
-        "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon"
+        "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon",
+        "INVOICE_PAID": "Faktura er betalt"
       },
       "inAppAria": "{label} i appen",
       "emailAria": "{label} på e-post",

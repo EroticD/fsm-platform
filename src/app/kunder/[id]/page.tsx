@@ -57,6 +57,7 @@ import {
   updateContractAction,
 } from "./actions";
 import { createUnit, deleteUnit, updateUnit } from "./unit-actions";
+import { moduleEnabled } from "@/server/modules";
 import {
   createPortalUser,
   resendPortalInvite,
@@ -103,12 +104,19 @@ export default async function CustomerDetailPage({
 
   const canManageCustomers = hasPermission(user, "customers.manage");
   const canManageEquipment = hasPermission(user, "equipment.manage");
+  const [contractsEnabled, equipmentEnabled] = await Promise.all([
+    moduleEnabled("contracts"),
+    moduleEnabled("equipment"),
+  ]);
   const canViewContracts =
-    hasPermission(user, "contracts.view") ||
-    hasPermission(user, "contracts.manage");
-  const canManageContracts = hasPermission(user, "contracts.manage");
+    contractsEnabled &&
+    (hasPermission(user, "contracts.view") ||
+      hasPermission(user, "contracts.manage"));
+  const canManageContracts =
+    contractsEnabled && hasPermission(user, "contracts.manage");
   const canCreateWorkOrders = hasPermission(user, "workorders.create");
-  const canViewEquipment = hasPermission(user, "equipment.view");
+  const canViewEquipment =
+    equipmentEnabled && hasPermission(user, "equipment.view");
   const canViewReports = hasPermission(user, "reports.view");
   const isAdmin = user.role === "ADMIN";
   const office = canManageCustomers;
@@ -345,6 +353,15 @@ export default async function CustomerDetailPage({
                 </Link>
               )}
               {isAdmin && (
+                <Link
+                  href={`/kunder/${customerId}/personvern`}
+                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                >
+                  <Icon name="shield" className="h-4 w-4 shrink-0" />
+                  {t("customers.privacy.link")}
+                </Link>
+              )}
+              {isAdmin && (
                 <ConfirmSubmitForm
                   action={deleteCustomerAction.bind(null, customerId)}
                   confirmMessage={t("customers.detail.deleteConfirm", {
@@ -544,6 +561,27 @@ export default async function CustomerDetailPage({
                 canManageCustomers={canManageCustomers}
               />
             </div>
+            {isAdmin && (
+              <div
+                id="personvern"
+                className={`scroll-mt-24 rounded-card border border-[#e7b5ae] p-4 ${CUSTOMER_CARD}`}
+              >
+                <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
+                  <Icon name="shield" className="h-4 w-4" />
+                  {t("customers.privacy.sectionTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
+                  {t("customers.privacy.sectionHint")}
+                </p>
+                <Link
+                  href={`/kunder/${customerId}/personvern`}
+                  className={`${CUSTOMER_RISK_BUTTON} mt-3`}
+                >
+                  <Icon name="shield" className="h-4 w-4" />
+                  {t("customers.privacy.link")}
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>

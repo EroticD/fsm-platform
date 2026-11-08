@@ -3,7 +3,8 @@
 Dette kapitlet gjelder administratorer som skal koble FSM til en ekstern
 identitetsleverandør (IdP) og automatisere oppretting og deaktivering av
 brukere. Oppsettet gjøres med miljøvariabler og krever ny appstart. Passord-
-innlogging blir alltid stående som nødvei.
+innlogging blir alltid stående som nødvei. Kapitlet gjelder FSM-plattformen
+0.8.11 (8. november 2026).
 
 ## 1. Før du begynner
 
@@ -62,9 +63,43 @@ SSO_ENTRA_GROUP_ROLE_MAP={"FSM-Office":"OFFICE","FSM-Technicians":"TECHNICIAN"}
 SSO_ENTRA_SYNC_ROLES=false
 ```
 
+### SAML 2.0
+
+SAML konfigureres med `SAML_PROVIDERS` og `SAML_<SLUG>_`. OIDC-variablene er
+urørt, så en installasjon kan ha begge deler. Eksempel:
+
+```dotenv
+SAML_PROVIDERS=entra-saml
+SAML_ENTRA_SAML_DISPLAY_NAME=Entra SAML
+SAML_ENTRA_SAML_ENTRY_POINT=https://login.microsoftonline.com/<tenant>/saml2
+SAML_ENTRA_SAML_IDP_CERT=<sertifikat>
+SAML_ENTRA_SAML_ALLOWED_EMAIL_DOMAINS=example.no
+SAML_ENTRA_SAML_GROUPS_ATTRIBUTE=groups
+SAML_ENTRA_SAML_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SAML_ENTRA_SAML_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+SAML_ENTRA_SAML_AUTO_PROVISION=false
+SAML_ENTRA_SAML_DEFAULT_ROLE=USER
+```
+
+Registrer **SP entity id** og **ACS-URL** fra
+`/api/auth/saml/<slug>/metadata` i IdP-en. Appen validerer signert assertion,
+audience, recipient og tidsvindu, og avviser replay av samme assertion.
+`ALLOW_IDP_INITIATED=true` er bare for IdP-initierte innlogginger; signatur,
+audience, recipient og replay er fortsatt på. SAML bruker samme konto-, rolle-,
+avdelings- og 2FA-regler som OIDC.
+
 Start appen på nytt. Åpne **Innstillinger → SSO og SCIM**. Leverandøren skal
 vises som **Aktiv**, med issuer, standardrolle og tillatte domener. Røde
 konfigurasjonsfeil betyr at en påkrevd variabel mangler eller er ugyldig.
+
+![Figur: SSO og SCIM med SAML-leverandør og status](../../../screenshots/manual/innstillinger-saml.jpg)
+
+*Figur: SAML konfigureres per leverandør og vises med status i innstillingene.*
+
+Se på **Status**, **Issuer** og **Redirect/ACS**-opplysningene. SAML og OIDC
+vises side om side, og OIDC-oppsettet er urørt når du legger til SAML. Er
+statusen rød, mangler en påkrevd variabel eller sertifikatet er ugyldig – rett
+det før du tester innlogging.
 
 **Forventet resultat:** Innloggingssiden viser en knapp med leverandørens navn
 over passordskjemaet.
@@ -126,6 +161,70 @@ Feltmapping:
 `DELETE` deaktiverer brukeren; den slettes ikke. Passord settes aldri. Endringer
 i rolle, avdeling, e-post eller aktiv status logger ut eksisterende økter.
 `ADMIN` krever `SCIM_ALLOW_ADMIN=true` i tillegg til eksplisitt mapping.
+
+### SCIM-grupper
+
+Grupper ligger på `/api/scim/v2/Groups` med samme token og feilformat som
+brukere. En gruppe har `displayName`, valgfri `externalId` og `members` med
+lokal bruker-id i `value`. `PATCH` støtter `displayName`, `externalId`,
+`members` og `members[value eq "…"]`.
+
+Grupper gir **bare** tilgang gjennom eksplisitt mapping:
+
+```dotenv
+SCIM_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SCIM_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+```
+
+Uten mapping skjer ingenting. To grupper som peker på ulike roller eller
+avdelinger gir ingen endring, bare en revisjonsrad. `ADMIN` krever fortsatt
+`SCIM_ALLOW_ADMIN=true`. `DELETE` sletter gruppen og medlemskapene, men beholder
+brukerne.
+
+### Feltnivå i visningen
+
+Feltnivå-RBAC håndheves på serveren, ikke bare i grensesnittet. Hver lesetjeneste
+som returnerer et sensitivt felt maskerer det før svaret går til API, søk,
+eksport eller UI. Maskering er standard: e-post og telefon maskeres, beløp og
+signatur-URL-er settes til `null`, og `redactedFields` forteller hvorfor.
+
+| Feltgruppe | ADMIN | OFFICE | TECHNICIAN | CUSTOMER | USER |
+| --- | --- | --- | --- | --- | --- |
+| `customerContact` – kundekontakt, e-post, telefon | Full | Full | Maskert | Egne | Maskert |
+| `billingAmounts` – faktura- og betalingsbeløp | Full | Full | Maskert | Egne | Maskert |
+| `reportSignatures` – rapportens signaturbilder | Full | Full | Full | Egne | Maskert |
+| `payrollAmounts` – lønn, kjøretur og utlegg | Full | Full | Egne | Maskert | Maskert |
+
+«Egne» betyr at `ownerId` eller `customerId` må matche aktøren. En montør ser
+egne reiseregninger og utlegg, men ikke kollegenes. Kundeportalen ser egne
+fakturabeløp og egen kontaktinfo, men ingen interne beløp eller signaturer.
+Kontaktpersonens navn og kundens adresse er ikke maskert i v1, fordi de trengs
+for å utføre oppdraget. Rapportens `technicianName` og `customerName` beholdes
+av samme grunn, mens selve signaturbildet skjules.
+
+En administrator kan gi ett felt til én bruker med nøkkelen i brukerens
+`permissions`-liste:
+
+```text
+fields.customerContact
+fields.billingAmounts
+fields.reportSignatures
+fields.payrollAmounts
+```
+
+Nøkkelen utvider tilgang til hele feltgruppen for den brukeren, arves ikke fra
+rollen og kan ikke gi ADMIN. I v1 settes den med direkte database-/API-tilgang,
+fordi innstillingenes vanlige rettighetsliste filtrerer bort ukjente nøkler.
+En redigerbar feltmatrise i UI er residual.
+
+![Figur: Feltpolicy-matrisen for sensitive felt](../../../screenshots/manual/innstillinger-feltpolicy.jpg)
+
+*Figur: Feltpolicyen viser hvilke roller som ser hvilke feltgrupper.*
+
+Legg merke til at matrisen er rollebasert og skrivebeskyttet i v1. Den viser
+hvilke grupper som maskeres, ikke hvilke enkeltfelter som er synlige. Vil du gi
+en montør tilgang til fakturabeløp, må feltnøkkelen settes eksplisitt; det er en
+bevisst handling, ikke en rolleendring. Se `docs/RBAC.md`.
 
 ## 8. Break-glass og feilsøking
 

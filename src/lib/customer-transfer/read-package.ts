@@ -18,6 +18,15 @@ import {
   parseChecksumsFile,
   supportedSchemaVersion,
 } from "./manifest";
+import {
+  TRANSFER_SCHEMA_VERSION,
+  migrateManifestToCurrent,
+} from "./schema-version";
+import {
+  ED25519_SIGNATURE_FILE,
+  SIGNATURE_FILE,
+  verifyPackageSignatures,
+} from "./signature";
 import type { PackageReadResult, TransferDataset, TransferRow } from "./types";
 
 export type PackageReadOutcome =
@@ -769,10 +778,11 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
       ],
     };
   }
-  const manifest = parsed.data;
+  let manifest = parsed.data;
   const knownManifestKeys = new Set([
     "format",
     "schemaVersion",
+    "packageId",
     "exportedAt",
     "source",
     "scope",
@@ -807,6 +817,51 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
       ],
     };
   }
+  if (manifest.schemaVersion !== TRANSFER_SCHEMA_VERSION) {
+    // Deterministisk migrering (for eksempel 1.0 -> 1.1). Ukjente versjoner
+    // er allerede avvist over; her gjetter vi aldri.
+    let migrated: Record<string, unknown>;
+    try {
+      migrated = migrateManifestToCurrent(
+        manifest as unknown as Record<string, unknown> & {
+          schemaVersion: string;
+        },
+      ).manifest;
+    } catch {
+      return {
+        ok: false,
+        errors: [
+          issue(
+            TRANSFER_ERROR.unsupported_schema,
+            "manifest.json.schemaVersion",
+            "errors.customerTransfer.unsupportedSchema",
+          ),
+        ],
+      };
+    }
+    const reparsed = manifestSchema.safeParse(migrated);
+    if (!reparsed.success) {
+      return {
+        ok: false,
+        errors: [
+          issue(
+            TRANSFER_ERROR.invalid_manifest,
+            "manifest.json",
+            "errors.customerTransfer.invalidManifest",
+          ),
+        ],
+      };
+    }
+    manifest = reparsed.data;
+    warnings.push(
+      issue(
+        TRANSFER_ERROR.invalid_data,
+        "manifest.json.schemaVersion",
+        "errors.customerTransfer.schemaMigrated",
+        `${parsed.data.schemaVersion}->${manifest.schemaVersion}`,
+      ),
+    );
+  }
   if (!manifest.scope.includeFiles) {
     return {
       ok: false,
@@ -833,6 +888,49 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
       ],
     };
   }
+  // Signaturverifisering skjer før vi stoler på checksums/manifest. Uten
+  // nøkkel er en usignert pakke et integritetsvarsel, ikke en hemmelighet.
+  const signatureEntry = entryMap.get(SIGNATURE_FILE) ?? null;
+  const ed25519Entry = entryMap.get(ED25519_SIGNATURE_FILE) ?? null;
+  const signature = verifyPackageSignatures({
+    hmacSignatureBytes: signatureEntry?.data ?? null,
+    ed25519SignatureBytes: ed25519Entry?.data ?? null,
+    manifestBytes: manifestEntry.data,
+    checksumsBytes: checksumEntry.data,
+  });
+  for (const code of signature.errors) {
+    const untrusted = code === "signature_untrusted";
+    errors.push(
+      issue(
+        code === "signature_missing"
+          ? TRANSFER_ERROR.signature_missing
+          : untrusted
+            ? TRANSFER_ERROR.signature_untrusted
+            : TRANSFER_ERROR.signature_invalid,
+        untrusted ? ED25519_SIGNATURE_FILE : SIGNATURE_FILE,
+        code === "signature_missing"
+          ? "errors.customerTransfer.signatureMissing"
+          : untrusted
+            ? "errors.customerTransfer.signatureUntrusted"
+            : "errors.customerTransfer.signatureInvalid",
+      ),
+    );
+  }
+  for (const code of signature.warnings) {
+    warnings.push(
+      issue(
+        TRANSFER_ERROR.invalid_data,
+        SIGNATURE_FILE,
+        code === "signature_key_missing"
+          ? "errors.customerTransfer.signatureKeyMissing"
+          : code === "signature_algorithm_ignored"
+            ? "errors.customerTransfer.signatureAlgorithmIgnored"
+            : "errors.customerTransfer.signatureUnsigned",
+        "warning",
+      ),
+    );
+  }
+
   const listedChecksums = parseChecksumsFile(checksumEntry.data.toString("utf8"));
   const manifestChecksums = new Map(Object.entries(manifest.checksums));
   for (const [path, checksum] of manifestChecksums) {
@@ -1023,6 +1121,7 @@ export function readPackage(buffer: Buffer): PackageReadOutcome {
       path === "checksums.sha256" ||
       path === "README.txt" ||
       path === "manifest.sig" ||
+      path === "manifest.sig.ed25519" ||
       path.startsWith("data/") ||
       path.startsWith("files/") ||
       path.startsWith("provenance/");

@@ -33,7 +33,11 @@
       "import": {
         "title": "Import customer",
         "description": "Upload a customer package. The package is validated and previewed before anything is written. Confirmation writes all rows and files in one transaction.",
-        "fileLabel": "Choose ZIP package",
+        "fileLabel": "Choose ZIP or .fsmenc package",
+        "passphraseLabel": "Passphrase for encrypted package",
+        "passphrasePlaceholder": "Leave empty for a regular ZIP",
+        "passphraseHelp": "Only encrypted .fsmenc packages need a passphrase. It is sent with this upload only, never stored and never logged.",
+        "upload": "Upload and validate",
         "createMissingReferences": "Create missing departments, tags and categories",
         "createMissingReferencesHelp": "Staff and templates are never created. Without this option missing references become null with a warning, or the import is blocked when the reference is required.",
         "uploading": "Uploading and validating …",
@@ -112,8 +116,17 @@
       "duplicateEntry": "The package contains duplicate file names.",
       "unsupportedMime": "The package contains a file type that is not allowed.",
       "mimeMismatch": "File content does not match the declared type.",
-      "encryptedArchive": "Encrypted ZIP archives are not supported.",
+      "encryptedArchive": "Encrypted ZIP archives are not supported. Use the documented FSM encrypted envelope with a passphrase.",
       "nestedArchive": "Nested archives are not allowed.",
+      "signatureInvalid": "The package signature is invalid. The package was modified or signed with an unknown key.",
+      "signatureMissing": "The package is missing a required signature. Import is blocked.",
+      "signatureUntrusted": "The package is signed with a key this installation does not trust. Import it only after verifying the key.",
+      "signatureAlgorithmIgnored": "The package has a signature using an algorithm that is disabled on this installation. The signature was ignored.",
+      "signatureKeyMissing": "The package is signed, but this installation has no key to verify it. Treat the package as unverified.",
+      "signatureUnsigned": "The package is not signed. Checksums detect corruption, not malicious modification.",
+      "schemaMigrated": "The package was migrated from an older, supported schema version.",
+      "decryptionFailed": "The package could not be decrypted. Check the passphrase and that the file is complete.",
+      "passphraseRequired": "The package is encrypted. Provide the passphrase to decrypt it.",
       "conflict": "The package has a conflict that must be resolved.",
       "policyRequired": "You must choose a conflict policy.",
       "previewStale": "Target data changed since the preview. Run a new preview.",
@@ -148,7 +161,9 @@
       "symlink": "Symlinks in the archive are not supported.",
       "unknownEntry": "An unknown top-level file was ignored with a warning.",
       "rateLimitedRetry": "Too many export attempts. Try again in {minutes} minutes.",
-      "exportInProgress": "The export is still running. Try again shortly."
+      "exportInProgress": "The export is still running. Try again shortly.",
+      "moduleDisabled": "The package contains data from a disabled module. Enable the module or create a new export.",
+      "importInProgress": "An import of the same package is already in progress."
     }
   },
   "auditActions": {

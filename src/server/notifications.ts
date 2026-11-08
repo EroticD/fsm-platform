@@ -1,6 +1,7 @@
 // i18n-ignore-file: varseltitler og -tekster lagres i databasen uten key/params-
 // kolonner. Render-tid-oversettelse krever skjemaendring i Phase 5B (C-23).
 import { randomUUID } from "node:crypto";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -24,6 +25,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { enqueuePushForNotification } from "./push";
 
 export const NOTIFICATION_TYPES = [
   "ASSIGNMENT",
@@ -38,6 +40,7 @@ export const NOTIFICATION_TYPES = [
   "SLA_BREACHED",
   "WARRANTY",
   "MESSAGE",
+  "INVOICE_PAID",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -449,6 +452,15 @@ export async function notifyUser(
     });
     // Beste-forsøk: varselet er allerede opprettet, og en feil her skal ikke
     // gjøre at innsenderen tror varselet ikke ble lagret.
+    try {
+      await enqueuePushForNotification({
+        id: notification.id,
+        userId: input.userId,
+        type: input.type,
+      });
+    } catch {
+      // Push-utboksen er et supplement til in-app-varselet.
+    }
     await publishRealtime("notifications");
     return notification;
   } catch (error) {
@@ -559,7 +571,7 @@ export async function notifyOverdueWorkOrders(
     where: {
       deletedAt: null,
       scheduledFor: { lt: today },
-      status: { notIn: ["COMPLETED", "CANCELLED"] },
+      status: { notIn: statusKeysByCategory("CLOSED") },
     },
     select: { id: true, title: true },
     take: 100,

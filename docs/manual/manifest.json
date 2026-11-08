@@ -35,6 +35,10 @@
           "label": "SSO og SCIM"
         },
         {
+          "file": "40-tilbud-faktura.md",
+          "label": "Tilbud, fakturering og regnskap"
+        },
+        {
           "file": "90-oppslag.md",
           "label": "Oppslag og feilsøking"
         }
@@ -67,6 +71,14 @@
           "file": "30-administrator.md",
           "label": "Administrator",
           "part": "Part 3"
+        },
+        {
+          "file": "31-sso-scim.md",
+          "label": "SSO and SCIM"
+        },
+        {
+          "file": "40-quotes-invoicing.md",
+          "label": "Quotes, invoicing and accounting"
         },
         {
           "file": "90-reference.md",

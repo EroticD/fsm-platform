@@ -15,16 +15,20 @@ export const dynamic = "force-dynamic";
 
 async function readPackageFromRequest(
   request: NextRequest,
-): Promise<{ buffer: Buffer; fileName: string } | null> {
+): Promise<{ buffer: Buffer; fileName: string; passphrase?: string } | null> {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
     const form = await request.formData().catch(() => null);
     const file = form?.get("file");
     if (!(file instanceof File)) return null;
     if (file.size > TRANSFER_LIMITS.maxPackageBytes) return null;
+    const passphraseValue = form?.get("passphrase");
     return {
       buffer: Buffer.from(await file.arrayBuffer()),
       fileName: file.name || "package.zip",
+      ...(typeof passphraseValue === "string" && passphraseValue
+        ? { passphrase: passphraseValue }
+        : {}),
     };
   }
 
@@ -35,7 +39,10 @@ async function readPackageFromRequest(
   if (!limited.ok) return null;
   const fileName =
     request.nextUrl.searchParams.get("filename")?.slice(0, 200) ?? "package.zip";
-  return { buffer: limited.buffer, fileName };
+  // Passfrasen skal helst sendes i multipart-feltet. Headeren finnes for
+  // CLI-bruk, men må ikke logges av proxyer; se docs/OPERATIONS.md.
+  const passphrase = request.headers.get("x-transfer-passphrase") ?? undefined;
+  return { buffer: limited.buffer, fileName, ...(passphrase ? { passphrase } : {}) };
 }
 
 export async function POST(request: NextRequest) {
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
   );
   if (limited) return limited;
 
-  let payload: { buffer: Buffer; fileName: string } | null;
+  let payload: { buffer: Buffer; fileName: string; passphrase?: string } | null;
   try {
     payload = await readPackageFromRequest(request);
   } catch {
@@ -71,6 +78,7 @@ export async function POST(request: NextRequest) {
     guard.actor,
     payload.buffer,
     payload.fileName,
+    { passphrase: payload.passphrase ?? null },
   );
   if (!result.ok) return transferFailureResponse(result);
   return transferJson(result.data, { status: 202 });

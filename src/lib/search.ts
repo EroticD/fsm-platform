@@ -5,7 +5,10 @@ import { formatDate } from "@/lib/dates";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
+import { moduleIsOn } from "@/lib/modules";
+import { readModuleStates } from "@/server/modules";
 import { canViewAllDepartmentReports } from "@/lib/report-scope";
+import { canSeeField, maskEmail, maskPhone } from "@/lib/field-rbac";
 import {
   parseSearchFilters,
   workOrderFilterWhere,
@@ -309,11 +312,16 @@ export async function performSearch(
   const selectedTypes = filters.types ? new Set(filters.types) : null;
   const wants = (kind: string) => !selectedTypes || selectedTypes.has(kind);
 
-  // Søket skal bare vise kategorier brukeren faktisk har tilgang til.
+  // Søket skal bare vise kategorier brukeren faktisk har tilgang til – og
+  // bare data fra moduler som er slått på. Direkte /api/search og /sok bruker
+  // samme funksjon, så dette er også vakten for direkte søkekall.
+  const states = await readModuleStates();
   const canCustomers = hasPermission(user, "customers.view");
   const canWorkOrders = hasPermission(user, "workorders.view");
-  const canEquipment = hasPermission(user, "equipment.view");
-  const canReports = hasPermission(user, "reports.view");
+  const canEquipment =
+    hasPermission(user, "equipment.view") && moduleIsOn(states, "equipment");
+  const canReports =
+    hasPermission(user, "reports.view") && moduleIsOn(states, "reports");
   // Uten reports.viewAllDepartments er også rapportsøket avdelingssperret.
   // `undefined` slår av filteret for dem som ser hele organisasjonen.
   const reportDepartmentId = canViewAllDepartmentReports(user)
@@ -321,8 +329,10 @@ export async function performSearch(
     : user.departmentId ?? null;
   const canUsers = hasPermission(user, "users.view");
   // Det finnes ingen egen leservisning for maler; treffene lenker til editoren.
-  const canTemplates = hasPermission(user, "templates.manage");
-  const canDocuments = hasPermission(user, "documents.view");
+  const canTemplates =
+    hasPermission(user, "templates.manage") && moduleIsOn(states, "reports");
+  const canDocuments =
+    hasPermission(user, "documents.view") && moduleIsOn(states, "documents");
 
   if (
     !canCustomers &&
@@ -973,29 +983,46 @@ export async function performSearch(
       icon: "🏢",
       total: totals.customer.total,
       capped: totals.customer.capped,
-      items: rankedCustomers.map(({ item: c, score }) => ({
-        id: c.id,
-        title: c.name,
-        subtitleParts: subtitleParts(
-          c.customerNumber
-            ? {
-                key: "components.search.subtitles.customerNumber",
-                params: { number: c.customerNumber },
-              }
-            : null,
-          c.orgNumber
-            ? {
-                key: "components.search.subtitles.orgNumber",
-                params: { number: c.orgNumber },
-              }
-            : null,
-          c.city ? { text: c.city } : null,
-          c.phone ? { text: c.phone } : null,
-          c.email ? { text: c.email } : null,
-        ),
-        href: `/kunder/${c.id}`,
-        score,
-      })),
+      items: rankedCustomers.map(({ item: c, score }) => {
+        const contactVisible = canSeeField(user, "customerContact", {
+          customerId: c.id,
+        });
+        return {
+          id: c.id,
+          title: c.name,
+          subtitleParts: subtitleParts(
+            c.customerNumber
+              ? {
+                  key: "components.search.subtitles.customerNumber",
+                  params: { number: c.customerNumber },
+                }
+              : null,
+            c.orgNumber
+              ? {
+                  key: "components.search.subtitles.orgNumber",
+                  params: { number: c.orgNumber },
+                }
+              : null,
+            c.city ? { text: c.city } : null,
+            c.phone
+              ? {
+                  text: contactVisible
+                    ? c.phone
+                    : maskPhone(c.phone) ?? c.phone,
+                }
+              : null,
+            c.email
+              ? {
+                  text: contactVisible
+                    ? c.email
+                    : maskEmail(c.email) ?? c.email,
+                }
+              : null,
+          ),
+          href: `/kunder/${c.id}`,
+          score,
+        };
+      }),
     },
     {
       kind: "workOrder",
@@ -1092,18 +1119,27 @@ export async function performSearch(
       icon: "👤",
       total: totals.contact.total,
       capped: totals.contact.capped,
-      items: rankedContacts.map(({ item: c, score }) => ({
-        id: c.id,
-        title: c.name,
-        subtitleParts: subtitleParts(
-          c.customer?.name ? { text: c.customer.name } : null,
-          c.role ? { text: c.role } : null,
-          c.phone ? { text: c.phone } : null,
-          c.email ? { text: c.email } : null,
-        ),
-        href: `/kunder/${c.customerId}?tab=kontakter`,
-        score,
-      })),
+      items: rankedContacts.map(({ item: c, score }) => {
+        const contactVisible = canSeeField(user, "customerContact", {
+          customerId: c.customerId,
+        });
+        return {
+          id: c.id,
+          title: c.name,
+          subtitleParts: subtitleParts(
+            c.customer?.name ? { text: c.customer.name } : null,
+            c.role ? { text: c.role } : null,
+            c.phone
+              ? { text: contactVisible ? c.phone : maskPhone(c.phone) ?? c.phone }
+              : null,
+            c.email
+              ? { text: contactVisible ? c.email : maskEmail(c.email) ?? c.email }
+              : null,
+          ),
+          href: `/kunder/${c.customerId}?tab=kontakter`,
+          score,
+        };
+      }),
     },
     {
       kind: "report",

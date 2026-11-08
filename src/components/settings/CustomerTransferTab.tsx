@@ -21,6 +21,8 @@ type Issue = {
 
 type Preview = {
   jobId: string;
+  status?: string;
+  progressStage?: string | null;
   package: {
     schemaVersion: string;
     sourceInstanceId: string;
@@ -57,6 +59,8 @@ type Job = {
   expiresAt?: string | null;
   downloadUrl?: string;
   fileName?: string;
+  errors?: unknown;
+  progressStage?: string | null;
   reused?: boolean;
 };
 
@@ -116,6 +120,47 @@ const DEFAULT_POLICIES: Record<PolicyKey, string> = {
 };
 
 const UPDATE_ALLOWED = new Set<PolicyKey>(["customer", "equipment"]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForExportJob(jobId: string): Promise<Job | null> {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`/api/innstillinger/kunder/eksport/${jobId}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const job = (await response.json()) as Job;
+    if (
+      job.status === "READY" ||
+      job.status === "FAILED" ||
+      job.status === "EXPIRED" ||
+      job.status === "ABORTED"
+    ) {
+      return job;
+    }
+    await sleep(1_500);
+  }
+  return null;
+}
+
+async function waitForImportJob(jobId: string): Promise<Preview | null> {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`/api/innstillinger/kunder/import/${jobId}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const preview = (await response.json()) as Preview & { status?: string };
+    if (preview.status === "COMPLETED" || preview.status === "FAILED") {
+      return preview;
+    }
+    await sleep(1_500);
+  }
+  return null;
+}
 
 async function readTransferError(
   response: Response,
@@ -180,6 +225,7 @@ export default function CustomerTransferTab({
 
   const [importing, setImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [passphrase, setPassphrase] = useState("");
   const [importJob, setImportJob] = useState<Job | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<TransferUiError | null>(null);
@@ -237,7 +283,31 @@ export default function CustomerTransferTab({
         );
         return;
       }
-      setExportJob((await response.json()) as Job);
+      const job = (await response.json()) as Job;
+      setExportJob(job);
+      if (job.status !== "READY") {
+        // Selve byggingen skjer i den vedvarende workeren. Poll statusruten uten
+        // å blokkere forespørselen som startet jobben.
+        const finished = await waitForExportJob(job.id);
+        if (finished) {
+          setExportJob(finished);
+          if (finished.status === "FAILED") {
+            const stored = finished.errors as
+              | { code?: unknown; messageKey?: unknown }
+              | null;
+            setExportError({
+              code:
+                typeof stored?.code === "string"
+                  ? stored.code
+                  : "customer_transfer.export_failed",
+              messageKey:
+                typeof stored?.messageKey === "string"
+                  ? stored.messageKey
+                  : EXPORT_FALLBACK_ERROR,
+            });
+          }
+        }
+      }
     } catch {
       setExportError({
         code: "network_error",
@@ -257,19 +327,23 @@ export default function CustomerTransferTab({
     setImportResult(null);
     setImportJob(null);
     try {
-      const response = await fetch(
-        `/api/innstillinger/kunder/import?filename=${encodeURIComponent(file.name)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/zip" },
-          body: file,
-        },
-      );
+      // Passfrasen sendes bare som et multipart-felt i denne forespørselen.
+      // Den skrives aldri til jobb-JSON, database eller logger, og tømmes fra
+      // React-state så snart serveren har tatt imot pakken.
+      const form = new FormData();
+      form.append("file", file);
+      if (passphrase) form.append("passphrase", passphrase);
+      const response = await fetch("/api/innstillinger/kunder/import", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
       if (!response.ok) {
         setImportError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
       const job = (await response.json()) as Job;
+      setPassphrase("");
       setImportJob(job);
       await runDryRun(job.id);
     } catch {
@@ -328,9 +402,27 @@ export default function CustomerTransferTab({
         setImportError(await readTransferError(response, FALLBACK_ERROR));
         return;
       }
-      const data = (await response.json()) as { counts: Record<string, number> };
-      setImportResult(data.counts);
-      setPreview(null);
+      const data = (await response.json()) as {
+        status?: string;
+        counts?: Record<string, number>;
+      };
+      if (data.status === "COMPLETED" && data.counts) {
+        setImportResult(data.counts);
+        setPreview(null);
+        return;
+      }
+      // Importen er køet i den vedvarende workeren. Poll til den er ferdig.
+      const finished = await waitForImportJob(importJob.id);
+      if (finished?.status === "COMPLETED") {
+        setImportResult(finished.counts);
+        setPreview(null);
+      } else if (finished?.status === "FAILED") {
+        const first = finished.errors[0];
+        setImportError({
+          code: first?.code ?? "customer_transfer.import_failed",
+          messageKey: first?.messageKey ?? FALLBACK_ERROR,
+        });
+      }
     } catch {
       setImportError({ code: "network_error", messageKey: FALLBACK_ERROR });
     } finally {
@@ -349,6 +441,7 @@ export default function CustomerTransferTab({
 
   function resetImport() {
     setImportFile(null);
+    setPassphrase("");
     setImportJob(null);
     setPreview(null);
     setPreviewError(null);
@@ -517,15 +610,21 @@ export default function CustomerTransferTab({
 
         {exportJob && (
           <div className="rounded-xl border border-[var(--line,#dedcd1)] p-3 text-sm sm:p-4">
-            <p className="font-bold">{t("settings.customerTransfer.export.resultTitle")}</p>
+            <p className="font-bold">
+              {exportJob.status === "READY"
+                ? t("settings.customerTransfer.export.resultTitle")
+                : t("settings.customerTransfer.export.running")}
+            </p>
             {exportJob.reused && (
               <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                 {t("settings.customerTransfer.export.reused")}
               </p>
             )}
-            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-              {t("settings.customerTransfer.export.checksum")}: {exportJob.checksumPrefix}
-            </p>
+            {exportJob.checksumPrefix && (
+              <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+                {t("settings.customerTransfer.export.checksum")}: {exportJob.checksumPrefix}
+              </p>
+            )}
             {exportJob.expiresAt && (
               <p className="text-xs text-[var(--muted,#62685f)]">
                 {t("settings.customerTransfer.export.expires", {
@@ -533,14 +632,20 @@ export default function CustomerTransferTab({
                 })}
               </p>
             )}
-            <a
-              className={`${SECONDARY} mt-2`}
-              href={exportJob.downloadUrl}
-              download={exportJob.fileName}
-            >
-              <Icon name="file" className="h-4 w-4" />
-              {t("settings.customerTransfer.export.download")}
-            </a>
+            {exportJob.downloadUrl ? (
+              <a
+                className={`${SECONDARY} mt-2`}
+                href={exportJob.downloadUrl}
+                download={exportJob.fileName}
+              >
+                <Icon name="file" className="h-4 w-4" />
+                {t("settings.customerTransfer.export.download")}
+              </a>
+            ) : (
+              <p role="status" className="mt-2 text-xs">
+                {t("settings.customerTransfer.export.running")}
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -554,19 +659,56 @@ export default function CustomerTransferTab({
         </p>
 
         <label className="flex flex-col gap-1 text-xs font-bold">
+          {t("settings.customerTransfer.import.passphraseLabel")}
+          <input
+            type="password"
+            name="transfer-passphrase"
+            autoComplete="off"
+            spellCheck={false}
+            className={FIELD}
+            value={passphrase}
+            onChange={(event) => setPassphrase(event.target.value)}
+            placeholder={t("settings.customerTransfer.import.passphrasePlaceholder")}
+          />
+        </label>
+        <p className="text-xs text-[var(--muted,#62685f)]">
+          {t("settings.customerTransfer.import.passphraseHelp")}
+        </p>
+
+        <label className="flex flex-col gap-1 text-xs font-bold">
           {t("settings.customerTransfer.import.fileLabel")}
           <input
             ref={fileRef}
             type="file"
-            accept=".zip,application/zip"
+            accept=".zip,.fsmenc,application/zip"
             className={FIELD}
             onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               setImportFile(file);
-              if (file) void uploadImport(file);
+              setImportError(null);
+              setPreviewError(null);
+              setPreview(null);
+              // Vanlige ZIP-pakker kan lastes opp med en gang. En kryptert
+              // .fsmenc-pakke venter til administratoren har skrevet passfrasen
+              // og trykker «Last opp og valider».
+              if (file && !file.name.toLowerCase().endsWith(".fsmenc")) {
+                void uploadImport(file);
+              }
             }}
           />
         </label>
+        {importFile && !importing && !importResult && (
+          <div>
+            <button
+              type="button"
+              className={SECONDARY}
+              onClick={() => void uploadImport(importFile)}
+            >
+              <Icon name="file" className="h-4 w-4" />
+              {t("settings.customerTransfer.import.upload")}
+            </button>
+          </div>
+        )}
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"

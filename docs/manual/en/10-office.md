@@ -2,18 +2,28 @@
 
 This chapter is for office staff: you receive enquiries, create and plan work
 orders, assign technicians, follow up reports and keep customer, equipment and
-agreement data up to date. It applies to FSM Platform 0.8.9 (4 November 2026).
+agreement data up to date. It applies to FSM Platform 0.8.11 (8 November 2026).
 
 Work orders and service agreements belong to a department: you normally see only
 your own department, while an administrator sees everything. Customers,
 equipment and documents are shared, but every action requires the right
-permission. The platform does not issue invoices and does not record hours or
-materials. Price lists are reference data; invoicing happens outside the
-platform.
+permission. Work time, travel and materials are recorded on the work order.
+Quotes, invoicing, payments, inventory, expenses and profitability are optional
+modules that must be enabled; without them, price lists are reference data and
+invoicing happens outside the platform.
 
 ## Dashboard
 
 The dashboard is at `/` and is titled **Planning**.
+
+![Figure: Dashboard with queue, exceptions and field status](../../../screenshots/pages/desktop/dashbord.jpg)
+
+*Figure: The dashboard is the office's starting point for the day.*
+
+Notice that **Exceptions needing action** sits above the queue itself. That is
+where you first see whether anything is overdue, double booked or missing a
+technician. The queue below shows overdue, today and unassigned in priority
+order.
 
 ### List and board
 
@@ -113,6 +123,14 @@ The work order list is at `/oppdrag` with the views **Active**, **New**, **Not
 started**, **In progress**, **Today**, **Overdue**, **Unassigned**,
 **Completed** and **Cancelled**.
 
+![Figure: Work order list with status, date and technician](../../../screenshots/pages/desktop/oppdrag.jpg)
+
+*Figure: The work order list is the queue across customers and dates.*
+
+Use the tabs to narrow the list before searching. **Unassigned** and **Overdue**
+are the two most important entry points for daily follow-up; the rest is history
+and lookup.
+
 ### Create
 
 1. Press **New work order** (`/oppdrag/ny`). The department is fixed to your
@@ -150,11 +168,34 @@ You can assign several technicians; **Remove** takes one off. The assignment
 applies to the whole work order. The office only plans the dates; each date
 becomes one workday in the field app.
 
+![Figure: Work order detail with status, days and checklists](../../../screenshots/pages/desktop/oppdrag-detalj.jpg)
+
+*Figure: The work order detail gathers status, contact, days and reports.*
+
+Use **Days and time** to check actual time, and **Checklists and reports** to see
+report status. Assignment and status buttons are at the top, not inside the day
+list.
+
 On the work order page, **Days and time** shows one row per workday with status,
 **En route**, **On site**, **Done** and **Travel finished**, plus work, travel
 to, travel from and total time. The top of the panel shows total time for the
 work order with the breakdown. If the work order has no workdays, the panel
 shows the date range and **Change dates**.
+
+Each workday has an **order number** (1, 2, 3, 4 …). The number is stored on the
+visit without moving the times. The route planner uses it on the next view and
+moves the times when you approve the order there. An empty field or 0 means
+automatic order. As soon as at least one visit for the technician and day has a
+manual number, the planner sorts by number and skips nearest-neighbour/2-opt.
+
+![Figure: Days and time with an order number per workday](../../../screenshots/manual/oppdrag-rekkefolge.jpg)
+
+*Figure: The order number on each workday controls the route without changing
+the time.*
+
+Look at the number field on the right of each day row. It is not a move of the
+day; it is an instruction to the route planner. Use it when the customer requires
+a specific order, for example main plant first and then the gate.
 
 The office does not create, move or delete individual days here. Change the work
 order's date range and the days are reconciled automatically. A day that has
@@ -422,14 +463,31 @@ and read **Capacity**, **Load** and **Utilisation**.
 **Route** (`/kalender/rute`) suggests a driving order for one day, per
 technician. Choose **Date** and optionally **Technician**, then **Show route**.
 The page shows a map, stop numbers, **Arrival**, **Planned**, **Driving**,
-**Waiting**, and total **Drive time**, **Distance** and **Waiting time** per
-technician.
+**Waiting**, **Overtime**, and total **Drive time**, **Distance** and **Waiting
+time** per technician.
 
-The route starts at the technician's earliest located visit. Visits without
-coordinates, or that do not fit within the time window, are listed under
-**Visits not included in the route** and are not moved. The calculation uses an
-external routing provider when configured; otherwise straight-line distance ×
-1.35 and average speed. **Calculation** shows which method was used.
+The route starts at the technician's earliest located visit. The calculation
+uses **OpenStreetMap via OSRM** for routes and the travel matrix. If
+`GOOGLE_ROUTES_API_KEY` is set, **Google Routes API** is used as an optional
+traffic-aware source for single legs; without it, ETA is a route and speed
+estimate, not live traffic. If neither provider responds, local calculation is
+used: straight-line distance × 1.35 and average speed. **Calculation** shows
+which method was actually used.
+
+**Overtime:** A visit is no longer left unassigned just because it cannot meet
+the time window or working hours. It is planned with overtime, and the stop is
+marked with `outsideTimeWindow`, `outsideWorkingHours` and `overtimeMinutes`.
+The route sums **Total overtime**. `ROUTE_ALLOW_OVERTIME=false` disables planning
+after working hours, and `ROUTE_MAX_OVERTIME_MINUTES` sets an optional cap. Only
+genuinely impossible visits remain unassigned: missing coordinates, missing
+skills, holiday/sickness, overtime limit, or more than 50 located visits.
+
+**Manual order:** Every stop has a number field. Enter 1, 2, 3, 4 … and select
+**Manual order**. The numbering is normalised to 1..n, stored on the visit and
+moves the times with the same service layer as **Use order**. An empty field or
+0 means automatic order. As long as at least one visit for the technician and
+day has a manual number, the route sorts by number and skips
+nearest-neighbour/2-opt.
 
 **Use order** moves the visits to the suggested times in one transaction. The
 action requires `workorders.assign`, is audit-logged per visit, and is cancelled
@@ -437,12 +495,29 @@ entirely on overlap with a fixed visit or registered holiday/sickness. Completed
 and cancelled visits are never moved. If the plan has changed since it was
 shown, you are asked to reload the page.
 
+![Figure: Route planner with an order field per stop](../../../screenshots/manual/rute-manuell-rekkefolge.jpg)
+
+*Figure: Manual order is set with 1/2/3/4 in the route planner.*
+
+Look at the number field at each stop and the summary at the bottom. The order is
+a suggestion until you select **Manual order** or **Use order**. The numbering
+does not change the date; it changes the order within the day.
+
+![Figure: Overtime shown per stop and in the route summary](../../../screenshots/manual/rute-overtid.jpg)
+
+*Figure: Overtime per stop and total overtime for the day.*
+
+Notice that overtime is marked per stop, not hidden in the total. A stop can be
+outside the customer's time window without creating overtime if it is still
+within working hours. Check **Total overtime** before approving the route,
+especially when `ROUTE_MAX_OVERTIME_MINUTES` is set.
+
 **Assignment rules** and **Territories** are configured under **Settings →
 Dispatch**. There you choose a **Mode**, adjust the **Weights** for **Skills**,
 **Distance**, **Travel time**, **Free time**, **SLA** and **Load**, and add
 territories with **Postal prefixes**, **Municipality codes** and **Radius (km)**.
 **Capacity plans** are shown in the capacity view but are not edited in
-**Settings** in 0.8.9. The same applies to skills, absence and working hours:
+**Settings** in 0.8.11. The same applies to skills, absence and working hours:
 dispatch and booking use them, but they have no separate form in **Settings**.
 
 ## Agreements, SLA and price lists
@@ -496,8 +571,10 @@ resolution.
 
 ### Price lists
 
-**Price lists are reference data for display. The system does not invoice or
-calculate amounts.**
+**Price lists are reference data for display and for the hourly rate in
+profitability. Without `invoicing`, the system does not invoice or calculate
+invoice amounts; with the module on, the price list is a basis when you create
+an invoice.**
 
 ### Recurring work orders
 
@@ -512,11 +589,19 @@ The booking queue is at `/bookinger` with **All**, **Pending**, **Confirmed** an
 **Location**, **Service**, **Technician** and status.
 
 1. Open `/bookinger` and filter on **Pending**.
-2. Choose **Technician** in **Choose technician**.
-3. Press **Confirm booking**, or **Cancel** to decline.
+2. Fill in **Date**, **From** and **To** for the planned visit. The requested
+   date is prefilled but can be changed.
+3. Choose **Technician** in **Choose technician**. All active employees in the
+   department can be chosen; absence, working hours and holds are checked on
+   confirmation, while overlap is only shown as a busy marker.
+4. Press **Confirm booking**, or **Cancel** to decline.
 
 On confirmation the work order becomes **Planned**, the visit is created or
-updated, and the customer receives an SMS if the contact has consented.
+updated, and the customer receives an SMS if the contact has consented. If the
+technician already has another visit at that time, it is shown as a **busy
+marker**, not a hard block. You may still confirm, but should consider capacity
+and move one of the days if needed. Absence and working hours remain hard
+requirements.
 
 The customer chooses a site, service and requested date in the portal, and
 writes the desired time in the description. The customer cannot select a time
@@ -528,6 +613,184 @@ The office or technician plans the work order and sets the status to
 replanning. The customer receives the final confirmation only then. A customer
 booking is already a work order; there is no separate **Convert to work order**
 button.
+
+If the customer already has a confirmed appointment, **Request a new time** may
+use a short hold while the form is filled out. That hold applies only to
+rescheduling the confirmed appointment, never to new bookings.
+
+## Inventory, spare parts and purchasing
+
+The inventory module (`inventory`) requires the equipment module. It is used by
+both office and technicians, but the office owns the item register, suppliers
+and purchasing.
+
+| Page | Use |
+| --- | --- |
+| `/lager` | Item list, locations, purchase suggestions and new item/location |
+| `/lager/varer/<id>` | Stock per location, movements, reservations and adjustment |
+| `/lager/lokasjoner/<id>` | Stock and movements for one warehouse or one service van |
+| `/lager/oppdrag/<id>` | Spare parts for one work order, with reservation, release and consumption |
+| `/lager/innkjop` | Purchase orders, filter and drafts from purchase suggestions |
+| `/lager/innkjop/<id>` | Order lines, ordering, cancellation and goods receipt |
+| `/lager/innkjop/leverandorer` | Supplier list and new supplier |
+
+A **location** is a warehouse (`WAREHOUSE`) or a service van (`VAN`), with an
+optional department and responsible user. An **item** has a SKU, name, unit,
+reorder point and active flag. Stock is held per item and location. Movements
+are `IN`, `OUT`, `ADJUST`, `RESERVE`, `RELEASE` and `CONSUME`.
+
+### Reserve parts on a work order
+
+1. Open the work order and go to the spare-parts page (`/lager/oppdrag/<id>`).
+2. Choose item and location, and enter the quantity.
+3. Select **Reserve**. The reservation reduces available stock but does not move
+   the item physically.
+4. If needed, select **Release** to drop the reservation without touching stock.
+5. When the part is used, select **Consume**. The quantity is then deducted from
+   physical stock.
+
+Consumption is deliberately done from the spare-parts page, not automatically
+when the visit is set to **Completed**. That avoids hidden side effects in the
+field flow, but requires the office or technician to record consumption.
+
+### Suppliers and purchase orders
+
+1. Create the supplier under **Inventory → Purchasing → Suppliers** with name,
+   organisation number, email, phone and optional department. A supplier without
+   a department is shared across the installation.
+2. Select **New purchase order** at `/lager/innkjop`, or build a draft from the
+   purchase suggestions at `/lager`. The suggestion is
+   `reorder point − (on hand − active reservations)`.
+3. Choose supplier, receiving location and expected delivery. Add lines with
+   item, ordered quantity and unit cost.
+4. Select **Order**. The order receives a number in the form `PO-YYYY-NNNNN`.
+5. On receipt, open the order and register the received quantity. Partial
+   receipt is supported; the remainder stays open.
+6. When everything is received, the order is **Received**. Over-receipt and
+   negative quantities are rejected.
+
+| Status | Meaning | Can move to |
+| --- | --- | --- |
+| **Draft** | Freely editable | Ordered, cancelled |
+| **Ordered** | No goods received | Partially received, received, cancelled |
+| **Partially received** | Some goods are in stock | Received |
+| **Received** | Everything received | – |
+| **Cancelled** | Cancelled before receipt | – |
+
+Only drafts can change lines, supplier, location and note. Cancellation is
+possible only before the first item is received. Goods receipt increases stock
+and writes an `IN` movement in the same transaction as line and order status.
+The order is locked with `SELECT ... FOR UPDATE`, so two concurrent receipts
+cannot over-receive. Every mutation is audit-logged.
+
+Unit cost is 0 until edited manually; the total is therefore 0 until cost is
+filled in. The purchase suggestion is a calculated read-only view and orders
+nothing automatically. Supplier invoices, invoice control, sending orders to the
+supplier, returns/credit notes and serial/lot tracking are not part of v1.
+
+![Figure: Purchase order with supplier, lines and goods receipt](../../../screenshots/manual/lager-innkjop.jpg)
+
+*Figure: The purchase order shows status, lines and what remains to receive.*
+
+Look at the status and received quantity per line. **Partially received** means
+some goods are already in stock and the rest can still be received. The receipt
+button applies only to the remaining quantity; the system rejects over-receipt.
+
+**Permissions:** view inventory with `equipment.view`, manage items, locations,
+suppliers and purchasing with `equipment.manage`, and reserve/release/consume
+with `workorders.update` or `equipment.manage`. Department scoping follows the
+location; an administrator sees all departments.
+
+## Mileage, expenses and payroll basis
+
+The expenses module (`fieldExpenses`) lets the technician record mileage and
+expenses, and the office approve and export the payroll basis.
+
+- **The technician** records in `/utlegg`: date, from/to, kilometres, rate,
+  category, gross amount, VAT and receipt.
+- **The office** approves in `/utlegg/kontor`, with preview and export per
+  period.
+- **The export** is downloaded from `/utlegg/kontor/eksport?start=…&end=…`.
+
+Mileage allowance is `km × rate`, rounded to the nearest øre on the server. VAT is
+`gross × rate / (100 + rate)`. The default is NOK 3.50/km and 25% VAT when the
+form does not state otherwise. Rates are stored per row, so historical exports
+are not changed by later rate changes. The client cannot submit a final amount
+that differs.
+
+1. Open **Expenses → Office**.
+2. Choose a period and optional department.
+3. Review mileage and expenses. Approve with **Approve**, or reject with
+   **Reject** and a reason.
+4. Select **Export payroll** for the period. The file is locked and marked with
+   the export time.
+5. Download the CSV and import it into the payroll system.
+
+Mileage and expenses start as **Pending** (or **Draft** when the client asks for
+it). Only approved rows are exported; rejected and unresolved rows are always
+excluded. Rejection requires a reason. Department scoping prevents office A from
+approving rows in office B. Export is idempotent per department and period: the
+same period gives exactly the same CSV and checksum, and overlapping periods are
+rejected.
+
+The CSV is UTF-8 with BOM, semicolon-separated and uses `\r\n`, ready for
+Norwegian Excel. The first row is:
+
+```text
+type;bruker;dato;referanse;beskrivelse;mengde;enhet;belop;mva
+```
+
+`type` is `WORK`, `TRAVEL`, `MILEAGE` or `EXPENSE`. Time and travel time come
+from the visit timestamps; the module does not create its own time recording.
+There is no integration with an external payroll provider – the CSV contract is
+the interface.
+
+![Figure: Approval of mileage and expenses](../../../screenshots/manual/utlegg-godkjenning.jpg)
+
+*Figure: The office approves or rejects rows before the payroll CSV is locked.*
+
+Notice that approval and export are two steps. An approved row is not exported
+until the period is locked, and an exported row cannot be changed. Check the
+receipt and VAT before you approve, not afterwards.
+
+## Profitability
+
+**Profitability** (`/lonnsomhet`) gives office and administrator one view of work
+orders, time, first-time fix, **estimated** and **actual** revenue by department,
+customer and technician. The module is `bi` and requires `reports.view`;
+technicians and customer portal users get `403`.
+
+1. Choose **From** and **To**, and optionally **Department**, **Customer** and
+   **Technician**.
+2. Read **Estimated revenue**, **Actual revenue**, **First-time fix**,
+   **Utilisation** and **Result**.
+3. Select **Export CSV** for the same filter and department scope.
+
+**Estimated revenue** is the hourly rate from the agreement's price list × work
+time. Travel time is not included. **Actual revenue** comes from invoices when
+`invoicing` is on: net invoiced amount excluding VAT, with credit notes deducted
+and drafts excluded. The invoice must be linked to a work order in the selection
+and issued in the period. The period for estimate and work orders follows the
+work order's planned date, while actual revenue follows the invoice date. A work
+order planned in one month and invoiced in the next therefore gets the estimate
+in the first and actual revenue in the second.
+
+**Result** is calculated only when every work order in the selection has an
+hourly rate and `BI_INTERNAL_COST_RATE_NOK` is set. Without the rate, "not
+calculated" is shown. Actual revenue does not affect the result calculation; it
+is still based on the estimate. The limit is 5,000 work orders, 5,000 invoices
+and 366 days per report. CSV export is deterministic and audit-logged with
+filter, row count and checksum.
+
+![Figure: Profitability with estimated and actual revenue](../../../screenshots/manual/lonnsomhet-kpi.jpg)
+
+*Figure: The KPIs show estimated and actual revenue side by side.*
+
+Look for the note on whether actual revenue is available. If `invoicing` is off,
+or there are no non-draft invoices in the selection, the report shows the
+estimate alone and explains why. The numbers are not a guarantee of profit: the
+cost is a global internal rate, not salary, vehicle, parts and expenses per work
+order.
 
 ## Reports
 
@@ -560,7 +823,7 @@ contains at least one deviation, the system automatically creates **one undated
 remediation work order** titled “Utbedring av avvik – …”. It inherits customer,
 department and contact, gets the submitter as technician, and describes the
 units and checkpoints. The generated title is Norwegian (“Utbedring av avvik –
-…”) in 0.8.9, even when the interface is English.
+…”) in 0.8.11, even when the interface is English.
 
 > **Note:** If a photo or signature is missing from the finished PDF, the PDF
 > shows a warning with the number of images that could not be loaded. The usual
@@ -678,7 +941,7 @@ explicitly how old it is; the page never pretends an old ping is live. The ETA
 refreshes automatically every 30 seconds. **Messages** lets the customer reply by
 SMS with consent.
 
-The customer can **Book an available time**, **Request a new time**, **Cancel
+The customer can **Send a date request**, **Request a new time**, **Cancel
 request**, **Acknowledge receipt** and **Request a contact information update**.
 Booking and cancellation notify the office; contact updates must be made manually
 on the customer card.
@@ -784,11 +1047,15 @@ restoration. See the administrator part (Part 3).
 | Overlapping workday | Technician has several jobs at the same time | Check capacity and move one of the days if needed |
 | Report is locked | Submitted report | Ask an administrator to **Unlock for editing** |
 | Customer cannot see the report | Not locked, or missing portal/document access | Lock the report, check portal user |
-| Customer cannot book | Missing contact, active user or available time | Check contact, user, 24 hours and available time slots |
+| Customer cannot book | Missing contact/active user, or date outside the window | Check contact, user, 24 hours and requested date |
 | SMS is not sent | Missing consent, phone, quota or dry run | Register consent, check number/settings |
 | Agreement creates no work orders | Paused/expired, future start or job not running | Activate, check start date and job |
 | SLA is not shown | No active agreement with an active policy | Activate the agreement and link a policy to it |
-| Price list does not invoice | Reference data | Invoice outside the platform |
+| Price list does not invoice | Reference data, or `invoicing` is off | Enable invoicing and create the invoice under **Invoices** |
+| The payment button does not appear | Provider or webhook secret is missing | Check `PAYMENTS_PROVIDER` and the keys |
+| Accounting sync is failed | Wrong key, account or VAT | Read the error code and sync again |
+| Stock does not match | Reservation not consumed, or manual adjustment missing | Check reservations and movements on the item |
+| Expenses cannot be exported | The period overlaps a locked export, or the row is not approved | Choose a new period and approve the row |
 | Attachment is not in the portal | Work order attachments are internal | Add the file to the customer card → **More** → **Attachments** |
 | Unit cannot be moved | Active contract lines, number conflict, cross-customer reference or invalid target | Read the blocker in the preview, clear the contract line, or choose the right customer/site |
 | Upload is rejected | File too large, user/customer quota reached, or proxy limit | Check file size, `UPLOAD_QUOTA_*`, disk and the proxy body limit |

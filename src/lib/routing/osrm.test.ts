@@ -48,6 +48,34 @@ describe("ruting", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("henter flerpunktsmatrise fra OSRM /table", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(url).toContain("/table/v1/driving/");
+      expect(url).toContain("annotations=duration,distance");
+      return {
+        ok: true,
+        json: async () => ({
+          code: "Ok",
+          durations: [[600]],
+          distances: [[5000]],
+        }),
+      };
+    });
+    const provider = createOsrmProvider({
+      baseUrl: "http://osrm.test",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const matrix = await provider.matrix([a], [b]);
+
+    expect(matrix[0][0]).toEqual({
+      distanceKm: 5,
+      durationMinutes: 10,
+      provider: "osrm",
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("gjør ingen nettverkskall når OSRM ikke er konfigurert", async () => {
     const fetchImpl = vi.fn();
     const provider = resolveRoutingProvider({}, fetchImpl as unknown as typeof fetch);

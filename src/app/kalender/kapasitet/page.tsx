@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -38,6 +39,7 @@ export default async function CapacityPage({
     til?: string | string[];
   }>;
 }) {
+  await requireModulePage("calendar");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/kalender");

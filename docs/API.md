@@ -8,6 +8,10 @@ aldri, og alle kall må sende en Bearer-nøkkel.
 - **Base URL:** `https://<din-fsm-installasjon>/api/v1`
 - **OpenAPI 3.1:** [`GET /api/v1/openapi.json`](/api/v1/openapi.json) (åpent, uten nøkkel)
 - **Nøkkeladministrasjon:** **Innstillinger → API-nøkler** (bare administrator)
+- **Modul:** hele `/api/v1` er modulen `api`. Er den slått av, svarer alle
+  endepunkter `404`. Endepunkter for avslåtte moduler (avtaler, utstyr,
+  rapporter, dokumenter) filtreres også bort fra OpenAPI. Se
+  [`MODULES.md`](MODULES.md).
 
 ## Autentisering
 
@@ -57,6 +61,9 @@ enn `GET`/`HEAD` – selv om eieren har rettigheten.
 | `maintenance:read` / `maintenance:write` | Vedlikeholdsplaner |
 | `reports:read` | Rapporter og PDF |
 | `documents:read` | Dokumenter |
+| `quotes:read` / `quotes:write` | Tilbud og sending (modulen `quotes`) |
+| `orders:read` / `orders:write` | Innmeldte ordrer fra andre systemer |
+| `inventory:read` / `inventory:write` | Lager, beholdning og reservasjoner (modulen `inventory`) |
 
 Nøkler opprettet før scopes ble innført har tom liste og regnes som «alle
 scopes» til de roteres. Nye nøkler må ha minst ett scope. Standard levetid er
@@ -91,6 +98,13 @@ endepunkt krever:
 | `POST /maintenance-plans` | `equipment.manage` |
 | `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/pdf` | `reports.view` |
 | `GET /documents`, `GET /documents/{id}` | `documents.view` |
+| `GET /quotes`, `GET /quotes/{id}` | `customers.view`, `customers.manage` eller `workorders.view` |
+| `POST /quotes`, `PATCH /quotes/{id}`, `POST /quotes/{id}/send` | `customers.manage` |
+| `GET /orders`, `GET /orders/{id}` | `workorders.view` + oppdraget i brukerens omfang |
+| `POST /orders` | `workorders.create` + kunden i brukerens avdeling |
+| `PATCH /orders/{id}` | `workorders.update` (kansellering krever `workorders.edit`) |
+| `GET /inventory/items`, `/{id}`, `/locations`, `/stock` | `equipment.view` |
+| `POST /inventory/reservations`, `.../release`, `.../consume` | `workorders.update` eller `equipment.manage` |
 
 Endrer du brukerens rolle eller rettigheter, gjelder endringen også alle
 nøklene brukeren eier. En deaktivert bruker gir `401`.
@@ -214,6 +228,22 @@ avdelings- eller kundeomfanget, slik at API-et ikke røper at det finnes.
 | `GET` | `/reports/{id}/pdf` | `reports.view` | Last ned PDF |
 | `GET` | `/documents` | `documents.view` | Dokumentliste |
 | `GET` | `/documents/{id}` | `documents.view` | Dokumentmetadata |
+| `GET` | `/quotes` | `quotes:read` | Tilbudsliste med filtre |
+| `POST` | `/quotes` | `quotes:write` | Opprette tilbud (serverberegnede totaler) |
+| `GET` | `/quotes/{id}` | `quotes:read` | Tilbud med linjer og versjoner |
+| `PATCH` | `/quotes/{id}` | `quotes:write` | Oppdatere kladd |
+| `POST` | `/quotes/{id}/send` | `quotes:write` | Sende tilbud til kunden |
+| `GET` | `/orders` | `orders:read` | Innmeldte ordrer |
+| `POST` | `/orders` | `orders:write` | Idempotent innmelding av ordre |
+| `GET` | `/orders/{id}` | `orders:read` | Ordre med payload og oppdrag |
+| `PATCH` | `/orders/{id}` | `orders:write` | Endre status eller kansellere |
+| `GET` | `/inventory/items` | `inventory:read` | Varer med beholdning |
+| `GET` | `/inventory/items/{id}` | `inventory:read` | Vare med nivåer og bevegelser |
+| `GET` | `/inventory/locations` | `inventory:read` | Lagerlokasjoner |
+| `GET` | `/inventory/stock` | `inventory:read` | Beholdning per vare og lokasjon |
+| `POST` | `/inventory/reservations` | `inventory:write` | Reservere deler |
+| `POST` | `/inventory/reservations/{id}/release` | `inventory:write` | Frigjøre reservasjon |
+| `POST` | `/inventory/reservations/{id}/consume` | `inventory:write` | Forbruke reservasjon |
 
 ---
 
@@ -972,6 +1002,310 @@ filbytes eller interne lagringsstier.
 curl -s "$FSM_BASE_URL/api/v1/documents/cm123" \
   -H "Authorization: Bearer $FSM_API_KEY"
 ```
+
+---
+
+## Tilbud
+
+Tilbud er bare redigerbare mens de er i kladd. Alle linjer og totaler regnes
+på nytt på serveren; klienten kan aldri overstyre `subtotal`, `vatTotal` eller
+`total`. Beløp returneres som desimalstrenger. Endepunktene krever modulen
+`quotes`; er den av, svarer de `404`.
+
+### `GET /quotes`
+
+| Parameter | Type | Beskrivelse |
+| --- | --- | --- |
+| `page` | heltall | Side, standard 1 |
+| `limit` | heltall | Rader per side, maks 100 |
+| `status` | streng | `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED` eller `EXPIRED` |
+| `customerId` | streng | Filtrer på kunde |
+| `q` | streng | Søk i tittel, tilbudsnummer og kundenavn |
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/quotes?status=DRAFT&limit=25" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### `POST /quotes`
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/quotes" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Service av varmepumpe",
+    "customerId": "cm_customer",
+    "validUntil": "2026-12-31",
+    "vatRate": "25",
+    "lines": [
+      { "description": "Arbeid", "quantity": "2", "unit": "time", "unitPrice": "950", "vatRate": "25" },
+      { "description": "Fyllmasse", "quantity": "1", "unit": "stk", "unitPrice": "250", "vatRate": "25" }
+    ]
+  }'
+```
+
+```json
+{ "data": { "id": "cm_quote" } }
+```
+
+`201 Created` har `Location: /api/v1/quotes/{id}`.
+
+### `GET /quotes/{id}`
+
+```json
+{
+  "data": {
+    "id": "cm_quote",
+    "quoteNumber": "T-261109-AB12CD",
+    "title": "Service av varmepumpe",
+    "status": "DRAFT",
+    "version": 1,
+    "currency": "NOK",
+    "subtotal": "2150.00",
+    "vatTotal": "537.50",
+    "total": "2687.50",
+    "vatRate": "25.00",
+    "validUntil": "2026-12-31",
+    "lines": [
+      {
+        "description": "Arbeid",
+        "quantity": "2.00",
+        "unit": "time",
+        "unitPrice": "950.00",
+        "vatRate": "25.00",
+        "lineTotal": "1900.00",
+        "lineVat": "475.00"
+      }
+    ]
+  }
+}
+```
+
+### `PATCH /quotes/{id}`
+
+Felt som utelates bevares. Sendte tilbud gir `409`. Linjer erstattes i sin
+helhet når `lines` sendes.
+
+```bash
+curl -s -X PATCH "$FSM_BASE_URL/api/v1/quotes/cm_quote" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lines": [
+      { "description": "Arbeid", "quantity": "3", "unit": "time", "unitPrice": "950" }
+    ]
+  }'
+```
+
+### `POST /quotes/{id}/send`
+
+Fryser linjene i en versjon, utsteder engangslenke og legger e-posten i
+utboksen. Tokenet returneres ikke til integrasjonen. Dette er en handling, ikke
+en ny ressurs, så svaret er `200` – ikke `201`.
+
+```json
+{ "data": { "id": "cm_quote", "status": "SENT", "version": 1 } }
+```
+
+---
+
+## Eksterne ordrer
+
+`/orders` tar imot ordrer fra et annet ordresystem og mapper dem til et vanlig
+oppdrag. Oppdraget går gjennom samme avdelingssperre, visitgenerering, SLA og
+revisjonslogg som et oppdrag opprettet i kontorflaten.
+
+| Felt | Påkrevd | Beskrivelse |
+| --- | --- | --- |
+| `source` | Ja | Stabilt navn på kildesystemet |
+| `externalId` | Ja | Ordrenummer i kildesystemet |
+| `customerId` / `customerNumber` / `orgNumber` | Ett av dem | Kunden |
+| `siteId` | Nei | Kundens anlegg; må tilhøre kunden |
+| `title` | Ja | Oppdragets tittel |
+| `description` | Nei | Fritekst |
+| `requestedDate` / `scheduledFor` | Ja | Ønsket dato (`YYYY-MM-DD`) |
+| `priority` | Nei | `LOW`, `NORMAL`, `HIGH` eller `URGENT` |
+| `lines` | Nei | `description`, `quantity`, `unitPrice`, `vatRate`, `unit` |
+| `payload` / `externalPayload` | Nei | Metadata fra kildesystemet, lagres uendret |
+
+### `POST /orders`
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/orders" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: erp-WO-2026-0042" \
+  -d '{
+    "source": "erp",
+    "externalId": "WO-2026-0042",
+    "orgNumber": "912345678",
+    "title": "Akutt service",
+    "description": "Lekkasje på varmtvannstank.",
+    "requestedDate": "2026-11-12",
+    "priority": "HIGH",
+    "lines": [
+      { "description": "Servicebesøk", "quantity": "1", "unitPrice": "1250", "vatRate": "25" }
+    ],
+    "payload": { "erpStatus": "CONFIRMED", "orderLineCount": 1 }
+  }'
+```
+
+Første kall svarer `201 Created` med `Location`; en replay med samme
+`(source, externalId)` og samme innhold svarer `200 OK` med headeren
+`Idempotent-Replay: true` og samme ordre. Samme nøkkel med annet innhold gir
+`409` og `details.code = "orders.idempotencyConflict"`.
+
+```json
+{
+  "data": {
+    "id": "cm_external",
+    "source": "erp",
+    "externalId": "WO-2026-0042",
+    "priority": "HIGH",
+    "totals": { "currency": "NOK", "subtotal": "1250.00", "vatTotal": "312.50", "total": "1562.50" },
+    "workOrder": {
+      "id": "cm_workorder",
+      "reference": "O-261112-A1B2C3D4",
+      "status": "PENDING",
+      "scheduledFor": "2026-11-12",
+      "department": { "id": "cm_dep", "name": "Oslo" }
+    }
+  }
+}
+```
+
+### `GET /orders`
+
+`GET /orders` støtter `page`, `limit`, `source` og `status` (oppdragets
+status). Hver rad viser kilde, ekstern id og det mappede oppdraget.
+
+### `GET /orders/{id}`
+
+Returnerer ordren med `payload`, linjer og totaler i tillegg til oppdraget.
+
+### `PATCH /orders/{id}`
+
+```bash
+curl -s -X PATCH "$FSM_BASE_URL/api/v1/orders/cm_external" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"cancel": true, "reason": "Kunden avbestilte"}'
+```
+
+Bruk `status` for en vanlig statusendring eller `cancel: true` for kansellering
+– ikke begge. Kansellering krever `workorders.edit`.
+
+---
+
+## Lager
+
+Endepunktene krever modulen `inventory`. Reservasjoner reduserer tilgjengelig
+beholdning, men flytter ikke fysisk vare før de forbrukes.
+
+### `GET /inventory/items`
+
+Lister aktive varer med `onHand`, `reserved` og `available` i aktørens
+lokasjonsomfang. `q` søker i SKU og navn.
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/inventory/items?q=pakning" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### `GET /inventory/items/{id}`
+
+Returnerer varen med beholdning per lokasjon, siste bevegelser og
+reservasjoner.
+
+### `GET /inventory/locations`
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/inventory/locations" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### `GET /inventory/stock`
+
+Beholdning per vare og lokasjon. `itemId` og `locationId` er valgfrie filtre.
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/inventory/stock?itemId=cm_item&locationId=cm_loc" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### `POST /inventory/reservations`
+
+Reserverer deler mot `workOrderId` eller `visitId` og svarer `201` med
+reservasjonens id, mengde og ny tilgjengelig mengde. Hele operasjonen er
+atomisk.
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/inventory/reservations" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"itemId": "cm_item", "locationId": "cm_loc", "quantity": 2, "workOrderId": "cm_wo"}'
+```
+
+### `POST /inventory/reservations/{id}/release`
+
+Frigjør en aktiv reservasjon uten å trekke beholdning. Svaret er `200`, ikke
+`201`, fordi ingen ny ressurs opprettes.
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/inventory/reservations/cm_res/release" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### `POST /inventory/reservations/{id}/consume`
+
+Trekker den reserverte mengden fra fysisk beholdning. Svaret er `200`, ikke
+`201`.
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/inventory/reservations/cm_res/consume" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+| Situasjon | HTTP | `details.code` |
+| --- | --- | --- |
+| For lite tilgjengelig beholdning | `409` | `inventory.insufficientStock` |
+| Reservasjonen er allerede frigjort/forbrukt | `409` | `inventory.reservationNotActive` |
+| Varen finnes ikke eller er inaktiv | `404` | – |
+| Mangler `workOrderId`/`visitId` | `422` | `inventory.workOrderRequired` |
+
+---
+
+## Integrasjon med ordresystem
+
+Anbefalt flyt fra et eksternt ordresystem:
+
+1. Slå opp eller opprett kunden hos FSM (kunden kan også oppgis med
+   `orgNumber` eller `customerNumber`).
+2. Send ordren til `POST /api/v1/orders` med `source` og et stabilt
+   `externalId`. Legg gjerne på `Idempotency-Key` med samme verdi som
+   `externalId`.
+3. Lagre `data.id` (ekstern ordre) og `data.workOrder.id` (oppdraget) i
+   kildesystemet.
+4. Bruk `GET /orders/{id}` for å følge status, og `PATCH /orders/{id}` for
+   statusendring eller kansellering.
+5. Ved usikkerhet etter timeout: send nøyaktig samme forespørsel på nytt. Den
+   er idempotent og returnerer samme ordre.
+
+**Idempotens.** `(source, externalId)` er alltid nøkkelen. `Idempotency-Key`
+er en valgfri sekundær nøkkel. En replay med identisk innhold gir `200` og
+`Idempotent-Replay: true`; samme nøkkel med annet innhold gir `409`. Selve
+oppdraget og den eksterne referansen skrives i samme transaksjon, så en feil
+eller samtidig kollisjon etterlater aldri et halvt resultat.
+
+**Retries.** Bruk eksponentiell backoff ved `429`, `500` og nettverksfeil.
+`429` har `Retry-After`. Ved `409 orders.idempotencyConflict` må
+kildesystemet bruke en ny `externalId` eller undersøke om ordren faktisk er
+endret. Ved `422` er det ingen vits i å prøve på nytt uten å rette payloaden.
+
+**Webhooks er ikke inkludert.** API-et sender ingen hendelser tilbake til
+kildesystemet. Integrasjonen må polle `GET /orders/{id}` eller
+`GET /orders?source=...` for status. Alle mutasjoner havner i revisjonsloggen.
 
 ---
 

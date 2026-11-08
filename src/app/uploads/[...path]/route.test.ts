@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
   canReadUpload: vi.fn(() => true),
   stat: vi.fn(async () => ({ size: 4 })),
-  createReadStream: vi.fn(),
+  stream: vi.fn(),
   uploadFindUnique: vi.fn(),
   workOrderFindUnique: vi.fn(),
   customerFindUnique: vi.fn(),
@@ -39,8 +39,16 @@ vi.mock("@/lib/uploads", () => ({
   contentTypeFor: (filePath: string) =>
     filePath.endsWith(".png") ? "image/png" : "application/pdf",
 }));
-vi.mock("node:fs", () => ({ createReadStream: mocks.createReadStream }));
-vi.mock("node:fs/promises", () => ({ stat: mocks.stat }));
+vi.mock("@/lib/storage", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage")>();
+  return {
+    ...actual,
+    getStorageDriver: () => ({
+      stat: mocks.stat,
+      stream: mocks.stream,
+    }),
+  };
+});
 
 import { GET } from "./route";
 
@@ -82,8 +90,8 @@ beforeEach(() => {
   });
   mocks.canReadUpload.mockReturnValue(true);
   mocks.stat.mockResolvedValue({ size: 4 });
-  mocks.createReadStream.mockImplementation(() =>
-    Readable.from([Buffer.from("%PDF")]),
+  mocks.stream.mockImplementation(async () =>
+    Readable.toWeb(Readable.from([Buffer.from("%PDF")])),
   );
   mocks.uploadFindUnique.mockResolvedValue(workOrderUpload);
   mocks.workOrderFindUnique.mockResolvedValue(activeWorkOrder());
@@ -105,7 +113,7 @@ describe("/uploads – mykt slettede oppdrag", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("lar administrator lese filen slik at oppdraget kan gjenopprettes", async () => {
@@ -122,14 +130,14 @@ describe("/uploads – mykt slettede oppdrag", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.createReadStream).toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalled();
   });
 
   it("lar vanlige brukere lese filer på aktive oppdrag", async () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.createReadStream).toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalled();
   });
 
   it("avviser når canReadUpload sier nei", async () => {
@@ -137,7 +145,7 @@ describe("/uploads – mykt slettede oppdrag", () => {
 
     const response = await GET(request(), params());
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("setter no-store på filer som kan inneholde kundedata", async () => {
@@ -158,7 +166,7 @@ describe("/uploads – kansellerte oppdrag", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("nekter montør en bufret rapport-PDF når rapportens oppdrag er kansellert", async () => {
@@ -171,7 +179,7 @@ describe("/uploads – kansellerte oppdrag", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("lar kontoret lese filer på et kansellert oppdrag", async () => {
@@ -204,7 +212,7 @@ describe("/uploads – deaktiverte avdelinger", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("slår opp avdelingen når økten ikke har den", async () => {
@@ -217,7 +225,7 @@ describe("/uploads – deaktiverte avdelinger", () => {
       where: { id: "dep-a" },
       select: { isActive: true },
     });
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 });
 
@@ -233,7 +241,7 @@ describe("/uploads – slettede eiere", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("nekter en kundeportalbruker oppdragsfil når kunden er slettet", async () => {
@@ -251,7 +259,7 @@ describe("/uploads – slettede eiere", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("nekter filer på et mykt slettet dokument", async () => {
@@ -265,7 +273,7 @@ describe("/uploads – slettede eiere", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 });
 
@@ -278,9 +286,7 @@ describe("/uploads – strømming og headere", () => {
     expect(response.headers.get("content-disposition")).toMatch(
       /^attachment; filename="rapport\.pdf"/,
     );
-    expect(mocks.createReadStream).toHaveBeenCalledWith(
-      "/tmp/fss-uploads/fil.pdf",
-    );
+    expect(mocks.stream).toHaveBeenCalledWith("fil.pdf");
 
     const body = Buffer.from(await response.arrayBuffer());
     expect(body.toString()).toBe("%PDF");
@@ -338,7 +344,7 @@ describe("/uploads – rapport-PDF", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("lar en bruker med reports.view lese rapport-PDF-en", async () => {
@@ -355,7 +361,7 @@ describe("/uploads – rapport-PDF", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.createReadStream).toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalled();
   });
 
   it("nekter en slettet rapport-PDF", async () => {
@@ -367,14 +373,14 @@ describe("/uploads – rapport-PDF", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("beholder vanlige oppdragsvedlegg uten reports.view", async () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.createReadStream).toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalled();
   });
 });
 
@@ -408,7 +414,7 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("avviser en opplåst rapport-PDF for kundeportalen", async () => {
@@ -423,7 +429,7 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(404);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("lar kunden hente en låst rapport-PDF med dokumenttilgang", async () => {
@@ -438,7 +444,7 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.createReadStream).toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalled();
   });
 
   it("gir 403 for avtalefil uten avtaletilgang", async () => {
@@ -460,7 +466,7 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("gir 403 for utstyrsfil uten utstyrstilgang", async () => {
@@ -482,7 +488,7 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
   it("gir 403 når delegasjonen er inaktiv", async () => {
@@ -499,6 +505,6 @@ describe("/uploads – kundeportalens delegasjon", () => {
     const response = await GET(request(), params());
 
     expect(response.status).toBe(403);
-    expect(mocks.createReadStream).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
   });
 });

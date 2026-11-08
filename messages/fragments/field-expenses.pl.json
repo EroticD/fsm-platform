@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "expenses": "Wydatki"
+  },
+  "expenses": {
+    "title": "Wydatki",
+    "eyebrow": "FLD-01 · Kilometry i wydatki",
+    "description": "Rejestruj przejechane kilometry i wydatki z paragonami. Biuro zatwierdza je i eksportuje dane płacowe za okres.",
+    "officeLink": "Biuro i zatwierdzanie",
+    "linkedWorkOrder": "Powiązano ze zleceniem",
+    "workOrderLink": "Wydatki i kilometry",
+    "date": "Data",
+    "amount": "Kwota",
+    "vat": "VAT",
+    "receipt": "Paragon",
+    "document": "Dokument",
+    "statusLabel": "Status",
+    "actions": "Działania",
+    "openWorkOrder": "Zlecenie",
+    "submitToApproval": "Wyślij do zatwierdzenia",
+    "approve": "Zatwierdź",
+    "reject": "Odrzuć",
+    "rejectReason": "Powód odrzucenia",
+    "feedback": {
+      "saved": "Zapisano.",
+      "error": "Nie udało się wykonać działania. Sprawdź pola, paragon i uprawnienia."
+    },
+    "totals": {
+      "pending": "Oczekuje na zatwierdzenie",
+      "approved": "Zatwierdzone"
+    },
+    "status": {
+      "draft": "Szkic",
+      "pending": "Oczekuje na zatwierdzenie",
+      "approved": "Zatwierdzony",
+      "rejected": "Odrzucony"
+    },
+    "trip": {
+      "title": "Kilometry",
+      "km": "Kilometry",
+      "from": "Od",
+      "to": "Do",
+      "rate": "Stawka za km",
+      "purpose": "Cel",
+      "submit": "Zarejestruj przejazd",
+      "listTitle": "Moje przejazdy",
+      "empty": "Nie zarejestrowano żadnych przejazdów.",
+      "route": "Trasa",
+      "approvalTitle": "Przejazdy oczekujące na zatwierdzenie"
+    },
+    "expense": {
+      "title": "Wydatek",
+      "category": "Kategoria",
+      "amount": "Kwota z VAT",
+      "vatRate": "Stawka VAT",
+      "description": "Opis",
+      "receipt": "Paragon",
+      "uploading": "Przesyłanie …",
+      "uploadError": "Nie udało się przesłać paragonu.",
+      "submit": "Zarejestruj wydatek",
+      "listTitle": "Moje wydatki",
+      "empty": "Nie zarejestrowano żadnych wydatków.",
+      "approvalTitle": "Wydatki oczekujące na zatwierdzenie"
+    },
+    "office": {
+      "title": "Wydatki i płace",
+      "description": "Zatwierdzaj przejazdy i wydatki oraz blokuj dane płacowe za okres. Odrzucone wiersze nigdy nie są eksportowane.",
+      "myExpenses": "Moje wydatki",
+      "pendingSummary": "Oczekuje na zatwierdzenie: {count} · {amount}",
+      "empty": "Brak wierszy o tym statusie.",
+      "noReceipt": "Brak paragonu"
+    },
+    "payroll": {
+      "title": "Dane płacowe",
+      "description": "Eksport wykorzystuje istniejący czas wizyt i czas jazdy, zatwierdzone przejazdy oraz zatwierdzone wydatki. Ten sam okres daje ten sam plik.",
+      "from": "Od",
+      "to": "Do",
+      "preview": "Podgląd",
+      "export": "Pobierz CSV",
+      "workHours": "Godziny pracy",
+      "travelHours": "Godziny jazdy",
+      "mileageKm": "Kilometry",
+      "mileageAmount": "Dodatek za kilometry",
+      "expenseAmount": "Wydatki",
+      "rows": "Wiersze",
+      "period": "Okres",
+      "created": "Zablokowano",
+      "checksum": "Suma kontrolna",
+      "download": "Pobierz"
+    }
+  }
+}

@@ -18,7 +18,27 @@
       "map": "Kart",
       "api": "API-nøkler",
       "equipment": "Utstyr",
-      "evidence": "Bevis"
+      "evidence": "Bevis",
+      "modules": "Moduler",
+      "email": "E-post",
+      "push": "Pushvarsler",
+      "workOrderStatus": "Oppdragsstatus"
+    },
+    "workOrderStatus": {
+      "title": "Oppdragsstatuser",
+      "description": "Styr hvilke statuser som er åpne, planlagte eller lukkede, og hvilken status nye oppdrag får.",
+      "defaultStatus": "Standardstatus for nye oppdrag",
+      "defaultHint": "Nye oppdrag starter som åpne og venter på planlegging med mindre du velger en annen åpen eller planlagt status.",
+      "status": "Status",
+      "category": "Funksjon",
+      "order": "Rekkefølge",
+      "active": "Aktiv",
+      "hint": "En status med funksjonen «Lukket» regnes som avsluttet i lister, rapporter og låsing. Minst én åpen og én lukket status må være aktiv.",
+      "save": "Lagre statusoppsett",
+      "reset": "Nullstill til standard",
+      "saved": "Statusoppsettet er lagret.",
+      "error": "Statusoppsettet kunne ikke lagres. Kontroller at minst én åpen og én lukket status er aktiv.",
+      "categories": { "OPEN": "Åpen", "PLANNED": "Planlagt", "CLOSED": "Lukket" }
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -275,6 +295,12 @@
         "maintenanceWrite": "Vedlikehold – skriv",
         "reportsRead": "Rapporter – les",
         "documentsRead": "Dokumenter – les",
+        "quotesRead": "Tilbud – les",
+        "quotesWrite": "Tilbud – skriv",
+        "ordersRead": "Ordre – les",
+        "ordersWrite": "Ordre – skriv",
+        "inventoryRead": "Lager – les",
+        "inventoryWrite": "Lager – skriv",
         "allLegacy": "Alle (eldre nøkkel uten begrensning)"
       },
       "revoke": "Tilbakekall",
@@ -538,6 +564,125 @@
       "created": "Kategorien er opprettet.",
       "updated": "Kategorien er oppdatert.",
       "deleted": "Kategorien er slettet."
+    },
+    "modules": {
+      "title": "Moduler",
+      "description": "Slå installasjonsnivåmoduler av og på. Kjernen er alltid på, og avhengigheter hindrer ugyldige kombinasjoner. Endringene revideres.",
+      "dataPreserved": "Data beholdes når en modul slås av. Sider, handlinger, API-er og arbeidsjobber stenges, men ingenting slettes. Slår du modulen på igjen, er dataene tilbake.",
+      "core": "Kjerne",
+      "planned": "Planlagt",
+      "enabled": "På",
+      "disabled": "Av",
+      "dependsOn": "Avhenger av: {modules}",
+      "requiredBy": "Brukes av: {modules}",
+      "missingDependencies": "Kan ikke slås på før disse er på: {modules}",
+      "hasDependents": "Kan ikke slås av mens disse er på: {modules}",
+      "coreLocked": "Kjernen kan ikke slås av.",
+      "enable": "Slå på",
+      "disable": "Slå av",
+      "confirmEnable": "Slå på {module}?",
+      "confirmDisable": "Slå av {module}? Data beholdes, men sider, handlinger og jobber stenges.",
+      "saved": "Modulendringen er lagret og revidert.",
+      "errors": {
+        "forbidden": "Bare administrator kan endre moduler.",
+        "conflict": "Endringen er i konflikt med modulavhengigheter.",
+        "coreLocked": "Kjernen kan ikke slås av.",
+        "missingDependencies": "En eller flere avhengigheter er slått av.",
+        "hasDependents": "En eller flere moduler som bruker denne er slått på.",
+        "not_found": "Ukjent modul.",
+        "invalid": "Ugyldig modulendring.",
+        "error": "Kunne ikke lagre modulendringen."
+      },
+      "items": {
+        "core": {
+          "label": "Kjerne",
+          "description": "Alltid på: innlogging, brukere, avdelinger, kunder, oppdrag, arbeidsdager og tid, revisjon og innstillinger."
+        },
+        "calendar": {
+          "label": "Kalender og dispatch",
+          "description": "Kalender, dispatch-tavle, ruteplanlegging og kapasitetsoversikt."
+        },
+        "reports": {
+          "label": "Rapporter og HMS",
+          "description": "Servicerapporter, HMS, sjekklister og maler, PDF-visning og statistikk."
+        },
+        "equipment": {
+          "label": "Utstyr",
+          "description": "Utstyrsregister, servicehistorikk, QR/skann og vedlikeholdsplaner."
+        },
+        "contracts": {
+          "label": "Serviceavtaler og SLA",
+          "description": "Serviceavtaler, SLA-policyer, åpningstider og prislister."
+        },
+        "portal": {
+          "label": "Kundeportal",
+          "description": "Kundenes egen portal for oppdrag, rapporter, dokumenter og kontaktinfo."
+        },
+        "booking": {
+          "label": "Bestillinger",
+          "description": "Kundenes bestillingsforespørsler og ledige timer. Krever kundeportal og kalender."
+        },
+        "documents": {
+          "label": "Dokumenter",
+          "description": "Dokumentbibliotek, mapper, versjoner og tekstuttrekk/OCR."
+        },
+        "sms": {
+          "label": "SMS og påminnelser",
+          "description": "SMS-meldinger, maler, leveringsstatus og påminnelser før besøk."
+        },
+        "map": {
+          "label": "Kart",
+          "description": "Kart over oppdrag, enheter og montørposisjoner."
+        },
+        "tracking": {
+          "label": "Sporing og ETA",
+          "description": "Offentlig sporingslenke og sanntids-ETA for besøk."
+        },
+        "reviews": {
+          "label": "Omtaler",
+          "description": "Kundeomtaler fra offentlige lenker og intern oppfølging."
+        },
+        "transfer": {
+          "label": "Kundeoverføring",
+          "description": "Eksport og import av kundepakker. Krever utstyr og dokumenter."
+        },
+        "auditExport": {
+          "label": "Revisjons- og bevisEksport",
+          "description": "Signert revisjonseksport og bevispakker for oppdrag."
+        },
+        "api": {
+          "label": "REST-API",
+          "description": "API v1 med API-nøkler, scopes og OpenAPI-dokumentasjon."
+        },
+        "sso": {
+          "label": "SSO og SCIM",
+          "description": "OIDC-innlogging, SCIM-provisjonering og SSO-innstillinger."
+        },
+        "offline": {
+          "label": "Offline felt",
+          "description": "Feltappens offline-kladder, utbokskø og sesjonsvakt."
+        },
+        "quotes": {
+          "label": "Tilbud",
+          "description": "Tilbud med versjoner, godkjenning og konvertering til oppdrag."
+        },
+        "invoicing": {
+          "label": "Fakturering",
+          "description": "Fakturaer, betalinger, kreditnotaer og regnskapseksport."
+        },
+        "inventory": {
+          "label": "Lager",
+          "description": "Beholdning per lager og montørbil, reservasjoner mot oppdrag og kjøpsforslag."
+        },
+        "fieldExpenses": {
+          "label": "Kjøring og utlegg",
+          "description": "Kjøreturer og utlegg med kvittering, godkjenning og lønnseksport."
+        },
+        "bi": {
+          "label": "Lønnsomhet",
+          "description": "Lønnsomhet per avdeling, kunde og montør med estimert og faktisk inntekt."
+        }
+      }
     }
   },
   "users": {
@@ -570,9 +715,11 @@
       "defaultSuffix": " (standard)",
       "departmentHelp": "Ansatte må være i en avdeling for å kunne opprette og se oppdrag.",
       "contact": "Kontaktperson",
-      "contactRequired": "(påkrevd for kundeportal)",
+      "customer": "Kunde",
+      "chooseCustomer": "Velg kunde",
+      "loadingContacts": "Henter kontakter …",
+      "noContacts": "Ingen kontakter for denne kunden.",
       "noContact": "-- Ingen kontaktperson --",
-      "contactHelp": "Kobler brukeren til kunden og gir tilgang til kundeportalen.",
       "info": "Nye brukere er inaktive. Etter at du har opprettet dem får du en invitasjonslenke de kan bruke til å sette eget passord. Deretter må du aktivere kontoen her.",
       "submit": "Opprett og lag invitasjon"
     },
@@ -615,6 +762,60 @@
       "missingContact": "Kundeportalbrukere må kobles til en kontaktperson på kundekortet.",
       "duplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
       "missingField": "Fyll ut navn, e-post og velg en kontaktperson."
+    }
+  },
+  "push": {
+    "settings": {
+      "title": "Pushvarsler",
+      "description": "Send varsler til mobilappen via FCM (Android) og APNs (iOS).",
+      "noSecrets": "Nøkler og tokens vises aldri her.",
+      "loading": "Laster status …",
+      "providersTitle": "Leverandører",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Konfigurert",
+      "notConfigured": "Ikke konfigurert",
+      "project": "Prosjekt: {project}",
+      "environment": "Miljø: {environment}",
+      "sandbox": "sandbox",
+      "production": "produksjon",
+      "devicesTitle": "Enheter",
+      "devicesActive": "{active} aktive av {total}",
+      "devicesStale": "{count} foreldet (eldre enn {days} dager)",
+      "queueTitle": "Utboks",
+      "queuePending": "{count} venter",
+      "queueDeadLetter": "{count} gitt opp",
+      "sentTitle": "Siste 24 timer",
+      "queueSent": "{count} sendt",
+      "lastSent": "Sist sendt: {time}",
+      "neverSent": "Ingen push er sendt ennå.",
+      "testTitle": "Send testvarsel",
+      "testDescription": "Sendes til dine egne registrerte enheter.",
+      "sendTest": "Send test",
+      "sending": "Sender …",
+      "testSent": "{sent} av {queued} meldinger sendt.",
+      "testNoDevices": "Fant ingen aktive enheter for kontoen din.",
+      "testNotConfigured": "Push er ikke konfigurert. Legg inn FCM- eller APNs-oppsett først.",
+      "cleanupTitle": "Rydd foreldede enheter",
+      "cleanupDescription": "Sletter deaktiverte enheter og enheter som ikke har vært sett på {days} dager.",
+      "cleanup": "Rydd enheter",
+      "cleaning": "Rydder …",
+      "cleanupResult": "{count} enheter slettet.",
+      "error": "Kunne ikke utføre handlingen. Prøv igjen.",
+      "errorForbidden": "Bare administrator kan administrere pushvarsler.",
+      "errorRateLimited": "For mange forsøk. Prøv igjen om litt.",
+      "errorUnauthenticated": "Du er ikke innlogget.",
+      "loadError": "Kunne ikke hente pushstatus."
+    },
+    "test": {
+      "title": "Testvarsel",
+      "body": "Pushvarsler er konfigurert for denne installasjonen."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Faktura betalt",
+        "body": "Faktura {invoiceNumber} er betalt."
+      }
     }
   }
 }

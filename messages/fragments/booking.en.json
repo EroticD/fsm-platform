@@ -32,8 +32,8 @@
       "held": "The time with {technician} from {from} to {to} is held. You have {minutes} minutes.",
       "release": "Release the time",
       "selectedSlot": "Selected time: {technician}, {date} from {from} to {to}.",
-      "confirm": "Confirm booking",
-      "confirming": "Confirming …",
+      "confirm": "Send request",
+      "confirming": "Sending …",
       "successConfirmedTitle": "The booking is confirmed",
       "successConfirmedBody": "The time is reserved with {technician}. You can see it under “Your bookings”.",
       "unconfiguredPolicy": "{count} technician(s) have no working hours. The department's opening hours are used as the default.",
@@ -81,8 +81,8 @@
       "planSuccess": "The booking is planned and confirmed.",
       "alreadyConfirmed": "The booking was already confirmed.",
       "planErrors": {
-        "noTechnician": "No available technician for this time. Choose another time or technician.",
-        "unavailable": "The technician is busy, absent or unavailable during this time.",
+        "noTechnician": "No available technician suggested for this time. You can choose another technician.",
+        "unavailable": "The technician is absent or outside working hours during this time.",
         "needsPlanning": "The request has no time. Choose a date and time.",
         "invalidTime": "The time range is invalid. The end must be after the start.",
         "forbidden": "You do not have permission to confirm bookings.",
@@ -92,7 +92,7 @@
         "error": "The booking could not be confirmed. Please try again."
       },
       "cancel": "Cancel",
-      "noTechnician": "No available technician for the requested time",
+      "noTechnician": "No available technician suggested for the requested time",
       "chooseTechnician": "Choose technician",
       "status": {
         "PENDING": "Pending",

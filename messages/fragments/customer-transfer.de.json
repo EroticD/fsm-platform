@@ -33,7 +33,11 @@
       "import": {
         "title": "Kunde importieren",
         "description": "Laden Sie ein Kundenpaket hoch. Das Paket wird validiert und als Vorschau angezeigt, bevor etwas geschrieben wird. Die Bestätigung schreibt alle Zeilen und Dateien in einer Transaktion.",
-        "fileLabel": "ZIP-Paket wählen",
+        "fileLabel": "ZIP- oder .fsmenc-Paket wählen",
+        "passphraseLabel": "Passphrase für verschlüsseltes Paket",
+        "passphrasePlaceholder": "Für eine normale ZIP leer lassen",
+        "passphraseHelp": "Nur verschlüsselte .fsmenc-Pakete benötigen eine Passphrase. Sie wird nur mit diesem Upload übertragen, niemals gespeichert und nicht protokolliert.",
+        "upload": "Hochladen und prüfen",
         "createMissingReferences": "Fehlende Abteilungen, Tags und Kategorien anlegen",
         "createMissingReferencesHelp": "Mitarbeiter und Vorlagen werden nie angelegt. Ohne diese Option werden fehlende Referenzen mit einer Warnung auf null gesetzt oder der Import wird blockiert, wenn die Referenz erforderlich ist.",
         "uploading": "Hochladen und prüfen …",
@@ -112,8 +116,17 @@
       "duplicateEntry": "Das Paket enthält doppelte Dateinamen.",
       "unsupportedMime": "Das Paket enthält einen nicht erlaubten Dateityp.",
       "mimeMismatch": "Der Dateiinhalt stimmt nicht mit dem deklarierten Typ überein.",
-      "encryptedArchive": "Verschlüsselte ZIP-Archive werden nicht unterstützt.",
+      "encryptedArchive": "Verschlüsselte ZIP-Archive werden nicht unterstützt. Verwenden Sie den dokumentierten verschlüsselten FSM-Umschlag mit Passphrase.",
       "nestedArchive": "Verschachtelte Archive sind nicht erlaubt.",
+      "signatureInvalid": "Die Paketsignatur ist ungültig. Das Paket wurde verändert oder mit einem unbekannten Schlüssel signiert.",
+      "signatureMissing": "Dem Paket fehlt eine erforderliche Signatur. Der Import ist blockiert.",
+      "signatureUntrusted": "Das Paket ist mit einem Schlüssel signiert, dem diese Installation nicht vertraut. Importieren Sie es erst nach Prüfung des Schlüssels.",
+      "signatureAlgorithmIgnored": "Das Paket hat eine Signatur mit einem auf dieser Installation deaktivierten Algorithmus. Die Signatur wurde ignoriert.",
+      "signatureKeyMissing": "Das Paket ist signiert, aber diese Installation hat keinen Schlüssel zur Prüfung. Behandeln Sie das Paket als ungeprüft.",
+      "signatureUnsigned": "Das Paket ist nicht signiert. Prüfsummen erkennen Korruption, nicht böswillige Änderungen.",
+      "schemaMigrated": "Das Paket wurde aus einer älteren, unterstützten Schemaversion migriert.",
+      "decryptionFailed": "Das Paket konnte nicht entschlüsselt werden. Prüfen Sie die Passphrase und ob die Datei vollständig ist.",
+      "passphraseRequired": "Das Paket ist verschlüsselt. Geben Sie die Passphrase zum Entschlüsseln an.",
       "conflict": "Das Paket enthält einen Konflikt, der gelöst werden muss.",
       "policyRequired": "Sie müssen eine Konfliktregel wählen.",
       "previewStale": "Die Zieldaten haben sich seit der Vorschau geändert. Führen Sie eine neue Vorschau aus.",
@@ -148,7 +161,9 @@
       "symlink": "Symlinks im Archiv werden nicht unterstützt.",
       "unknownEntry": "Eine unbekannte Datei auf oberster Ebene wurde mit einer Warnung ignoriert.",
       "rateLimitedRetry": "Zu viele Exportversuche. Versuchen Sie es in {minutes} Minuten erneut.",
-      "exportInProgress": "Der Export läuft noch. Versuchen Sie es gleich erneut."
+      "exportInProgress": "Der Export läuft noch. Versuchen Sie es gleich erneut.",
+      "moduleDisabled": "Das Paket enthält Daten aus einem ausgeschalteten Modul. Schalten Sie das Modul ein oder erstellen Sie einen neuen Export.",
+      "importInProgress": "Ein Import desselben Pakets läuft bereits."
     }
   },
   "auditActions": {

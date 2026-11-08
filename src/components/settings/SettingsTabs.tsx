@@ -21,6 +21,7 @@ type SettingsTabsProps = {
   canDispatch: boolean;
   isAdmin: boolean;
   canCustomerTransfer: boolean;
+  canModules: boolean;
 };
 
 const linkClass = (active: boolean) =>
@@ -67,6 +68,7 @@ export default function SettingsTabs({
   canDispatch,
   isAdmin,
   canCustomerTransfer,
+  canModules,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
   const navRef = useRef<HTMLElement>(null);
@@ -251,6 +253,28 @@ export default function SettingsTabs({
             {t("settings.tabs.sms")}
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            href="?tab=email"
+            ref={currentTab === "email" ? activeRef : undefined}
+            className={linkClass(currentTab === "email")}
+            aria-current={currentTab === "email" ? "page" : undefined}
+          >
+            <Icon name="mail" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.email")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=push"
+            ref={currentTab === "push" ? activeRef : undefined}
+            className={linkClass(currentTab === "push")}
+            aria-current={currentTab === "push" ? "page" : undefined}
+          >
+            <Icon name="bell" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.push")}
+          </Link>
+        )}
         {canDispatch && (
           <Link
             href="?tab=dispatch"
@@ -260,6 +284,17 @@ export default function SettingsTabs({
           >
             <Icon name="route" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.dispatch")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=oppdragsstatus"
+            ref={currentTab === "oppdragsstatus" ? activeRef : undefined}
+            className={linkClass(currentTab === "oppdragsstatus")}
+            aria-current={currentTab === "oppdragsstatus" ? "page" : undefined}
+          >
+            <Icon name="check" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.workOrderStatus")}
           </Link>
         )}
         {isAdmin && (
@@ -304,6 +339,17 @@ export default function SettingsTabs({
           >
             <Icon name="shield" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.sso")}
+          </Link>
+        )}
+        {canModules && (
+          <Link
+            href="?tab=moduler"
+            ref={currentTab === "moduler" ? activeRef : undefined}
+            className={linkClass(currentTab === "moduler")}
+            aria-current={currentTab === "moduler" ? "page" : undefined}
+          >
+            <Icon name="grid" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.modules")}
           </Link>
         )}
         {canCustomerTransfer && (

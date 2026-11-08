@@ -1,6 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
 import {
   loadReportPdf,
@@ -8,7 +6,12 @@ import {
   type ReportPdfResult,
 } from "@/lib/report-pdf";
 import { withRenderSlot } from "@/lib/render-queue";
-import { uploadDir } from "@/lib/uploads";
+import {
+  deleteUploadFile,
+  readUploadFile,
+  writeUploadFile,
+} from "@/lib/uploads";
+import { storedNameFromUploadUrl } from "@/lib/storage";
 import { releaseUpload } from "@/lib/upload-cleanup";
 
 /**
@@ -177,27 +180,14 @@ export function computeReportPdfHashForReports(
   return hash.digest("hex");
 }
 
-/** Oversetter `/uploads/<fil>` til en sti under opplastingsmappen. */
-function cachedPdfPath(pdfUrl: string): string | null {
-  const marker = "/uploads/";
-  const index = pdfUrl.indexOf(marker);
-  if (index === -1) return null;
-
-  let storedName: string;
-  try {
-    storedName = decodeURIComponent(pdfUrl.slice(index + marker.length));
-  } catch {
-    return null;
-  }
-
-  // Bare filer helt øverst i opplastingsmappen; ingen underkataloger eller
-  // `..` – samme regel som /uploads-ruten bruker.
-  if (!storedName || storedName.includes("/") || storedName.includes("\\")) {
-    return null;
-  }
-  if (storedName === "." || storedName === "..") return null;
-
-  return path.join(uploadDir(), storedName);
+/**
+ * Oversetter `/uploads/<fil>` til en lagringsnøkkel. Bare filer helt øverst i
+ * opplastingsroten kan være PDF-cache – samme regel som /uploads-ruten bruker.
+ */
+function cachedPdfKey(pdfUrl: string): string | null {
+  const storedName = storedNameFromUploadUrl(pdfUrl);
+  if (!storedName || storedName === "." || storedName === "..") return null;
+  return storedName;
 }
 
 function defaultBaseUrl(): string | undefined {
@@ -229,13 +219,10 @@ async function storeReportPdf({
   pdf,
 }: StorePdfParams): Promise<string | null> {
   const storedName = `${crypto.randomUUID()}.pdf`;
-  const root = uploadDir();
-  const filePath = path.join(root, storedName);
   const url = `/uploads/${storedName}`;
 
   try {
-    await fs.mkdir(root, { recursive: true });
-    await fs.writeFile(filePath, pdf.buffer);
+    await writeUploadFile(storedName, pdf.buffer, "application/pdf");
 
     await prisma.$transaction([
       prisma.upload.create({
@@ -264,7 +251,7 @@ async function storeReportPdf({
     return url;
   } catch (error) {
     console.error(`Kunne ikke lagre PDF for rapport ${reportId}:`, error);
-    await fs.unlink(filePath).catch(() => {});
+    await deleteUploadFile(storedName).catch(() => {});
     return null;
   }
 }
@@ -329,11 +316,19 @@ export async function getOrRenderReportPdf(
   );
 
   // Uendret innhold og filen finnes fortsatt: bruk mellomlagringen.
-  if (latest.pdfUrl && latest.pdfHash === pdfHash) {
-    const filePath = cachedPdfPath(latest.pdfUrl);
-    if (filePath) {
+  //
+  // En rapport som er personvernbehandlet har `customerDataRedactedAt`, men
+  // den signerte PDF-en er bevisst bevart som tjenestebevis. Da skal cachen
+  // brukes selv om rapportens strukturerte felt er endret, slik at neste
+  // visning ikke stille regenererer en ny PDF og sletter originalen.
+  if (
+    latest.pdfUrl &&
+    (latest.customerDataRedactedAt || latest.pdfHash === pdfHash)
+  ) {
+    const key = cachedPdfKey(latest.pdfUrl);
+    if (key) {
       try {
-        const buffer = await fs.readFile(filePath);
+        const buffer = await readUploadFile(key);
         return { buffer, fileName, url: latest.pdfUrl };
       } catch {
         // Filen er borte (for eksempel etter et bytte av volum). Da lages den

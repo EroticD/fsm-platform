@@ -1,0 +1,129 @@
+{
+  "nav": {
+    "profitability": "Profitability"
+  },
+  "metadata": {
+    "routes": {
+      "lonnsomhet": "Profitability"
+    }
+  },
+  "bi": {
+    "title": "Profitability",
+    "subtitle": "Work orders, time, first-time fix and estimated/actual revenue by department, customer and technician.",
+    "export": "Export CSV",
+    "errors": {
+      "invalid": "The filters are invalid. Check the period and try again.",
+      "forbidden": "You do not have access to the profitability report.",
+      "tooLarge": "The data set is too large. Choose a shorter period or a narrower filter."
+    },
+    "filters": {
+      "title": "Filters",
+      "from": "From",
+      "to": "To",
+      "department": "Department",
+      "customer": "Customer",
+      "technician": "Technician",
+      "allDepartments": "All departments",
+      "allCustomers": "All customers",
+      "allTechnicians": "All technicians",
+      "apply": "Show",
+      "reset": "Reset"
+    },
+    "estimate": {
+      "title": "Revenue and profit are estimates",
+      "basis": "Basis: {basis}. {coverage} of work orders have an hourly rate.",
+      "costMissing": "Profit is not calculated because the internal cost rate is missing.",
+      "costConfigured": "Profit is calculated with an internal cost rate of {rate} per hour."
+    },
+    "actual": {
+      "availableTitle": "Estimated and actual revenue",
+      "availableDescription": "Actual revenue is the net invoiced amount excluding VAT for {invoices} invoices in the period. Draft invoices are excluded, credit notes are deducted, and payment status does not affect revenue recognition. The estimate from the contract hourly rate is shown alongside.",
+      "unavailableDescription": "Actual revenue is unavailable because the invoicing module is off, or because there are no non-draft invoices for the work orders in the period. The estimate is calculated from the contract hourly rate and work time."
+    },
+    "basis": {
+      "contract_price_list": "hourly rate from the contract price list",
+      "partial": "hourly rate missing for some work orders",
+      "missing": "no hourly rate found"
+    },
+    "capacityBasis": {
+      "capacity_plan": "explicit capacity plans",
+      "availability": "registered working hours",
+      "business_hours": "department opening hours",
+      "default_8h": "a standard 8-hour day",
+      "mixed": "a mix of capacity plans and working hours",
+      "none": "no availability"
+    },
+    "kpis": {
+      "title": "Key figures",
+      "orders": "Work orders",
+      "ordersSub": "{completed} completed · {cancelled} cancelled",
+      "completionRate": "Completion rate",
+      "completionRateSub": "Completed work orders of all in the period",
+      "firstTimeFix": "First-time fix",
+      "firstTimeFixSub": "{fixed} of {eligible} measurable work orders",
+      "hours": "Total hours",
+      "hoursSub": "{work} h work · {travel} h travel",
+      "utilisation": "Utilisation",
+      "utilisationSub": "of {available} h available time",
+      "revenue": "Estimated revenue",
+      "revenueSub": "from {orders} work orders with an hourly rate",
+      "actualRevenue": "Actual revenue",
+      "actualRevenueSub": "{invoices} invoices · {orders} work orders",
+      "actualRevenueUnavailable": "unavailable – no invoices in scope",
+      "profit": "Estimated profit",
+      "profitSub": "after an internal cost rate of {rate}/h",
+      "profitMissing": "not calculated – cost rate missing"
+    },
+    "chart": {
+      "title": "Hours per technician",
+      "description": "Bars show total work and travel time. Availability is based on {basis}.",
+      "hoursOf": "{hours} h · {utilisation} utilisation",
+      "hoursAria": "{name}: {hours} hours, {utilisation} utilisation",
+      "utilisationAria": "{name}: {percent} utilisation",
+      "note": "Work {work} h and travel {travel} h are included in the total. A shared visit counts for each technician in the table, but only once in the total."
+    },
+    "empty": {
+      "period": "No data in the period.",
+      "title": "No work orders in the period",
+      "description": "Adjust the period or choose another department, customer or technician."
+    },
+    "tables": {
+      "technicians": "Per technician",
+      "techniciansDescription": "Work orders, hours, utilisation and estimated/actual revenue.",
+      "customers": "Per customer",
+      "customersDescription": "Work orders, hours and estimated/actual revenue per customer.",
+      "orders": "Per work order",
+      "ordersDescription": "{count} work orders in the period with time, first-time fix and estimated/actual revenue."
+    },
+    "table": {
+      "technician": "Technician",
+      "customer": "Customer",
+      "order": "Work order",
+      "orders": "Work orders",
+      "work": "Work",
+      "travel": "Travel",
+      "total": "Total",
+      "available": "Available",
+      "utilisation": "Utilisation",
+      "firstTimeFix": "First-time fix",
+      "estimatedRevenue": "Estimated revenue",
+      "actualRevenue": "Actual revenue",
+      "completedOf": "{completed} of {total} completed",
+      "status": "Status"
+    },
+    "status": {
+      "PLANNED": "Planned",
+      "IN_PROGRESS": "In progress",
+      "WAITING": "Waiting",
+      "COMPLETED": "Completed",
+      "PENDING": "Pending",
+      "CANCELLED": "Cancelled",
+      "OPEN": "Open"
+    },
+    "firstTimeFix": {
+      "fixed": "Fixed first time",
+      "not_fixed": "Deviation – not first time",
+      "not_measurable": "Not measurable"
+    }
+  }
+}

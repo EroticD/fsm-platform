@@ -10,6 +10,7 @@ import {
 } from "@/server/messaging";
 import { sendWorkOrderEventSms } from "@/server/sms-events";
 import { isSmsEventKey } from "@/lib/sms/templates";
+import { moduleEnabled } from "@/server/modules";
 
 function threadHref(threadId: string, params: Record<string, string>) {
   return `/meldinger/${threadId}?${new URLSearchParams(params).toString()}`;
@@ -25,6 +26,7 @@ function feedback(
 }
 
 export async function sendMessageAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -40,6 +42,7 @@ export async function sendMessageAction(formData: FormData) {
 }
 
 export async function setConsentAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -60,6 +63,7 @@ export async function setConsentAction(formData: FormData) {
 }
 
 export async function sendQuickMessageAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -83,6 +87,7 @@ export async function sendQuickMessageAction(formData: FormData) {
 }
 
 export async function startWorkOrderThreadAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

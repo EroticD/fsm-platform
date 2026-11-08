@@ -1,0 +1,183 @@
+{
+  "nav": {
+    "quotes": "Oferty"
+  },
+  "quotes": {
+    "status": {
+      "DRAFT": "Szkic",
+      "SENT": "Wysłana",
+      "ACCEPTED": "Zaakceptowana",
+      "REJECTED": "Odrzucona",
+      "EXPIRED": "Wygasła"
+    },
+    "lines": {
+      "line": "Pozycja {number}",
+      "description": "Opis",
+      "quantity": "Ilość",
+      "unit": "Jednostka",
+      "unitPrice": "Cena",
+      "vatRate": "VAT %",
+      "total": "Razem",
+      "add": "Dodaj pozycję",
+      "remove": "Usuń"
+    },
+    "list": {
+      "title": "Oferty",
+      "subtitle": "Oferty dla klientów z wersjami, zatwierdzaniem i konwersją na zlecenia.",
+      "new": "Nowa oferta",
+      "search": "Szukaj",
+      "searchPlaceholder": "Numer oferty, tytuł lub klient",
+      "status": "Status",
+      "allStatuses": "Wszystkie statusy",
+      "emptyTitle": "Brak ofert",
+      "emptyDescription": "Utwórz pierwszą ofertę i wyślij klientowi link do zatwierdzenia.",
+      "noNumber": "Brak numeru oferty",
+      "noCustomer": "Brak klienta",
+      "validUntil": "Ważna do {date}",
+      "version": "Wersja {version}",
+      "updated": "Zaktualizowano {date}",
+      "versioned": "Zapisano nową wersję."
+    },
+    "new": {
+      "title": "Nowa oferta",
+      "subtitle": "Kwoty są obliczane na serwerze. Zapisz szkic i wyślij go, gdy będzie gotowy.",
+      "back": "Wróć do ofert",
+      "submit": "Utwórz ofertę"
+    },
+    "edit": {
+      "title": "Edytuj ofertę",
+      "back": "Wróć do oferty",
+      "submit": "Zapisz zmiany"
+    },
+    "form": {
+      "details": "Szczegóły oferty",
+      "title": "Tytuł",
+      "customer": "Klient",
+      "chooseCustomer": "Wybierz klienta",
+      "contact": "Osoba kontaktowa",
+      "noContact": "Brak osoby kontaktowej",
+      "loadingContacts": "Ładowanie kontaktów …",
+      "noContacts": "Brak kontaktów zarejestrowanych dla tego klienta.",
+      "workOrder": "Zlecenie",
+      "noWorkOrder": "Nie powiązano ze zleceniem",
+      "contract": "Umowa serwisowa",
+      "noContract": "Brak umowy",
+      "equipment": "Urządzenie",
+      "noEquipment": "Nie powiązano z urządzeniem",
+      "department": "Dział",
+      "defaultDepartment": "Domyślny dział",
+      "validUntil": "Ważna do",
+      "vatRate": "Stawka VAT",
+      "notes": "Notatki",
+      "linesTitle": "Pozycje",
+      "linesHint": "Opisz, co jest oferowane. Każda pozycja może mieć inną stawkę VAT.",
+      "saving": "Zapisywanie …"
+    },
+    "detail": {
+      "noNumber": "Brak numeru oferty",
+      "version": "Wersja {version}",
+      "back": "Wróć do ofert",
+      "linkTitle": "Link do zatwierdzenia",
+      "linkHint": "Link jest krótkotrwały i można go użyć tylko raz. Udostępnij go wyłącznie klientowi.",
+      "openLink": "Otwórz link",
+      "customer": "Klient",
+      "openCustomer": "Otwórz klienta",
+      "contact": "Osoba kontaktowa",
+      "noContact": "Brak osoby kontaktowej",
+      "validUntil": "Ważna do",
+      "noDate": "Nie ustawiono",
+      "department": "Dział",
+      "workOrder": "Zlecenie",
+      "contract": "Umowa serwisowa",
+      "equipment": "Urządzenie",
+      "converted": "Przekonwertowana",
+      "openWorkOrder": "Otwórz zlecenie",
+      "lines": "Pozycje oferty",
+      "subtotal": "Netto",
+      "vat": "VAT ({rate} %)",
+      "vatTotal": "VAT",
+      "total": "Razem",
+      "actions": "Działania",
+      "edit": "Edytuj",
+      "send": "Wyślij do klienta",
+      "sending": "Wysyłanie …",
+      "saveVersion": "Zapisz nową wersję",
+      "newLink": "Nowy link do zatwierdzenia",
+      "convert": "Konwertuj na zlecenie",
+      "converting": "Konwertowanie …",
+      "clone": "Klonuj ofertę",
+      "history": "Historia wersji",
+      "noHistory": "Nie zapisano jeszcze żadnych wersji.",
+      "rejectedReason": "Klient odrzucił ofertę: {reason}",
+      "invoices": "Faktury",
+      "draftInvoice": "Szkic faktury"
+    },
+    "print": {
+      "action": "Drukuj / PDF",
+      "back": "Powrót do oferty",
+      "print": "Drukuj",
+      "document": "Oferta",
+      "companyFallback": "Moja firma",
+      "orgNumber": "NIP",
+      "issueDate": "Data oferty",
+      "department": "Dział",
+      "status": "Status",
+      "notes": "Uwagi",
+      "terms": "To jest oferta, a nie faktura. Oferta jest ważna do {date}."
+    },
+    "approval": {
+      "title": "Zatwierdź ofertę",
+      "eyebrow": "Oferta do zatwierdzenia",
+      "accepted": "Oferta została zaakceptowana. Dziękujemy.",
+      "rejected": "Oferta została odrzucona.",
+      "expired": "Link lub oferta wygasły. Skontaktuj się z dostawcą, aby otrzymać nową ofertę.",
+      "validUntil": "Ważna do",
+      "contact": "Kontakt",
+      "acceptTitle": "Akceptuj",
+      "acceptHint": "Akceptując, potwierdzasz ofertę z powyższymi kwotami.",
+      "name": "Imię i nazwisko",
+      "comment": "Komentarz (opcjonalnie)",
+      "accept": "Zaakceptuj ofertę",
+      "accepting": "Akceptowanie …",
+      "rejectTitle": "Odrzuć",
+      "rejectHint": "Krótko wyjaśnij, dlaczego oferta nie odpowiada.",
+      "reason": "Powód",
+      "reject": "Odrzuć ofertę",
+      "rejecting": "Odrzucanie …",
+      "home": "Przejdź do strony głównej",
+      "errors": {
+        "generic": "Nie udało się wykonać działania.",
+        "forbidden": "Brak uprawnień do wykonania tej czynności.",
+        "invalid": "Pola są nieprawidłowe.",
+        "not_found": "Nie znaleziono oferty lub linku.",
+        "conflict": "Oferta została już obsłużona.",
+        "token": {
+          "expired": "Link wygasł.",
+          "used": "Link został już użyty."
+        },
+        "quote": {
+          "expired": "Oferta wygasła."
+        }
+      }
+    },
+    "errors": {
+      "generic": "Nie udało się wykonać działania.",
+      "forbidden": "Brak uprawnień do wykonania tej czynności.",
+      "invalid": "Pola są nieprawidłowe.",
+      "not_found": "Nie znaleziono oferty.",
+      "conflict": "Oferta jest w stanie, który nie pozwala na wykonanie tej czynności.",
+      "quote": {
+        "locked": "Wysłanych ofert nie można edytować.",
+        "expired": "Oferta wygasła.",
+        "notDraft": "Wysłać można tylko szkice.",
+        "notSent": "Nowy link mogą otrzymać tylko wysłane oferty.",
+        "notAccepted": "Konwertować można tylko zaakceptowane oferty.",
+        "conversionRace": "Oferta uległa zmianie. Odśwież stronę i spróbuj ponownie."
+      },
+      "token": {
+        "expired": "Link wygasł.",
+        "used": "Link został już użyty."
+      }
+    }
+  }
+}

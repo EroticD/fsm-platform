@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   bulkCreateDocuments as bulkCreateDocumentsService,
   bulkDeleteDocuments as bulkDeleteDocumentsService,
@@ -72,6 +73,9 @@ function invalidDocument(formData: FormData): never {
 export async function createFolder(
   formData: FormData,
 ): Promise<DocumentActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -89,6 +93,9 @@ export async function createFolder(
 export async function renameFolder(
   formData: FormData,
 ): Promise<DocumentActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -105,6 +112,9 @@ export async function renameFolder(
 export async function moveFolder(
   formData: FormData,
 ): Promise<DocumentActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -121,6 +131,9 @@ export async function moveFolder(
 export async function deleteFolder(
   formData: FormData,
 ): Promise<DocumentActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -134,6 +147,7 @@ export async function deleteFolder(
 }
 
 export async function restoreVersion(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -149,6 +163,7 @@ export async function restoreVersion(formData: FormData): Promise<void> {
 }
 
 export async function deleteDocument(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -164,6 +179,7 @@ export async function deleteDocument(formData: FormData): Promise<void> {
 }
 
 export async function restoreDocument(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -179,6 +195,7 @@ export async function restoreDocument(formData: FormData): Promise<void> {
 }
 
 export async function updateDocument(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -201,6 +218,7 @@ export async function updateDocument(formData: FormData): Promise<void> {
 }
 
 export async function createDocument(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 
@@ -224,6 +242,9 @@ export async function createDocument(formData: FormData): Promise<void> {
 export async function bulkCreateDocuments(
   formData: FormData,
 ): Promise<DocumentBulkActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -246,6 +267,9 @@ export async function bulkCreateDocuments(
 export async function bulkMoveDocuments(
   formData: FormData,
 ): Promise<DocumentBulkMutationActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -263,6 +287,9 @@ export async function bulkMoveDocuments(
 export async function bulkDeleteDocuments(
   formData: FormData,
 ): Promise<DocumentBulkMutationActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -278,6 +305,9 @@ export async function bulkDeleteDocuments(
 export async function bulkTagDocuments(
   formData: FormData,
 ): Promise<DocumentBulkMutationActionResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -294,6 +324,9 @@ export async function bulkTagDocuments(
 export async function discardDocumentUploads(
   formData: FormData,
 ): Promise<DocumentDiscardUploadsResult> {
+  if (!(await moduleEnabled("documents"))) {
+    return { ok: false, reason: "forbidden" };
+  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, reason: "forbidden" };
 
@@ -311,6 +344,7 @@ export async function discardDocumentUploads(
 }
 
 export async function reindexDocuments(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("documents"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return;
 

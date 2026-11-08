@@ -1,5 +1,6 @@
 import type { IconName } from "@/components/icons";
 import { defaultPermissionsForRole, type Permission } from "@/lib/permissions";
+import type { ModuleKey } from "@/lib/modules";
 
 /**
  * Navigasjonen. Hvert element har en rettighet som kreves for å se det.
@@ -27,6 +28,8 @@ export type NavItem = {
   requires?: Permission | Permission[];
   section?: NavSection;
   audience?: NavAudience;
+  /** Modulen elementet krever. Utelatt betyr kjernedata (alltid tilgjengelig). */
+  module?: ModuleKey;
 };
 
 /** Hendelsen som åpner den eksisterende menyen fra mobilens bunnlinje. */
@@ -79,6 +82,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "calendar",
     icon: "calendar",
     requires: "workorders.view",
+    module: "calendar",
     section: "primary",
   },
   {
@@ -93,6 +97,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "sms",
     icon: "mail",
     requires: "workorders.view",
+    module: "sms",
     section: "primary",
   },
   {
@@ -100,6 +105,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "bookings",
     icon: "clipboard",
     requires: "workorders.view",
+    module: "booking",
     section: "menu",
   },
   {
@@ -107,13 +113,55 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "contracts",
     icon: "file",
     requires: "contracts.view",
+    module: "contracts",
     section: "menu",
+  },
+  {
+    href: "/tilbud",
+    labelKey: "quotes",
+    icon: "file",
+    requires: "workorders.create",
+    section: "menu",
+    module: "quotes",
+  },
+  {
+    href: "/faktura",
+    labelKey: "invoices",
+    icon: "chart",
+    requires: "workorders.view",
+    section: "menu",
+    module: "invoicing",
+  },
+  {
+    href: "/lager",
+    labelKey: "inventory",
+    icon: "wrench",
+    requires: "equipment.view",
+    section: "menu",
+    module: "inventory",
+  },
+  {
+    href: "/utlegg",
+    labelKey: "expenses",
+    icon: "route",
+    requires: "workorders.view",
+    section: "menu",
+    module: "fieldExpenses",
+  },
+  {
+    href: "/lonnsomhet",
+    labelKey: "profitability",
+    icon: "chart",
+    requires: "reports.view",
+    section: "menu",
+    module: "bi",
   },
   {
     href: "/enheter",
     labelKey: "units",
     icon: "wrench",
     requires: "equipment.view",
+    module: "equipment",
     section: "menu",
   },
   {
@@ -121,6 +169,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "scan",
     icon: "camera",
     requires: ["equipment.view", "workorders.view"],
+    module: "equipment",
     section: "menu",
   },
   {
@@ -134,6 +183,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "reports",
     icon: "chart",
     requires: "reports.view",
+    module: "reports",
     section: "primary",
   },
   {
@@ -141,6 +191,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "hms",
     icon: "shield",
     requires: ["templates.view", "reports.view"],
+    module: "reports",
     section: "menu",
   },
   {
@@ -148,6 +199,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "documents",
     icon: "file",
     requires: "documents.view",
+    module: "documents",
     section: "menu",
   },
   {
@@ -155,6 +207,7 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "map",
     icon: "map",
     requires: "workorders.view",
+    module: "map",
     section: "menu",
   },
   {
@@ -201,6 +254,7 @@ export const CUSTOMER_NAV: NavItem[] = [
     href: "/kundeportal",
     labelKey: "customerPortal",
     icon: "user",
+    module: "portal",
     section: "primary",
   },
   {
@@ -240,11 +294,28 @@ export function homePathForRole(role?: string | null): string {
  * Montører ser «I dag» i stedet for dashbordet, og rapportene flyttes ned i
  * hamburgermenyen slik at hovedlinjen holder seg på fire arbeidsområder.
  */
+function moduleAllowed(
+  item: NavItem,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
+): boolean {
+  if (!item.module || item.module === "core") return true;
+  // Eldre kall uten moduldata ser hele menyen.
+  if (enabledModules === undefined) return true;
+  const set =
+    enabledModules instanceof Set
+      ? enabledModules
+      : new Set(enabledModules);
+  return set.has(item.module);
+}
+
 export function navItemsFor(
   role?: string | null,
   permissions?: readonly string[] | null,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
 ): NavItem[] {
-  if (role === "CUSTOMER") return CUSTOMER_NAV;
+  if (role === "CUSTOMER") {
+    return CUSTOMER_NAV.filter((item) => moduleAllowed(item, enabledModules));
+  }
   const effective =
     permissions && permissions.length > 0
       ? permissions
@@ -254,6 +325,7 @@ export function navItemsFor(
   const all = role === "ADMIN" ? new Set(["*"]) : new Set(effective);
   const audience: NavAudience = role === "TECHNICIAN" ? "field" : "office";
   const allowed = (item: NavItem) =>
+    moduleAllowed(item, enabledModules) &&
     (!item.audience || item.audience === audience) &&
     (role === "ADMIN" ? true : hasAnyPermission(all, item.requires));
   return STAFF_NAV.filter(allowed).map((item) => {
@@ -291,8 +363,9 @@ export function settingsNavItem(
 export function mobileTabItemsFor(
   role?: string | null,
   permissions?: readonly string[] | null,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
 ): NavItem[] {
-  const items = navItemsFor(role, permissions);
+  const items = navItemsFor(role, permissions, enabledModules);
   const hrefs =
     role === "TECHNICIAN"
       ? ["/mine-oppdrag", "/oppdrag", "/varsler"]

@@ -222,6 +222,105 @@
         ]
       }
     },
+    "/inventory/items": {
+      "GET": {
+        "parameters": [
+          "q"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/inventory/items/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/inventory/locations": {
+      "GET": {
+        "parameters": [],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/inventory/reservations": {
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/inventory/reservations/{id}/consume": {
+      "POST": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "409",
+          "429"
+        ]
+      }
+    },
+    "/inventory/reservations/{id}/release": {
+      "POST": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "409",
+          "429"
+        ]
+      }
+    },
+    "/inventory/stock": {
+      "GET": {
+        "parameters": [
+          "itemId",
+          "locationId"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
     "/maintenance-plans": {
       "GET": {
         "parameters": [
@@ -257,6 +356,143 @@
         "responses": [
           "200",
           "401",
+          "429"
+        ]
+      }
+    },
+    "/orders": {
+      "GET": {
+        "parameters": [
+          "limit",
+          "page",
+          "source",
+          "status"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [
+          "Idempotency-Key"
+        ],
+        "responses": [
+          "200",
+          "201",
+          "400",
+          "401",
+          "403",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/orders/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/quotes": {
+      "GET": {
+        "parameters": [
+          "customerId",
+          "limit",
+          "page",
+          "q",
+          "status"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "400",
+          "401",
+          "403",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/quotes/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/quotes/{id}/send": {
+      "POST": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "409",
           "429"
         ]
       }

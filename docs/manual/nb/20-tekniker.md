@@ -1,8 +1,16 @@
 # Tekniker
 
-Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.9 (2026-11-04).
+Feltappen for rollen **Montør**: innlogging, «Mine oppdrag», oppdragsdetaljer, sjekklister, enheter, skanning, offline-kladder og innsending. Versjon 0.8.11 (2026-11-08).
 
 Bunnlinjen har **I dag** (`/mine-oppdrag`), **Oppdrag**, **Varsler** og **Mer**. «Mer» åpner samme meny som hamburgerknappen øverst. Språk, varsellyd, rapporter, kunder/utstyr og innstillinger ligger i menyen.
+
+![Figur: I dag med neste jobb, forfalte og ledige oppdrag](../../../screenshots/pages/mobile/mine-oppdrag.jpg)
+
+*Figur: I dag er feltappens startsiden.*
+
+Legg merke til **Neste jobb** øverst og gruppene **Forfalt** og **Ledige** under.
+Det er her du ser om noe er tildelt deg, om du kan ta en ledig jobb, og om noe
+har blitt liggende fra tidligere dager.
 
 ## Første gang: innlogging, 2FA og språk
 
@@ -34,7 +42,7 @@ Du kan ikke bytte passord i feltappen. Logg ut og bruk **Glemt passord** på inn
 2. Rull til bunnen. Der ligger **Endre språk**.
 3. Velg **Norsk**, **English**, **Polski** eller **Deutsch**.
 
-Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.9.
+Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer, tall og relativ tid følger språket. Rapport-PDF-ens faste etiketter er fortsatt norske i 0.8.11.
 
 ### Installer feltappen (PWA)
 
@@ -44,9 +52,48 @@ Feltappen er en installérbar nettapp. Den åpnes i eget vindu, starter på `/mi
 - **iPhone/iPad/Safari:** Delikonet → **Legg til på Hjem-skjermen**.
 - **Chrome/Edge på datamaskin:** Installasjonsikonet i adressefeltet, eller menyen → **Installer**.
 
-Det finnes ingen egen «Installer»-knapp i appen. Installasjonen bruker manifestet og krever HTTPS. Service workeren registreres bare i produksjonsbygget.
+Det finnes ingen egen «Installer»-knapp i appen. Installasjonen bruker manifestet og krever HTTPS. Service workeren registreres bare i produksjonsbygget. Den cacher alle samme-origins GET-sider, API-GET og filer under `/uploads/` i sju døgn per bruker.
 
 Når appen er installert, kan du holde inne appikonet og velge **Mine oppdrag**, **Skann** eller **I dag**. De samme valgene ligger i appen. Når en ny versjon er lastet ned, viser appen **En ny versjon av feltappen er klar.** Trykk **Oppdater** når du ikke står midt i et skjema. **Senere** skjuler meldingen til neste oppstart.
+
+### Native app og serveradresse
+
+Android- og iOS-appen ligger i det egne repoet `fsm-mobile` og bygges og
+signeres der. Plattformen inneholder ikke lenger Capacitor-prosjekter, skall
+eller signeringsfiler.
+
+1. Installer appen fra bedriftens distribusjon eller appbutikk.
+2. Ved første start kommer du til en lokal oppsettside. Skriv inn
+   **FSM-serverens URL**, for eksempel `https://fsm.example.no`.
+3. Adressen lagres native på enheten og er ikke bygget inn i appen. Trykk
+   **Koble til**.
+4. Senere kan du endre adressen fra tannhjulet i appen, eller bruke **Bytt
+   server**. Da tømmes cache og innlogging for den gamle serveren.
+
+Bruker du nettleser eller PWA i stedet, gjelder samme adresse og samme
+innlogging. Den native appen og PWA-en bruker samme API og samme
+tilgangskontroll.
+
+### Pushvarsler
+
+Push er et supplement til varslene i appen. Hvert varsel lagres først i
+**Varsler**, og deretter sendes en kopi til de aktive mobilenhetene dine.
+
+1. Logg inn i appen og tillat varsler når systemet spør.
+2. Appen registrerer enheten med push-token etter innlogging og når tokenet
+   roteres.
+3. Trykk på et varsel for å åpne riktig side. Dype lenker går alltid til en
+   intern sti, for eksempel `/oppdrag/<id>`, `/bookinger` eller `/varsler`.
+4. Ved utlogging avregistreres enheten. En enhet som er logget inn på nytt med
+   en annen konto, flyttes til den nye kontoen, og gamle ventende varsler
+   slettes.
+
+Varsellyd slås av og på i menyen. Selve push-oppsettet (FCM for Android og APNs
+for iOS) gjøres av administrator og krever legitimasjon i miljøet. Er ingen
+leverandør konfigurert, kan enheten registreres, men ingenting sendes.
+
+> **Merk:** Push er ikke det samme som SMS. Push krever at appen er installert og
+> at enheten har tillatt varsler; SMS krever samtykke og telefonnummer.
 
 ### Skann QR og strekkode
 
@@ -83,7 +130,7 @@ Har kunden allerede QR-etiketter fra et annet system, virker de også: Kontoret 
 5. Åpne PDF-er du trenger mens du er på nett.
 6. Ikke tøm nettleser- eller appdata.
 
-Side-cachen varer i åtte timer; lokale kladder i sju dager.
+Side-, API- og filcachen varer i **sju døgn per bruker**. Cacheene slettes ved utlogging, utløpt økt og **Bytt server**. Appen ber om persistent lagring, men operativsystemet kan rydde lagringen hvis enheten er full. Lokale kladder varer i sju dager.
 
 ## Mine oppdrag / I dag
 
@@ -180,6 +227,14 @@ Står det **Ingen sjekklister er knyttet til dette oppdraget ennå**, kan du ikk
 ## Rapportskjemaet
 
 Skjemaet åpnes på `/mine-oppdrag/<oppdrag-id>/skjema/<mal-id>`.
+
+![Figur: Rapportskjemaet med enheter, sjekkpunkter og signatur](../../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
+
+*Figur: Rapportskjemaet er bygget for én hånd og ustabilt nett.*
+
+Legg merke til stegstripen øverst og enhetsblokkene. Hvert sjekkpunkt hører til
+en enhet, og signaturen ligger nederst. Statusen for kladd står hele tiden
+synlig, slik at du vet om det du har fylt ut er lagret lokalt eller på serveren.
 
 ### Låst rapport og gjenoppretting av kladd
 
@@ -303,6 +358,38 @@ kunne hentes; last opp bildet på nytt fra rapporten og generer PDF-en igjen.
 Åpne PDF-er du trenger mens du er på nett. PDF-visning krever nett, og en
 direkte nedlasting bør gjøres før du mister dekningen.
 
+## Kjøreturer, utlegg og reservedeler
+
+### Registrer kjøretur og utlegg
+
+1. Åpne **Mer → Utlegg** (`/utlegg`).
+2. Velg **Kjøretur** eller **Utlegg**.
+3. For kjøretur: fyll ut **Dato**, **Fra**, **Til**, **Kilometer** og eventuelt
+   **Oppdrag**. Satsen foreslås, men lagres per rad.
+4. For utlegg: velg **Kategori**, skriv **Brutto beløp**, kontroller **MVA** og
+   last opp **Kvittering**.
+5. Lagre som **Utkast**, eller send inn til godkjenning.
+6. Følg statusen: **Venter**, **Godkjent**, **Avvist** eller **Eksportert**. En
+   avvisning viser begrunnelsen fra kontoret.
+
+Du ser bare egne kjøreturer og utlegg. Du kan ikke godkjenne egne rader; det gjør
+kontoret. Beløp og MVA regnes på serveren, og et ferdig beløp fra klienten
+avvises hvis det avviker. Kvitteringen er dokumentasjonen – last den opp mens du
+har den foran deg, ikke dagen etter.
+
+### Reservedeler på oppdraget
+
+Har du tilgang til lager, kan du reservere og forbruke deler fra
+`/lager/oppdrag/<id>`:
+
+1. Velg vare og lokasjon, og skriv antall.
+2. Trykk **Reserver** før du bruker delen.
+3. Trykk **Forbruk** når delen er montert. Da trekkes den fra beholdningen.
+4. Bruker du ikke delen likevel, trykk **Frigjør**.
+
+Forbruk skjer ikke automatisk når du fullfører visitten. Kontroller at
+reservasjonen blir forbrukt eller frigjort før du forlater jobben.
+
 ## Offline, kladder og outbox
 
 ### Autolagring
@@ -372,7 +459,10 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Øktknappene mangler / status låst** | Dagen eller oppdraget er avsluttet, eller du mangler rettighet | Kontakt kontoret; bare åpne dager og oppdrag kan endres |
 | **PDF åpnes ikke** | Ingen nett, rapporten finnes ikke, manglende tilgang eller aktivt innhold som ikke kan saniteres | Kom på nett, åpne via **Se rapport (PDF)**, last ned filen, og meld fra hvis tilgang mangler |
 | **Bilde mangler i PDF** | Filen er slettet, mangler metadata eller tilhører et annet oppdrag | Last opp bildet på nytt fra rapporten, og generer PDF-en igjen |
-| **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn åtte timer | Åpne jobben på nytt mens du er på nett, og hold appen installert |
+| **Offline-siden viser ikke jobben** | Siden er ikke cachet, eller cachen er eldre enn sju døgn | Åpne jobben på nytt mens du er på nett, og hold appen installert |
+| **Får ingen pushvarsler** | Varsler er avslått, enheten er avregistrert, eller leverandøren er ikke konfigurert | Tillat varsler i appen, logg inn på nytt, og be administrator kontrollere FCM/APNs |
+| **Push åpner feil side** | Gammel versjon eller ugyldig dyp lenke | Oppdater appen og åpne varselet på nytt fra **Varsler** |
+| **Kan ikke registrere utlegg** | Manglende kvittering, ugyldig beløp eller periode | Last opp kvittering, kontroller MVA og prøv igjen |
 
 ## Slik henger teknikerarbeidet sammen med resten
 
@@ -382,5 +472,7 @@ Backoff er 15 sekunder til 30 minutter, maks 10 forsøk, deretter terminal **kun
 | **Kundeportalen** | Signerer og sender en komplett rapport | Kunden ser innsendte, låste rapporter i `/kundeportal/rapporter`, laster ned PDF og kvitterer med **Kvitter mottatt** |
 | **Utstyrsmodulen** | Velger eller oppretter enhet, fører serienummer og plassering | Servicehistorikk, tidslinje, målinger og QR-etikett på `/enheter/<id>` og på kundekortets **Utstyr**-fane |
 | **Administrator** | Følger malens krav og bruker riktig avdeling og bruker | Styrer **Sjekklister / Maler**, **Ansatte**, avdelinger, rettigheter, 2FA, bevaringsplikt og opplåsing i **Innstillinger** |
+| **Lager** | Reserverer og forbruker deler på oppdraget | Beholdning, bevegelser og reservasjoner på `/lager` og varen |
+| **Utlegg** | Registrerer kjøretur og utlegg med kvittering | Kontoret godkjenner og eksporterer lønns-CSV |
 
 En ryddig rapport gir kontoret riktig oppfølging, kunden dokumentasjonen sin og utstyret en historikk som varer. Derfor betyr enhetsnavn, serienummer, bilder, kommentarer og riktig resultat like mye som innsendingen.

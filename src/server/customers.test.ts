@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   recurring: vi.fn(async () => ({ contractId: "contract" })),
   claimUpload: vi.fn(async () => ({ claimed: true })),
   searchNormalizedIds: vi.fn(async () => [] as Array<{ id: string; score: number; total: number }>),
+  statUploadFile: vi.fn(async () => ({ key: "lant.pdf", size: 4 })),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -69,8 +70,8 @@ vi.mock("@/lib/upload-access", () => ({ claimUpload: mocks.claimUpload }));
 vi.mock("@/lib/search-sql", () => ({
   searchNormalizedIds: mocks.searchNormalizedIds,
 }));
-vi.mock("fs/promises", () => ({
-  default: { access: vi.fn(async () => undefined) },
+vi.mock("@/lib/uploads", () => ({
+  statUploadFile: mocks.statUploadFile,
 }));
 
 import {

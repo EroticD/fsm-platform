@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { saveDraft } from "@/server/reports";
 import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 /**
  * Største kladd vi tar imot over nett. Kladden lagres uansett aldri over 1 MB i
@@ -73,6 +74,8 @@ async function readBodyLimited(request: Request): Promise<BodyReadResult> {
  * så en outbox kan ikke omgå avdelings- eller rapporttilgang.
  */
 export async function POST(request: Request) {
+  const moduleGuard = await moduleApiGuard("offline");
+  if (moduleGuard) return moduleGuard;
   if (!assertSameOrigin(request)) {
     return internalApiError("invalid_origin", 403);
   }

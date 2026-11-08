@@ -58,6 +58,11 @@ export async function cancelUncontractedSlaClocks(
   const take = Math.min(Math.max(options.take ?? 1_000, 1), 10_000);
 
   return client.$transaction(async (tx) => {
+    // Én opprydding om gangen, også når flere app-instanser har en scheduler.
+    // Låsen slippes ved commit/rollback; neste kjøring ser da allerede
+    // kansellerte klokker og gjør ingenting.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('sla-cleanup'))`;
+
     const clocks = await tx.slaClock.findMany({
       where: { state: { not: "CANCELLED" } },
       orderBy: [{ startedAt: "asc" }, { id: "asc" }],

@@ -1,8 +1,16 @@
 # Technician
 
-The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.8.9 (2026-11-04).
+The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.8.11 (2026-11-08).
 
 The bottom bar has **Today** (`/mine-oppdrag`), **Work orders**, **Notifications** and **More**. **More** opens the same menu as the hamburger button at the top. Language, notification sound, reports, customers/equipment and settings are in that menu.
+
+![Figure: Today with the next job, overdue and available work orders](../../../screenshots/pages/mobile/mine-oppdrag.jpg)
+
+*Figure: Today is the field app's home screen.*
+
+Notice **Next job** at the top and the **Overdue** and **Available** groups below.
+This is where you see whether something is assigned to you, whether you can take
+available work, and whether anything has been left from earlier days.
 
 ## First time: sign-in, 2FA and language
 
@@ -34,7 +42,7 @@ You cannot change your password in the field app. Sign out and use **Forgot pass
 2. Scroll to the bottom. **Change language** is there.
 3. Choose **Norsk**, **English**, **Polski** or **Deutsch**.
 
-The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.8.9.
+The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.8.11.
 
 ### Install the field app (PWA)
 
@@ -44,7 +52,46 @@ The field app is installable. It opens in its own window, starts at `/mine-oppdr
 - **iPhone/iPad/Safari:** Share icon → **Add to Home Screen**.
 - **Chrome/Edge on desktop:** The install icon in the address bar, or the menu → **Install**.
 
-There is no separate “Install” button inside the app. Installation uses the manifest and requires HTTPS. The service worker is registered in production builds only.
+There is no separate “Install” button inside the app. Installation uses the manifest and requires HTTPS. The service worker is registered in production builds only. It caches all same-origin GET pages, API GET requests and files under `/uploads/` for seven days per user.
+
+### Native app and server address
+
+The Android and iOS app lives in the separate `fsm-mobile` repository and is
+built and signed there. The platform no longer contains Capacitor projects,
+shells or signing files.
+
+1. Install the app from the company distribution or app store.
+2. On first start you arrive at a local setup page. Enter the **FSM server URL**,
+   for example `https://fsm.example.no`.
+3. The address is stored natively on the device and is not built into the app.
+   Select **Connect**.
+4. Later you can change the address from the gear in the app, or use **Switch
+   server**. This clears the cache and sign-in for the old server.
+
+If you use a browser or PWA instead, the same address and sign-in apply. The
+native app and the PWA use the same API and the same access control.
+
+### Push notifications
+
+Push complements in-app notifications. Each notification is first stored under
+**Notifications**, and then a copy is sent to your active mobile devices.
+
+1. Sign in to the app and allow notifications when prompted.
+2. The app registers the device with a push token after sign-in and when the
+   token rotates.
+3. Tap a notification to open the right page. Deep links always go to an
+   internal path, for example `/oppdrag/<id>`, `/bookinger` or `/varsler`.
+4. On sign-out the device is unregistered. If a device is signed in again with a
+   different account, it moves to the new account, and old pending notifications
+   are deleted.
+
+Notification sound is turned on and off in the menu. The push setup itself (FCM
+for Android and APNs for iOS) is done by an administrator and requires
+credentials in the environment. If no provider is configured, the device can be
+registered but nothing is sent.
+
+> **Note:** Push is not the same as SMS. Push requires the app to be installed
+> and the device to allow notifications; SMS requires consent and a phone number.
 
 ### Scan QR and barcode
 
@@ -83,7 +130,10 @@ fetches content from the internet.
 5. Open any report PDFs you need while online.
 6. Do not clear browser or app data.
 
-The page cache lasts eight hours; local drafts last seven days.
+The page, API and file cache lasts **seven days per user**. The caches are cleared
+on sign-out, an expired session and **Switch server**. The app requests
+persistent storage, but the operating system may clear storage if the device is
+full. Local drafts last seven days.
 
 ## My work orders / Today
 
@@ -176,6 +226,14 @@ If it says **No checklists are linked to this work order yet**, you cannot fill 
 ## The report form
 
 The form opens at `/mine-oppdrag/<work-order-id>/skjema/<template-id>`.
+
+![Figure: The report form with units, checkpoints and signature](../../../screenshots/pages/mobile/mine-oppdrag-skjema.jpg)
+
+*Figure: The report form is built for one hand and an unstable network.*
+
+Notice the step strip at the top and the unit blocks. Each checkpoint belongs to
+a unit, and the signature sits at the bottom. Draft status is always visible, so
+you know whether what you entered is stored locally or on the server.
 
 The fixed step strip shows **Checkpoints**, **Photos** and **Sign**, plus draft status and **Save draft now**.
 
@@ -292,6 +350,38 @@ and generate the PDF again.
 Open any PDFs you need while online. PDF viewing requires a connection, and a
 direct download should be made before you lose coverage.
 
+## Mileage, expenses and spare parts
+
+### Record mileage and expenses
+
+1. Open **More → Expenses** (`/utlegg`).
+2. Choose **Mileage** or **Expense**.
+3. For mileage: fill in **Date**, **From**, **To**, **Kilometres** and optional
+   **Work order**. A rate is suggested but stored per row.
+4. For an expense: choose **Category**, enter the **Gross amount**, check **VAT**
+   and upload the **Receipt**.
+5. Save as **Draft**, or submit for approval.
+6. Follow the status: **Pending**, **Approved**, **Rejected** or **Exported**. A
+   rejection shows the office's reason.
+
+You see only your own mileage and expenses. You cannot approve your own rows;
+the office does that. Amounts and VAT are calculated on the server, and a final
+amount from the client is rejected if it differs. The receipt is the evidence –
+upload it while you have it in front of you, not the next day.
+
+### Spare parts on the work order
+
+If you have inventory access, you can reserve and consume parts from
+`/lager/oppdrag/<id>`:
+
+1. Choose item and location, and enter the quantity.
+2. Select **Reserve** before using the part.
+3. Select **Consume** when the part is fitted. It is then deducted from stock.
+4. If you do not use the part, select **Release**.
+
+Consumption does not happen automatically when you complete the visit. Make sure
+the reservation is consumed or released before you leave the job.
+
 ## Offline, drafts and the outbox
 
 ### Autosave
@@ -359,6 +449,9 @@ A 401/403 means the session or access is gone, not that the draft is broken. The
 | **Session buttons missing / status locked** | Day or work order closed, or no permission | Contact the office; only open days and work orders can be changed |
 | **PDF or offline page missing** | No network, report, access, cache, or active content that cannot be sanitised | Get online, open **View report (PDF)**, download the file, reopen the job online |
 | **Image missing from the PDF** | File deleted, missing metadata, or owned by another work order | Re-upload the image from the report and generate the PDF again |
+| **No push notifications** | Notifications denied, device unregistered, or provider not configured | Allow notifications in the app, sign in again, and ask an administrator to check FCM/APNs |
+| **Push opens the wrong page** | Old version or invalid deep link | Update the app and open the notification again from **Notifications** |
+| **Cannot record an expense** | Missing receipt, invalid amount or period | Upload the receipt, check VAT and try again |
 
 ## How technician work connects to the rest
 
@@ -368,3 +461,5 @@ A 401/403 means the session or access is gone, not that the draft is broken. The
 | **Customer portal** | Sign and submit a report | The customer sees submitted, locked reports in `/kundeportal/rapporter`; PDF download and **Acknowledge receipt** |
 | **Equipment module** | Choose or create a unit, record serial and location | Service history, timeline, readings, QR label on `/enheter/<id>` and **Equipment** tab |
 | **Administrator** | Follow template requirements, use right department and user | Manages **Checklists / Templates**, **Employees**, departments, permissions, 2FA and unlocks in **Settings** |
+| **Inventory** | Reserves and consumes parts on the work order | Stock, movements and reservations at `/lager` and on the item |
+| **Expenses** | Records mileage and expenses with receipts | The office approves and exports the payroll CSV |

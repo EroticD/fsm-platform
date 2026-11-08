@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { moduleEnabled } from "@/server/modules";
 import {
   createScimToken,
   revokeScimToken,
@@ -36,6 +37,7 @@ export async function createScimTokenAction(
   _previous: ScimTokenActionState,
   formData: FormData,
 ): Promise<ScimTokenActionState> {
+  if (!(await moduleEnabled("sso"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return { status: "error", error: "forbidden" };
 
@@ -63,6 +65,7 @@ export async function rotateScimTokenAction(
   _previous: ScimTokenActionState,
   formData: FormData,
 ): Promise<ScimTokenActionState> {
+  if (!(await moduleEnabled("sso"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) return { status: "error", error: "forbidden" };
 
@@ -82,6 +85,7 @@ export async function rotateScimTokenAction(
 
 /** Tilbakekaller et token. Raden beholdes for sporbarhet. */
 export async function revokeScimTokenAction(formData: FormData): Promise<void> {
+  if (!(await moduleEnabled("sso"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/");
 

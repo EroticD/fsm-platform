@@ -5,7 +5,161 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Konfigurerbare oppdragsstatuser
+- Ny adminfane **Oppdragsstatus** der hver innebygde status kan merkes som
+  åpen, planlagt eller lukket, aktiveres/deaktiveres og sorteres.
+- Standardoppsettet er uendret: OPEN/PENDING er åpne, PLANNED/WAITING/
+  IN_PROGRESS er planlagte, og COMPLETED/CANCELLED er lukkede.
+- Nye oppdrag starter som **PENDING** (åpen, venter på planlegging). Standard
+  status kan endres i samme fane, men kan ikke være en lukket status.
+- Lister, søk, rapporter, portal, varsler, ruting og låsing bruker den
+  konfigurerte lukkefunksjonen i stedet for hardkodede COMPLETED/CANCELLED.
+- Endringer revideres, og minst én åpen og én lukket status må være aktiv.
+
+### Kunde- og kontaktisolasjon
+- Tilbuds- og fakturaskjemaene viser ikke kontaktfeltet før en kunde er valgt.
+- Kontaktene hentes per valgt kunde fra et serveravgrenset endepunkt og
+  filtreres på nytt i klienten; kontakter fra andre kunder kan ikke vises
+  eller sendes inn.
+- Innstillinger for nye kundeportalbrukere bruker samme kunde-først-velger.
+- Serveren avviser fortsatt kontakt som ikke tilhører kunden, og fakturakladder
+  kan nå også fjerne en kontakt.
+
+### Manuell rute og rekkefølge
+- Ruteplanleggeren har nummerfelt per stopp (1/2/3/4). Lagring normaliserer
+  rekkefølgen, lagrer `Visit.routeSequence` og flytter tidspunktene med samme
+  revisjonssporede tjenestelag som «Bruk rekkefølge».
+- Oppdragsdetaljen har tilsvarende rekkefølgenummer per arbeidsdag under
+  «Dager og tid». Nummeret lagres uten å flytte tid; ruteplanleggeren bruker
+  det ved neste visning.
+- Automatisk optimalisering brukes fortsatt når ingen manuell rekkefølge er
+  satt. Manuell rekkefølge respekterer overtid, tidsvinduer, overlapp og
+  fravær, og alle endringer revideres.
+
+### API, testing og P2-titler
+- API v1 har fått tilbud, eksterne ordrer og lager: `/api/v1/quotes`,
+  `/api/v1/orders` og `/api/v1/inventory/**`, med egne scopes, idempotente
+  ordremottak, `Idempotency-Key`, OpenAPI og avdelings-/kundeisolasjon.
+  Eksterne ordresystemer kan sende ordrer med `source` + `externalId` og få
+  samme ordre tilbake ved replay. Se `docs/API.md`.
+- Ny modulbasert testflyt: `npm run test:changed` og
+  `npm run test:module -- <modul>` mapper endrede filer til berørte tester.
+  PR-er og `dev` kjører bare berørte tester; full dekning og integrasjon
+  kjøres fortsatt på `master` og release-tagger. Se `docs/TESTING.md`.
+- P2-titler er fullført i navigasjon og modulinnstillinger på nb/en/pl/de.
+  Stale «(P2)»/«ikke levert»-tekster er fjernet, og modulbeskrivelsene
+  beskriver levert funksjonalitet.
+- Ruting bruker nå OpenStreetMap/OSRM og valgfri Google Routes API for
+  trafikkbevisst ETA. TomTom/HERE er fjernet. Planlegging kan legge oppdrag
+  utenfor tidsvindu/arbeidstid som overtid i stedet for å la dem stå
+  ufordelte; overtiden vises per stopp og i rutesammendraget.
+- `docs/BACKLOG-REVIEW.md` oppsummerer 28 åpne gap med prioritering,
+  evidens og anbefalt neste arbeid.
+
+### Betalinger, e-post, push og ruting
+- Faktura kan få betalingslenke via Stripe Checkout eller Vipps MobilePay.
+  Webhooker signaturverifiseres, er idempotente og registrerer delbetalinger
+  gjennom den eksisterende betalingsflyten. Kundeportalen viser «Betal» når
+  leverandøren er konfigurert. Se `docs/PAYMENTS.md`.
+- Regnskapssynk v1 for Fiken, Tripletex og PowerOffice Go, med CSV som
+  eksplisitt eksportfallback. Synken er manuell, idempotent og revideres. Se
+  `docs/ACCOUNTING.md`.
+- Transaksjons-e-post går gjennom en vedvarende utboks med retry/backoff for
+  tilbud, faktura, betaling, booking og tildeling. Admin kan slå av/på hver
+  hendelse, velge avsender/reply-to og sende test. Se `docs/EMAIL.md`.
+- Server-side pushvarsler via FCM HTTP v1 og APNs, med enhetsregistrering,
+  token-opprydding, durabel utboks og dype lenker. Mobilappen registrerer
+  tokens og håndterer varseltrykk. Se `docs/PUSH.md`.
+- Ruteoptimalisering med tidssoner, kompetanse, prioritet og arbeidstid.
+  Visiter som ikke rekker tidsvinduet eller arbeidstiden planlegges med
+  overtid i stedet for å bli ufordelte, med konfigurerbar grense. Ruting er
+  OpenStreetMap/OSRM, og trafikkbevisst ETA kan hentes fra Google Routes API
+  med OSRM/haversine-fallback. Endelig rekkefølge brukes først etter
+  eksplisitt, revidert handling. Se `docs/ROUTING.md`.
+### SAML 2.0, SCIM-grupper og feltnivå-RBAC v1
+- SAML 2.0-tjenesteleverandør med `@node-saml/node-saml`: per-leverandør
+  konfigurasjon, SP-metadata, ACS og innloggingsrute, signert assertion,
+  audience/recipient/tidsvindu, databasebasert replay-vakt og eksplisitt
+  gruppe→rolle/avdeling. OIDC-oppsettet er urørt.
+- SCIM 2.0 Groups med list/get/create/replace/patch/delete, RFC 7644-filter,
+  paginering, SCIM-feilformat, samme bearer-token som Users, revisjon og
+  gruppekrav på brukerressursen. Medlemskap gir bare tilgang gjennom
+  `SCIM_GROUP_ROLE_MAP`/`SCIM_GROUP_DEPARTMENT_MAP`; ADMIN krever fortsatt
+  `SCIM_ALLOW_ADMIN=true`.
+- Feltnivå-RBAC v1 for kundekontakt, faktura-/betalingsbeløp,
+  rapportsignaturer og lønns-/utleggsbeløp. Serveren maskerer før API, søk,
+  eksport og UI; ADMIN/OFFICE beholder dagens tilgang, montører og
+  kundeportalen får minste privilegium. Se `docs/RBAC.md`.
+- Additiv migrering `20261109094000_saml_scim_groups_rbac` for SCIM-grupper og
+  SAML-cache.
+### Infrastruktur: S3, Redis og HA/PITR
+- Opplastinger går gjennom et felles `StorageDriver`-grensesnitt med lokal
+  disk (standard) og S3/MinIO. `/uploads/<filnavn>` og lagrede nøkler er
+  uendret. `npm run storage:migrate` kopierer og verifiserer eksisterende
+  filer. Se `docs/STORAGE.md`.
+- PDF-køen kan varsles via Redis (`QUEUE_DRIVER=redis`), og rate limits/cache
+  kan bruke Redis. Databasen er fortsatt standard og fallback; ingen jobb
+  avhenger av at Redis er oppe.
+- Ny HA-profil `docker-compose.ha.yml` med app-replikaer, Caddy, Redis,
+  delt S3 og Postgres WAL-arkivering. Verifisert base-backup og
+  `restore-pitr.sh` med RPO/RTO og øvelsessjekkliste i
+  `docs/BACKUP-RESTORE.md` og `docs/SCALING.md`.
+- `DATABASE_POOL_MAX` styrer DB-tilkoblinger per appprosess.
+- Ekte S3, Redis og PITR-restore er ikke verifisert uten legitimasjon/miljø;
+  se restrisiko i `docs/remaining-features.md` (PLAT-01/02/06).
+
+### Native Android- og iOS-app flyttet til eget repo
+- Android- og iOS-appen ligger nå i det egne repoet `fsm-mobile`. Plattformen
+  inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.
+- Appen starter på en lokal oppsettside der brukeren skriver inn
+  FSM-serverens URL; adressen lagres native og er ikke bygget inn.
+- Serveradressen kan endres fra tannhjulet i appen.
+- Plattformens service worker cacher nå alle samme-opprinnelse GET-sider,
+  API-GET og filer under `/uploads/` i **7 døgn** per bruker. Cacheene slettes
+  ved utlogging, utløpt økt og «Bytt server», og appen ber om persistent
+  lagring.
+- Bygg og signering er dokumentert i `fsm-mobile`-repoet.
+
+### Residualer etter P2 v1
+- Lønnsomhet viser nå faktisk omsetning fra fakturaer side om side med
+  estimatet når `invoicing` er på. Netto fakturert beløp uten MVA, kreditnotaer
+  trekkes fra, kladder telles ikke, og CSV/audit merker om faktisk tall finnes.
+- Tilbud har fått utskriftsvisning `/tilbud/[id]/skriv` med samme print-til-PDF-
+  flyt som fakturaene.
+- Kundeoverføring støtter Ed25519-signaturer i tillegg til HMAC, med
+  modusvalg, nøkkelrotasjon og stabile feilkoder. Importpanelet har
+  passfrasefelt for krypterte `.fsmenc`-pakker.
+- Lager har fått leverandørregister, innkjøpsordrer og varemottak. Delvis og
+  fullt mottak øker beholdningen atomisk, overmottak avvises, og alle
+  overganger revideres.
+- Opplastingskvoten reserveres atomisk, slik at samtidige opplastinger ikke
+  lenger kan overskride grensen. Avviste opplastinger frigjør kvoten og etterlater
+  ingen filer.
+- Eldre tidsstyrte enkeltdagsvisiter kan normaliseres med et tørrkjørings-først-
+  skript; tvetydige rader rapporteres uten å endres.
+- P2-fragmentene for tilbud, fakturering, lager, utlegg og lønnsomhet er
+  oversatt til polsk og tysk.
+
+### Modulær plattform, personvern og P2 v1
+- Ny modulkatalog med kjerne og av-/påslåbare moduler, `ModuleState`,
+  admin-fane, avhengighetsvalidering, audit, `MODULE_PRESET`, gating av
+  navigasjon, innstillinger, sider, actions, API, søk, eksport/import og
+  bakgrunnsjobber. Kjernen (kunder, oppdrag, arbeidsdager/tid, revisjon,
+  innstillinger) kan kjøres uten valgfrie moduler.
+- Ny `docs/MODULES.md` med katalog, avhengigheter, presets og
+  oppgraderingsløp. Eksisterende installasjoner får alle leverte moduler på.
+- GDPR-sletting/anonymisering (DATA-01): admin-only forhåndsvisning,
+  legal-hold-blokkering, transaksjonell anonymisering, idempotens og
+  revisjonsspor.
+- DOC-01 er avstemt: nye bookinger er datoforespørsler, direkte
+  slotbekreftelse er fjernet for nye bestillinger, og overlapp er en
+  opptatt-markering.
+- P2 v1: tilbud (`/tilbud`), fakturering (`/faktura`), lager (`/lager`),
+  kjøring/utlegg (`/utlegg`), lønnsomhet (`/lonnsomhet`) og herdet
+  kundeoverføring med durable jobber, signatur, valgfri AES-GCM-kryptering,
+  versjonsmigrering og filavstemming. Funksjonene er modulgatede og har
+  dokumenterte residualer (bl.a. ingen PSP/regnskapsintegrasjon, ingen
+  leverandørfaktura og ingen ekstern lønnstjeneste).
 
 ## 0.8.11 — 2026-11-08
 
@@ -32,6 +186,16 @@ Ingen endringer ennå.
   å skrive) kansellerer ikke-kansellerte SLA-klokker uten gyldig avtaledekning
   eller med en annen policy enn avtalen gir. Hver endring revisjonslogges, og
   kansellerte klokker ignoreres av sveiping, dispatch og SLA-panelet.
+- Oppryddingen kjører nå automatisk fra scheduleren (standard hvert sjette
+  døgn, `SLA_CLEANUP_INTERVAL_HOURS`; `SLA_CLEANUP_ENABLED=false` slår av).
+  Kjøringen er advisory-låst og idempotent, lagres i `SlaCleanupRun`, og
+  eksponerer siste kjøring, kansellert antall, feil og stale-signal i
+  `/api/metrics` med Prometheus-alarmer. CLI-en består som diagnoseverktøy.
+- Kundebestillinger er nå dokumentert og implementert som rene
+  datoforespørsler: den ikke-nåbare direkte slotbekreftelsen er fjernet, alle
+  ventende forespørsler planlegges og bekreftes av kontoret, overlapp er en
+  opptatt-markering, og `BookingHold` brukes bare ved ombooking av en allerede
+  bekreftet avtale.
 - Engangsbackfill `npm run visits:backfill:daily` splitter eldre flerdagers
   heldagsvisiter til én økt per dag uten å kopiere tidsstempler.
 

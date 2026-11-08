@@ -1,6 +1,6 @@
 # Reference, glossary and troubleshooting
 
-*Applies to FSM Platform version 0.8.9, 4 November 2026.*
+*Applies to FSM Platform version 0.8.11, 8 November 2026.*
 
 This chapter is the reference section. It explains permissions, statuses and terms across roles, shows how features connect, and helps you find where to look when something is missing.
 
@@ -21,6 +21,11 @@ Permissions have more levels than "yes" and "no". **Full** means view, create, e
 | **Employees and roles** | Full | Administer users in own department; can assign roles whose permissions are a subset of their own, never **Administrator**; role definitions and department moves are administrator-only | No | No |
 | **Settings and branding** | Full | Administer branding, map, templates and dispatch; departments, roles and API are administrator-only | No | No |
 | **Audit log** | Global | Per work order and customer | Per work order | No |
+| **Quotes and invoices** | Full | View and administer in own department; send, pay and credit | No | View own invoices and pay |
+| **Payments and accounting sync** | Full | Create payment link and sync invoice | No | View and pay own invoice |
+| **Inventory and purchasing** | Full, all departments | View and administer in own department; reserve and consume | View and reserve/consume if granted | No |
+| **Mileage and expenses** | Full | Approve and export in own department | Record their own | No |
+| **Profitability** | Full | View own department | No | No |
 | **API keys** | Full | No | No | No |
 | **Deletion, restore, unlocking and legal hold** | Full | No | No | No |
 
@@ -34,7 +39,7 @@ Deletion is deliberately not a normal permission. An administrator can delete cu
 
 | Status | Displayed as | Meaning | Set by |
 | --- | --- | --- | --- |
-| `OPEN` | Open / New | Created but not planned. Used for bookings without an available slot, among other things. | System, office |
+| `OPEN` | Open / New | Created but not planned. Used for the customer's date request before the office plans it. | System, office |
 | `PENDING` | Waiting to be planned | Starting status for new and cloned work orders. Not selectable manually. | System |
 | `PLANNED` | Planned | Has a date or visit and is ready for assignment or execution. | Office, system |
 | `WAITING` | Waiting for customer | Work is on hold for the customer, access or clarification. | Office, technician |
@@ -99,18 +104,77 @@ The renewal mode is `AUTO` (renews automatically) or `MANUAL` (must be renewed b
 
 SLA deadlines are calculated using the department's business hours and holidays. The first "En route" or "On site" records the response. "Done" on the workday records the resolution; "Finish travel" does not move the clock. An SLA clock exists only when the work order has an active, date-valid agreement with an active SLA policy. Without that agreement, no SLA is shown.
 
-> **Note:** The system does not calculate prices or invoices. Price lists and contract amounts are reference data.
+> **Note:** Without the `quotes` and `invoicing` modules, the system does not calculate prices or invoices, and price lists are reference data. With the modules on, quotes, invoices, VAT, payments and credit notes are calculated on the server.
 
 ### Booking status
 
 | Status | Displayed as | Meaning |
 | --- | --- | --- |
-| `PENDING` | Pending | In the office's booking queue and not tied to an available slot. |
-| `CONFIRMED` | Confirmed | The slot is reserved, and the work order and visit have been created. |
+| `PENDING` | Pending | In the office's booking queue as a date-only request. Time and technician are not planned. |
+| `CONFIRMED` | Confirmed | The office has planned time and technician, and the work order and visit have been created. |
 | `CANCELLED` | Cancelled | The booking was cancelled. |
 | `EXPIRED` | Expired | A pending request expired without confirmation. |
 
-New bookings are normally confirmed directly against an available slot. The slot is held for five minutes while the customer completes the form. Older or manually created requests may remain `PENDING`. The event log uses `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` and `EXPIRED`.
+New bookings are always date-only requests: the customer chooses a date, not a
+time block, and the office plans time and technician. No new booking becomes
+`CONFIRMED` directly. Every pending request can be confirmed; older rows with a
+stored time window may use it, otherwise the office supplies date, start and end.
+Overlapping visits are a busy marker, not a hard block. A short hold
+(`BookingHold`) is used only when an already confirmed appointment is moved.
+The event log uses `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` and
+`EXPIRED`.
+
+### Quotes, invoices and payments
+
+| Quote status | Displayed as | Meaning |
+| --- | --- | --- |
+| `DRAFT` | Draft | Freely editable |
+| `SENT` | Sent | Link issued; lines frozen |
+| `ACCEPTED` | Accepted | The customer accepted |
+| `REJECTED` | Rejected | The customer rejected |
+| `EXPIRED` | Expired | Validity has passed |
+
+| Invoice status | Displayed as | Meaning |
+| --- | --- | --- |
+| `DRAFT` | Draft | Not sent; editable |
+| `SENT` | Sent | Number assigned; lines frozen |
+| `PARTIALLY_PAID` | Partially paid | Outstanding remains |
+| `PAID` | Paid | Outstanding is zero |
+| `OVERDUE` | Overdue | Due date passed |
+| `CREDITED` | Credited | Credit note registered |
+
+| Payment status | Meaning |
+| --- | --- |
+| **Pending** | Link created, but payment not confirmed |
+| **Paid** | The webhook registered the payment |
+| **Failed** | The provider rejected or the payment failed |
+| **Expired** | The link expired without payment |
+
+A payment link can be used once and covers one amount. Refunds use a credit note,
+not the payment provider. Accounting sync has the statuses **Synced**,
+**Exported** (CSV) and **Failed**.
+
+### Inventory, purchasing and expenses
+
+| Purchase status | Displayed as | Meaning |
+| --- | --- | --- |
+| `DRAFT` | Draft | Editable |
+| `ORDERED` | Ordered | No goods received |
+| `PARTIALLY_RECEIVED` | Partially received | Some goods in stock |
+| `RECEIVED` | Received | Everything received |
+| `CANCELLED` | Cancelled | Cancelled before receipt |
+
+Inventory movements are `IN`, `OUT`, `ADJUST`, `RESERVE`, `RELEASE` and
+`CONSUME`. A reservation reduces available stock but does not move the item until
+it is consumed. Only `ADJUST` can produce negative stock.
+
+| Expense status | Displayed as | Meaning |
+| --- | --- | --- |
+| `DRAFT` | Draft | Not submitted for approval |
+| `PENDING` | Pending | Submitted, not processed |
+| `APPROVED` | Approved | Can be exported |
+| `REJECTED` | Rejected | Requires a reason; not exported |
+| `EXPORTED` | Exported | Locked in a payroll CSV |
 
 ### Notifications and audit log
 
@@ -129,6 +193,7 @@ A notification is a message to one user about an event. It appears in the bell a
 | `SLA_AT_RISK` / `SLA_BREACHED` | Technician and office | The SLA deadline is approaching or has been breached |
 | `WARRANTY` | Office | Equipment warranty is about to expire |
 | `MESSAGE` | Office or customer | A new message in a conversation |
+| `INVOICE_PAID` | Office and customer | The invoice has been paid |
 
 The audit log is a permanent, non-editable history of actions: who created, changed, moved, cancelled, deleted, unlocked or applied a legal hold, with time and metadata. You find it on the work order, on the customer card and under "Settings" → "Activity log" for administrators.
 
@@ -141,9 +206,9 @@ The audit log is a permanent, non-editable history of actions: who created, chan
 
 | Action | Data created or updated | Who sees it |
 | --- | --- | --- |
-| Customer books an available slot | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, booking event, `BOOKING` | Customer, office, technician |
-| Customer sends a request without a slot | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, booking event | Office in "Bookings" |
-| Office confirms a pending booking | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, optional SMS | Customer, office, technician |
+| Customer sends a date request | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, booking event, `BOOKING` | Office in "Bookings" |
+| Office confirms a pending request | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, optional SMS | Customer, office, technician |
+| Customer moves a confirmed appointment | New time window, `Visit(PLANNED)`, `RESCHEDULED`; short `BookingHold` only in this flow | Customer, office, technician |
 | Office creates a work order | `WorkOrder(PENDING)`, `Visit(PLANNED)` if dated, audit log | Office, calendar |
 | Office assigns a technician | `VisitTechnician`, technician list, `ASSIGNMENT`, audit log | Technician, office |
 | Technician starts driving | `Visit(EN_ROUTE)`, `enRouteAt`, SLA response, tracking | Office, customer |
@@ -155,6 +220,18 @@ The audit log is a permanent, non-editable history of actions: who created, chan
 | A meter reading passes the threshold | `MaintenancePlanOccurrence`, new maintenance work order | Office, customer |
 | A document is uploaded | `Document`, `Upload`, OCR job, search index | Staff with document access |
 | Role or permissions change | `User.sessionVersion` increases, API keys inherit new permissions | User, administrator |
+| Quote sent | `Quote(SENT)`, version, one-time token, `EmailMessage` | Customer, office |
+| Customer accepts quote | `Quote(ACCEPTED)`, audit row | Office, customer |
+| Quote converted | `WorkOrder`, customer link, equipment | Office, calendar |
+| Invoice sent | `Invoice(SENT)`, number, frozen lines, `EmailMessage` | Customer, office |
+| Payment received | `Payment`, `Invoice.paidTotal`, status, audit row | Office, customer |
+| Payment link created | `Payment` metadata, external ID, audit row | Customer, office |
+| Invoice synced | `AccountingSync`, external ID, status | Office, accounting |
+| Item reserved | `InventoryReservation`, `StockMovement(RESERVE)` | Inventory, technician |
+| Item consumed | `StockMovement(CONSUME)`, reduced stock | Inventory, technician |
+| Purchase order received | `PurchaseOrder`, `PurchaseOrderLine`, `StockMovement(IN)` | Inventory, office |
+| Expense approved | `Expense`/`MileageTrip`, approver, audit row | Office, technician |
+| Payroll CSV exported | `PayrollExport`, locked lines, checksum | Office, payroll |
 
 > **Tip:** When troubleshooting, start with the action and follow the row in the table. You will see which side is missing data, and which role should see it.
 
@@ -175,6 +252,14 @@ The audit log is a permanent, non-editable history of actions: who created, chan
 | **A unit cannot be moved** | Active contract lines, number conflict, cross-customer reference or invalid target | Read the blocker in the preview, clear the contract line, or choose the right customer/site |
 | **An upload is rejected** | File too large, user/customer quota reached, or proxy limit | Check file size, `UPLOAD_QUOTA_*`, disk and the proxy body limit |
 | **Customer transfer does not start** | 10 starts per hour used up, an existing job is reused, or the preview expired | Wait, follow the existing job, or upload and preview the package again |
+| **Quote or invoice page returns 404** | The `quotes`/`invoicing` module is off | Enable the module under **Settings → Modules** |
+| **Payment button does not appear** | Provider or webhook secret missing, or the amount is paid | Check `PAYMENTS_PROVIDER` and keys, and create a new link |
+| **Payment is not recorded** | Webhook rejected, or currency/amount mismatch | Check signature and audit log; reconcile manually |
+| **Accounting sync fails** | Wrong key, account or VAT setup | Read `lastError`, fix the cause and sync again |
+| **Stock does not match** | Reservation not consumed, or adjustment missing | Check movements and reservations on the item |
+| **Expenses cannot be exported** | Period overlaps, or the row is not approved | Choose a new period and approve the row |
+| **Email stays queued** | SMTP missing, or the event is off | Check `SMTP_*` and **Automatic email** |
+| **Push does not arrive** | Device unregistered, notifications denied, or provider not configured | Register the device again and check FCM/APNs |
 
 ### Customer portal: access is more than signing in
 
@@ -182,7 +267,7 @@ A portal user is always linked to a contact at a customer. The contact can have 
 
 Check therefore that the user is active and belongs to the right customer, that the contact belongs to the same customer, that the delegation is active, and that the sub-permission for the missing area is enabled.
 
-> **Note:** In 0.8.9 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
+> **Note:** In 0.8.11 there is no dedicated form in the interface for editing the delegation. Restricted portal access must be configured and tested with the actual account.
 
 ### Calendar: date, visit and window
 
@@ -231,8 +316,8 @@ The field surface saves drafts locally when the connection disappears. The draft
 | SLA | Service level agreement | Agreed response and resolution time |
 | Åpningstider | Business hours | The hours within which SLA deadlines are calculated |
 | Bestilling | Booking | The customer's request or confirmed appointment |
-| Ledig time | Available slot | A slot that can be booked |
-| Reservasjon | Hold | Short-term reservation of a slot |
+| Ledig time | Available slot | Suggested time in the slot picker; used only when moving a confirmed appointment, not for new bookings |
+| Reservasjon | Hold | Short-term reservation of an available slot in the legacy reschedule flow |
 | Varsel | Notification | Message about an event |
 | Aktivitetslogg | Audit log | Traceable history of actions |
 | Rettighet | Permission | What a role or user can do |
@@ -249,12 +334,35 @@ The field surface saves drafts locally when the connection disappears. The draft
 | Enhetsflytting | Equipment move | Moving a unit with its service history to a new customer |
 | Kundeoverføring | Customer transfer | The administrator's export/import of a customer package |
 | Kontorinnboks | Office inbox | Collected SMS conversations for the office |
+| Tilbud | Quote | Price proposal with lines, versions and approval |
+| Faktura | Invoice | Invoiced amount with lines, payment and credit note |
+| Kreditnota | Credit note | Reduction of outstanding amount, never above it |
+| Betalingslenke | Payment link | One-time link to Stripe Checkout or Vipps |
+| Regnskapssynk | Accounting sync | Manual transfer of customer, invoice and payment |
+| Lager | Inventory | Items, stock and locations |
+| Innkjøpsordre | Purchase order | Supplier order with goods receipt |
+| Varemottak | Goods receipt | Registration of received goods against an order |
+| Reservasjon | Reservation | Part held for a work order |
+| Forbruk | Consumption | Physical deduction of a reserved item |
+| Kjøretur | Mileage trip | Mileage allowance with kilometres and rate |
+| Utlegg | Expense | Expense with receipt and VAT |
+| Lønns-CSV | Payroll CSV | Locked export of approved time, mileage and expenses |
+| Lønnsomhet | Profitability | Estimated and actual revenue by department, customer and technician |
+| Utboks | Outbox | Durable queue for email and push |
+| Pushvarsel | Push notification | Notification to mobile via FCM or APNs |
+| SAML | SAML | Federated sign-in with signed assertion |
+| SCIM-gruppe | SCIM group | Group granting role/department through explicit mapping |
+| Feltmaskering | Field redaction | Server-side hiding of sensitive fields |
+| S3 | S3 | Object storage for uploads |
+| Redis | Redis | Wake-up channel and cache, with database fallback |
+| PITR | PITR | Restore to a chosen point in time |
+| RPO/RTO | RPO/RTO | Maximum data loss and maximum downtime |
 
 ## Support information to collect
 
 When you report a problem, it helps to collect the information below. Write briefly what you did, what you expected, and what actually happened.
 
-- **Version:** FSM Platform 0.8.9, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
+- **Version:** FSM Platform 0.8.11, and where you saw the problem (office surface, field surface, customer portal, PDF or API).
 - **Time:** Date and time with time zone, preferably Europe/Oslo.
 - **User:** Email, role, department and any customer. Never provide passwords or one-time codes.
 - **Case:** Work order number or ID, title, customer and date. For a report: report number or ID. For a booking: reference. For a contract: contract number.
@@ -266,5 +374,7 @@ When you report a problem, it helps to collect the information below. Write brie
 - **API:** Provide the key prefix (never the full key), endpoint, time, HTTP status, `error.code` and any `requestId`.
 - **PDF and email:** State whether it concerns generation, display, download or sending, and whether it concerns a report or a contract.
 - **Offline:** State whether the draft is in the outbox, whether it is older than seven days, and whether the same user and device were used.
+- **Payments and accounting:** Provide invoice number, provider, amount, currency and whether the failure occurred at the link, webhook or sync. Never full keys.
+- **Email and push:** Provide event type, recipient, whether it concerns app or email, and whether the row is `PENDING`, `FAILED` or `DEAD_LETTER`.
 
 > **Warning:** Never send passwords, one-time codes, full API keys or complete personal data in a support case. Mask screenshots where possible.

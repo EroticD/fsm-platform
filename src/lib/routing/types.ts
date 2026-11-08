@@ -1,11 +1,26 @@
 import type { Coordinates } from "@/lib/geo";
 
+/**
+ * Leverandørene rutinglaget kan svare med.
+ *
+ * `osrm` er en vanlig ruteserver basert på OpenStreetMap uten sanntidstrafikk.
+ * `google` er Google Routes API (Google Maps Platform), som kan svare med
+ * trafikkbevisst varighet når `GOOGLE_ROUTES_API_KEY` er satt. `haversine` er
+ * den lokale reserveberegningen (luftlinje × veifaktor).
+ */
+export type RoutingProviderName = "osrm" | "haversine" | "google";
+
 /** Reisetid og avstand mellom to punkter. */
 export type TravelEstimate = {
   distanceKm: number;
   durationMinutes: number;
-  /** `osrm` når en ekstern ruteleverandør svarte, ellers `haversine`. */
-  provider: "osrm" | "haversine";
+  /** Leverandøren som faktisk svarte. */
+  provider: RoutingProviderName;
+  /**
+   * True når varigheten er beregnet med trafikk. En trafikkleverandør som
+   * faller tilbake til OSRM eller haversine setter dette til false.
+   */
+  traffic?: boolean;
 };
 
 /**
@@ -13,7 +28,7 @@ export type TravelEstimate = {
  * klienten: miljøvariabler og eventuelle nøkler blir liggende på serveren.
  */
 export type RoutingProvider = {
-  name: "osrm" | "haversine";
+  name: RoutingProviderName;
   route(from: Coordinates, to: Coordinates): Promise<TravelEstimate>;
   matrix(
     origins: Coordinates[],

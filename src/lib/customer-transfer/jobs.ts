@@ -1,60 +1,50 @@
 // i18n-ignore-file: jobbtilstander er tekniske data, ikke UI-tekst.
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import { logger } from "@/lib/logger";
 import {
   TRANSFER_ERROR,
   TRANSFER_KIND,
   TRANSFER_LIMITS,
   TRANSFER_STATUS,
+  TRANSFER_TERMINAL_STATUSES,
 } from "./constants";
 import {
   EXPORT_DEDUPE_WINDOW_MS,
   EXPORT_STALE_RUNNING_MS,
 } from "./export-request";
+import {
+  TRANSFER_ROOT_KEY,
+  ensureJobStaging,
+  jobStagingKey,
+  jobStagingPrefix,
+} from "./paths";
+import { getStorageDriver } from "@/lib/storage";
+import { reconcileTransferFiles } from "./reconcile";
 
-export function transferRoot(): string {
-  return path.join(uploadDir(), ".transfer");
-}
-
-export function jobStagingDir(jobId: string): string {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(jobId)) {
-    throw new Error("Ugyldig jobb-id");
-  }
-  return path.join(transferRoot(), jobId);
-}
-
-/** Oppretter staging-mappen med restriktive rettigheter (0700). */
-export async function ensureJobStaging(jobId: string): Promise<string> {
-  await fs.mkdir(transferRoot(), { recursive: true, mode: 0o700 });
-  const directory = jobStagingDir(jobId);
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  return directory;
-}
+export { ensureJobStaging, jobStagingPrefix };
 
 export async function writeStagedPackage(
   jobId: string,
   buffer: Buffer,
 ): Promise<string> {
-  const directory = await ensureJobStaging(jobId);
-  const target = path.join(directory, "package.zip");
-  const handle = await fs.open(target, "wx", 0o600);
-  try {
-    await handle.writeFile(buffer);
-  } finally {
-    await handle.close();
-  }
-  return target;
+  await ensureJobStaging(jobId);
+  const key = jobStagingKey(jobId, "package.zip");
+  await getStorageDriver().write(key, buffer, {
+    contentType: "application/zip",
+    cacheControl: "private, no-store",
+  });
+  return key;
 }
 
 export async function readStagedPackage(jobId: string): Promise<Buffer | null> {
   try {
-    const target = path.join(jobStagingDir(jobId), "package.zip");
-    const stat = await fs.stat(target);
-    if (!stat.isFile() || stat.size > TRANSFER_LIMITS.maxPackageBytes) return null;
-    return await fs.readFile(target);
+    const storage = getStorageDriver();
+    const key = jobStagingKey(jobId, "package.zip");
+    const stat = await storage.stat(key);
+    if (!stat || stat.size > TRANSFER_LIMITS.maxPackageBytes) return null;
+    return await storage.read(key);
   } catch {
     return null;
   }
@@ -62,7 +52,11 @@ export async function readStagedPackage(jobId: string): Promise<Buffer | null> {
 
 export async function removeJobStaging(jobId: string): Promise<void> {
   try {
-    await fs.rm(jobStagingDir(jobId), { recursive: true, force: true });
+    const storage = getStorageDriver();
+    const prefix = jobStagingPrefix(jobId);
+    for (const object of await storage.list(prefix)) {
+      await storage.delete(object.key).catch(() => undefined);
+    }
   } catch {
     // Best effort. En orkestrert opprydding prøver igjen senere.
   }
@@ -168,6 +162,8 @@ export async function claimExportJob(input: {
   customerIds: string[];
   expiresAt: Date;
   now?: Date;
+  /** Valgsnapshot for workeren. Inneholder bare id-er og boolske valg. */
+  exportOptions?: Record<string, unknown>;
 }): Promise<{ job: ReusableJob; reused: boolean }> {
   const now = input.now ?? new Date();
   const lockKey = `customer-transfer-export:${input.actorId}:${input.fingerprint}`;
@@ -191,7 +187,14 @@ export async function claimExportJob(input: {
         kind: TRANSFER_KIND.export,
         status: TRANSFER_STATUS.pending,
         customerIdsJson: input.customerIds,
-        resultJson: { requestFingerprint: input.fingerprint },
+        resultJson: {
+          requestFingerprint: input.fingerprint,
+          ...(input.exportOptions
+            ? {
+                exportOptions: input.exportOptions as Prisma.InputJsonValue,
+              }
+            : {}),
+        },
         expiresAt: input.expiresAt,
       },
     });
@@ -246,12 +249,17 @@ export function previewTokenValid(
  * Returnerer antall jobber som ble ryddet. Trygg å kjøre flere ganger.
  */
 export async function cleanupExpiredTransfers(now = new Date()): Promise<number> {
+  // Avstem sluttfiler før staging slettes. En krasjet import kan ha skrevet
+  // filer uten DB-rad, og fillisten ligger nettopp i stagingmappen.
+  await reconcileTransferFiles({ now });
+
   const expired = await prisma.customerTransferJob.findMany({
     where: {
       expiresAt: { lt: now },
       status: {
         in: [
           TRANSFER_STATUS.pending,
+          TRANSFER_STATUS.queued,
           TRANSFER_STATUS.staged,
           TRANSFER_STATUS.dryRun,
           TRANSFER_STATUS.ready,
@@ -290,26 +298,78 @@ export async function cleanupExpiredTransfers(now = new Date()): Promise<number>
   });
   const activeIds = new Set(active.map((job) => job.id));
   try {
-    const entries = await fs.readdir(transferRoot(), { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (activeIds.has(entry.name)) continue;
-      await fs.rm(path.join(transferRoot(), entry.name), {
-        recursive: true,
-        force: true,
-      });
+    const storage = getStorageDriver();
+    const objects = await storage.list(TRANSFER_ROOT_KEY);
+    const jobIds = new Set(
+      objects
+        .map((object) => object.key.slice(TRANSFER_ROOT_KEY.length + 1).split("/")[0])
+        .filter((id) => Boolean(id)),
+    );
+    for (const jobId of jobIds) {
+      if (activeIds.has(jobId)) continue;
+      for (const object of objects.filter((candidate) =>
+        candidate.key.startsWith(`${TRANSFER_ROOT_KEY}/${jobId}/`),
+      )) {
+        await storage.delete(object.key).catch(() => undefined);
+      }
     }
   } catch {
-    // Mappen finnes ikke ennå.
+    // Ingen staging ennå.
   }
 
+  await pruneTransferJobRows(now);
   return expired.length;
 }
 
-export async function abortJob(jobId: string): Promise<void> {
-  await removeJobStaging(jobId);
-  await prisma.customerTransferJob.update({
-    where: { id: jobId },
+/**
+ * Retensjon for selve jobbradene. Artefaktene forsvinner etter 24 timer, men
+ * revisjonssporet (jobbid, sjekksum-prefiks, antall, feilkoder) beholdes
+ * lenger. Eksportjobber ryddes før importjobber fordi importledgeren kan ha
+ * verdi ved support/reklamasjon. Ingen av JSON-feltene inneholder PII.
+ */
+function retentionDaysFor(kind: string): number {
+  const fallback = kind === TRANSFER_KIND.import ? 365 : 90;
+  const configured = Number.parseInt(
+    process.env.CUSTOMER_TRANSFER_JOB_RETENTION_DAYS ?? "",
+    10,
+  );
+  return Number.isFinite(configured) && configured >= 1
+    ? configured
+    : fallback;
+}
+
+async function pruneTransferJobRows(now: Date): Promise<number> {
+  let deleted = 0;
+  for (const kind of [TRANSFER_KIND.export, TRANSFER_KIND.import]) {
+    const cutoff = new Date(
+      now.getTime() - retentionDaysFor(kind) * 24 * 60 * 60_000,
+    );
+    const result = await prisma.customerTransferJob.deleteMany({
+      where: {
+        kind,
+        status: { in: [...TRANSFER_TERMINAL_STATUSES] },
+        OR: [
+          { completedAt: { lt: cutoff } },
+          { completedAt: null, createdAt: { lt: cutoff } },
+        ],
+      },
+    });
+    deleted += result.count;
+  }
+  if (deleted > 0) {
+    logger.info("Pruned expired customer transfer job rows", { deleted });
+  }
+  return deleted;
+}
+
+export async function abortJob(jobId: string): Promise<boolean> {
+  // Betinget overgang: en import som nettopp fullførte i en annen transaksjon
+  // skal ikke kunne overskrives til ABORTED. Da beholder vi resultatet.
+  const updated = await prisma.customerTransferJob.updateMany({
+    where: {
+      id: jobId,
+      status: { not: TRANSFER_STATUS.completed },
+    },
     data: {
       status: TRANSFER_STATUS.aborted,
       stagingPath: null,
@@ -318,6 +378,9 @@ export async function abortJob(jobId: string): Promise<void> {
       completedAt: new Date(),
     },
   });
+  if (updated.count === 0) return false;
+  await removeJobStaging(jobId);
+  return true;
 }
 
 export function transferError(

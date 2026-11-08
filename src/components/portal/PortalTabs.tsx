@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { moduleEnabled } from "@/server/modules";
 
 export type PortalTab =
   | "oversikt"
@@ -30,12 +31,31 @@ const TABS: Array<{ key: PortalTab; href: string }> = [
  */
 export default async function PortalTabs({ active }: { active: PortalTab }) {
   const t = await getTranslations("common");
+  const [booking, equipment, documents, contracts, reports, sms] =
+    await Promise.all([
+      moduleEnabled("booking"),
+      moduleEnabled("equipment"),
+      moduleEnabled("documents"),
+      moduleEnabled("contracts"),
+      moduleEnabled("reports"),
+      moduleEnabled("sms"),
+    ]);
+  const allowed = (key: PortalTab) => {
+    if (key === "bestillinger") return booking;
+    if (key === "utstyr") return equipment;
+    if (key === "dokumenter") return documents;
+    if (key === "avtaler") return contracts;
+    if (key === "rapporter") return reports;
+    if (key === "meldinger") return sms;
+    return true;
+  };
+  const tabs = TABS.filter((tab) => allowed(tab.key));
   return (
     <nav
       aria-label={t("portal.expansion.tabs.label")}
       className="flex flex-wrap gap-1 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1.5 shadow-[0_2px_10px_rgba(20,17,11,0.06)]"
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = tab.key === active;
         return (
           <Link

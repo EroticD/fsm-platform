@@ -22,6 +22,12 @@ const SCOPE_LABEL_KEYS: Record<string, string> = {
   "maintenance:write": "settings.apiKeys.scopes.maintenanceWrite",
   "reports:read": "settings.apiKeys.scopes.reportsRead",
   "documents:read": "settings.apiKeys.scopes.documentsRead",
+  "quotes:read": "settings.apiKeys.scopes.quotesRead",
+  "quotes:write": "settings.apiKeys.scopes.quotesWrite",
+  "orders:read": "settings.apiKeys.scopes.ordersRead",
+  "orders:write": "settings.apiKeys.scopes.ordersWrite",
+  "inventory:read": "settings.apiKeys.scopes.inventoryRead",
+  "inventory:write": "settings.apiKeys.scopes.inventoryWrite",
 };
 
 const WRITE_SCOPES = new Set(

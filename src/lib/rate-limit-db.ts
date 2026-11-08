@@ -1,4 +1,7 @@
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { rateLimitDriver } from "@/lib/infra/redis";
+import { allowRequestRedis, resetRateLimitRedis } from "@/lib/rate-limit-redis";
 
 export type RateLimitResult = {
   allowed: boolean;
@@ -13,6 +16,31 @@ export type RateLimitResult = {
  * ellers økes telleren. Det er trygt under samtidige forespørsler.
  */
 export async function allowRequestDb(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  if (limit <= 0) return { allowed: false, retryAfterSeconds: 0 };
+
+  // Redis er en optimalisering, ikke et krav. Feiler den, bruker vi den
+  // databasetransaksjonen under – som fortsatt er delt mellom alle replikaer.
+  if (rateLimitDriver() === "redis") {
+    try {
+      const redis = await allowRequestRedis(key, limit, windowMs);
+      if (redis) return redis;
+    } catch (error) {
+      logger.warn("Redis rate limit feilet; bruker database", {
+        key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return allowRequestDbDirect(key, limit, windowMs);
+}
+
+/** Selve databaseimplementasjonen. Eksportert for tester og fallback. */
+export async function allowRequestDbDirect(
   key: string,
   limit: number,
   windowMs: number,
@@ -53,6 +81,11 @@ export async function allowRequestDb(
 /** Nullstiller tellere etter en vellykket innlogging. */
 export async function resetRateLimitDb(...keys: string[]): Promise<void> {
   if (keys.length === 0) return;
+  if (rateLimitDriver() === "redis") {
+    await resetRateLimitRedis(...keys).catch(() => undefined);
+  }
+  // DB ryddes uansett, slik at en teller fra før Redis ble slått på ikke
+  // fortsetter å blokkere etter en vellykket innlogging.
   await prisma.rateLimit.deleteMany({ where: { key: { in: keys } } });
 }
 

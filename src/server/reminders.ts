@@ -1,6 +1,7 @@
 // i18n-ignore-file: revisjonsloggen lagrer stabile handlingsstrenger på samme
 // måte som de øvrige tjenestene; de oversettes ved visning.
 import { Prisma } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { formatDateLocalized } from "@/lib/dates";
@@ -29,6 +30,7 @@ import {
   type SmsDb,
 } from "./sms";
 import { isSmsEventKey, smsLocale, type SmsEventKey } from "@/lib/sms/templates";
+import { moduleEnabled } from "@/server/modules";
 
 export const REMINDER_CHANNELS = ["SMS", "EMAIL", "BOTH"] as const;
 export type ReminderChannel = (typeof REMINDER_CHANNELS)[number];
@@ -453,7 +455,7 @@ export async function scheduleDueReminders(
         workOrder: {
           deletedAt: null,
           departmentId: rule.departmentId,
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          status: { notIn: statusKeysByCategory("CLOSED") },
         },
       },
       orderBy: { startsAt: "asc" },
@@ -1128,7 +1130,10 @@ export function startReminderWorker(): void {
   scope.__fsmReminderWorkerStarted = true;
 
   const run = () => {
-    void runReminderCycle().catch((error) => {
+    void (async () => {
+      if (!(await moduleEnabled("sms"))) return;
+      await runReminderCycle();
+    })().catch((error) => {
       logger.error("Could not run the reminder cycle", {
         error: error instanceof Error ? error.message : String(error),
       });

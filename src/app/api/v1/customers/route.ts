@@ -3,6 +3,7 @@ import { authenticateApiRequest } from "@/lib/api-auth";
 import { paginationMeta, parseApiPagination } from "@/lib/api-pagination";
 import { apiError, apiJson } from "@/lib/api-response";
 import { hasPermission } from "@/lib/permissions";
+import { CUSTOMER_CONTACT_FIELDS, redactRecord } from "@/lib/field-rbac";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -67,5 +68,12 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  return apiJson(customers, paginationMeta(total, page, limit));
+  const safeCustomers = customers.map((customer) =>
+    redactRecord(auth.actor, customer, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+  return apiJson(safeCustomers, paginationMeta(total, page, limit));
 }

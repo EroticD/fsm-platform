@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/evidence" }));
+vi.mock("@/lib/uploads", () => ({
+  uploadDir: () => "/tmp/evidence",
+  readUploadFile: (name: string) => mocks.readFile(`/tmp/evidence/${name}`),
+}));
 vi.mock("node:fs/promises", () => ({
   default: { readFile: mocks.readFile },
   readFile: mocks.readFile,

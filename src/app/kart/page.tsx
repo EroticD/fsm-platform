@@ -1,3 +1,5 @@
+import { requireModulePage } from "@/lib/module-guards";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -26,6 +28,7 @@ import { effectiveAddress } from "@/lib/geocode";
 import { getMapSettings } from "@/server/map-settings";
 import { loadTechnicianMapLayer } from "@/lib/map-technician-layer";
 import { geocodeMissingAction } from "./actions";
+import { moduleEnabled } from "@/server/modules";
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   WORK_ORDER_STATUS_ORDER,
@@ -75,6 +78,7 @@ export default async function MapPage({
     geokodingsfeil?: string | string[];
   }>;
 }) {
+  await requireModulePage("map");
   const t = await getTranslations("common");
   const locale = await getLocale();
   const user = await getCurrentUser();
@@ -82,7 +86,9 @@ export default async function MapPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const mapSettings = await getMapSettings();
-  const technicianLayer = await loadTechnicianMapLayer(user);
+  const technicianLayer = (await moduleEnabled("tracking"))
+    ? await loadTechnicianMapLayer(user)
+    : { enabled: false, markers: [] };
   const params = await searchParams;
   const canGeocode = hasPermission(user, "workorders.edit");
   const technicianId = (firstParam(params.technician) ?? "").trim();
@@ -160,7 +166,7 @@ export default async function MapPage({
       workOrderScope(user),
       { latitude: null },
       { longitude: null },
-      { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+      { status: { notIn: statusKeysByCategory("CLOSED") } },
       {
         OR: [
           { address: { not: null } },

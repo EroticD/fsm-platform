@@ -1072,6 +1072,10 @@
           "travelFrom": "Powrót",
           "totalIncludesTravel": "Suma obejmuje cały dojazd i powrót.",
           "day": "Dzień",
+          "routeSequence": "Kolejność",
+          "routeSequenceAuto": "Auto",
+          "routeSequenceSave": "Zapisz",
+          "routeSequenceHint": "Używane w planerze trasy. Czasy są tam przesuwane.",
           "status": "Status",
           "timestamps": "Znaczniki czasu",
           "notStarted": "Nie rozpoczęto",
@@ -1558,6 +1562,7 @@
         "contactAdded": "Osoba kontaktowa została dodana.",
         "templateAdded": "Lista kontrolna została dodana.",
         "tagsSaved": "Tagi zostały zapisane.",
+        "routeSequenceSaved": "Kolejność została zapisana.",
         "reportLockUpdated": "Blokada raportu została zaktualizowana.",
         "legalHoldUpdated": "Wstrzymanie prawne zostało zaktualizowane.",
         "reportLegalHoldUpdated": "Wstrzymanie prawne raportu zostało zaktualizowane.",
@@ -2322,7 +2327,27 @@
         "api": "Klucze API",
         "sla": "SLA i godziny pracy",
         "equipment": "Sprzęt",
-        "evidence": "Dowody"
+        "evidence": "Dowody",
+        "modules": "Moduły",
+        "email": "E-mail",
+        "push": "Powiadomienia push",
+        "workOrderStatus": "Status zlecenia"
+      },
+      "workOrderStatus": {
+        "title": "Statusy zleceń",
+        "description": "Określ, które statusy są otwarte, zaplanowane lub zamknięte, oraz jaki status otrzymują nowe zlecenia.",
+        "defaultStatus": "Domyślny status nowych zleceń",
+        "defaultHint": "Nowe zlecenia zaczynają jako otwarte i oczekujące na planowanie, chyba że wybierzesz inny otwarty lub zaplanowany status.",
+        "status": "Status",
+        "category": "Funkcja",
+        "order": "Kolejność",
+        "active": "Aktywny",
+        "hint": "Status z funkcją „Zamknięty” jest traktowany jako zakończony na listach, w raportach i przy blokadzie. Musi być aktywny co najmniej jeden otwarty i jeden zamknięty status.",
+        "save": "Zapisz ustawienia statusów",
+        "reset": "Przywróć domyślne",
+        "saved": "Ustawienia statusów zostały zapisane.",
+        "error": "Nie udało się zapisać ustawień statusów. Sprawdź, czy aktywny jest co najmniej jeden otwarty i jeden zamknięty status.",
+        "categories": { "OPEN": "Otwarty", "PLANNED": "Zaplanowany", "CLOSED": "Zamknięty" }
       },
       "branding": {
         "title": "Ustawienia white label",
@@ -2579,6 +2604,12 @@
           "maintenanceWrite": "Konserwacja – zapis",
           "reportsRead": "Raporty – odczyt",
           "documentsRead": "Dokumenty – odczyt",
+          "quotesRead": "Oferty – odczyt",
+          "quotesWrite": "Oferty – zapis",
+          "ordersRead": "Zamówienia – odczyt",
+          "ordersWrite": "Zamówienia – zapis",
+          "inventoryRead": "Magazyn – odczyt",
+          "inventoryWrite": "Magazyn – zapis",
           "allLegacy": "Wszystko (starszy klucz bez ograniczeń)"
         },
         "revoke": "Odwołaj",
@@ -2936,6 +2967,125 @@
         "created": "Kategoria została utworzona.",
         "updated": "Kategoria została zaktualizowana.",
         "deleted": "Kategoria została usunięta."
+      },
+      "modules": {
+        "title": "Moduły",
+        "description": "Włączaj i wyłączaj moduły na poziomie instalacji. Rdzeń jest zawsze włączony, a zależności blokują nieprawidłowe kombinacje. Każda zmiana jest audytowana.",
+        "dataPreserved": "Dane są zachowywane po wyłączeniu modułu. Strony, akcje, API i zadania w tle są zamykane, ale nic nie jest usuwane. Po ponownym włączeniu dane wracają.",
+        "core": "Rdzeń",
+        "planned": "Planowany",
+        "enabled": "Wł.",
+        "disabled": "Wył.",
+        "dependsOn": "Zależy od: {modules}",
+        "requiredBy": "Używany przez: {modules}",
+        "missingDependencies": "Nie można włączyć, dopóki te są wyłączone: {modules}",
+        "hasDependents": "Nie można wyłączyć, dopóki te są włączone: {modules}",
+        "coreLocked": "Rdzenia nie można wyłączyć.",
+        "enable": "Włącz",
+        "disable": "Wyłącz",
+        "confirmEnable": "Włączyć {module}?",
+        "confirmDisable": "Wyłączyć {module}? Dane zostaną zachowane, ale strony, akcje i zadania w tle zostaną zamknięte.",
+        "saved": "Zmiana modułu została zapisana i zarejestrowana w audycie.",
+        "errors": {
+          "forbidden": "Tylko administrator może zmieniać moduły.",
+          "conflict": "Zmiana jest sprzeczna z zależnościami modułów.",
+          "coreLocked": "Rdzenia nie można wyłączyć.",
+          "missingDependencies": "Co najmniej jedna zależność jest wyłączona.",
+          "hasDependents": "Co najmniej jeden moduł, który tego używa, jest włączony.",
+          "not_found": "Nieznany moduł.",
+          "invalid": "Nieprawidłowa zmiana modułu.",
+          "error": "Nie udało się zapisać zmiany modułu."
+        },
+        "items": {
+          "core": {
+            "label": "Rdzeń",
+            "description": "Zawsze włączone: logowanie, użytkownicy, działy, klienci, zlecenia, dni pracy i czas, audyt oraz ustawienia."
+          },
+          "calendar": {
+            "label": "Kalendarz i dyspozytornia",
+            "description": "Kalendarz, tablica dyspozytorni, planowanie tras i przegląd wydajności."
+          },
+          "reports": {
+            "label": "Raporty i BHP",
+            "description": "Raporty serwisowe, BHP, listy kontrolne i szablony, przeglądarka PDF i statystyki."
+          },
+          "equipment": {
+            "label": "Urządzenia",
+            "description": "Rejestr urządzeń, historia serwisowa, QR/skanowanie i plany konserwacji."
+          },
+          "contracts": {
+            "label": "Umowy serwisowe i SLA",
+            "description": "Umowy serwisowe, polityki SLA, godziny pracy i cenniki."
+          },
+          "portal": {
+            "label": "Portal klienta",
+            "description": "Portal klienta ze zleceniami, raportami, dokumentami i danymi kontaktowymi."
+          },
+          "booking": {
+            "label": "Rezerwacje",
+            "description": "Zapytania o rezerwację i wolne terminy. Wymaga portalu i kalendarza."
+          },
+          "documents": {
+            "label": "Dokumenty",
+            "description": "Biblioteka dokumentów, foldery, wersje oraz ekstrakcja tekstu/OCR."
+          },
+          "sms": {
+            "label": "SMS i przypomnienia",
+            "description": "Wiadomości SMS, szablony, status dostawy i przypomnienia przed wizytami."
+          },
+          "map": {
+            "label": "Mapa",
+            "description": "Mapa zleceń, urządzeń i pozycji techników."
+          },
+          "tracking": {
+            "label": "Śledzenie i ETA",
+            "description": "Publiczny link śledzenia i ETA w czasie rzeczywistym."
+          },
+          "reviews": {
+            "label": "Opinie",
+            "description": "Opinie klientów z publicznych linków i wewnętrzna obsługa."
+          },
+          "transfer": {
+            "label": "Transfer klientów",
+            "description": "Eksport i import pakietów klientów. Wymaga urządzeń i dokumentów."
+          },
+          "auditExport": {
+            "label": "Eksport audytu i dowodów",
+            "description": "Podpisany eksport audytu i pakiety dowodów dla zleceń."
+          },
+          "api": {
+            "label": "REST API",
+            "description": "API v1 z kluczami, zakresami i dokumentacją OpenAPI."
+          },
+          "sso": {
+            "label": "SSO i SCIM",
+            "description": "Logowanie OIDC, provisioning SCIM i ustawienia SSO."
+          },
+          "offline": {
+            "label": "Praca offline",
+            "description": "Szkice offline, kolejka wychodząca i strażnik sesji w aplikacji terenowej."
+          },
+          "quotes": {
+            "label": "Oferty",
+            "description": "Oferty z wersjami, zatwierdzaniem i konwersją na zlecenia."
+          },
+          "invoicing": {
+            "label": "Fakturowanie",
+            "description": "Faktury, płatności, faktury korygujące i eksport księgowy."
+          },
+          "inventory": {
+            "label": "Magazyn",
+            "description": "Stan magazynowy według magazynu i samochodu serwisowego, rezerwacje na zlecenia i propozycje zakupów."
+          },
+          "fieldExpenses": {
+            "label": "Kilometry i wydatki",
+            "description": "Przejechane kilometry i wydatki z paragonami, zatwierdzanie i eksport płac."
+          },
+          "bi": {
+            "label": "Rentowność",
+            "description": "Rentowność według działu, klienta i technika z szacowanym i rzeczywistym przychodem."
+          }
+        }
       }
     },
     "users": {
@@ -2968,9 +3118,11 @@
         "defaultSuffix": " (domyślny)",
         "departmentHelp": "Pracownicy muszą należeć do działu, aby tworzyć i przeglądać zlecenia.",
         "contact": "Osoba kontaktowa",
-        "contactRequired": "(wymagane dla portalu klienta)",
+        "customer": "Klient",
+        "chooseCustomer": "Wybierz klienta",
+        "loadingContacts": "Ładowanie kontaktów …",
+        "noContacts": "Brak kontaktów dla tego klienta.",
         "noContact": "-- Brak osoby kontaktowej --",
-        "contactHelp": "Łączy użytkownika z klientem i daje dostęp do portalu klienta.",
         "info": "Nowi użytkownicy są nieaktywni. Po ich utworzeniu otrzymasz link zaproszenia, za pomocą którego mogą ustawić własne hasło. Następnie musisz aktywować konto tutaj.",
         "submit": "Utwórz i wygeneruj zaproszenie"
       },

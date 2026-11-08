@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import type { Coordinates } from "@/lib/geo";
+import {
+  createGoogleRoutesProvider,
+  resolveGoogleRoutesConfig,
+} from "./google-routes";
 import { createHaversineProvider } from "./haversine";
 import {
   RoutingTimeoutError,
@@ -203,17 +207,23 @@ function routingTimeout(env: RoutingEnv): number {
 }
 
 /**
- * Velger leverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
+ * Velger basisleverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
  * haversine, slik at utvikling, tester og en installasjon uten ruteserver
- * aldri gjør et eksternt kall.
+ * aldri gjør et eksternt kall. OSRM er basert på OpenStreetMap og har ingen
+ * sanntidstrafikk.
  */
-export function resolveRoutingProvider(
-  env: RoutingEnv = process.env,
+function resolveBaseProvider(
+  env: RoutingEnv,
   fetchImpl?: typeof fetch,
 ): RoutingProvider {
   const provider = (env.ROUTING_PROVIDER ?? "").trim().toLowerCase();
   const baseUrl = (env.OSRM_BASE_URL ?? "").trim();
-  if (baseUrl && (provider === "osrm" || provider === "")) {
+  if (
+    baseUrl &&
+    (provider === "osrm" ||
+      provider === "" ||
+      provider === "google")
+  ) {
     return createOsrmProvider({
       baseUrl,
       fetchImpl,
@@ -221,6 +231,32 @@ export function resolveRoutingProvider(
     });
   }
   return createHaversineProvider();
+}
+
+/**
+ * Velger leverandør ut fra servermiljøet.
+ *
+ * Rekkefølgen er bevisst: en konfigurert Google Routes-nøkkel får svare på
+ * enkeltstrekninger med trafikkbevisst varighet, men matrisen og alle feil
+ * faller tilbake til OSRM, som selv faller tilbake til haversine. Dermed er
+ * reserven alltid deterministisk og krever ingen ekstra konfigurasjon.
+ */
+export function resolveRoutingProvider(
+  env: RoutingEnv = process.env,
+  fetchImpl?: typeof fetch,
+): RoutingProvider {
+  const fallback = resolveBaseProvider(env, fetchImpl);
+  const google = resolveGoogleRoutesConfig(env);
+  if (!google) return fallback;
+
+  return createGoogleRoutesProvider({
+    ...google,
+    fallback,
+    fetchImpl,
+    timeoutMs: google.timeoutMs,
+    cacheTtlMs: google.cacheTtlMs,
+    maxRequestsPerMinute: google.maxRequestsPerMinute,
+  });
 }
 
 let defaultProvider: RoutingProvider | null = null;

@@ -4,6 +4,13 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
+import {
+  forgetPdfJob,
+  notifyPdfJob,
+  takeDuePdfJobIds,
+} from "@/lib/infra/queue";
+import { cleanupExpiredCache } from "@/lib/infra/cache";
+import { queueDriver } from "@/lib/infra/redis";
 import { parseDateOnly, todayInOslo } from "@/lib/dates";
 import { logger } from "@/lib/logger";
 import { deleteUploadIfOwned } from "@/lib/upload-store";
@@ -15,7 +22,18 @@ import {
 } from "@/server/notifications";
 import { cleanupVisitLocationPings } from "@/server/tracking";
 import { cleanupTransfers } from "@/server/customer-transfer";
+import {
+  resetTransferWorkerForTests,
+  startTransferWorker,
+} from "@/lib/customer-transfer/worker";
 import { startReminderWorker } from "@/server/reminders";
+import {
+  EMAIL_OUTBOX_INTERVAL_MS,
+  processEmailOutbox,
+  requeueStaleEmailMessages,
+} from "@/server/email-outbox";
+import { startPushWorker } from "@/server/push";
+import { moduleEnabled } from "@/server/modules";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
  *
@@ -107,6 +125,8 @@ type WorkerGlobal = typeof globalThis & {
   __fsmBookingHoldCleanupStarted?: boolean;
   __fsmLocationPingCleanupStarted?: boolean;
   __fsmSmsWorkerStarted?: boolean;
+  __fsmEmailOutboxWorkerStarted?: boolean;
+  __fsmPushWorkerStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -131,19 +151,31 @@ export async function enqueuePdfText(
 
   try {
     // Unngå at gjentatte klikk på «reindekser» lager mange like jobber.
-    const existing = await prisma.documentJob.findFirst({
-      where: {
-        documentId,
-        status: { in: ["PENDING", "RUNNING"] },
-      },
-      select: { id: true },
+    // Advisory-låsen serialiserer samtidige enqueue-kall for samme dokument,
+    // slik at to replikaer ikke kan lage hver sin PENDING-jobb.
+    const created = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`document-job:${documentId}`}, 0)
+        )
+      `;
+      const existing = await tx.documentJob.findFirst({
+        where: {
+          documentId,
+          status: { in: ["PENDING", "RUNNING"] },
+        },
+        select: { id: true },
+      });
+      if (existing) return existing;
+      return tx.documentJob.create({
+        data: { documentId, type: PDF_TEXT_JOB_TYPE },
+        select: { id: true },
+      });
     });
-    if (existing) return existing;
-
-    return await prisma.documentJob.create({
-      data: { documentId, type: PDF_TEXT_JOB_TYPE },
-      select: { id: true },
-    });
+    // Redis-varselet er best effort. Uten Redis plukkes jobben av den vanlige
+    // databasepollingen, så en feil her kan aldri miste jobben.
+    await notifyPdfJob(created.id);
+    return created;
   } catch (error) {
     // Kallestedene er server actions som ikke venter på køen; en feil her skal
     // ikke velte selve opplastingen.
@@ -156,10 +188,41 @@ export async function enqueuePdfText(
 }
 
 /**
+ * Henter og låser én bestemt jobb. Redis kan varsle samme ID til flere
+ * replikaer; denne betingede oppdateringen gjør at bare én vinner.
+ */
+export async function claimPdfTextJobById(
+  id: string,
+): Promise<PdfTextJob | null> {
+  const rows = await prisma.$queryRaw<PdfTextJob[]>`
+    UPDATE "DocumentJob"
+    SET "status" = 'RUNNING',
+        "lockedAt" = now(),
+        "attempts" = "attempts" + 1
+    WHERE "id" = ${id}
+      AND "status" = 'PENDING'
+      AND "runAt" <= now()
+    RETURNING *
+  `;
+  return rows[0] ?? null;
+}
+
+/**
  * Henter og låser neste jobb som er klar. `SKIP LOCKED` gjør at flere
  * prosesser kan hente hver sin jobb uten å vente på hverandre.
+ *
+ * Med Redis prøver vi de varslede ID-ene først. Finner vi ingen (eller er
+ * Redis nede), bruker vi den samme databasekøen som før. Det er denne
+ * fallbacken som gjør at Redis kan slås av uten datatap.
  */
 export async function claimNextPdfTextJob(): Promise<PdfTextJob | null> {
+  if (queueDriver() === "redis") {
+    for (const id of await takeDuePdfJobIds()) {
+      const claimed = await claimPdfTextJobById(id);
+      if (claimed) return claimed;
+    }
+  }
+
   const rows = await prisma.$queryRaw<PdfTextJob[]>`
     UPDATE "DocumentJob"
     SET "status" = 'RUNNING',
@@ -198,6 +261,9 @@ export async function requeueStalePdfTextJobs(): Promise<number> {
       logger.warn("Text extraction: requeued stale jobs", {
         count: rows.length,
       });
+      await Promise.all(
+        rows.map((row) => notifyPdfJob(row.id).catch(() => false)),
+      );
     }
     return rows.length;
   } catch (error) {
@@ -225,6 +291,7 @@ async function failOrRetryPdfTextJob(
       attempts: job.attempts,
       error: message,
     });
+    await forgetPdfJob(job.id);
     return "failed";
   }
 
@@ -240,6 +307,7 @@ async function failOrRetryPdfTextJob(
     attempts: job.attempts,
     runAt: runAt.toISOString(),
   });
+  await notifyPdfJob(job.id, runAt);
   return "retry";
 }
 
@@ -273,6 +341,7 @@ export async function processPdfTextJob(
       where: { id: job.id },
       data: { status: "DONE", lockedAt: null, lastError: null },
     });
+    await forgetPdfJob(job.id);
 
     return "done";
   } catch (error) {
@@ -691,6 +760,12 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
 
   for (;;) {
     try {
+      // En avslått dokumentmodul skal stoppe køen også i en prosess som
+      // allerede kjører. Sjekken er cachet og koster ikke en DB-spørring.
+      if (!(await moduleEnabled("documents"))) {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
       const job = await claimNextPdfTextJob();
       if (!job) {
         await sleep(POLL_INTERVAL_MS);
@@ -707,23 +782,70 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
 }
 
 /**
+ * Sender transaksjons-e-post fra den vedvarende utboksen.
+ *
+ * Uten SMTP er hvert tick en trygg no-op; radene blir liggende PENDING uten å
+ * telle som mislykkede forsøk. Når SMTP er konfigurert, sender vi i små batcher
+ * og sover kortere så lenge køen faktisk har arbeid.
+ */
+async function runEmailOutboxLoop(): Promise<void> {
+  await sleep(2_000);
+
+  for (;;) {
+    try {
+      const result = await processEmailOutbox();
+      await sleep(
+        result.claimed > 0 ? 1_000 : EMAIL_OUTBOX_INTERVAL_MS,
+      );
+    } catch (error) {
+      logger.error("E-postutboks: uventet feil i worker", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sleep(EMAIL_OUTBOX_INTERVAL_MS);
+    }
+  }
+}
+
+/** Starter utboks-workeren én gang per prosess. */
+export function startEmailOutboxWorker(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmEmailOutboxWorkerStarted) return;
+  scope.__fsmEmailOutboxWorkerStarted = true;
+
+  void requeueStaleEmailMessages();
+  void runEmailOutboxLoop();
+}
+
+/**
  * Starter jobbkøen i denne prosessen. Kalles fra `instrumentation.ts`, og
  * kjører bare én gang per prosess – også når Next.js laster modulen på nytt.
  */
-export function startJobWorker(): void {
+export async function startJobWorker(): Promise<void> {
   const scope = globalThis as WorkerGlobal;
   if (scope.__fsmPdfJobWorkerStarted) return;
   scope.__fsmPdfJobWorkerStarted = true;
 
-  void requeueStalePdfTextJobs();
-  void Promise.all(
-    Array.from({ length: JOB_WORKER_CONCURRENCY }, (_, index) =>
-      runWorkerLoop(index),
-    ),
-  );
+  const [documents, offline, booking, tracking, transfer, sms] =
+    await Promise.all([
+      moduleEnabled("documents"),
+      moduleEnabled("offline"),
+      moduleEnabled("booking"),
+      moduleEnabled("tracking"),
+      moduleEnabled("transfer"),
+      moduleEnabled("sms"),
+    ]);
+
+  if (documents) {
+    void requeueStalePdfTextJobs();
+    void Promise.all(
+      Array.from({ length: JOB_WORKER_CONCURRENCY }, (_, index) =>
+        runWorkerLoop(index),
+      ),
+    );
+  }
 
   // Rydd utløpte kladder ved oppstart og deretter hvert sjette døgn.
-  startDraftCleanup();
+  if (offline) startDraftCleanup();
 
   // Hard-slett mykt slettede oppdrag når bevaringsperioden er utløpt.
   startWorkOrderRetentionCleanup();
@@ -735,22 +857,29 @@ export function startJobWorker(): void {
   startSearchLogCleanup();
 
   // Frigjør korte bookingreservasjoner og merk utløpte forespørsler.
-  startBookingHoldCleanup();
+  if (booking) startBookingHoldCleanup();
 
   // Posisjonsping har 24 timers levetid og skal aldri bli historikk.
-  startLocationPingCleanup();
+  if (tracking) startLocationPingCleanup();
 
   // Slett utløpte eksport-/importartefakter og forlatte staging-mapper.
-  const pruneTransfers = () => {
-    void cleanupTransfers().catch((error) => {
-      logger.error("Could not clean up customer transfer artifacts", {
-        error: error instanceof Error ? error.message : String(error),
+  if (transfer) {
+    // Eksport/import kjører i den vedvarende jobbkøen, ikke i HTTP-forespørselen.
+    startTransferWorker();
+    const pruneTransfers = () => {
+      void cleanupTransfers().catch((error) => {
+        logger.error("Could not clean up customer transfer artifacts", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
-  };
-  pruneTransfers();
-  const transferTimer = setInterval(pruneTransfers, TRANSFER_CLEANUP_INTERVAL_MS);
-  transferTimer.unref?.();
+    };
+    pruneTransfers();
+    const transferTimer = setInterval(
+      pruneTransfers,
+      TRANSFER_CLEANUP_INTERVAL_MS,
+    );
+    transferTimer.unref?.();
+  }
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
@@ -765,6 +894,19 @@ export function startJobWorker(): void {
   const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
   cleanupTimer.unref?.();
 
+  // Utløpte cache-rader i databasen ryddes sammen med rate-limit-tellerne.
+  // Redis-nøkler har egen TTL og trenger ingen tilsvarende jobb.
+  const pruneCache = () => {
+    void cleanupExpiredCache().catch((error) => {
+      logger.error("Could not clean up the infrastructure cache", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  pruneCache();
+  const cacheTimer = setInterval(pruneCache, 15 * 60_000);
+  cacheTimer.unref?.();
+
   // Send varsel-e-poster fra den vedvarende Notification-tabellen. En treg
   // SMTP-server blokkerer da ikke handlingen som utløste varselet.
   const processNotifications = () => {
@@ -778,10 +920,19 @@ export function startJobWorker(): void {
   const notificationTimer = setInterval(processNotifications, 60_000);
   notificationTimer.unref?.();
 
+  // Transaksjons-e-post (tilbud, faktura, betaling og booking) sendes fra
+  // EmailMessage-utboksen. Request-stien legger bare raden i køen.
+  startEmailOutboxWorker();
+
+  // Pushvarsler går via den vedvarende PushMessage-utboksen. Workeren respekterer
+  // modulvaktene per varseltype, så en avslått booking- eller fakturamodul
+  // stopper også push for den typen.
+  startPushWorker();
+
   // Planlegg og send påminnelser fra den vedvarende jobbkøen. SMTP- eller
   // leverandørfeil påvirker derfor aldri request-stien, og hver utsendelse
   // har en egen rad i ReminderDispatch med retry og historikk.
-  startReminderWorker();
+  if (sms) startReminderWorker();
 
   // Én overdue-sjekk ved oppstart og deretter hvert sjette døgn.
   const notifyOverdue = () => {
@@ -797,6 +948,7 @@ export function startJobWorker(): void {
 
   logger.info("Text extraction: job worker started", {
     concurrency: JOB_WORKER_CONCURRENCY,
+    modules: { documents, offline, booking, tracking, transfer, sms },
   });
 }
 
@@ -810,7 +962,12 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmBookingHoldCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;
+  scope.__fsmEmailOutboxWorkerStarted = false;
+  resetTransferWorkerForTests();
   // SMS-workeren har eget startflagg; nullstilles her slik at tester som
   // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.
   scope.__fsmSmsWorkerStarted = false;
+  // Push-workeren har eget startflagg; nullstilles her for tester som vil
+  // starte den på nytt etter resetJobWorkerForTests.
+  scope.__fsmPushWorkerStarted = false;
 }

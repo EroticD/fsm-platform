@@ -32,8 +32,8 @@
       "held": "Der Termin bei {technician} von {from} bis {to} ist reserviert. Sie haben {minutes} Minuten.",
       "release": "Termin freigeben",
       "selectedSlot": "Gewählter Termin: {technician}, {date} von {from} bis {to}.",
-      "confirm": "Buchung bestätigen",
-      "confirming": "Wird bestätigt …",
+      "confirm": "Anfrage senden",
+      "confirming": "Wird gesendet …",
       "successConfirmedTitle": "Die Buchung ist bestätigt",
       "successConfirmedBody": "Der Termin ist bei {technician} reserviert. Sie finden ihn unter „Ihre Buchungen“.",
       "unconfiguredPolicy": "{count} Techniker haben keine Arbeitszeiten. Die Öffnungszeiten der Abteilung werden als Standard verwendet.",
@@ -81,8 +81,8 @@
       "planSuccess": "Die Buchung ist geplant und bestätigt.",
       "alreadyConfirmed": "Die Buchung war bereits bestätigt.",
       "planErrors": {
-        "noTechnician": "Kein freier Techniker für diesen Zeitraum. Wählen Sie eine andere Zeit oder einen anderen Techniker.",
-        "unavailable": "Der Techniker ist in diesem Zeitraum beschäftigt, abwesend oder nicht verfügbar.",
+        "noTechnician": "Für diesen Zeitraum wird kein freier Techniker vorgeschlagen. Sie können einen anderen Techniker wählen.",
+        "unavailable": "Der Techniker ist in diesem Zeitraum abwesend oder außerhalb der Arbeitszeit.",
         "needsPlanning": "Der Anfrage fehlt eine Uhrzeit. Wählen Sie Datum und Uhrzeit.",
         "invalidTime": "Der Zeitraum ist ungültig. Das Ende muss nach dem Beginn liegen.",
         "forbidden": "Sie haben keine Berechtigung, Buchungen zu bestätigen.",
@@ -92,7 +92,7 @@
         "error": "Die Buchung konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
       },
       "cancel": "Stornieren",
-      "noTechnician": "Kein freier Techniker für die gewünschte Zeit",
+      "noTechnician": "Kein freier Techniker für die gewünschte Zeit vorgeschlagen",
       "chooseTechnician": "Techniker wählen",
       "status": {
         "PENDING": "Ausstehend",

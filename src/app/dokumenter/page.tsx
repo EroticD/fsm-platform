@@ -10,6 +10,7 @@ import DocumentBrowser from "@/components/documents/DocumentBrowser";
 import { safeDocumentReturnTo } from "@/components/documents/document-links";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
+import { requireModulePage } from "@/lib/module-guards";
 import {
   bulkCreateDocuments,
   bulkDeleteDocuments,
@@ -48,6 +49,7 @@ export default async function DocumentsPage({
     slettet?: string;
   }>;
 }) {
+  await requireModulePage("documents");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "documents.view")) redirect("/");

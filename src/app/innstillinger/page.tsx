@@ -20,14 +20,24 @@ import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SsoScimTab from "@/components/settings/SsoScimTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
+import EmailSettingsTab from "@/components/settings/EmailSettingsTab";
+import PushSettingsTab from "@/components/settings/PushSettingsTab";
+import SamlSettingsSection from "@/components/settings/SamlSettingsSection";
+import FieldPolicyMatrix from "@/components/settings/FieldPolicyMatrix";
+import WorkOrderStatusSettingsTab from "@/components/settings/WorkOrderStatusSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
 import WorkforceSettingsTab from "@/components/settings/WorkforceSettingsTab";
+import ModulesTab from "@/components/settings/ModulesTab";
 import EquipmentCategoriesTab from "@/components/settings/EquipmentCategoriesTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getMapSettingsView } from "@/server/map-settings";
+import { getEmailSettingsView } from "@/server/email-outbox";
+import { getWorkOrderStatusSettings } from "@/server/work-order-status-settings";
+import { isSmtpConfigured } from "@/lib/email";
+import { samlConfigErrors, samlProviderConfigs } from "@/lib/saml";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import {
@@ -51,7 +61,19 @@ import { getWorkforceAdminView } from "@/server/workforce-admin";
 import { listPriceLists } from "@/server/contracts";
 import { listEquipmentCategories } from "@/server/equipment";
 import { listTransferCustomers } from "@/server/customer-transfer";
+import {
+  listEnabledModules,
+  listModuleAdminView,
+} from "@/server/modules";
 import { toTransferActor } from "@/lib/customer-transfer/guard";
+import {
+  saveEmailSettingsAction,
+  sendTestEmailAction,
+} from "./email-actions";
+import {
+  resetWorkOrderStatusAction,
+  saveWorkOrderStatusAction,
+} from "./status-actions";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -69,6 +91,7 @@ import {
   deleteEquipmentCategoryAction,
   updateEquipmentCategoryAction,
 } from "./equipment-category-actions";
+import { setModuleEnabledAction } from "./module-actions";
 import {
   createApiKeyAction,
   revokeApiKeyAction,
@@ -172,6 +195,8 @@ export default async function SettingsPage({
     hasPermission(user, "settings.manage");
   const canCustomerTransfer =
     isAdmin && hasPermission(user, "settings.manage");
+  const enabledModules = await listEnabledModules();
+  const canModules = isAdmin;
   const canUseSettings =
     canBranding ||
     canMap ||
@@ -185,6 +210,7 @@ export default async function SettingsPage({
     canSla ||
     canSms ||
     canDispatch ||
+    canModules ||
     isAdmin;
   // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
   // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
@@ -223,7 +249,7 @@ export default async function SettingsPage({
     canDispatch,
     isAdmin,
     canCustomerTransfer,
-  });
+  }, enabledModules);
   const searchQuery = resolvedParams.search || "";
   const dateFrom = resolvedParams.dateFrom || "";
   const dateTo = resolvedParams.dateTo || "";
@@ -300,6 +326,16 @@ export default async function SettingsPage({
   const ssoConfig = currentTab === "sso" && isAdmin ? readSsoConfig() : null;
   const scimTokens =
     currentTab === "sso" && isAdmin ? await listScimTokens(user) : null;
+  const samlProviders =
+    currentTab === "sso" && isAdmin ? samlProviderConfigs() : [];
+  const samlErrors =
+    currentTab === "sso" && isAdmin ? samlConfigErrors() : [];
+  const emailSettings =
+    currentTab === "email" && isAdmin ? await getEmailSettingsView(user) : null;
+  const statusSettings =
+    currentTab === "oppdragsstatus" && isAdmin
+      ? await getWorkOrderStatusSettings(user)
+      : null;
 
   const slaSettings =
     currentTab === "sla" && canSla
@@ -320,6 +356,20 @@ export default async function SettingsPage({
     currentTab === "dispatch" && canDispatch
       ? await getDispatchSettings(user, resolvedParams.department)
       : null;
+
+  const moduleRows =
+    currentTab === "moduler" && canModules ? await listModuleAdminView() : null;
+  const moduleLabels = moduleRows
+    ? Object.fromEntries(
+        moduleRows.map((module) => [
+          module.key,
+          {
+            label: t(`settings.modules.items.${module.key}.label`),
+            description: t(`settings.modules.items.${module.key}.description`),
+          },
+        ]),
+      )
+    : {};
 
   const workforceSettings =
     currentTab === "kompetanse" && canWorkforce
@@ -369,6 +419,7 @@ export default async function SettingsPage({
           canDispatch={canDispatch}
           isAdmin={isAdmin}
           canCustomerTransfer={canCustomerTransfer}
+          canModules={canModules}
         />
 
         {currentTab === "kart" && canMap && mapSettings?.ok && (
@@ -388,7 +439,7 @@ export default async function SettingsPage({
               error={error}
               saveBranding={saveBrandingAction}
             />
-            <CalendarFeedSettings />
+            {enabledModules.includes("calendar") && <CalendarFeedSettings />}
           </div>
         )}
 
@@ -572,6 +623,29 @@ export default async function SettingsPage({
           />
         )}
 
+        {currentTab === "email" && isAdmin && emailSettings?.ok && (
+          <EmailSettingsTab
+            settings={emailSettings.data}
+            smtpConfigured={isSmtpConfigured()}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            saveSettings={saveEmailSettingsAction}
+            sendTest={sendTestEmailAction}
+          />
+        )}
+
+        {currentTab === "push" && isAdmin && <PushSettingsTab />}
+
+        {currentTab === "oppdragsstatus" && isAdmin && statusSettings?.ok && (
+          <WorkOrderStatusSettingsTab
+            view={statusSettings.data}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            save={saveWorkOrderStatusAction}
+            reset={resetWorkOrderStatusAction}
+          />
+        )}
+
         {currentTab === "dispatch" && canDispatch && dispatchSettings?.ok && (
           <DispatchSettingsTab
             policies={dispatchSettings.data.policies}
@@ -617,6 +691,7 @@ export default async function SettingsPage({
               error={resolvedParams.error}
               message={resolvedParams.role}
             />
+            <FieldPolicyMatrix />
           </div>
         )}
 
@@ -674,6 +749,24 @@ export default async function SettingsPage({
             createToken={createScimTokenAction}
             rotateToken={rotateScimTokenAction}
             revokeToken={revokeScimTokenAction}
+          />
+        )}
+
+        {currentTab === "sso" && isAdmin && (
+          <SamlSettingsSection
+            providers={samlProviders}
+            configErrors={samlErrors}
+          />
+        )}
+
+        {currentTab === "moduler" && canModules && moduleRows && (
+          <ModulesTab
+            modules={moduleRows}
+            labels={moduleLabels}
+            action={setModuleEnabledAction}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok === "saved"}
+            canManage={isAdmin}
           />
         )}
 

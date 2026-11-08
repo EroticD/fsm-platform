@@ -5,9 +5,12 @@ import prisma from "@/lib/prisma";
 import ErrorBanner from "@/components/ErrorBanner";
 import BrandMark from "@/components/BrandMark";
 import LoginSsoButtons from "@/components/LoginSsoButtons";
+import LoginSamlButtons from "@/components/LoginSamlButtons";
 import { controlClassName } from "@/components/ui/controlStyles";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 import { readSsoConfig } from "@/lib/sso";
+import { samlProviderConfigs } from "@/lib/saml";
+import { moduleEnabled } from "@/server/modules";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 
@@ -30,6 +33,7 @@ const SSO_ERROR_KEYS: Record<string, string> = {
   SsoIdentityConflict: "sso.errors.identityConflict",
   SsoConfiguration: "sso.errors.configuration",
   SsoServerError: "sso.errors.serverError",
+  SsoDisabled: "sso.errors.disabled",
 };
 
 export default async function LoginPage({
@@ -40,11 +44,20 @@ export default async function LoginPage({
   const { error: errorParam, callbackUrl = "/" } = await searchParams;
   const t = await getTranslations("common");
   const safeCallbackUrl = safeRelativeTarget(callbackUrl);
+  const ssoEnabled = await moduleEnabled("sso");
   const sso = readSsoConfig();
-  const ssoProviders = sso.providers.map((provider) => ({
-    id: provider.id,
-    name: provider.displayName,
-  }));
+  const ssoProviders = ssoEnabled
+    ? sso.providers.map((provider) => ({
+        id: provider.id,
+        name: provider.displayName,
+      }))
+    : [];
+  const samlProviders = ssoEnabled
+    ? samlProviderConfigs().map((provider) => ({
+        slug: provider.slug,
+        name: provider.displayName,
+      }))
+    : [];
 
   const branding = await prisma.branding.findFirst().catch(() => null);
   const companyName = branding?.companyName || "FSM System";
@@ -104,6 +117,10 @@ export default async function LoginPage({
 
         <LoginSsoButtons
           providers={ssoProviders}
+          callbackUrl={safeCallbackUrl}
+        />
+        <LoginSamlButtons
+          providers={samlProviders}
           callbackUrl={safeCallbackUrl}
         />
 

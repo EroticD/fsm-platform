@@ -1,3 +1,5 @@
+import type { ModuleKey } from "@/lib/modules";
+
 export type SettingsTabKey =
   | "branding"
   | "kart"
@@ -11,13 +13,17 @@ export type SettingsTabKey =
   | "statistikk"
   | "sla"
   | "sms"
+  | "email"
+  | "push"
   | "dispatch"
+  | "oppdragsstatus"
   | "roller"
   | "avdelinger"
   | "api"
   | "sso"
   | "sikkerhet"
-  | "kundeoverforing";
+  | "kundeoverforing"
+  | "moduler";
 
 export type SettingsTabPermissions = {
   canBranding: boolean;
@@ -50,19 +56,63 @@ const TAB_ORDER: SettingsTabKey[] = [
   "statistikk",
   "sla",
   "sms",
+  "email",
+  "push",
   "dispatch",
+  "oppdragsstatus",
   "roller",
   "avdelinger",
   "api",
   "sso",
   "sikkerhet",
   "kundeoverforing",
+  "moduler",
 ];
+
+/**
+ * Modulene en fane hører til. Tom liste betyr kjernedata som alltid er
+ * tilgjengelig. `tags` vises hvis minst én av reports/documents er på.
+ */
+const TAB_MODULES: Partial<Record<SettingsTabKey, readonly ModuleKey[]>> = {
+  kart: ["map"],
+  maler: ["reports"],
+  tags: ["reports", "documents"],
+  utstyr: ["equipment"],
+  bevis: ["auditExport"],
+  statistikk: ["reports"],
+  sla: ["contracts"],
+  sms: ["sms"],
+  dispatch: ["calendar"],
+  api: ["api"],
+  sso: ["sso"],
+  kundeoverforing: ["transfer"],
+};
+
+function hasAnyModule(
+  required: readonly ModuleKey[] | undefined,
+  enabled: ReadonlySet<ModuleKey> | readonly ModuleKey[] | undefined,
+): boolean {
+  if (!required || required.length === 0) return true;
+  // Eldre kall (og tester) som ikke kjenner modultilstand skal se alle faner.
+  if (enabled === undefined) return true;
+  const set = enabled instanceof Set ? enabled : new Set(enabled);
+  return required.some((key) => key === "core" || set.has(key));
+}
+
+/** Er modulen/fanens datagrunnlag slått på? */
+export function isSettingsTabModuleEnabled(
+  tab: SettingsTabKey,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
+): boolean {
+  return hasAnyModule(TAB_MODULES[tab], enabledModules);
+}
 
 export function isSettingsTabAllowed(
   tab: SettingsTabKey,
   permissions: SettingsTabPermissions,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
 ): boolean {
+  if (!isSettingsTabModuleEnabled(tab, enabledModules)) return false;
   switch (tab) {
     case "branding":
       return permissions.canBranding;
@@ -88,8 +138,13 @@ export function isSettingsTabAllowed(
       return permissions.canSla;
     case "sms":
       return permissions.canSms;
+    case "email":
+    case "push":
+      return permissions.isAdmin;
     case "dispatch":
       return permissions.canDispatch;
+    case "oppdragsstatus":
+      return permissions.isAdmin;
     case "roller":
     case "avdelinger":
     case "api":
@@ -99,6 +154,8 @@ export function isSettingsTabAllowed(
       return true;
     case "kundeoverforing":
       return permissions.canCustomerTransfer;
+    case "moduler":
+      return permissions.isAdmin;
   }
 }
 
@@ -110,17 +167,19 @@ export function isSettingsTabAllowed(
 export function chooseSettingsTab(
   requested: string | undefined,
   permissions: SettingsTabPermissions,
+  enabledModules?: ReadonlySet<ModuleKey> | readonly ModuleKey[],
 ): SettingsTabKey {
   if (
     requested &&
     TAB_ORDER.includes(requested as SettingsTabKey) &&
-    isSettingsTabAllowed(requested as SettingsTabKey, permissions)
+    isSettingsTabAllowed(requested as SettingsTabKey, permissions, enabledModules)
   ) {
     return requested as SettingsTabKey;
   }
 
   return (
-    TAB_ORDER.find((tab) => isSettingsTabAllowed(tab, permissions)) ??
-    "sikkerhet"
+    TAB_ORDER.find((tab) =>
+      isSettingsTabAllowed(tab, permissions, enabledModules),
+    ) ?? "sikkerhet"
   );
 }

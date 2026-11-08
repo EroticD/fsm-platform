@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { VisitStatus } from "@prisma/client";
 import Icon from "@/components/icons";
+import { setRouteSequence } from "./actions";
 import {
   dateOnlyInOslo,
   formatDateLocalized,
@@ -22,6 +23,7 @@ type Translate = (
 export type DaySummaryVisit = {
   id: string;
   startsAt: Date;
+  routeSequence: number | null;
   status: VisitStatus;
   enRouteAt: Date | null;
   onSiteAt: Date | null;
@@ -166,12 +168,18 @@ export function renderDayTimeSummary({
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--line,#d8d3c5)]">
+      <div
+        data-workorder-route-sequence
+        className="overflow-x-auto rounded-xl border border-[var(--line,#d8d3c5)]"
+      >
         <table className="w-full min-w-[44rem] border-collapse text-left text-xs">
           <thead className="bg-[var(--ink,#131711)] text-[var(--paper,#f2efe6)]">
             <tr>
               <th scope="col" className="px-3 py-2 font-black">
                 {t("orders.detail.time.day")}
+              </th>
+              <th scope="col" className="px-3 py-2 font-black">
+                {t("orders.detail.time.routeSequence")}
               </th>
               <th scope="col" className="px-3 py-2 font-black">
                 {t("orders.detail.time.status")}
@@ -219,6 +227,34 @@ export function renderDayTimeSummary({
                       month: "short",
                     })}
                   </th>
+                  <td className="px-3 py-2">
+                    <form action={setRouteSequence} className="flex items-center gap-1.5">
+                      <input type="hidden" name="workOrderId" value={workOrderId} />
+                      <input type="hidden" name="visitId" value={visit.id} />
+                      <label className="sr-only" htmlFor={`route-sequence-${visit.id}`}>
+                        {t("orders.detail.time.routeSequence")}
+                      </label>
+                      <input
+                        id={`route-sequence-${visit.id}`}
+                        name="routeSequence"
+                        type="number"
+                        min={1}
+                        max={9999}
+                        defaultValue={visit.routeSequence ?? ""}
+                        placeholder={t("orders.detail.time.routeSequenceAuto")}
+                        className="h-9 w-16 rounded-md border border-[var(--line,#d8d3c5)] bg-white px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#131711)]"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex h-9 items-center rounded-md border border-[var(--ink,#131711)] px-2 text-[11px] font-bold text-[var(--ink,#131711)] transition hover:bg-[var(--ink,#131711)] hover:text-[var(--paper,#f2efe6)]"
+                      >
+                        {t("orders.detail.time.routeSequenceSave")}
+                      </button>
+                    </form>
+                    <p className="mt-1 max-w-[10rem] text-[10px] leading-4 text-[#5e6356]">
+                      {t("orders.detail.time.routeSequenceHint")}
+                    </p>
+                  </td>
                   <td className="px-3 py-2">
                     {visitStatusBadge(visit.status, t)}
                   </td>

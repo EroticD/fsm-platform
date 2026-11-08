@@ -1,0 +1,204 @@
+{
+  "nav": {
+    "inventory": "Lager"
+  },
+  "inventory": {
+    "title": "Lager",
+    "eyebrow": "OPS-05 · Lager og reservedeler",
+    "description": "Beholdning per lager og montørbil, reservasjoner mot oppdrag og kjøpsforslag når varen når bestillingspunktet.",
+    "searchPlaceholder": "Søk på SKU eller navn",
+    "search": "Søk",
+    "back": "Tilbake til lager",
+    "location": "Lokasjon",
+    "status": "Status",
+    "workOrder": "Oppdrag",
+    "actions": "Handlinger",
+    "openWorkOrder": "Åpne oppdrag",
+    "workOrderLink": "Reservedeler",
+    "chooseLocation": "Velg lokasjon",
+    "feedback": {
+      "saved": "Endringen er lagret.",
+      "error": "Handlingen kunne ikke gjennomføres. Sjekk beholdning, tilgang og at oppdraget er åpent."
+    },
+    "suggestions": {
+      "title": "Kjøpsforslag",
+      "description": "Varer på eller under bestillingspunktet, fratrukket aktive reservasjoner.",
+      "empty": "Ingen varer mangler påfyll nå.",
+      "buy": "Foreslått kjøp"
+    },
+    "item": {
+      "title": "Vare",
+      "sku": "SKU",
+      "name": "Vare",
+      "unit": "Enhet",
+      "minLevel": "Bestillingspunkt",
+      "description": "Beskrivelse",
+      "onHand": "På lager",
+      "reserved": "Reservert",
+      "available": "Tilgjengelig",
+      "low": "Lav beholdning",
+      "noDescription": "Ingen beskrivelse.",
+      "edit": "Rediger vare",
+      "active": "Aktiv",
+      "save": "Lagre"
+    },
+    "items": {
+      "title": "Varer",
+      "empty": "Ingen varer er registrert ennå.",
+      "create": "Ny vare",
+      "createButton": "Opprett vare"
+    },
+    "locations": {
+      "title": "Lokasjoner",
+      "empty": "Ingen lager eller biler er registrert ennå.",
+      "itemCount": "{count} varer",
+      "lowCount": "{count} lave",
+      "create": "Ny lokasjon",
+      "name": "Navn på lager eller bil",
+      "createButton": "Opprett lokasjon",
+      "detailTitle": "Lokasjon",
+      "edit": "Rediger lokasjon",
+      "active": "Aktiv"
+    },
+    "locationType": {
+      "warehouse": "Lager",
+      "van": "Montørbil"
+    },
+    "stock": {
+      "levels": "Beholdning per lokasjon",
+      "noLevels": "Ingen beholdning er registrert på denne varen ennå."
+    },
+    "adjust": {
+      "title": "Juster beholdning",
+      "description": "Inn og ut avviser negativ beholdning. Justering er en eksplisitt korrigering og kan rette opptelling.",
+      "types": {
+        "in": "Inn",
+        "out": "Ut",
+        "adjust": "Juster"
+      },
+      "quantity": "Mengde",
+      "reason": "Årsak",
+      "button": "Lagre bevegelse"
+    },
+    "reserve": {
+      "title": "Reserver deler",
+      "description": "Reservasjonen holder av tilgjengelig mengde mot et oppdrag eller en arbeidsøkt. Beholdningen trekkes først ved forbruk.",
+      "quantity": "Mengde",
+      "workOrderId": "Oppdrags-ID",
+      "note": "Notat",
+      "button": "Reserver",
+      "chooseItem": "Velg vare",
+      "noVisit": "Hele oppdraget (ingen bestemt økt)"
+    },
+    "reservations": {
+      "title": "Reservasjoner",
+      "empty": "Ingen reservasjoner.",
+      "release": "Frigjør",
+      "consume": "Forbruk"
+    },
+    "movements": {
+      "title": "Bevegelser",
+      "empty": "Ingen bevegelser er registrert.",
+      "at": "Tidspunkt",
+      "type": "Type",
+      "quantity": "Mengde",
+      "reason": "Årsak"
+    },
+    "workOrderParts": {
+      "title": "Reservedeler",
+      "backToWorkOrder": "Tilbake til oppdraget",
+      "consumeVisit": "Forbruk deler ved fullført økt",
+      "consumeVisitDescription": "Forbruker alle aktive reservasjoner som er knyttet til økten. Bruk denne når arbeidet faktisk er utført.",
+      "consumeAll": "Forbruk alle"
+    },
+    "purchasing": {
+      "title": "Innkjøp",
+      "eyebrow": "OPS-05 · Innkjøp og leverandører",
+      "description": "Innkjøpsordrer fra kjøpsforslag, varemottak mot lager og leverandørregister. Beholdningen økes først når varene faktisk mottas.",
+      "link": "Innkjøp",
+      "suppliersLink": "Leverandører",
+      "back": "Tilbake til innkjøp",
+      "ordersTitle": "Innkjøpsordrer",
+      "empty": "Ingen innkjøpsordrer er registrert ennå.",
+      "create": {
+        "title": "Ny innkjøpsordre fra kjøpsforslag",
+        "description": "Velg leverandør og mottakslokasjon. Huk av varene som skal bestilles; foreslått mengde regnes ut på nytt på serveren.",
+        "supplier": "Leverandør",
+        "chooseSupplier": "Velg leverandør",
+        "noSuppliers": "Ingen leverandører er registrert.",
+        "location": "Mottakslokasjon",
+        "expectedAt": "Forventet levering",
+        "notes": "Notat",
+        "selectItems": "Velg varer",
+        "createButton": "Opprett utkast"
+      },
+      "filter": {
+        "status": "Filtrer på status",
+        "all": "Alle statuser",
+        "apply": "Filtrer"
+      },
+      "table": {
+        "number": "Nummer",
+        "supplier": "Leverandør",
+        "location": "Lokasjon",
+        "status": "Status",
+        "expectedAt": "Forventet",
+        "lines": "Linjer",
+        "orderedTotal": "Sum bestilt"
+      },
+      "status": {
+        "draft": "Utkast",
+        "ordered": "Bestilt",
+        "partially_received": "Delvis mottatt",
+        "received": "Mottatt",
+        "cancelled": "Avbestilt"
+      },
+      "order": {
+        "supplier": "Leverandør",
+        "location": "Mottakslokasjon",
+        "expectedAt": "Forventet levering",
+        "orderedAt": "Bestilt",
+        "receivedAt": "Mottatt",
+        "cancelledAt": "Avbestilt",
+        "notes": "Notat",
+        "noNotes": "Ingen notat.",
+        "created": "Opprettet",
+        "totals": {
+          "ordered": "Sum bestilt",
+          "received": "Sum mottatt"
+        },
+        "linesTitle": "Varelinjer",
+        "noLines": "Ordren har ingen varelinjer ennå.",
+        "addLine": "Legg til vare",
+        "chooseItem": "Velg vare",
+        "orderedQuantity": "Bestilt mengde",
+        "receivedQuantity": "Mottatt",
+        "remaining": "Gjenstår",
+        "unitCost": "Enhetskost",
+        "lineTotal": "Linjesum",
+        "remove": "Fjern",
+        "addButton": "Legg til",
+        "editTitle": "Rediger utkast",
+        "saveButton": "Lagre utkast",
+        "orderButton": "Bestill",
+        "cancelButton": "Avbestill",
+        "receiveTitle": "Varemottak",
+        "receiveDescription": "Mottak øker beholdningen på mottakslokasjonen og kan ikke overstige bestilt mengde. Delvis mottak setter ordren til delvis mottatt.",
+        "receiveButton": "Motta varer",
+        "receiveQuantity": "Mottatt nå"
+      },
+      "suppliers": {
+        "title": "Leverandører",
+        "description": "Leverandører brukes på innkjøpsordrer. Leverandører uten avdeling er felles for installasjonen.",
+        "empty": "Ingen leverandører er registrert ennå.",
+        "create": "Ny leverandør",
+        "name": "Navn",
+        "orgNumber": "Organisasjonsnummer",
+        "email": "E-post",
+        "phone": "Telefon",
+        "createButton": "Opprett leverandør",
+        "created": "Leverandøren er opprettet."
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "expenses": "Expenses"
+  },
+  "expenses": {
+    "title": "Expenses",
+    "eyebrow": "FLD-01 · Mileage and expenses",
+    "description": "Register mileage and expenses with receipts. The office approves and exports payroll data per period.",
+    "officeLink": "Office and approval",
+    "linkedWorkOrder": "Linked to work order",
+    "workOrderLink": "Expenses and mileage",
+    "date": "Date",
+    "amount": "Amount",
+    "vat": "VAT",
+    "receipt": "Receipt",
+    "document": "Document",
+    "statusLabel": "Status",
+    "actions": "Actions",
+    "openWorkOrder": "Work order",
+    "submitToApproval": "Submit for approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectReason": "Reason for rejection",
+    "feedback": {
+      "saved": "Saved.",
+      "error": "The action could not be completed. Check the fields, receipt, and access."
+    },
+    "totals": {
+      "pending": "Awaiting approval",
+      "approved": "Approved"
+    },
+    "status": {
+      "draft": "Draft",
+      "pending": "Awaiting approval",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "trip": {
+      "title": "Mileage",
+      "km": "Kilometres",
+      "from": "From",
+      "to": "To",
+      "rate": "Rate per km",
+      "purpose": "Purpose",
+      "submit": "Register mileage",
+      "listTitle": "My mileage",
+      "empty": "No mileage has been registered.",
+      "route": "Route",
+      "approvalTitle": "Mileage awaiting approval"
+    },
+    "expense": {
+      "title": "Expense",
+      "category": "Category",
+      "amount": "Amount incl. VAT",
+      "vatRate": "VAT rate",
+      "description": "Description",
+      "receipt": "Receipt",
+      "uploading": "Uploading …",
+      "uploadError": "Could not upload the receipt.",
+      "submit": "Register expense",
+      "listTitle": "My expenses",
+      "empty": "No expenses have been registered.",
+      "approvalTitle": "Expenses awaiting approval"
+    },
+    "office": {
+      "title": "Expenses and payroll",
+      "description": "Approve mileage and expenses, and lock payroll data for a period. Rejected rows are never exported.",
+      "myExpenses": "My expenses",
+      "pendingSummary": "{count} rows awaiting approval · {amount}",
+      "empty": "No rows in this status.",
+      "noReceipt": "No receipt"
+    },
+    "payroll": {
+      "title": "Payroll data",
+      "description": "The export uses existing visit time and travel time, approved mileage, and approved expenses. The same period returns the same file.",
+      "from": "From",
+      "to": "To",
+      "preview": "Preview",
+      "export": "Download CSV",
+      "workHours": "Work hours",
+      "travelHours": "Travel hours",
+      "mileageKm": "Kilometres",
+      "mileageAmount": "Mileage allowance",
+      "expenseAmount": "Expenses",
+      "rows": "Rows",
+      "period": "Period",
+      "created": "Locked",
+      "checksum": "Checksum",
+      "download": "Download"
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { equipmentErrorParam } from "@/lib/equipment-feedback";
+import { moduleEnabled } from "@/server/modules";
 import {
   addEquipmentQrCode,
   addMeterReading,
@@ -40,6 +41,7 @@ function revalidateEquipment(id?: string, customerId?: string | null) {
 }
 
 export async function createEquipmentAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -67,6 +69,7 @@ export async function createEquipmentAction(formData: FormData) {
 }
 
 export async function updateEquipmentAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -98,6 +101,7 @@ export async function updateEquipmentAction(formData: FormData) {
 }
 
 export async function moveEquipmentAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -120,6 +124,7 @@ export async function moveEquipmentAction(formData: FormData) {
 }
 
 export async function rotateQrTokenAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -136,6 +141,7 @@ export async function rotateQrTokenAction(formData: FormData) {
 }
 
 export async function addEquipmentQrCodeAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -171,6 +177,7 @@ export async function addEquipmentQrCodeAction(formData: FormData) {
 }
 
 export async function deleteEquipmentQrCodeAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -193,6 +200,7 @@ export async function deleteEquipmentQrCodeAction(formData: FormData) {
 }
 
 export async function addMeterReadingAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -216,6 +224,7 @@ export async function addMeterReadingAction(formData: FormData) {
 }
 
 export async function createMaintenancePlanAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -243,6 +252,7 @@ export async function createMaintenancePlanAction(formData: FormData) {
 }
 
 export async function toggleMaintenancePlanAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -266,6 +276,7 @@ export async function toggleMaintenancePlanAction(formData: FormData) {
 }
 
 export async function updateMaintenancePlanAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -292,6 +303,7 @@ export async function updateMaintenancePlanAction(formData: FormData) {
 }
 
 export async function deleteMaintenancePlanAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -313,6 +325,7 @@ export async function deleteMaintenancePlanAction(formData: FormData) {
 }
 
 export async function deleteEquipmentAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

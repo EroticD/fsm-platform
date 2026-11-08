@@ -18,7 +18,27 @@
       "map": "Map",
       "api": "API keys",
       "equipment": "Equipment",
-      "evidence": "Evidence"
+      "evidence": "Evidence",
+      "modules": "Modules",
+      "email": "Email",
+      "push": "Push notifications",
+      "workOrderStatus": "Work order status"
+    },
+    "workOrderStatus": {
+      "title": "Work order statuses",
+      "description": "Control which statuses are open, planned or closed, and which status new work orders receive.",
+      "defaultStatus": "Default status for new work orders",
+      "defaultHint": "New work orders start as open and waiting for planning unless you choose another open or planned status.",
+      "status": "Status",
+      "category": "Function",
+      "order": "Order",
+      "active": "Active",
+      "hint": "A status with the function «Closed» counts as finished in lists, reports and locking. At least one open and one closed status must be active.",
+      "save": "Save status settings",
+      "reset": "Reset to defaults",
+      "saved": "Status settings were saved.",
+      "error": "The status settings could not be saved. Check that at least one open and one closed status are active.",
+      "categories": { "OPEN": "Open", "PLANNED": "Planned", "CLOSED": "Closed" }
     },
     "branding": {
       "title": "White-label settings",
@@ -275,6 +295,12 @@
         "maintenanceWrite": "Maintenance – write",
         "reportsRead": "Reports – read",
         "documentsRead": "Documents – read",
+        "quotesRead": "Quotes – read",
+        "quotesWrite": "Quotes – write",
+        "ordersRead": "Orders – read",
+        "ordersWrite": "Orders – write",
+        "inventoryRead": "Inventory – read",
+        "inventoryWrite": "Inventory – write",
         "allLegacy": "All (legacy key without restriction)"
       },
       "revoke": "Revoke",
@@ -538,6 +564,125 @@
       "created": "Category created.",
       "updated": "Category updated.",
       "deleted": "Category deleted."
+    },
+    "modules": {
+      "title": "Modules",
+      "description": "Turn installation-level modules on or off. Core is always on, and dependencies prevent invalid combinations. Every change is audited.",
+      "dataPreserved": "Data is retained when a module is turned off. Pages, actions, APIs and workers are closed; nothing is deleted. Turn the module back on and the data returns.",
+      "core": "Core",
+      "planned": "Planned",
+      "enabled": "On",
+      "disabled": "Off",
+      "dependsOn": "Depends on: {modules}",
+      "requiredBy": "Used by: {modules}",
+      "missingDependencies": "Cannot be enabled until these are on: {modules}",
+      "hasDependents": "Cannot be disabled while these are on: {modules}",
+      "coreLocked": "Core cannot be disabled.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "confirmEnable": "Enable {module}?",
+      "confirmDisable": "Disable {module}? Data is retained, but pages, actions and workers are closed.",
+      "saved": "The module change was saved and audited.",
+      "errors": {
+        "forbidden": "Only an administrator can change modules.",
+        "conflict": "The change conflicts with module dependencies.",
+        "coreLocked": "Core cannot be disabled.",
+        "missingDependencies": "One or more dependencies are off.",
+        "hasDependents": "One or more modules that use this are on.",
+        "not_found": "Unknown module.",
+        "invalid": "Invalid module change.",
+        "error": "Could not save the module change."
+      },
+      "items": {
+        "core": {
+          "label": "Core",
+          "description": "Always on: authentication, users, departments, customers, work orders, workdays and time, audit and settings."
+        },
+        "calendar": {
+          "label": "Calendar and dispatch",
+          "description": "Calendar, dispatch board, route planning and capacity overview."
+        },
+        "reports": {
+          "label": "Reports and HSE",
+          "description": "Service reports, HSE, checklists and templates, PDF viewer and statistics."
+        },
+        "equipment": {
+          "label": "Equipment",
+          "description": "Equipment register, service history, QR/scan and maintenance plans."
+        },
+        "contracts": {
+          "label": "Service contracts and SLA",
+          "description": "Service contracts, SLA policies, business hours and price lists."
+        },
+        "portal": {
+          "label": "Customer portal",
+          "description": "Customers’ own portal for work orders, reports, documents and contact details."
+        },
+        "booking": {
+          "label": "Bookings",
+          "description": "Customer booking requests and available slots. Requires portal and calendar."
+        },
+        "documents": {
+          "label": "Documents",
+          "description": "Document library, folders, versions and text extraction/OCR."
+        },
+        "sms": {
+          "label": "SMS and reminders",
+          "description": "SMS messages, templates, delivery status and reminders before visits."
+        },
+        "map": {
+          "label": "Map",
+          "description": "Map of work orders, equipment and technician positions."
+        },
+        "tracking": {
+          "label": "Tracking and ETA",
+          "description": "Public tracking link and real-time ETA for visits."
+        },
+        "reviews": {
+          "label": "Reviews",
+          "description": "Customer reviews from public links and internal follow-up."
+        },
+        "transfer": {
+          "label": "Customer transfer",
+          "description": "Export and import of customer packages. Requires equipment and documents."
+        },
+        "auditExport": {
+          "label": "Audit and evidence export",
+          "description": "Signed audit export and evidence packages for work orders."
+        },
+        "api": {
+          "label": "REST API",
+          "description": "API v1 with API keys, scopes and OpenAPI documentation."
+        },
+        "sso": {
+          "label": "SSO and SCIM",
+          "description": "OIDC login, SCIM provisioning and SSO settings."
+        },
+        "offline": {
+          "label": "Offline field",
+          "description": "Field app offline drafts, outbox queue and session guard."
+        },
+        "quotes": {
+          "label": "Quotes",
+          "description": "Quotes with versions, approval and conversion to work orders."
+        },
+        "invoicing": {
+          "label": "Invoicing",
+          "description": "Invoices, payments, credit notes and accounting export."
+        },
+        "inventory": {
+          "label": "Inventory",
+          "description": "Stock per warehouse and service van, reservations for work orders and purchase suggestions."
+        },
+        "fieldExpenses": {
+          "label": "Mileage and expenses",
+          "description": "Trips and expenses with receipts, approval and payroll export."
+        },
+        "bi": {
+          "label": "Profitability",
+          "description": "Profitability by department, customer and technician with estimated and actual revenue."
+        }
+      }
     }
   },
   "users": {
@@ -570,9 +715,11 @@
       "defaultSuffix": " (default)",
       "departmentHelp": "Employees must belong to a department to create and see work orders.",
       "contact": "Contact person",
-      "contactRequired": "(required for the customer portal)",
+      "customer": "Customer",
+      "chooseCustomer": "Choose customer",
+      "loadingContacts": "Loading contacts …",
+      "noContacts": "No contacts for this customer.",
       "noContact": "-- No contact person --",
-      "contactHelp": "Links the user to the customer and gives access to the customer portal.",
       "info": "New users are inactive. After you create them, you get an invitation link they can use to set their own password. Then you must activate the account here.",
       "submit": "Create and generate invitation"
     },
@@ -615,6 +762,60 @@
       "missingContact": "Customer portal users must be linked to a contact person on the customer card.",
       "duplicateEmail": "A user with this email address already exists.",
       "missingField": "Fill in name, email and select a contact person."
+    }
+  },
+  "push": {
+    "settings": {
+      "title": "Push notifications",
+      "description": "Send notifications to the mobile app through FCM (Android) and APNs (iOS).",
+      "noSecrets": "Keys and tokens are never shown here.",
+      "loading": "Loading status …",
+      "providersTitle": "Providers",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "project": "Project: {project}",
+      "environment": "Environment: {environment}",
+      "sandbox": "sandbox",
+      "production": "production",
+      "devicesTitle": "Devices",
+      "devicesActive": "{active} active of {total}",
+      "devicesStale": "{count} stale (older than {days} days)",
+      "queueTitle": "Outbox",
+      "queuePending": "{count} pending",
+      "queueDeadLetter": "{count} given up",
+      "sentTitle": "Last 24 hours",
+      "queueSent": "{count} sent",
+      "lastSent": "Last sent: {time}",
+      "neverSent": "No push has been sent yet.",
+      "testTitle": "Send test notification",
+      "testDescription": "Delivered to your own registered devices.",
+      "sendTest": "Send test",
+      "sending": "Sending …",
+      "testSent": "{sent} of {queued} messages sent.",
+      "testNoDevices": "No active devices were found for your account.",
+      "testNotConfigured": "Push is not configured. Add the FCM or APNs setup first.",
+      "cleanupTitle": "Clear stale devices",
+      "cleanupDescription": "Deletes disabled devices and devices not seen for {days} days.",
+      "cleanup": "Clear devices",
+      "cleaning": "Clearing …",
+      "cleanupResult": "{count} devices deleted.",
+      "error": "The action could not be completed. Try again.",
+      "errorForbidden": "Only an administrator can manage push notifications.",
+      "errorRateLimited": "Too many attempts. Try again shortly.",
+      "errorUnauthenticated": "You are not signed in.",
+      "loadError": "Could not load push status."
+    },
+    "test": {
+      "title": "Test notification",
+      "body": "Push notifications are configured for this installation."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Invoice paid",
+        "body": "Invoice {invoiceNumber} has been paid."
+      }
     }
   }
 }

@@ -33,7 +33,11 @@
       "import": {
         "title": "Importer kunde",
         "description": "Last opp en kundepakke. Pakken valideres og forhåndsvises før noe skrives. Bekreftelsen skriver alle rader og filer i én transaksjon.",
-        "fileLabel": "Velg ZIP-pakke",
+        "fileLabel": "Velg ZIP- eller .fsmenc-pakke",
+        "passphraseLabel": "Passfrase for kryptert pakke",
+        "passphrasePlaceholder": "La stå tom for en vanlig ZIP",
+        "passphraseHelp": "Bare krypterte .fsmenc-pakker trenger passfrase. Den sendes med denne opplastingen, lagres aldri og logges ikke.",
+        "upload": "Last opp og valider",
         "createMissingReferences": "Opprett manglende avdelinger, tags og kategorier",
         "createMissingReferencesHelp": "Ansatte og maler opprettes aldri. Uten dette valget blir manglende referanser null med en advarsel, eller importen blokkeres når referansen er påkrevd.",
         "uploading": "Laster opp og validerer …",
@@ -112,8 +116,17 @@
       "duplicateEntry": "Pakken inneholder dupliserte filnavn.",
       "unsupportedMime": "Pakken inneholder en filtype som ikke er tillatt.",
       "mimeMismatch": "Filinnholdet stemmer ikke med filtypen.",
-      "encryptedArchive": "Krypterte ZIP-arkiv støttes ikke.",
+      "encryptedArchive": "Krypterte ZIP-arkiv støttes ikke. Bruk det dokumenterte FSM-krypterte omslaget med passfrase.",
       "nestedArchive": "Nestede arkiv er ikke tillatt.",
+      "signatureInvalid": "Pakkesignaturen er ugyldig. Pakken er endret eller signert med en ukjent nøkkel.",
+      "signatureMissing": "Pakken mangler påkrevd signatur. Importen er blokkert.",
+      "signatureUntrusted": "Pakken er signert med en nøkkel denne installasjonen ikke stoler på. Importer den bare etter å ha verifisert nøkkelen.",
+      "signatureAlgorithmIgnored": "Pakken har en signatur med en algoritme som er slått av i denne installasjonen. Signaturen ble ignorert.",
+      "signatureKeyMissing": "Pakken er signert, men denne installasjonen har ingen nøkkel å verifisere med. Vurder pakken som uverifisert.",
+      "signatureUnsigned": "Pakken er ikke signert. Sjekksummene oppdager korrupsjon, men ikke ondsinnet endring.",
+      "schemaMigrated": "Pakken ble migrert fra en eldre, støttet skjemaversjon.",
+      "decryptionFailed": "Pakken kunne ikke dekrypteres. Kontroller passfrasen og at filen er komplett.",
+      "passphraseRequired": "Pakken er kryptert. Oppgi passfrasen for å dekryptere den.",
       "conflict": "Pakken har en konflikt som må løses.",
       "policyRequired": "Du må velge en konfliktregel.",
       "previewStale": "Måldataene er endret siden forhåndsvisningen. Kjør en ny forhåndsvisning.",
@@ -148,7 +161,9 @@
       "symlink": "Symlinker i arkivet støttes ikke.",
       "unknownEntry": "Ukjent toppnivåfil ble ignorert med en advarsel.",
       "rateLimitedRetry": "For mange eksportforsøk. Prøv igjen om {minutes} minutter.",
-      "exportInProgress": "Eksporten pågår fortsatt. Prøv igjen om litt."
+      "exportInProgress": "Eksporten pågår fortsatt. Prøv igjen om litt.",
+      "moduleDisabled": "Pakken inneholder data fra en modul som er slått av. Slå modulen på eller lag en ny eksport.",
+      "importInProgress": "En import av samme pakke pågår allerede."
     }
   },
   "auditActions": {

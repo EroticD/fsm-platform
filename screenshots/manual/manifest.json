@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-08T12:22:27.062Z",
+  "appVersion": "0.8.11",
+  "baseUrl": "http://127.0.0.1:3101",
+  "database": "fsm_ui_e2e (isolert E2E-database)",
+  "viewport": {
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 2
+  },
+  "fixtures": {
+    "detailOrderId": "cmw7rieln000ovtfj6pwca3tc",
+    "invoiceId": "cmw7rm2ed00064nfjnmdha6lp",
+    "quoteId": "cmw7rm2dt00004nfjd2gu8p2b",
+    "purchaseOrderId": "cmw7rm2fs000c4nfj5wc9ota8",
+    "expenseId": "cmw7rm2fd00094nfjqgrboojf",
+    "mileageTripId": "cmw7rm2e400044nfjoj3xrnd0"
+  },
+  "counts": {
+    "images": 14,
+    "failures": 0
+  },
+  "images": [
+    {
+      "file": "screenshots/manual/rute-manuell-rekkefolge.jpg",
+      "route": "/kalender/rute",
+      "selector": "[data-manual-route-form]",
+      "role": "admin",
+      "caption": {
+        "nb": "Manuell rekkefølge for ruten",
+        "en": "Manual route order"
+      },
+      "note": "Skjemaet lagrer en manuell rekkefølge uten å endre datoene.",
+      "dimensions": {
+        "width": 2564,
+        "height": 470
+      },
+      "width": 2564,
+      "height": 470,
+      "bytes": 61756,
+      "h1": [
+        "Kalender"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/kalender/rute",
+      "capturedAt": "2026-11-08T12:21:57.436Z"
+    },
+    {
+      "file": "screenshots/manual/rute-overtid.jpg",
+      "route": "/kalender/rute",
+      "selector": "[data-route-overtime]",
+      "role": "admin",
+      "caption": {
+        "nb": "Rutens nøkkeltall, inkludert overtid",
+        "en": "Route totals, including overtime"
+      },
+      "note": "Viser alltid summeringen. Overtidsvarselet vises i tillegg når planen faktisk har overtid.",
+      "dimensions": {
+        "width": 1316,
+        "height": 152
+      },
+      "width": 1316,
+      "height": 152,
+      "bytes": 19823,
+      "h1": [
+        "Kalender"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/kalender/rute",
+      "capturedAt": "2026-11-08T12:21:59.088Z"
+    },
+    {
+      "file": "screenshots/manual/oppdrag-rekkefolge.jpg",
+      "route": "/oppdrag/cmw7rieln000ovtfj6pwca3tc",
+      "selector": "[data-workorder-route-sequence]",
+      "role": "admin",
+      "caption": {
+        "nb": "Dager og tid med rekkefølgekolonne",
+        "en": "Days and time with route sequence column"
+      },
+      "note": "Rekkefølgen settes per arbeidsdag på oppdraget.",
+      "dimensions": {
+        "width": 1530,
+        "height": 398
+      },
+      "width": 1530,
+      "height": 398,
+      "bytes": 32589,
+      "h1": [
+        "Feilsøking – portåpner"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/oppdrag/cmw7rieln000ovtfj6pwca3tc",
+      "capturedAt": "2026-11-08T12:22:01.058Z"
+    },
+    {
+      "file": "screenshots/manual/tilbud-liste.jpg",
+      "route": "/tilbud",
+      "selector": "[data-quotes-list]",
+      "role": "admin",
+      "caption": {
+        "nb": "Tilbudslisten",
+        "en": "Quote list"
+      },
+      "note": "Ett demotilbud i status Sendt.",
+      "dimensions": {
+        "width": 2392,
+        "height": 324
+      },
+      "width": 2392,
+      "height": 324,
+      "bytes": 40349,
+      "h1": [
+        "Tilbud"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/tilbud",
+      "capturedAt": "2026-11-08T12:22:02.719Z"
+    },
+    {
+      "file": "screenshots/manual/faktura-betaling.jpg",
+      "route": "/faktura/cmw7rm2ed00064nfjnmdha6lp",
+      "selector": "[data-payment-panel]",
+      "role": "admin",
+      "caption": {
+        "nb": "Betalingslenke på en sendt faktura",
+        "en": "Payment link on a sent invoice"
+      },
+      "note": "Betalingsleverandør er ikke konfigurert i demomiljøet, så panelet viser den deaktiverte tilstanden med forklaring.",
+      "dimensions": {
+        "width": 1880,
+        "height": 276
+      },
+      "width": 1880,
+      "height": 276,
+      "bytes": 22095,
+      "h1": [
+        "DEMO-2001"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/faktura/cmw7rm2ed00064nfjnmdha6lp",
+      "capturedAt": "2026-11-08T12:22:04.557Z"
+    },
+    {
+      "file": "screenshots/manual/regnskap-innstillinger.jpg",
+      "route": "/faktura/innstillinger",
+      "selector": "[data-accounting-settings]",
+      "role": "admin",
+      "caption": {
+        "nb": "Regnskapssynk",
+        "en": "Accounting sync"
+      },
+      "note": "Viser leverandør, tilkobling og siste test/synk. Ingen hemmeligheter vises.",
+      "dimensions": {
+        "width": 1432,
+        "height": 764
+      },
+      "width": 1432,
+      "height": 764,
+      "bytes": 67231,
+      "h1": [
+        "Fakturering og tilbud"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/faktura/innstillinger",
+      "capturedAt": "2026-11-08T12:22:06.199Z"
+    },
+    {
+      "file": "screenshots/manual/lager-innkjop.jpg",
+      "route": "/lager/innkjop",
+      "selector": "[data-purchase-orders]",
+      "role": "admin",
+      "caption": {
+        "nb": "Innkjøpsordrer",
+        "en": "Purchase orders"
+      },
+      "note": "Ett demoinnkjøp i status Bestilt.",
+      "dimensions": {
+        "width": 2392,
+        "height": 630
+      },
+      "width": 2392,
+      "height": 630,
+      "bytes": 58324,
+      "h1": [
+        "Innkjøp"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/lager/innkjop",
+      "capturedAt": "2026-11-08T12:22:07.901Z"
+    },
+    {
+      "file": "screenshots/manual/utlegg-godkjenning.jpg",
+      "route": "/utlegg/kontor",
+      "selector": "[data-expense-approval]",
+      "role": "admin",
+      "caption": {
+        "nb": "Kjøreturer og utlegg til godkjenning",
+        "en": "Mileage and expenses awaiting approval"
+      },
+      "note": "Én demokjøretur og ett demoutlegg, begge i status Til godkjenning.",
+      "dimensions": {
+        "width": 2392,
+        "height": 1000
+      },
+      "width": 2392,
+      "height": 1000,
+      "bytes": 108583,
+      "h1": [
+        "Utlegg og lønn"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/utlegg/kontor",
+      "capturedAt": "2026-11-08T12:22:09.922Z"
+    },
+    {
+      "file": "screenshots/manual/lonnsomhet-kpi.jpg",
+      "route": "/lonnsomhet",
+      "selector": "[data-bi-kpis]",
+      "role": "admin",
+      "caption": {
+        "nb": "Nøkkeltall i lønnsomhetsrapporten",
+        "en": "Profitability key figures"
+      },
+      "note": "Tallene er estimater fra demo-oppdragene i perioden.",
+      "dimensions": {
+        "width": 2648,
+        "height": 568
+      },
+      "width": 2648,
+      "height": 568,
+      "bytes": 102048,
+      "h1": [
+        "Lønnsomhet"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/lonnsomhet",
+      "capturedAt": "2026-11-08T12:22:17.060Z"
+    },
+    {
+      "file": "screenshots/manual/innstillinger-email.jpg",
+      "route": "/innstillinger?tab=email",
+      "selector": "[data-email-settings]",
+      "role": "admin",
+      "caption": {
+        "nb": "Automatisk e-post",
+        "en": "Transactional email"
+      },
+      "note": "SMTP-status og hendelsesvalg. Uten SMTP vises den trygge deaktiverte tilstanden.",
+      "dimensions": {
+        "width": 2136,
+        "height": 1964
+      },
+      "width": 2136,
+      "height": 1964,
+      "bytes": 222087,
+      "h1": [
+        "Innstillinger"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=email",
+      "capturedAt": "2026-11-08T12:22:19.318Z"
+    },
+    {
+      "file": "screenshots/manual/innstillinger-push.jpg",
+      "route": "/innstillinger?tab=push",
+      "selector": "[data-push-settings]",
+      "role": "admin",
+      "caption": {
+        "nb": "Pushvarsler",
+        "en": "Push notifications"
+      },
+      "note": "FCM/APNs er ikke konfigurert i demomiljøet; panelet viser status for enheter og utboks uten hemmeligheter.",
+      "dimensions": {
+        "width": 2136,
+        "height": 1492
+      },
+      "width": 2136,
+      "height": 1492,
+      "bytes": 128889,
+      "h1": [
+        "Innstillinger"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=push",
+      "capturedAt": "2026-11-08T12:22:21.217Z"
+    },
+    {
+      "file": "screenshots/manual/innstillinger-saml.jpg",
+      "route": "/innstillinger?tab=sso",
+      "selector": "[data-saml-settings]",
+      "role": "admin",
+      "caption": {
+        "nb": "SAML 2.0-leverandører",
+        "en": "SAML 2.0 providers"
+      },
+      "note": "Ingen SAML-leverandør er konfigurert i demomiljøet, så panelet viser den tomme tilstanden.",
+      "dimensions": {
+        "width": 2136,
+        "height": 494
+      },
+      "width": 2136,
+      "height": 494,
+      "bytes": 74139,
+      "h1": [
+        "Innstillinger"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=sso",
+      "capturedAt": "2026-11-08T12:22:22.961Z"
+    },
+    {
+      "file": "screenshots/manual/innstillinger-feltpolicy.jpg",
+      "route": "/innstillinger?tab=roller",
+      "selector": "[data-field-policy]",
+      "role": "admin",
+      "caption": {
+        "nb": "Feltnivå-RBAC",
+        "en": "Field-level RBAC"
+      },
+      "note": "Skrivebeskyttet matrise med felttilgang per rolle.",
+      "dimensions": {
+        "width": 2136,
+        "height": 872
+      },
+      "width": 2136,
+      "height": 872,
+      "bytes": 139523,
+      "h1": [
+        "Innstillinger"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=roller",
+      "capturedAt": "2026-11-08T12:22:25.006Z"
+    },
+    {
+      "file": "screenshots/manual/api-oversikt.jpg",
+      "route": "/innstillinger?tab=api",
+      "selector": "[data-api-settings]",
+      "role": "admin",
+      "caption": {
+        "nb": "API-nøkler",
+        "en": "API keys"
+      },
+      "note": "Opprettelse og liste over nøkler. Hemmeligheten vises bare ved opprettelse, og demomiljøet har ingen aktive nøkler.",
+      "dimensions": {
+        "width": 2136,
+        "height": 2086
+      },
+      "width": 2136,
+      "height": 2086,
+      "bytes": 227081,
+      "h1": [
+        "Innstillinger"
+      ],
+      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=api",
+      "capturedAt": "2026-11-08T12:22:27.035Z"
+    }
+  ],
+  "failures": []
+}

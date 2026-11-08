@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { equipmentErrorParam } from "@/lib/equipment-feedback";
+import { moduleEnabled } from "@/server/modules";
 import {
   createEquipmentCategory,
   deleteEquipmentCategory,
@@ -20,6 +21,7 @@ function failureRedirect(error: string): never {
 }
 
 export async function createEquipmentCategoryAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/");
 
@@ -34,6 +36,7 @@ export async function createEquipmentCategoryAction(formData: FormData) {
 }
 
 export async function updateEquipmentCategoryAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/");
 
@@ -49,6 +52,7 @@ export async function updateEquipmentCategoryAction(formData: FormData) {
 }
 
 export async function deleteEquipmentCategoryAction(formData: FormData) {
+  if (!(await moduleEnabled("equipment"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/");
 

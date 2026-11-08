@@ -1,6 +1,7 @@
 // i18n-ignore-file: SCIM ServiceProviderConfig er protokollmetadata.
 import { authenticateScimRequest } from "@/server/scim-tokens";
 import { scimJsonResponse } from "@/lib/scim-http";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  * kapabilitetene ikke er offentlig kartlagt.
  */
 export async function GET(request: Request) {
+  const moduleGuard = await moduleApiGuard("sso");
+  if (moduleGuard) return moduleGuard;
   const auth = await authenticateScimRequest(request);
   if (!auth.ok) return auth.response;
 

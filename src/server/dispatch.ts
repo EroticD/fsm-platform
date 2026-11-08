@@ -1,6 +1,7 @@
 // i18n-ignore-file: revisjonslogg og varsler lagrer stabile norske tekster,
 // akkurat som resten av tjenestelaget. De oversettes ved visning.
 import type { Prisma } from "@prisma/client";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import {
@@ -1578,7 +1579,7 @@ export async function getDispatchExceptionCounts(
         where: {
           AND: [
             scope,
-            { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+            { status: { notIn: statusKeysByCategory("CLOSED") } },
             { technicians: { none: {} } },
             { scheduledFor: { lte: today } },
             { OR: [{ scheduledTo: null }, { scheduledTo: { gte: today } }] },
@@ -1598,7 +1599,7 @@ export async function getDispatchExceptionCounts(
         where: {
           AND: [
             scope,
-            { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+            { status: { notIn: statusKeysByCategory("CLOSED") } },
             { scheduledFor: { lt: today } },
             { OR: [{ scheduledTo: null }, { scheduledTo: { lt: today } }] },
           ],
@@ -1608,7 +1609,7 @@ export async function getDispatchExceptionCounts(
         where: {
           AND: [
             scope,
-            { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+            { status: { notIn: statusKeysByCategory("CLOSED") } },
             { latitude: null },
             { longitude: null },
             {

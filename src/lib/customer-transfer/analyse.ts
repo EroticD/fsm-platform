@@ -1,9 +1,7 @@
 // i18n-ignore-file: konfliktanalyse bruker stabile koder og id-er, ikke PII.
 import { createHash } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import prisma from "@/lib/prisma";
-import { uploadDir } from "@/lib/uploads";
+import { getStorageDriver } from "@/lib/storage";
 import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { sha256Hex } from "@/lib/zip";
 import {
@@ -106,11 +104,8 @@ async function shaForUploadUrl(value: unknown): Promise<string | null> {
   if (typeof value !== "string") return null;
   const match = /^\/uploads\/([A-Za-z0-9._-]+)$/.exec(value);
   if (!match) return null;
-  const root = path.resolve(uploadDir());
-  const target = path.resolve(root, match[1]);
-  if (target !== root && !target.startsWith(root + path.sep)) return null;
   try {
-    return sha256Hex(await fs.readFile(target));
+    return sha256Hex(await getStorageDriver().read(match[1]));
   } catch {
     return null;
   }

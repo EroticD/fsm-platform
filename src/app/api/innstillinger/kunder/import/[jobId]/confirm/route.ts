@@ -43,12 +43,17 @@ export async function POST(
   }
 
   const { jobId } = await params;
-  const result = await confirmImport(guard.actor, jobId, {
-    previewToken: body.previewToken,
-    policies: body.policies,
-    createMissingReferences: body.createMissingReferences === true,
-    confirmation: body.confirmation === true,
-  });
+  const result = await confirmImport(
+    guard.actor,
+    jobId,
+    {
+      previewToken: body.previewToken,
+      policies: body.policies,
+      createMissingReferences: body.createMissingReferences === true,
+      confirmation: body.confirmation === true,
+    },
+    { mode: "queue" },
+  );
   if (!result.ok) return transferFailureResponse(result);
-  return transferJson(result.data);
+  return transferJson(result.data, { status: 202 });
 }

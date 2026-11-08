@@ -3,6 +3,7 @@ import { noStoreJson } from "@/lib/http";
 import { internalApiError } from "@/lib/api-errors";
 import { getEquipmentMovePreview } from "@/server/equipment-move";
 import { moveApiError } from "./_shared";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 /**
  * Forhåndsvisning for flytte-skjemaet. Klienten kaller denne når målkunde
@@ -12,6 +13,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const moduleGuard = await moduleApiGuard("equipment");
+  if (moduleGuard) return moduleGuard;
   const user = await getCurrentUser();
   if (!user) return internalApiError("not_authenticated", 401);
 

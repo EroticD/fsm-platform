@@ -1,12 +1,12 @@
 # Introduction and system overview
 
-*Applies to FSM Platform version 0.8.9, 4 November 2026.*
+*Applies to FSM Platform version 0.8.11, 8 November 2026.*
 
 ## What FSM Platform is
 
 FSM Platform is a service and maintenance system for work carried out at the customer's site: service, maintenance, inspection and repair. It brings planning, work orders, visits, checklists, reports, equipment, service contracts, documents and the customer portal together in one service.
 
-The platform is designed so that the office can plan without parallel spreadsheets, the technician can work from a phone or tablet even with a poor connection, and the customer can see contracts, visits, reports and equipment without calling the office. The system documents and plans work; it does not record hours, calculate prices or issue invoices. Price lists and contract amounts are reference data.
+The platform is designed so that the office can plan without parallel spreadsheets, the technician can work from a phone or tablet even with a poor connection, and the customer can see contracts, visits, reports and equipment without calling the office. The core documents and plans work and records time and travel per workday. Quotes, invoicing, payments, accounting sync, inventory, expenses and profitability are optional modules that an administrator must enable. Without those modules, price lists and contract amounts are reference data and invoicing happens outside the platform.
 
 ### The four roles
 
@@ -21,38 +21,49 @@ This manual uses four standard roles. An administrator can create custom roles a
 
 > **Note:** "Office" is a role, not a physical place. A service manager can work from a phone and still have the office role.
 
-## What's new in 0.8.9
+## What's new in 0.8.11
 
-- **Two-way SMS, office inbox and reminders.** Incoming SMS lands in the same
-  conversation as outgoing messages, with delivery status and STOP/START
-  consent. The office reads and replies under **Messages**, and an administrator
-  can configure automatic SMS/email reminders with quiet hours and a per-visit
-  cap. See the [office chapter](10-office.md) and the
-  [administrator chapter](30-administrator.md).
-- **SSO and SCIM.** OIDC sign-in with Microsoft Entra ID, Keycloak, Authentik or
-  Zitadel, plus SCIM 2.0 user provisioning. Password sign-in remains the
-  break-glass path. See the [administrator chapter](30-administrator.md).
-- **Field app camera and QR.** Scanning works on iOS and Android over HTTPS,
-  using the browser barcode API where available and a fallback elsewhere. Manual
-  codes, navigation and existing QR labels from other systems are supported. See
-  the [technician chapter](20-technician.md).
-- **PDF in the app or as a download.** Reports and revisions can be shown safely
-  in the app's PDF viewer after sanitisation. Direct links and **Download PDF**
-  still produce a file. See the [office chapter](10-office.md).
-- **Customer transfer.** An administrator can export and import customer
-  packages as ZIP, with preview, checksums and a single import transaction. See
-  the [office chapter](10-office.md).
-- **Route planning and live ETA.** The route planner suggests driving order,
-  drive time, distance and waiting time, with optional OSRM and a local fallback.
-  The tracking page states how fresh the position is. See the
-  [office chapter](10-office.md) and the [administrator chapter](30-administrator.md).
-- **Customer scoping and equipment moves.** Site and unit pickers load data only
-  for the selected customer. A unit can be moved to another customer with its
-  service history, after a preview and contract checks. See the
-  [office chapter](10-office.md).
-- **Upload limits and quotas.** 15 MB per image, 50 MB per PDF, 2 GiB per user
-  per day and 10 GiB per customer. The limits can be adjusted in the
-  environment. See the [administrator chapter](30-administrator.md).
+- **Quotes, invoices and payment links.** Quotes have versions, printing and a
+  one-time approval link. Invoices have partial payments, credit notes,
+  overdue handling and CSV. The customer can pay with Stripe Checkout or Vipps
+  MobilePay where the provider is configured. See
+  [quotes and invoicing](40-quotes-invoicing.md).
+- **Accounting sync.** Sent invoices can be synced manually to Fiken, Tripletex
+  or PowerOffice Go, with CSV as an explicit export fallback. Sync is
+  idempotent and audit-logged. See [accounting](40-quotes-invoicing.md).
+- **Inventory, suppliers and purchasing.** Item list, locations, stock,
+  reservations, consumption, supplier register, purchase orders and goods
+  receipt. See [inventory](10-office.md).
+- **Mileage, expenses and payroll basis.** The technician records mileage and
+  expenses with receipts; the office approves and exports a locked payroll CSV
+  per period. See [expenses](10-office.md).
+- **Profitability.** Estimated and actual revenue, time, first-time fix and
+  utilisation by department, customer and technician, with CSV export. See
+  [profitability](10-office.md).
+- **Automatic email and push.** Transactional email uses a durable outbox with
+  retry, per-event switches and test send. Push uses FCM and APNs with deep
+  links and device registration. See [administrator](30-administrator.md) and
+  [technician](20-technician.md).
+- **Routing with traffic and overtime.** Routing uses OpenStreetMap/OSRM, with
+  optional Google Routes API for traffic-aware ETA. Visits that cannot meet the
+  time window are planned as overtime instead of staying unassigned. See
+  [route plan](10-office.md).
+- **Manual order.** Both the route planner and **Days and time** on the work
+  order have number fields 1/2/3/4. Manual order overrides automatic
+  optimisation and is audited per visit.
+- **SAML 2.0, SCIM groups and field-level RBAC.** SAML can be used alongside or
+  instead of OIDC. SCIM Groups grant role and department through explicit
+  mapping. Sensitive fields are masked on the server for technicians and the
+  customer portal. See [SSO and SCIM](31-sso-scim.md).
+- **API for quotes, external orders and inventory.** `/api/v1/quotes`,
+  `/api/v1/orders` and `/api/v1/inventory/**` have dedicated scopes. External
+  order systems use `source` + `externalId` and `Idempotency-Key`, and receive
+  the same order on replay. See [administrator](30-administrator.md).
+- **S3, Redis and HA/PITR.** Uploads can live in S3/MinIO, the job queue and
+  rate limits can use Redis, and the HA profile has multiple app replicas, WAL
+  archiving and tested PITR restore. See [administrator](30-administrator.md).
+- **Compliance.** The ISO/IEC 27001 and SOC 2 package is a **readiness basis**,
+  not a certification or audit report. See [administrator](30-administrator.md).
 
 ## How the system is put together
 
@@ -73,6 +84,28 @@ Behind the surfaces is a shared application that enforces workflow and access. I
 | **User surfaces** | Customer portal, office surface, field surface and REST API clients in a browser or installed PWA. |
 | **Application** | Access control, workflow, notifications, search and PDF rendering. |
 | **Data and jobs** | PostgreSQL with data, revisions and audit log; file volume for PDFs and images; job queue for OCR, document jobs and notifications; email/SMS where configured. |
+
+### Modules
+
+The platform has a core and a catalogue of modules that can be switched on and
+off under **Settings → Modules**. The core (customers, work orders, workdays,
+time, revisions and settings) works without optional modules. A module may have
+dependencies, and the module guard returns `404` for pages and APIs when the
+module is off.
+
+| Module | Key | Provides |
+| --- | --- | --- |
+| **Quotes** | `quotes` | Quotes, versions, approval link and conversion to work order |
+| **Invoicing** | `invoicing` | Invoice, payment, credit note, overdue and CSV |
+| **Inventory** | `inventory` | Items, locations, stock, reservations and purchasing |
+| **Expenses** | `fieldExpenses` | Mileage, expenses and payroll CSV |
+| **Profitability** | `bi` | Estimated and actual revenue, time and CSV |
+| **Customer portal** | `portal` | The customer's own surface |
+| **API** | `api` | The REST API under `/api/v1` |
+
+Existing installations get every delivered module enabled. Turning a module off
+removes navigation, settings, search hits and background jobs for that area, but
+keeps the data. Turn it on again to restore access.
 
 The field surface also has a local buffer in the browser:
 
@@ -98,6 +131,11 @@ A draft can be saved locally, but a submitted report is not considered sent unti
 | **Report, unit and answers** | Completed checklist with units, photos and signatures | Work order, template, equipment, PDF, revisions, acknowledgement |
 | **Service contract and SLA** | Agreement for recurring service and deadlines | Customer, department, template, SLA policy, work orders |
 | **Booking** | Customer's request or confirmed appointment | Customer, site, equipment, work order, visit, events |
+| **Quote** | Price proposal with lines, versions and approval | Customer, contact, work order, contract, equipment |
+| **Invoice and payment** | Invoiced amount, payments and credit note | Customer, work order, report, quote |
+| **Item and stock** | Spare part with stock per location | Location, reservation, work order |
+| **Purchase order** | Supplier order with goods receipt | Supplier, receiving location, item lines |
+| **Mileage and expense** | Mileage allowance or expense with receipt | User, work order, approver, payroll CSV |
 | **Document** | File in the library or an attachment | Folder, tags, versions, work order, customer, contract |
 | **Notification** | Message to a user about an event | User, type, source, link, email status |
 | **Audit log** | Traceable history of actions | Entity, actor, time, metadata |
@@ -144,7 +182,7 @@ The role chapters describe each step in detail. Here you can see how the roles a
 1. **The administrator** enables live tracking for the department. It is off by default and applies only to visits in that department.
 2. **The technician** sets the visit to "On the way" and can share position. The customer opens the tracking link from "Visits" or receives it separately.
 3. **The customer portal user** sees the first name, status and estimated arrival. The position is never shown as a map or coordinates, and the link expires when the visit is finished or after two hours.
-4. **The customer** can leave an internal review after the visit is completed. Reviews are internal and never published; they are not shown as a separate dashboard in 0.8.9.
+4. **The customer** can leave an internal review after the visit is completed. Reviews are internal and never published; they are not shown as a separate dashboard in 0.8.11.
 
 ### 5. Permissions, notifications and audit across all flows
 
@@ -160,8 +198,8 @@ The menu is adapted to role and permissions, so you will not necessarily see eve
 
 | Role | Home | Main menu | Hamburger menu and settings |
 | --- | --- | --- | --- |
-| **Administrator** | "Dashboard" | Dashboard, Work orders, Calendar, Customers, Messages, Reports | Bookings, Contracts, Units, Search, HMS, Documents, Map, New work order, Notifications, Settings |
-| **Office** | "Dashboard" | Dashboard, Work orders, Calendar, Customers, Messages, Reports | Bookings, Contracts, Units, Search, HMS, Documents, Map, New work order, Notifications, Settings |
+| **Administrator** | "Dashboard" | Dashboard, Work orders, Calendar, Customers, Messages, Reports | Bookings, Contracts, Units, Search, HMS, Documents, Map, New work order, Notifications, Quotes, Invoices, Inventory, Expenses, Profitability, Settings |
+| **Office** | "Dashboard" | Dashboard, Work orders, Calendar, Customers, Messages, Reports | Bookings, Contracts, Units, Search, HMS, Documents, Map, New work order, Notifications, Quotes, Invoices, Inventory, Expenses, Profitability, Settings |
 | **Technician** | "Today" | Today, Work orders, Calendar, Customers, Messages | Reports, Bookings, Contracts, Units, Search, HMS, Documents, Map, New work order, Notifications, Customers & equipment, Settings |
 | **Customer portal user** | "Customer portal" | Overview, Bookings, Reports, Documents, Equipment, Contracts, Visits, Messages, Contact | Account & security |
 
@@ -186,13 +224,20 @@ On mobile, the bottom bar shows the most important areas: "Dashboard", "Work ord
 | Global audit log | "Settings" → "Activity log" (administrator) |
 | Employees, roles and permissions | "Settings" → "Employees & Roles" or "Roles & permissions" |
 | API keys | "Settings" → "API keys" (administrator) |
+| Quotes and approval links | "Quotes" |
+| Invoices, payments and credit notes | "Invoices" |
+| Spare parts, stock and purchasing | "Inventory" |
+| Mileage and expenses for approval | "Expenses" → "Office" |
+| Revenue, time and profitability | "Profitability" |
+| Automatic email and push | "Settings" → "Automatic email" / "Push notifications" |
 | Anything across customers and work orders | "Search" |
 
 ## How to use this manual
 
-The manual has an introduction, three role chapters and a reference section. You do not need to read everything in order. Start with your role, and use the reference section when you need a term, a status or a troubleshooting check.
+The manual has an introduction, three role chapters, a chapter on SSO and SCIM, a chapter on quotes, invoicing and accounting and a reference section. You do not need to read everything in order. Start with your role, and use the reference section when you need a term, a status or a troubleshooting check.
 
 - **Role chapters:** Part 1 for office, Part 2 for technician and Part 3 for administrator. The customer portal is described alongside the customer card and the roles that administer it.
+- **Specialist chapters:** [SSO and SCIM](31-sso-scim.md) and [quotes, invoicing and accounting](40-quotes-invoicing.md) cut across the roles.
 - **Reference:** the reference part contains the status glossary, permission matrix, terms and troubleshooting.
 
 ### Conventions
@@ -203,7 +248,7 @@ The manual has an introduction, three role chapters and a reference section. You
 - **Note** explains something that is easy to misunderstand. **Tip** is a shortcut or good practice. **Warning** means the action can lead to data loss or errors.
 - Dates and times are shown in Europe/Oslo with a 24-hour clock. "Today" means the day in that time zone.
 - When a time or date is missing, the system shows "Time not set" or "No date". That does not mean the value is midnight or that the job has been forgotten.
-- Service report PDFs use Norwegian labels in 0.8.9, even when the interface is in English. Contract PDFs can be generated in the selected language.
+- Service report PDFs use Norwegian labels in 0.8.11, even when the interface is in English. Contract PDFs can be generated in the selected language.
 
 > **Warning:** A submitted and locked report should not be changed without a good reason. Unlocking requires an administrator and a reason, and every change is recorded in the audit log.
 

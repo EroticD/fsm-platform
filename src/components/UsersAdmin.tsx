@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import InviteActionForm from "@/components/InviteActionForm";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import CustomerContactSelect from "@/components/billing/CustomerContactSelect";
 import Icon from "@/components/icons";
 import { controlClassName } from "@/components/ui/controlStyles";
 import {
@@ -298,35 +299,21 @@ export default async function UsersAdmin({
                 </p>
               </div>
               {canManageCustomers && (
-                <div>
-                  <label htmlFor="new-user-contact" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-                    {t("users.add.contact")}{" "}
-                    <span className="font-normal normal-case tracking-normal text-[var(--muted,#62685f)]">{t("users.add.contactRequired")}</span>
-                  </label>
-                  <select
-                    id="new-user-contact"
-                    name="contactId"
-                    defaultValue=""
-                    className={controlClassName("min-h-11 text-xs font-medium")}
-                  >
-                    <option value="">{t("users.add.noContact")}</option>
-                    {customers
-                      .filter((c) => c.contacts.length > 0)
-                      .map((c) => (
-                        <optgroup key={c.id} label={c.name}>
-                          {c.contacts.map((ct) => (
-                            <option key={ct.id} value={ct.id}>
-                              {ct.name}
-                              {ct.role ? ` (${ct.role})` : ""}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                  </select>
-                  <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-                    {t("users.add.contactHelp")}
-                  </p>
-                </div>
+                <CustomerContactSelect
+                  customers={customers.map((customer) => ({
+                    id: customer.id,
+                    name: customer.name,
+                    customerNumber: customer.customerNumber ?? null,
+                  }))}
+                  labels={{
+                    customer: t("users.add.customer"),
+                    chooseCustomer: t("users.add.chooseCustomer"),
+                    contact: t("users.add.contact"),
+                    noContact: t("users.add.noContact"),
+                    loadingContacts: t("users.add.loadingContacts"),
+                    noContacts: t("users.add.noContacts"),
+                  }}
+                />
               )}
             </div>
 

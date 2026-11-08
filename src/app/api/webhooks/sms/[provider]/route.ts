@@ -11,6 +11,7 @@ import {
 } from "@/lib/sms/provider";
 import { recordInboundSms, type InboundSmsResult } from "@/server/messaging";
 import { applySmsStatusUpdate } from "@/server/sms";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,6 +89,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ provider: string }> },
 ) {
+  const moduleGuard = await moduleApiGuard("sms");
+  if (moduleGuard) return moduleGuard;
   const { provider: providerParam } = await context.params;
   if (!isProvider(providerParam)) {
     return errorResponse("invalid-provider", 404);

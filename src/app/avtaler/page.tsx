@@ -1,3 +1,4 @@
+import { requireModulePage } from "@/lib/module-guards";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -43,6 +44,7 @@ export default async function ContractsPage({
     side?: string;
   }>;
 }) {
+  await requireModulePage("contracts");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (

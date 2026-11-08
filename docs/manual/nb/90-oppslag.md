@@ -1,6 +1,6 @@
 # Oppslag, begreper og feilsøking
 
-*Gjelder FSM-plattformen versjon 0.8.9, 4. november 2026.*
+*Gjelder FSM-plattformen versjon 0.8.11, 8. november 2026.*
 
 Dette kapitlet forklarer rettigheter, statuser og begreper på tvers av rollene, viser hvordan funksjonene henger sammen, og hjelper deg å finne hvor du skal lete når noe mangler.
 
@@ -21,6 +21,11 @@ Dette kapitlet forklarer rettigheter, statuser og begreper på tvers av rollene,
 | **Ansatte og roller** | Full | Administrere brukere i egen avdeling; kan tildele roller hvis rettigheter er en delmengde av egne, aldri **Administrator**; rolldefinisjoner og avdelingsbytte er administrator | Nei | Nei |
 | **Innstillinger og merkevare** | Full | Administrere merkevare, kart, maler og dispatch; avdelinger, roller og API er administrator | Nei | Nei |
 | **Aktivitetslogg** | Global | Per oppdrag og kunde | Per oppdrag | Nei |
+| **Tilbud og faktura** | Full | Se og administrere i egen avdeling; sende, betale og kreditere | Nei | Se egne fakturaer og betale |
+| **Betaling og regnskapssynk** | Full | Opprette betalingslenke og synkronisere faktura | Nei | Se og betale egen faktura |
+| **Lager og innkjøp** | Full, alle avdelinger | Se og administrere i egen avdeling; reservere og forbruke | Se og reservere/forbruke hvis gitt | Nei |
+| **Kjøretur og utlegg** | Full | Godkjenne og eksportere i egen avdeling | Registrere egne | Nei |
+| **Lønnsomhet** | Full | Se egen avdeling | Nei | Nei |
 | **API-nøkler** | Full | Nei | Nei | Nei |
 | **Sletting, gjenoppretting, opplåsing og bevaringsplikt** | Full | Nei | Nei | Nei |
 
@@ -34,7 +39,7 @@ Sletting er bevisst ikke en vanlig rettighet. Administrator kan slette kunder, f
 
 | Status | Vises som | Betydning |
 | --- | --- | --- |
-| `OPEN` | Åpen / Ny | Opprettet, men ikke planlagt. Brukes blant annet for bestillinger uten ledig time. |
+| `OPEN` | Åpen / Ny | Opprettet, men ikke planlagt. Brukes for kundens datoforespørsel før kontoret planlegger den. |
 | `PENDING` | Venter på planlegging | Startstatus for nye og klonede oppdrag. Skal ikke velges manuelt. |
 | `PLANNED` | Planlagt | Har dato eller visitt og er klar for tildeling eller utførelse. |
 | `WAITING` | Venter på kunde | Arbeidet står i bero på kunden, tilgang eller avklaring. |
@@ -97,18 +102,70 @@ Fornyelse er `AUTO` (automatisk) eller `MANUAL` (kontoret fornyer). `Neste servi
 
 SLA-frister regnes med avdelingens åpningstider og helligdager. Første «På vei» eller «På stedet» registrerer respons; «Ferdig» registrerer løsning, og «Avslutt kjøring» flytter ikke klokken. En SLA-klokke finnes bare når oppdraget har en aktiv, datogyldig avtale med en aktiv SLA-policy. Uten en slik avtale vises ingen SLA.
 
-> **Merk:** Systemet beregner ikke priser eller faktura. Prislister og avtalebeløp er referansedata.
+> **Merk:** Uten modulene `quotes` og `invoicing` beregner ikke systemet priser eller faktura, og prislister er referansedata. Er modulene på, beregnes tilbud, faktura, MVA, betaling og kreditnota på serveren.
 
 ### Bestillingsstatus
 
 | Status | Vises som | Betydning |
 | --- | --- | --- |
-| `PENDING` | Venter | Ligger i kontorets bookingkø og er ikke bundet til en ledig time. |
-| `CONFIRMED` | Bekreftet | Timen er reservert, og oppdrag og visitt er opprettet. |
+| `PENDING` | Venter | Ligger i kontorets bookingkø som en datoforespørsel. Tid og montør er ikke planlagt. |
+| `CONFIRMED` | Bekreftet | Kontoret har planlagt tid og montør, og oppdrag og visitt er opprettet. |
 | `CANCELLED` | Avlyst | Bestillingen er avlyst. |
 | `EXPIRED` | Utløpt | En ventende forespørsel er utløpt uten bekreftelse. |
 
-Nye bestillinger bekreftes normalt direkte mot en ledig time. Timen holdes i fem minutter mens kunden fyller ut skjemaet. Eldre eller manuelt opprettede forespørsler kan stå som `PENDING`. Hendelsesloggen bruker `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` og `EXPIRED`.
+Nye bestillinger er alltid datoforespørsler: kunden velger dato, ikke tidsblokk, og kontoret planlegger tid og montør. Ingen ny bestilling blir `CONFIRMED` direkte. Alle ventende forespørsler kan bekreftes; eldre rader med et lagret tidsvindu kan bruke det, ellers oppgir kontoret dato, start og slutt. Overlappende visiter er en opptatt-markering, ikke en hard sperre. En kort reservasjon (`BookingHold`) brukes bare når en allerede bekreftet avtale flyttes. Hendelsesloggen bruker `CREATED`, `CONFIRMED`, `RESCHEDULED`, `CANCELLED` og `EXPIRED`.
+
+### Tilbud, faktura og betaling
+
+| Tilbudsstatus | Vises som | Betydning |
+| --- | --- | --- |
+| `DRAFT` | Kladd | Kan redigeres fritt |
+| `SENT` | Sendt | Lenke er utstedt; linjene er fryst |
+| `ACCEPTED` | Godkjent | Kunden har godtatt |
+| `REJECTED` | Avslått | Kunden har avslått |
+| `EXPIRED` | Utløpt | Gyldigheten er passert |
+
+| Fakturastatus | Vises som | Betydning |
+| --- | --- | --- |
+| `DRAFT` | Kladd | Ikke sendt; kan redigeres |
+| `SENT` | Sendt | Nummer tildelt; linjene er fryst |
+| `PARTIALLY_PAID` | Delvis betalt | Utestående gjenstår |
+| `PAID` | Betalt | Utestående er null |
+| `OVERDUE` | Forfalt | Forfallsdato passert |
+| `CREDITED` | Kreditert | Kreditnota er registrert |
+
+| Betalingsstatus | Betyr |
+| --- | --- |
+| **Venter** | Lenke er opprettet, men betalingen er ikke bekreftet |
+| **Betalt** | Webhooken har registrert betalingen |
+| **Feilet** | Leverandøren avviste eller betalingen feilet |
+| **Utløpt** | Lenken er utløpt uten betaling |
+
+En betalingslenke kan bare brukes én gang og gjelder ett beløp. Refusjon skjer
+med kreditnota, ikke fra betalingsleverandøren. Regnskapssynken har statusene
+**Synkronisert**, **Eksportert** (CSV) og **Feilet**.
+
+### Lager, innkjøp og utlegg
+
+| Innkjøpsstatus | Vises som | Betydning |
+| --- | --- | --- |
+| `DRAFT` | Utkast | Kan redigeres |
+| `ORDERED` | Bestilt | Ingen varer mottatt |
+| `PARTIALLY_RECEIVED` | Delvis mottatt | Noe er på lager |
+| `RECEIVED` | Mottatt | Alt er mottatt |
+| `CANCELLED` | Avbestilt | Avbestilt før mottak |
+
+Bevegelsene i lageret er `IN`, `OUT`, `ADJUST`, `RESERVE`, `RELEASE` og
+`CONSUME`. En reservasjon reduserer tilgjengelig beholdning, men flytter ikke
+varen før den forbrukes. Bare `ADJUST` kan gi negativ beholdning.
+
+| Utleggsstatus | Vises som | Betydning |
+| --- | --- | --- |
+| `DRAFT` | Utkast | Ikke sendt til godkjenning |
+| `PENDING` | Venter | Sendt inn, ikke behandlet |
+| `APPROVED` | Godkjent | Kan eksporteres |
+| `REJECTED` | Avvist | Krever begrunnelse; eksporteres ikke |
+| `EXPORTED` | Eksportert | Låst i en lønns-CSV |
 
 ### Varsler og aktivitetslogg
 
@@ -127,6 +184,7 @@ Et varsel er en melding til én bruker om en hendelse. Det vises i bjellen og p�
 | `SLA_AT_RISK` / `SLA_BREACHED` | Montør og kontor | SLA-fristen nærmer seg eller er brutt |
 | `WARRANTY` | Kontoret | Garantien på utstyr er i ferd med å utløpe |
 | `MESSAGE` | Kontor eller kunde | Ny melding i en samtale |
+| `INVOICE_PAID` | Kontor og kunde | Fakturaen er betalt |
 
 Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet, endret, flyttet, kansellerte, slettet, låste opp eller slo på bevaringsplikt, med tidspunkt og metadata. Du finner den på oppdraget, på kundekortet og i «Innstillinger» → «Aktivitetslogg» for administrator.
 
@@ -138,9 +196,9 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 
 | Handling | Data som opprettes eller oppdateres | Hvem ser det |
 | --- | --- | --- |
-| Kunden bestiller en ledig time | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, bookinghendelse, `BOOKING` | Kunde, kontor, montør |
-| Kunden sender forespørsel uten ledig time | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, bookinghendelse | Kontor i «Bookinger» |
-| Kontoret bekrefter en ventende booking | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, eventuell SMS | Kunde, kontor, montør |
+| Kunden sender en datoforespørsel | `BookingRequest(PENDING)`, `WorkOrder(OPEN)`, bookinghendelse, `BOOKING` | Kontor i «Bookinger» |
+| Kontoret bekrefter en ventende forespørsel | `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)`, `Visit(PLANNED)`, eventuell SMS | Kunde, kontor, montør |
+| Kunden flytter en bekreftet avtale | Nytt tidsvindu, `Visit(PLANNED)`, `RESCHEDULED`; kort `BookingHold` bare i denne flyten | Kunde, kontor, montør |
 | Kontoret oppretter et oppdrag | `WorkOrder(PENDING)`, `Visit(PLANNED)` hvis dato, aktivitetslogg | Kontor, kalender |
 | Kontoret tildeler en montør | `VisitTechnician`, montørliste, `ASSIGNMENT`, aktivitetslogg | Montør, kontor |
 | Montøren starter kjøring | `Visit(EN_ROUTE)`, `enRouteAt`, SLA-respons, sporing | Kontor, kunde |
@@ -152,6 +210,18 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 | En måling passerer terskelen | `MaintenancePlanOccurrence`, nytt vedlikeholdsoppdrag | Kontor, kunde |
 | Et dokument lastes opp | `Document`, `Upload`, OCR-jobb, søkeindeks | Ansatte med dokumenttilgang |
 | Rolle eller rettigheter endres | `User.sessionVersion` økes, API-nøkler arver nye rettigheter | Brukeren, administrator |
+| Tilbud sendes | `Quote(SENT)`, versjon, engangstoken, `EmailMessage` | Kunde, kontor |
+| Kunden godkjenner tilbud | `Quote(ACCEPTED)`, revisjonsrad | Kontor, kunde |
+| Tilbud konverteres | `WorkOrder`, kundekobling, utstyr | Kontor, kalender |
+| Faktura sendes | `Invoice(SENT)`, nummer, frosne linjer, `EmailMessage` | Kunde, kontor |
+| Betaling mottas | `Payment`, `Invoice.paidTotal`, status, revisjonsrad | Kontor, kunde |
+| Betalingslenke opprettes | `Payment`-metadata, ekstern id, revisjonsrad | Kunde, kontor |
+| Faktura synkroniseres | `AccountingSync`, ekstern id, status | Kontor, regnskap |
+| Vare reserveres | `InventoryReservation`, `StockMovement(RESERVE)` | Lager, montør |
+| Vare forbrukes | `StockMovement(CONSUME)`, redusert beholdning | Lager, montør |
+| Innkjøpsordre mottas | `PurchaseOrder`, `PurchaseOrderLine`, `StockMovement(IN)` | Lager, kontor |
+| Utlegg godkjennes | `Expense`/`MileageTrip`, godkjenner, revisjonsrad | Kontor, montør |
+| Lønns-CSV eksporteres | `PayrollExport`, låste linjer, kontrollsum | Kontor, lønn |
 
 ## Vanlige problemer på tvers av roller
 
@@ -170,12 +240,20 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 | **Enhet kan ikke flyttes** | Aktive kontraktslinjer, nummerkonflikt, krysskundereferanse eller ugyldig målkunde | Les blokkeringen i forhåndsvisningen, rydd avtalelinjen eller velg riktig kunde/sted |
 | **Opplasting avvises** | For stor fil, bruker-/kundekvote nådd, eller proxygrense | Sjekk filstørrelse, `UPLOAD_QUOTA_*`, disk og proxyens body-grense |
 | **Kundeoverføring starter ikke** | 10 starter per time er brukt opp, en pågående jobb gjenbrukes, eller forhåndsvisningen er utløpt | Vent, følg den eksisterende jobben, eller last opp og forhåndsvis pakken på nytt |
+| **Tilbuds- eller fakturasiden gir 404** | Modulen `quotes`/`invoicing` er av | Slå på modulen under **Innstillinger → Moduler** |
+| **Betalingsknappen vises ikke** | Leverandør eller webhook-hemmelighet mangler, eller beløpet er betalt | Kontroller `PAYMENTS_PROVIDER` og nøklene, og lag ny lenke |
+| **Betalingen blir ikke bokført** | Webhook avvist, eller valuta/beløp avviker | Kontroller signatur og revisjonslogg; avstem manuelt |
+| **Regnskapssynken feiler** | Feil nøkkel, konto eller MVA-oppsett | Les `lastError`, rett årsaken og synkroniser på nytt |
+| **Beholdningen stemmer ikke** | Reservasjon ikke forbrukt, eller justering mangler | Se bevegelser og reservasjoner på varen |
+| **Utlegg kan ikke eksporteres** | Perioden overlapper, eller raden er ikke godkjent | Velg ny periode og godkjenn raden |
+| **E-post blir liggende** | SMTP mangler, eller hendelsen er av | Kontroller `SMTP_*` og **Automatisk e-post** |
+| **Push kommer ikke** | Enheten er avregistrert, varsler avslått, eller leverandøren er ikke konfigurert | Registrer enheten på nytt og kontroller FCM/APNs |
 
 ### Kundeportal: tilgang er mer enn innlogging
 
 En portalbruker er alltid koblet til en kontaktperson hos en kunde. Kontakten kan ha en delegasjon med egne valg for bestilling, dokumenter, avtaler og utstyr. En inaktiv delegasjon stenger portalen helt. En kontakt uten delegasjonsrad har full portaltilgang for bakoverkompatibilitet. Kontroller at brukeren er aktiv og har riktig kunde, at kontakten tilhører samme kunde, at delegasjonen er aktiv, og at deltilgangen for området som mangler, er slått på.
 
-> **Merk:** I 0.8.9 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
+> **Merk:** I 0.8.11 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
 
 ### Kalender, rapporter og avtaler
 
@@ -218,8 +296,8 @@ Feltflaten lagrer kladder lokalt når nettet forsvinner. Kladden sendes når app
 | SLA | Service level agreement | Avtalt respons- og løsningstid |
 | Åpningstider | Business hours | Tidsrommene SLA-frister regnes innenfor |
 | Bestilling | Booking | Kundens forespørsel eller bekreftede time |
-| Ledig time | Available slot | En time som kan bookes |
-| Reservasjon | Hold | Kortvarig reservering av en time |
+| Ledig time | Available slot | Foreslått tid i slotvelgeren; brukes bare ved flytting av en bekreftet avtale, ikke ved nye bestillinger |
+| Reservasjon | Hold | Kortvarig reservering av en ledig time i den eldre ombookingsflyten |
 | Varsel | Notification | Melding om en hendelse |
 | Aktivitetslogg | Audit log | Sporbar historikk over handlinger |
 | Rettighet | Permission | Hva en rolle eller bruker kan gjøre |
@@ -236,12 +314,35 @@ Feltflaten lagrer kladder lokalt når nettet forsvinner. Kladden sendes når app
 | Enhetsflytting | Equipment move | Flytting av enhet med servicehistorikk til ny kunde |
 | Kundeoverføring | Customer transfer | Administratorens eksport/import av kundepakke |
 | Kontorinnboks | Office inbox | Samlede SMS-samtaler for kontoret |
+| Tilbud | Quote | Prisforslag med linjer, versjoner og godkjenning |
+| Faktura | Invoice | Fakturert beløp med linjer, betaling og kreditnota |
+| Kreditnota | Credit note | Reduksjon av utestående, aldri over utestående |
+| Betalingslenke | Payment link | Engangslenke til Stripe Checkout eller Vipps |
+| Regnskapssynk | Accounting sync | Manuell overføring av kunde, faktura og betaling |
+| Lager | Inventory | Varer, beholdning og lokasjoner |
+| Innkjøpsordre | Purchase order | Bestilling til leverandør med varemottak |
+| Varemottak | Goods receipt | Registrering av mottatte varer mot en ordre |
+| Reservasjon | Reservation | Del som er holdt av til et oppdrag |
+| Forbruk | Consumption | Fysisk trekk av reservert vare |
+| Kjøretur | Mileage trip | Kjøregodtgjørelse med kilometer og sats |
+| Utlegg | Expense | Utgift med kvittering og MVA |
+| Lønns-CSV | Payroll CSV | Låst eksport av godkjent tid, kjøretur og utlegg |
+| Lønnsomhet | Profitability | Estimert og faktisk inntekt per avdeling, kunde og montør |
+| Utboks | Outbox | Vedvarende kø for e-post og push |
+| Pushvarsel | Push notification | Varsel til mobilen via FCM eller APNs |
+| SAML | SAML | Føderert innlogging med signert assertion |
+| SCIM-gruppe | SCIM group | Gruppe som gir rolle/avdeling via eksplisitt mapping |
+| Feltmaskering | Field redaction | Server-side skjuling av sensitive felt |
+| S3 | S3 | Objektlager for opplastinger |
+| Redis | Redis | Varslingskanal og cache, med database som fallback |
+| PITR | PITR | Gjenoppretting til et valgt tidspunkt |
+| RPO/RTO | RPO/RTO | Maksimalt datatap og maksimal nedetid |
 
 ## Informasjon til support
 
 Når du melder en feil, hjelper det å samle informasjonen under. Skriv kort hva du gjorde, hva du forventet, og hva som faktisk skjedde.
 
-- **Versjon:** FSM-plattformen 0.8.9, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
+- **Versjon:** FSM-plattformen 0.8.11, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
 - **Tidspunkt:** Dato og klokkeslett med tidssone, helst Europe/Oslo.
 - **Bruker:** E-post, rolle, avdeling og eventuell kunde. Oppgi aldri passord eller engangskoder.
 - **Sak:** Oppdragsnummer eller -ID, tittel, kunde og dato. For rapport: rapportnummer eller -ID. For booking: referanse. For avtale: avtalenummer.
@@ -253,5 +354,7 @@ Når du melder en feil, hjelper det å samle informasjonen under. Skriv kort hva
 - **API:** Oppgi nøkkelprefiks (aldri hele nøkkelen), endepunkt, tidspunkt, HTTP-status, `error.code` og eventuell `requestId`.
 - **PDF og e-post:** Oppgi om det gjelder generering, visning, nedlasting eller utsending, og om det gjelder rapport eller avtale.
 - **Offline:** Oppgi om kladden ligger i utboksen, om den er eldre enn sju dager, og om samme bruker og enhet ble brukt.
+- **Betaling og regnskap:** Oppgi fakturanummer, leverandør, beløp, valuta og om feilen skjedde ved lenke, webhook eller synk. Aldri hele nøkler.
+- **E-post og push:** Oppgi hendelsestype, mottaker, om det gjelder app eller e-post, og om raden står `PENDING`, `FAILED` eller `DEAD_LETTER`.
 
 > **Advarsel:** Send aldri passord, engangskoder, hele API-nøkler eller fullstendige personopplysninger i en supportsak. Skjermbilder bør maskeres der det er mulig.

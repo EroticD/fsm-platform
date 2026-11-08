@@ -79,6 +79,7 @@ export default function DashboardRail({
   updatedAt,
   locale,
   canAssign,
+  showReviews = true,
   t,
 }: {
   nextOrder: DashboardOrder | null;
@@ -94,6 +95,7 @@ export default function DashboardRail({
   updatedAt: string;
   locale: string;
   canAssign: boolean;
+  showReviews?: boolean;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   const percent =
@@ -397,6 +399,7 @@ export default function DashboardRail({
         </div>
       </section>
 
+      {showReviews && (
       <section className="office-card p-4" aria-labelledby="reviews-title">
         <div className="flex items-center justify-between gap-3">
           <h2
@@ -428,6 +431,7 @@ export default function DashboardRail({
           <Icon name="arrowRight" className="h-4 w-4" />
         </Link>
       </section>
+      )}
 
       <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
         <span

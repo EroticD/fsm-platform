@@ -1072,6 +1072,10 @@
           "travelFrom": "Rückfahrt",
           "totalIncludesTravel": "Die Summe enthält alle Fahrten hin und zurück.",
           "day": "Tag",
+          "routeSequence": "Reihenfolge",
+          "routeSequenceAuto": "Auto",
+          "routeSequenceSave": "Speichern",
+          "routeSequenceHint": "Wird im Routenplaner verwendet. Zeiten werden dort verschoben.",
           "status": "Status",
           "timestamps": "Zeitstempel",
           "notStarted": "Nicht gestartet",
@@ -1558,6 +1562,7 @@
         "contactAdded": "Die Kontaktperson wurde hinzugefügt.",
         "templateAdded": "Die Checkliste wurde hinzugefügt.",
         "tagsSaved": "Die Tags wurden gespeichert.",
+        "routeSequenceSaved": "Die Reihenfolge wurde gespeichert.",
         "reportLockUpdated": "Die Berichtssperre wurde aktualisiert.",
         "legalHoldUpdated": "Der Legal Hold wurde aktualisiert.",
         "reportLegalHoldUpdated": "Der Legal Hold für den Bericht wurde aktualisiert.",
@@ -2322,7 +2327,27 @@
         "api": "API-Schlüssel",
         "sla": "SLA und Geschäftszeiten",
         "equipment": "Ausstattung",
-        "evidence": "Nachweise"
+        "evidence": "Nachweise",
+        "modules": "Module",
+        "email": "E-Mail",
+        "push": "Push-Benachrichtigungen",
+        "workOrderStatus": "Status von Arbeitsaufträgen"
+      },
+      "workOrderStatus": {
+        "title": "Status von Arbeitsaufträgen",
+        "description": "Legen Sie fest, welche Status offen, geplant oder geschlossen sind und welchen Status neue Arbeitsaufträge erhalten.",
+        "defaultStatus": "Standardstatus für neue Arbeitsaufträge",
+        "defaultHint": "Neue Arbeitsaufträge starten offen und warten auf Planung, sofern Sie keinen anderen offenen oder geplanten Status wählen.",
+        "status": "Status",
+        "category": "Funktion",
+        "order": "Reihenfolge",
+        "active": "Aktiv",
+        "hint": "Ein Status mit der Funktion „Geschlossen“ gilt in Listen, Berichten und bei der Sperre als abgeschlossen. Mindestens ein offener und ein geschlossener Status müssen aktiv sein.",
+        "save": "Statuseinstellungen speichern",
+        "reset": "Auf Standard zurücksetzen",
+        "saved": "Die Statuseinstellungen wurden gespeichert.",
+        "error": "Die Statuseinstellungen konnten nicht gespeichert werden. Prüfen Sie, ob mindestens ein offener und ein geschlossener Status aktiv ist.",
+        "categories": { "OPEN": "Offen", "PLANNED": "Geplant", "CLOSED": "Geschlossen" }
       },
       "branding": {
         "title": "White-Label-Einstellungen",
@@ -2579,6 +2604,12 @@
           "maintenanceWrite": "Wartung – schreiben",
           "reportsRead": "Berichte – lesen",
           "documentsRead": "Dokumente – lesen",
+          "quotesRead": "Angebote – lesen",
+          "quotesWrite": "Angebote – schreiben",
+          "ordersRead": "Aufträge – lesen",
+          "ordersWrite": "Aufträge – schreiben",
+          "inventoryRead": "Lager – lesen",
+          "inventoryWrite": "Lager – schreiben",
           "allLegacy": "Alle (älterer Schlüssel ohne Einschränkung)"
         },
         "revoke": "Widerrufen",
@@ -2936,6 +2967,125 @@
         "created": "Kategorie erstellt.",
         "updated": "Kategorie aktualisiert.",
         "deleted": "Kategorie gelöscht."
+      },
+      "modules": {
+        "title": "Module",
+        "description": "Installationsmodule ein- oder ausschalten. Der Kern ist immer aktiv, und Abhängigkeiten verhindern ungültige Kombinationen. Jede Änderung wird protokolliert.",
+        "dataPreserved": "Daten bleiben erhalten, wenn ein Modul ausgeschaltet wird. Seiten, Aktionen, APIs und Hintergrundjobs werden geschlossen, aber nichts wird gelöscht. Beim Wiedereinschalten sind die Daten wieder da.",
+        "core": "Kern",
+        "planned": "Geplant",
+        "enabled": "Ein",
+        "disabled": "Aus",
+        "dependsOn": "Hängt ab von: {modules}",
+        "requiredBy": "Wird verwendet von: {modules}",
+        "missingDependencies": "Kann erst eingeschaltet werden, wenn diese aktiv sind: {modules}",
+        "hasDependents": "Kann nicht ausgeschaltet werden, solange diese aktiv sind: {modules}",
+        "coreLocked": "Der Kern kann nicht ausgeschaltet werden.",
+        "enable": "Einschalten",
+        "disable": "Ausschalten",
+        "confirmEnable": "{module} einschalten?",
+        "confirmDisable": "{module} ausschalten? Daten bleiben erhalten, aber Seiten, Aktionen und Jobs werden geschlossen.",
+        "saved": "Die Moduländerung wurde gespeichert und protokolliert.",
+        "errors": {
+          "forbidden": "Nur ein Administrator kann Module ändern.",
+          "conflict": "Die Änderung steht im Konflikt mit Modulabhängigkeiten.",
+          "coreLocked": "Der Kern kann nicht ausgeschaltet werden.",
+          "missingDependencies": "Mindestens eine Abhängigkeit ist ausgeschaltet.",
+          "hasDependents": "Mindestens ein Modul, das dies nutzt, ist eingeschaltet.",
+          "not_found": "Unbekanntes Modul.",
+          "invalid": "Ungültige Moduländerung.",
+          "error": "Die Moduländerung konnte nicht gespeichert werden."
+        },
+        "items": {
+          "core": {
+            "label": "Kern",
+            "description": "Immer aktiv: Anmeldung, Benutzer, Abteilungen, Kunden, Aufträge, Arbeitstage und Zeit, Revision und Einstellungen."
+          },
+          "calendar": {
+            "label": "Kalender und Disposition",
+            "description": "Kalender, Dispositionsboard, Routenplanung und Kapazitätsübersicht."
+          },
+          "reports": {
+            "label": "Berichte und HSE",
+            "description": "Serviceberichte, HSE, Checklisten und Vorlagen, PDF-Ansicht und Statistiken."
+          },
+          "equipment": {
+            "label": "Geräte",
+            "description": "Geräteregister, Servicehistorie, QR/Scan und Wartungspläne."
+          },
+          "contracts": {
+            "label": "Serviceverträge und SLA",
+            "description": "Serviceverträge, SLA-Richtlinien, Geschäftszeiten und Preislisten."
+          },
+          "portal": {
+            "label": "Kundenportal",
+            "description": "Kundenportal für Aufträge, Berichte, Dokumente und Kontaktdaten."
+          },
+          "booking": {
+            "label": "Buchungen",
+            "description": "Buchungsanfragen und freie Termine. Erfordert Portal und Kalender."
+          },
+          "documents": {
+            "label": "Dokumente",
+            "description": "Dokumentbibliothek, Ordner, Versionen und Textextraktion/OCR."
+          },
+          "sms": {
+            "label": "SMS und Erinnerungen",
+            "description": "SMS-Nachrichten, Vorlagen, Zustellstatus und Erinnerungen vor Besuchen."
+          },
+          "map": {
+            "label": "Karte",
+            "description": "Karte von Aufträgen, Geräten und Technikerpositionen."
+          },
+          "tracking": {
+            "label": "Tracking und ETA",
+            "description": "Öffentlicher Tracking-Link und Echtzeit-ETA für Besuche."
+          },
+          "reviews": {
+            "label": "Bewertungen",
+            "description": "Kundenbewertungen über öffentliche Links und interne Nachverfolgung."
+          },
+          "transfer": {
+            "label": "Kundenübertragung",
+            "description": "Export und Import von Kundenpaketen. Erfordert Geräte und Dokumente."
+          },
+          "auditExport": {
+            "label": "Revisions- und Nachweisexport",
+            "description": "Signierter Revisionsexport und Nachweispakete für Aufträge."
+          },
+          "api": {
+            "label": "REST-API",
+            "description": "API v1 mit Schlüsseln, Scopes und OpenAPI-Dokumentation."
+          },
+          "sso": {
+            "label": "SSO und SCIM",
+            "description": "OIDC-Anmeldung, SCIM-Bereitstellung und SSO-Einstellungen."
+          },
+          "offline": {
+            "label": "Offline-Feld",
+            "description": "Offline-Entwürfe, Outbox und Sitzungsschutz der Feld-App."
+          },
+          "quotes": {
+            "label": "Angebote",
+            "description": "Angebote mit Versionen, Genehmigung und Umwandlung in Aufträge."
+          },
+          "invoicing": {
+            "label": "Abrechnung",
+            "description": "Rechnungen, Zahlungen, Gutschriften und Buchhaltungsexport."
+          },
+          "inventory": {
+            "label": "Lager",
+            "description": "Bestand pro Lager und Servicefahrzeug, Reservierungen für Aufträge und Bestellvorschläge."
+          },
+          "fieldExpenses": {
+            "label": "Fahrten und Auslagen",
+            "description": "Fahrten und Auslagen mit Belegen, Freigabe und Lohnexport."
+          },
+          "bi": {
+            "label": "Wirtschaftlichkeit",
+            "description": "Wirtschaftlichkeit nach Abteilung, Kunde und Techniker mit geschätztem und tatsächlichem Umsatz."
+          }
+        }
       }
     },
     "users": {
@@ -2968,9 +3118,11 @@
         "defaultSuffix": " (Standard)",
         "departmentHelp": "Mitarbeiter müssen einer Abteilung angehören, um Aufträge erstellen und sehen zu können.",
         "contact": "Kontaktperson",
-        "contactRequired": "(erforderlich für das Kundenportal)",
+        "customer": "Kunde",
+        "chooseCustomer": "Kunde wählen",
+        "loadingContacts": "Kontakte werden geladen …",
+        "noContacts": "Keine Kontakte für diesen Kunden.",
         "noContact": "-- Keine Kontaktperson --",
-        "contactHelp": "Verknüpft den Benutzer mit dem Kunden und gewährt Zugriff auf das Kundenportal.",
         "info": "Neue Benutzer sind inaktiv. Nachdem Sie sie erstellt haben, erhalten Sie einen Einladungslink, mit dem sie ihr eigenes Passwort festlegen können. Anschließend müssen Sie das Konto hier aktivieren.",
         "submit": "Erstellen und Einladung generieren"
       },

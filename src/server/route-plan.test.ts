@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     user: { findMany: vi.fn() },
     visit: { findMany: vi.fn(), update: vi.fn() },
     absence: { findMany: vi.fn() },
+    businessHours: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -24,6 +25,7 @@ import {
   applyRouteOrder,
   getRoutePlan,
   planTechnicianRoute,
+  resolveRouteOvertimeConfig,
   ROUTE_ERROR_CODES,
 } from "./route-plan";
 
@@ -68,6 +70,8 @@ function visitRow(overrides: {
   title?: string;
   status?: string;
   workOrderStatus?: string;
+  routeSequence?: number | null;
+  requiredSkills?: Array<{ skillId: string; mandatory: boolean }>;
 }) {
   return {
     id: overrides.id,
@@ -76,6 +80,7 @@ function visitRow(overrides: {
     endsAt: new Date(overrides.endsAt),
     status: (overrides.status ?? "PLANNED") as VisitStatus,
     sequence: 0,
+    routeSequence: overrides.routeSequence ?? null,
     technicians: [{ userId: overrides.userId ?? "tech-1" }],
     workOrder: {
       id: `wo-${overrides.id}`,
@@ -87,6 +92,8 @@ function visitRow(overrides: {
       longitude: overrides.lng === undefined ? 6.15 : overrides.lng,
       legalHold: false,
       status: (overrides.workOrderStatus ?? "OPEN") as WorkStatus,
+      skillRequirements: overrides.requiredSkills ?? [],
+      slaClocks: [],
       site: null,
       customer: {
         id: "cust-1",
@@ -112,8 +119,33 @@ beforeEach(() => {
   mocks.prisma.visit.findMany.mockResolvedValue([]);
   mocks.prisma.visit.update.mockResolvedValue({});
   mocks.prisma.absence.findMany.mockResolvedValue([]);
+  mocks.prisma.businessHours.findMany.mockResolvedValue([]);
   mocks.audit.mockResolvedValue(undefined);
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+});
+
+describe("overtidskonfigurasjon", () => {
+  it("planlegger overtid som standard og har ingen grense", () => {
+    expect(resolveRouteOvertimeConfig({})).toEqual({
+      allowOvertime: true,
+      maxOvertimeMinutes: 0,
+    });
+  });
+
+  it("leser avslag og hard grense fra miljøet", () => {
+    expect(
+      resolveRouteOvertimeConfig({
+        ROUTE_ALLOW_OVERTIME: "false",
+        ROUTE_MAX_OVERTIME_MINUTES: "45",
+      }),
+    ).toEqual({ allowOvertime: false, maxOvertimeMinutes: 45 });
+    expect(
+      resolveRouteOvertimeConfig({
+        ROUTE_ALLOW_OVERTIME: "true",
+        ROUTE_MAX_OVERTIME_MINUTES: "-10",
+      }),
+    ).toEqual({ allowOvertime: true, maxOvertimeMinutes: 0 });
+  });
 });
 
 describe("planTechnicianRoute", () => {
@@ -166,6 +198,36 @@ describe("planTechnicianRoute", () => {
     );
     expect(result.finishAt).toEqual(new Date("2026-11-03T12:09:00.000Z"));
     expect(result).toEqual(await planTechnicianRoute(input));
+  });
+
+  it("respekterer manuell rute-rekkefølge og beholder den uten optimalisering", async () => {
+    const visits = [
+      visitRow({
+        id: "a",
+        startsAt: "2026-11-03T09:00:00.000Z",
+        endsAt: "2026-11-03T10:00:00.000Z",
+        routeSequence: 2,
+      }),
+      visitRow({
+        id: "b",
+        startsAt: "2026-11-03T09:00:00.000Z",
+        endsAt: "2026-11-03T10:00:00.000Z",
+        routeSequence: 1,
+      }),
+    ];
+    const routing = provider([
+      [0, 10, 50],
+      [10, 0, 5],
+      [50, 5, 0],
+    ]);
+    const result = await planTechnicianRoute({
+      technician,
+      visits,
+      routing,
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+    });
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["b", "a"]);
+    expect(result.stops.map((stop) => stop.manualSequence)).toEqual([1, 2]);
   });
 
   it("håndterer tom og én stopp uten matrisefeil", async () => {
@@ -229,6 +291,177 @@ describe("planTechnicianRoute", () => {
         visitId: "uten",
         reason: "missing_coordinates",
       }),
+    ]);
+  });
+
+  it("rapporterer manglende kompetanse som årsak", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+          requiredSkills: [{ skillId: "el-kontroll", mandatory: true }],
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      technicianSkillIds: [],
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        visitId: "b",
+        reason: "missing_skills",
+      }),
+    ]);
+  });
+
+  it("planlegger visitt etter arbeidstid med overtid i stedet for å hoppe over", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "sen",
+          startsAt: "2026-11-03T15:30:00.000Z",
+          endsAt: "2026-11-03T17:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      workingHours: {
+        start: new Date("2026-11-03T08:00:00.000Z"),
+        end: new Date("2026-11-03T16:00:00.000Z"),
+      },
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a", "sen"]);
+    expect(result.skipped).toEqual([]);
+    const late = result.stops.find((stop) => stop.visitId === "sen");
+    expect(late).toMatchObject({
+      outsideWorkingHours: true,
+      outsideTimeWindow: false,
+      overtimeMinutes: 60,
+    });
+    expect(result.totalOvertimeMinutes).toBe(60);
+  });
+
+  it("rapporterer overtime_limit når ruten overskrider en hard grense", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "sen",
+          startsAt: "2026-11-03T15:30:00.000Z",
+          endsAt: "2026-11-03T17:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      workingHours: {
+        start: new Date("2026-11-03T08:00:00.000Z"),
+        end: new Date("2026-11-03T16:00:00.000Z"),
+      },
+      maxOvertimeMinutes: 15,
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ visitId: "sen", reason: "overtime_limit" }),
+    ]);
+    expect(result.totalOvertimeMinutes).toBe(0);
+  });
+
+  it("merker en allerede ordnet dag uten endring", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 5, 30],
+        [5, 0, 5],
+        [30, 5, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a", "b"]);
+    expect(result.orderChanged).toBe(false);
+    expect(result.savedTravelMinutes).toBe(0);
+    expect(result.savedDistanceKm).toBe(0);
+  });
+
+  it("rapporterer fravær som konfliktårsak", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "b",
+          startsAt: "2026-11-03T10:00:00.000Z",
+          endsAt: "2026-11-03T11:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      absences: [
+        {
+          startsAt: new Date("2026-11-03T10:15:00.000Z"),
+          endsAt: new Date("2026-11-03T10:45:00.000Z"),
+        },
+      ],
+    });
+
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ visitId: "b", reason: "absence" }),
     ]);
   });
 
@@ -416,6 +649,13 @@ describe("ruteplan-tjeneste", () => {
         metadata: expect.objectContaining({
           technicianId: "tech-1",
           provider: "haversine",
+          savedTravelMinutes: expect.any(Number),
+          savedDistanceKm: expect.any(Number),
+          orderChanged: expect.any(Boolean),
+          overtimeMinutes: expect.any(Number),
+          outsideTimeWindow: expect.any(Boolean),
+          outsideWorkingHours: expect.any(Boolean),
+          totalOvertimeMinutes: expect.any(Number),
         }),
       }),
     );

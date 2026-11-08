@@ -1,0 +1,204 @@
+{
+  "nav": {
+    "inventory": "Magazyn"
+  },
+  "inventory": {
+    "title": "Magazyn",
+    "eyebrow": "OPS-05 · Magazyn i części zamienne",
+    "description": "Stan magazynowy według magazynu i samochodu serwisowego, rezerwacje na zlecenia oraz propozycje zakupu, gdy pozycja osiągnie poziom minimalny.",
+    "searchPlaceholder": "Szukaj SKU lub nazwy",
+    "search": "Szukaj",
+    "back": "Wróć do magazynu",
+    "location": "Lokalizacja",
+    "status": "Status",
+    "workOrder": "Zlecenie",
+    "actions": "Działania",
+    "openWorkOrder": "Otwórz zlecenie",
+    "workOrderLink": "Części zamienne",
+    "chooseLocation": "Wybierz lokalizację",
+    "feedback": {
+      "saved": "Zmiana została zapisana.",
+      "error": "Nie udało się wykonać działania. Sprawdź stan magazynowy, uprawnienia i czy zlecenie jest otwarte."
+    },
+    "suggestions": {
+      "title": "Propozycje zakupu",
+      "description": "Pozycje na poziomie minimalnym lub poniżej, po uwzględnieniu aktywnych rezerwacji.",
+      "empty": "Żadna pozycja nie wymaga teraz uzupełnienia.",
+      "buy": "Sugerowany zakup"
+    },
+    "item": {
+      "title": "Pozycja",
+      "sku": "SKU",
+      "name": "Nazwa",
+      "unit": "Jednostka",
+      "minLevel": "Poziom minimalny",
+      "description": "Opis",
+      "onHand": "Na stanie",
+      "reserved": "Zarezerwowano",
+      "available": "Dostępne",
+      "low": "Niski stan",
+      "noDescription": "Brak opisu.",
+      "edit": "Edytuj pozycję",
+      "active": "Aktywna",
+      "save": "Zapisz"
+    },
+    "items": {
+      "title": "Pozycje",
+      "empty": "Nie zarejestrowano jeszcze żadnych pozycji.",
+      "create": "Nowa pozycja",
+      "createButton": "Utwórz pozycję"
+    },
+    "locations": {
+      "title": "Lokalizacje",
+      "empty": "Nie zarejestrowano jeszcze żadnych magazynów ani samochodów.",
+      "itemCount": "{count} poz.",
+      "lowCount": "Niski stan: {count}",
+      "create": "Nowa lokalizacja",
+      "name": "Nazwa magazynu lub samochodu",
+      "createButton": "Utwórz lokalizację",
+      "detailTitle": "Lokalizacja",
+      "edit": "Edytuj lokalizację",
+      "active": "Aktywna"
+    },
+    "locationType": {
+      "warehouse": "Magazyn",
+      "van": "Samochód serwisowy"
+    },
+    "stock": {
+      "levels": "Stan według lokalizacji",
+      "noLevels": "Nie zarejestrowano jeszcze stanu tej pozycji."
+    },
+    "adjust": {
+      "title": "Koryguj stan",
+      "description": "Przyjęcia i wydania odrzucają ujemny stan. Korekta jest jawną poprawką i może wyrównać stan.",
+      "types": {
+        "in": "Przyjęcie",
+        "out": "Wydanie",
+        "adjust": "Korekta"
+      },
+      "quantity": "Ilość",
+      "reason": "Powód",
+      "button": "Zapisz ruch"
+    },
+    "reserve": {
+      "title": "Zarezerwuj części",
+      "description": "Rezerwacja blokuje dostępną ilość na rzecz zlecenia lub sesji pracy. Stan jest odejmowany dopiero przy zużyciu.",
+      "quantity": "Ilość",
+      "workOrderId": "ID zlecenia",
+      "note": "Notatka",
+      "button": "Zarezerwuj",
+      "chooseItem": "Wybierz pozycję",
+      "noVisit": "Całe zlecenie (bez konkretnej sesji)"
+    },
+    "reservations": {
+      "title": "Rezerwacje",
+      "empty": "Brak rezerwacji.",
+      "release": "Zwolnij",
+      "consume": "Zużyj"
+    },
+    "movements": {
+      "title": "Ruchy",
+      "empty": "Nie zarejestrowano żadnych ruchów.",
+      "at": "Czas",
+      "type": "Typ",
+      "quantity": "Ilość",
+      "reason": "Powód"
+    },
+    "workOrderParts": {
+      "title": "Części zamienne",
+      "backToWorkOrder": "Wróć do zlecenia",
+      "consumeVisit": "Zużyj części dla zakończonej sesji",
+      "consumeVisitDescription": "Zużywa wszystkie aktywne rezerwacje powiązane z sesją. Użyj tej opcji, gdy praca została faktycznie wykonana.",
+      "consumeAll": "Zużyj wszystkie"
+    },
+    "purchasing": {
+      "title": "Zakupy",
+      "eyebrow": "OPS-05 · Zakupy i dostawcy",
+      "description": "Zamówienia zakupu z sugestii zakupowych, przyjęcia towaru do magazynu i rejestr dostawców. Stan magazynu rośnie dopiero po faktycznym przyjęciu towaru.",
+      "link": "Zakupy",
+      "suppliersLink": "Dostawcy",
+      "back": "Powrót do zakupów",
+      "ordersTitle": "Zamówienia zakupu",
+      "empty": "Nie zarejestrowano jeszcze żadnych zamówień zakupu.",
+      "create": {
+        "title": "Nowe zamówienie zakupu z sugestii",
+        "description": "Wybierz dostawcę i lokalizację przyjęcia. Zaznacz towary do zamówienia; sugerowana ilość jest ponownie obliczana na serwerze.",
+        "supplier": "Dostawca",
+        "chooseSupplier": "Wybierz dostawcę",
+        "noSuppliers": "Nie zarejestrowano żadnych dostawców.",
+        "location": "Lokalizacja przyjęcia",
+        "expectedAt": "Przewidywana dostawa",
+        "notes": "Notatka",
+        "selectItems": "Wybierz towary",
+        "createButton": "Utwórz szkic"
+      },
+      "filter": {
+        "status": "Filtruj według statusu",
+        "all": "Wszystkie statusy",
+        "apply": "Filtruj"
+      },
+      "table": {
+        "number": "Numer",
+        "supplier": "Dostawca",
+        "location": "Lokalizacja",
+        "status": "Status",
+        "expectedAt": "Przewidywana",
+        "lines": "Pozycje",
+        "orderedTotal": "Suma zamówienia"
+      },
+      "status": {
+        "draft": "Szkic",
+        "ordered": "Zamówione",
+        "partially_received": "Częściowo przyjęte",
+        "received": "Przyjęte",
+        "cancelled": "Anulowane"
+      },
+      "order": {
+        "supplier": "Dostawca",
+        "location": "Lokalizacja przyjęcia",
+        "expectedAt": "Przewidywana dostawa",
+        "orderedAt": "Zamówiono",
+        "receivedAt": "Przyjęto",
+        "cancelledAt": "Anulowano",
+        "notes": "Notatka",
+        "noNotes": "Brak notatki.",
+        "created": "Utworzono",
+        "totals": {
+          "ordered": "Suma zamówienia",
+          "received": "Suma przyjęta"
+        },
+        "linesTitle": "Pozycje zamówienia",
+        "noLines": "Zamówienie nie ma jeszcze pozycji.",
+        "addLine": "Dodaj towar",
+        "chooseItem": "Wybierz towar",
+        "orderedQuantity": "Zamówiona ilość",
+        "receivedQuantity": "Przyjęto",
+        "remaining": "Pozostało",
+        "unitCost": "Koszt jednostkowy",
+        "lineTotal": "Wartość pozycji",
+        "remove": "Usuń",
+        "addButton": "Dodaj",
+        "editTitle": "Edytuj szkic",
+        "saveButton": "Zapisz szkic",
+        "orderButton": "Złóż zamówienie",
+        "cancelButton": "Anuluj zamówienie",
+        "receiveTitle": "Przyjęcie towaru",
+        "receiveDescription": "Przyjęcie zwiększa stan w lokalizacji przyjęcia i nigdy nie może przekroczyć zamówionej ilości. Częściowe przyjęcie ustawia status częściowo przyjęte.",
+        "receiveButton": "Przyjmij towar",
+        "receiveQuantity": "Przyjęto teraz"
+      },
+      "suppliers": {
+        "title": "Dostawcy",
+        "description": "Dostawcy są używani w zamówieniach zakupu. Dostawcy bez działu są wspólni dla całej instalacji.",
+        "empty": "Nie zarejestrowano jeszcze żadnych dostawców.",
+        "create": "Nowy dostawca",
+        "name": "Nazwa",
+        "orgNumber": "Numer organizacji",
+        "email": "E-mail",
+        "phone": "Telefon",
+        "createButton": "Utwórz dostawcę",
+        "created": "Dostawca został utworzony."
+      }
+    }
+  }
+}

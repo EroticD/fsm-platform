@@ -1,0 +1,286 @@
+# Høytilgjengelig produksjonsprofil: flere app-replikaer, Redis og delt
+# objektlagring. Bruk denne i stedet for docker-compose.prod.yml når appen skal
+# kjøre med mer enn én replika.
+#
+#   docker compose -f docker-compose.ha.yml up -d --scale app=3
+#
+# Forutsetninger:
+#   - S3/MinIO er tilgjengelig og S3_* er satt (opplastinger deles).
+#   - REDIS_URL peker på redis-tjenesten (eller ekstern Redis).
+#   - Caddy har DNS for FSM_DOMAIN og port 80/443.
+#   - Postgres WAL arkiveres til fsm_wal_archive. Kjør base-backup jevnlig:
+#       docker compose -f docker-compose.ha.yml --profile backup run --rm postgres-basebackup
+#     Se deploy/postgres/pitr/README.md.
+#
+# Hemmeligheter kommer fra .env (0600) eller et hemmelighetshvelv. Ingen
+# hemmeligheter skal ligge i denne filen.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app-env: &app-env
+  NODE_ENV: production
+  TZ: Europe/Oslo
+  AUTH_TRUST_HOST: "true"
+  TRUST_PROXY: "${TRUST_PROXY:-true}"
+  TRUST_PROXY_HOPS: "${TRUST_PROXY_HOPS:-1}"
+  DATABASE_URL: ${DATABASE_RUNTIME_URL:?Sett DATABASE_RUNTIME_URL}
+  DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+  ALLOW_DB_DDL_ROLE: ${ALLOW_DB_DDL_ROLE:-false}
+  # Hver replika åpner maks dette antallet DB-tilkoblinger. Hold
+  # APP_REPLICAS * DATABASE_POOL_MAX + drift under Postgres max_connections.
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+  NEXTAUTH_URL: ${NEXTAUTH_URL:?Sett NEXTAUTH_URL}
+  APP_URL: ${APP_URL:?Sett APP_URL}
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET}
+  METRICS_SECRET: ${METRICS_SECRET:-}
+  READY_SECRET: ${READY_SECRET:-}
+  CRON_SECRET: ${CRON_SECRET:-}
+  # Delt opplastingslager. Uten dette får hver replika sin egen disk.
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+  S3_BUCKET: ${S3_BUCKET:?Sett S3_BUCKET}
+  S3_REGION: ${S3_REGION:-eu-north-1}
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+  S3_PREFIX: ${S3_PREFIX:-fsm}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+  S3_SESSION_TOKEN: ${S3_SESSION_TOKEN:-}
+  S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
+  S3_KMS_KEY_ID: ${S3_KMS_KEY_ID:-}
+  # Delt kø, rate limit og cache. DB er alltid fallback.
+  QUEUE_DRIVER: ${QUEUE_DRIVER:-redis}
+  CACHE_DRIVER: ${CACHE_DRIVER:-redis}
+  RATE_LIMIT_DRIVER: ${RATE_LIMIT_DRIVER:-redis}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  UPLOAD_TEMP_DIR: /tmp
+  BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/monitoring/backup-status.json}
+  BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-}
+  SMTP_SECURE: ${SMTP_SECURE:-}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMS_PROVIDER: ${SMS_PROVIDER:-console}
+  SMS_SENDER_ID: ${SMS_SENDER_ID:-FSM}
+  SMS_WEBHOOK_SECRET: ${SMS_WEBHOOK_SECRET:-}
+  SMS_WORKER: ${SMS_WORKER:-true}
+  RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
+  GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
+  REQUIRE_BACKUP_BEFORE_MIGRATE: ${REQUIRE_BACKUP_BEFORE_MIGRATE:-false}
+  BACKUP_CONFIRMED: ${BACKUP_CONFIRMED:-false}
+  NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=768}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:15.13}
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-fsm_db}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD}
+      TZ: Europe/Oslo
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=60
+      - -c
+      - archive_command=/bin/bash /scripts/archive-wal.sh %p %f
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-200}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+    volumes:
+      - fsm_postgres_data:/var/lib/postgresql/data
+      - fsm_wal_archive:/var/lib/postgresql/wal-archive
+      - ./deploy/postgres/pitr:/scripts:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    depends_on:
+      wal-archive-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-fsm_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *default-logging
+
+  # Named volumes opprettes som root. Postgres kjører som uid 999 og må eie
+  # WAL-arkivet for at archive_command skal lykkes.
+  wal-archive-init:
+    image: ${POSTGRES_IMAGE:-postgres:15.13}
+    user: root
+    volumes:
+      - fsm_wal_archive:/wal
+    command: ["sh", "-c", "chown -R 999:999 /wal && chmod 700 /wal"]
+    restart: "no"
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine}
+    restart: always
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      # Kø og rate limit må ikke kastes stille ved minnepress. Overvåk
+      # used_memory i stedet og sett en bevisst maxmemory i produksjon.
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - fsm_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+  app:
+    image: ${APP_IMAGE:?Sett APP_IMAGE til en publisert versjon eller et digest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *app-env
+    # Ingen fast vertsport: Caddy/loadbalanceren fordeler trafikken, og
+    # `--scale app=N` gir flere containere bak samme tjenestenavn.
+    expose:
+      - "3000"
+    volumes:
+      # Bareles backupstatus. Opplastinger ligger i S3, ikke på disken.
+      - ${MONITORING_DIR:-./monitoring}:/app/monitoring:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=${APP_TMPFS_SIZE:-1g},mode=1777
+      - /app/.next/cache:size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 768
+    mem_limit: ${APP_MEM_LIMIT:-1500m}
+    mem_reservation: 512m
+    healthcheck:
+      # Readiness, ikke liveness: DB, storage og kø må være brukbare. En
+      # utilgjengelig avhengighet gir unhealthy, men restart-policyen restarter
+      # ikke containeren i en løkke.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/ready',{headers:{authorization:'Bearer '+(process.env.READY_SECRET||'')}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    stop_grace_period: 40s
+    logging: *default-logging
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2.10-alpine}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      FSM_DOMAIN: ${FSM_DOMAIN:?Sett FSM_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/ha/Caddyfile:/etc/caddy/Caddyfile:ro
+      - fsm_caddy_data:/data
+      - fsm_caddy_config:/config
+    logging: *default-logging
+
+  # Engangs base-backup for PITR. Kjør manuelt eller fra systemd/cron:
+  #   docker compose -f docker-compose.ha.yml --profile backup \
+  #     run --rm postgres-basebackup
+  base-backup-init:
+    image: ${POSTGRES_IMAGE:-postgres:15.13}
+    profiles: ["backup"]
+    user: root
+    volumes:
+      - fsm_base_backups:/backup
+    command: ["sh", "-c", "chown -R 999:999 /backup && chmod 700 /backup"]
+    restart: "no"
+
+  postgres-basebackup:
+    image: ${POSTGRES_IMAGE:-postgres:15.13}
+    profiles: ["backup"]
+    user: "999:999"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      base-backup-init:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-admin}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-fsm_db}
+      BACKUP_ROOT: /backup
+      WAL_ARCHIVE_DIR: /var/lib/postgresql/wal-archive
+      RETENTION_DAYS: ${PITR_BASE_RETENTION_DAYS:-14}
+    volumes:
+      - fsm_base_backups:/backup
+      - fsm_wal_archive:/var/lib/postgresql/wal-archive:ro
+      - ./deploy/postgres/pitr:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/base-backup.sh"]
+    restart: "no"
+    logging: *default-logging
+
+  # Valgfri lokal S3-kompatibel lagring for test av HA-profilen. I produksjon
+  # brukes ekstern S3/MinIO, og denne tjenesten kjøres ikke.
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}
+    profiles: ["minio"]
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      # Tomme verdier gjør at Compose kan validere uten MinIO-profilen.
+      # Ved --profile minio må begge settes (passord minst 8 tegn).
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+    volumes:
+      - fsm_minio_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+
+volumes:
+  fsm_postgres_data:
+  fsm_wal_archive:
+  fsm_base_backups:
+  fsm_redis_data:
+  fsm_caddy_data:
+  fsm_caddy_config:
+  fsm_minio_data:

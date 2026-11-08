@@ -1,4 +1,12 @@
 export {
+  createGoogleRoutesProvider,
+  GOOGLE_ROUTES_CACHE_TTL_MS,
+  GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE,
+  GOOGLE_ROUTES_TIMEOUT_MS,
+  resolveGoogleRoutesConfig,
+  type ResolvedGoogleRoutesConfig,
+} from "./google-routes";
+export {
   createHaversineProvider,
   estimateFromHaversine,
   HAVERSINE_AVG_SPEED_KMH,
@@ -20,5 +28,6 @@ export {
 export {
   RoutingTimeoutError,
   type RoutingProvider,
+  type RoutingProviderName,
   type TravelEstimate,
 } from "./types";

@@ -19,6 +19,11 @@ import {
   stableJson,
   type TransferManifest,
 } from "./manifest";
+import {
+  createPackageSignatures,
+  signatureFileCount,
+  transferSigningConfig,
+} from "./signature";
 import type {
   AuditSnapshotRow,
   ExportOptions,
@@ -222,41 +227,74 @@ export async function buildCustomerPackage(
   }
 
   const counts = countsFor(dataset, collected.files.length);
+  const source = {
+    instanceId: instanceId(),
+    appVersion: appVersion(),
+    ...(baseUrl() ? { baseUrl: baseUrl() } : {}),
+    databaseLabel: process.env.NODE_ENV === "production" ? "production" : "development",
+  };
+  const scope = {
+    customerIds: [...collected.customerIds].sort(),
+    includeFiles: options.includeFiles,
+    includeDeleted: options.includeDeleted,
+    includeLegalHold: options.includeLegalHold,
+    includeAudit: options.includeAudit,
+    includeSignatures: options.includeSignatures,
+  };
+  // Deterministisk proveniens-ID. Den avhenger av innholdet som allerede er
+  // bygget, ikke av en tilfeldig UUID, slik at to like eksporter får samme ID.
+  const packageId = createHash("sha256")
+    .update(
+      stableJson({
+        format: TRANSFER_FORMAT,
+        exportedAt: exportedAt.toISOString(),
+        source,
+        scope,
+        counts,
+        checksums,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 32);
+
+  const signingConfig = transferSigningConfig();
+  const signatureCount = signatureFileCount(signingConfig);
   const manifest: TransferManifest = {
     format: TRANSFER_FORMAT,
     schemaVersion: TRANSFER_SCHEMA_VERSION,
+    packageId,
     exportedAt: exportedAt.toISOString(),
-    source: {
-      instanceId: instanceId(),
-      appVersion: appVersion(),
-      ...(baseUrl() ? { baseUrl: baseUrl() } : {}),
-      databaseLabel: process.env.NODE_ENV === "production" ? "production" : "development",
-    },
-    scope: {
-      customerIds: [...collected.customerIds].sort(),
-      includeFiles: options.includeFiles,
-      includeDeleted: options.includeDeleted,
-      includeLegalHold: options.includeLegalHold,
-      includeAudit: options.includeAudit,
-      includeSignatures: options.includeSignatures,
-    },
+    source,
+    scope,
     counts,
     files: collected.files.map((file) => manifestFileFor(file)),
     checksums,
     totals: {
       dataBytes,
       fileBytes,
-      entries: entries.length + 3,
+      // manifest.json, checksums.sha256, README.txt (+ eventuelle signaturfiler)
+      entries: entries.length + 3 + signatureCount,
     },
   };
 
   const manifestJson = stableJson(manifest);
   const checksumsFile = buildChecksumsFile(checksums);
+  const signatures = createPackageSignatures(manifestJson, checksumsFile, {
+    config: signingConfig,
+    signedAt: exportedAt,
+  });
   entries.push(
     { path: "manifest.json", data: manifestJson, modifiedAt: exportedAt },
     { path: "checksums.sha256", data: checksumsFile, modifiedAt: exportedAt },
     { path: "README.txt", data: Buffer.from(README_TEXT, "utf8"), modifiedAt: exportedAt },
   );
+  for (const signature of signatures.files) {
+    entries.push({
+      path: signature.path,
+      data: signature.data,
+      modifiedAt: exportedAt,
+    });
+  }
 
   const buffer = createZip(entries);
   const checksum = sha256Hex(buffer);

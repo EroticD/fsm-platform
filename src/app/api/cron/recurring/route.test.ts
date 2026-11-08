@@ -5,6 +5,13 @@ vi.mock("@/lib/recurring-scheduler", () => ({
     recurring: [],
     lifecycle: { renewed: 0, expired: 0, generated: 0 },
     sla: { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 },
+    slaCleanup: {
+      enabled: true,
+      skipped: "not_due",
+      runId: null,
+      result: null,
+      error: null,
+    },
   })),
 }));
 

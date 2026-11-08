@@ -10,6 +10,16 @@ vi.mock("@/lib/upload-cleanup", () => ({
 vi.mock("@/lib/upload-multipart", () => ({
   cleanupUploadTempFiles: vi.fn(async () => ({ removed: 2 })),
 }));
+vi.mock("@/lib/upload-quota", () => ({
+  releaseExpiredUploadQuotaReservations: vi.fn(async () => 4),
+}));
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    samlCacheEntry: {
+      deleteMany: vi.fn(async () => ({ count: 2 })),
+    },
+  },
+}));
 
 import { GET } from "./route";
 
@@ -50,7 +60,9 @@ describe("/api/cron/cleanup", () => {
       ok: true,
       checked: 3,
       released: 1,
+      reservationsReleased: 4,
       tempRemoved: 2,
+      samlCacheRemoved: 2,
     });
     expect(cleanup).toHaveBeenCalledTimes(1);
   });

@@ -12,12 +12,11 @@ const mocks = vi.hoisted(() => ({
     reportDraft: { findFirst: vi.fn() },
     upload: { deleteMany: vi.fn(), findMany: vi.fn() },
   },
-  unlink: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("node:fs/promises", () => ({ default: { unlink: mocks.unlink } }));
-vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/uploads" }));
+vi.mock("@/lib/uploads", () => ({ deleteUploadFile: mocks.remove }));
 
 import { cleanupAbandonedUploads, releaseUpload } from "./upload-cleanup";
 
@@ -37,7 +36,7 @@ describe("releaseUpload", () => {
     vi.clearAllMocks();
     noReferences();
     mocks.prisma.upload.deleteMany.mockResolvedValue({ count: 1 });
-    mocks.unlink.mockResolvedValue(undefined);
+    mocks.remove.mockResolvedValue(undefined);
   });
 
   it("sletter en fil som ikke er referert", async () => {
@@ -46,7 +45,7 @@ describe("releaseUpload", () => {
     expect(mocks.prisma.upload.deleteMany).toHaveBeenCalledWith({
       where: { storedName: "abc.pdf" },
     });
-    expect(mocks.unlink).toHaveBeenCalledWith("/tmp/uploads/abc.pdf");
+    expect(mocks.remove).toHaveBeenCalledWith("abc.pdf");
   });
 
   it("beholder en fil som fortsatt er referert", async () => {
@@ -55,7 +54,7 @@ describe("releaseUpload", () => {
     await releaseUpload("/uploads/abc.pdf");
 
     expect(mocks.prisma.upload.deleteMany).not.toHaveBeenCalled();
-    expect(mocks.unlink).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
   });
 
   it("beholder en fil som brukes i en rapport", async () => {

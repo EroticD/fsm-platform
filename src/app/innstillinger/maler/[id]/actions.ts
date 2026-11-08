@@ -5,8 +5,10 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { updateTemplate } from "@/server/settings";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
+import { moduleEnabled } from "@/server/modules";
 
 export async function saveTemplate(formData: FormData) {
+  if (!(await moduleEnabled("reports"))) redirect("/");
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "templates.manage")) return;
 

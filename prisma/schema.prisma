@@ -47,6 +47,8 @@ model Department {
   smsMessages        SmsMessage[]
   reminderRules      ReminderRule[]
   reminderDispatches ReminderDispatch[]
+  quotes             Quote[]
+  invoices           Invoice[]
 
   @@index([isActive])
 }
@@ -107,6 +109,7 @@ model User {
   /// brukes til å matche oppdateringer fra identitetsleverandøren.
   scimExternalId String? @unique
   ssoIdentities  SsoIdentity[]
+  scimGroups     ScimGroupMember[]
 
   // Kundeportalbrukere kobles til en kontaktperson på kundekortet
   contactId String?
@@ -140,6 +143,8 @@ model User {
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  pushDevices             PushDevice[]
+  pushMessages            PushMessage[]
   savedSearches           SavedSearch[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   apiKeys                 ApiKey[]
@@ -251,6 +256,51 @@ model ScimToken {
   @@index([createdById])
 }
 
+/// SCIM 2.0-gruppe. Gruppen er leverandørens gruppe, ikke en lokal rolle:
+/// medlemskap gir bare tilgang når gruppenavnet finnes i en eksplisitt
+/// SCIM_GROUP_ROLE_MAP eller SCIM_GROUP_DEPARTMENT_MAP. Gruppen kan derfor
+/// aldri gi ADMIN av seg selv.
+model ScimGroup {
+  id          String  @id @default(cuid())
+  displayName String  @unique
+  externalId  String? @unique
+
+  /// SCIM-tokenets oppretter, for attribusjon i revisjonsloggen.
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members ScimGroupMember[]
+
+  @@index([createdAt])
+}
+
+/// Medlemskap i en SCIM-gruppe. Slettes sammen med gruppen eller brukeren.
+model ScimGroupMember {
+  groupId String
+  group   ScimGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+/// Kortlevd nøkkelverdi-lager for SAML. Det gjør AuthnRequest-id-er og
+/// replay-vakter delbare mellom appinstanser, i stedet for en prosesslokal
+/// cache som gir hull ved flere replikaer eller restart.
+model SamlCacheEntry {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 // Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver
 // kode kan brukes nøyaktig én gang (usedAt settes ved innlogging).
 model TwoFactorRecoveryCode {
@@ -285,6 +335,14 @@ model Customer {
   deletedAt DateTime?
   deletedBy String?
 
+  /// Satt når direkte identifikatorer er anonymisert etter en personvern-
+  /// forespørsel. Idempotensen i slettetjenesten bygger på dette feltet;
+  /// raden, id-ene og tjenestehistorikken beholdes.
+  anonymisedAt DateTime?
+  /// Administrator som utførte anonymiseringen. Selve revisjonsloggen er
+  /// beviset; feltet gjør tilstanden synlig uten å slå opp loggen.
+  anonymisedBy String?
+
   // Valgfri tilhørighet: hvilken avdeling og eventuelt hvilken montør som er
   // ansvarlig for kunden. Brukes blant annet i kundeportalen for å vise riktig
   // lokasjon og direkte kontaktinfo.
@@ -306,6 +364,9 @@ model Customer {
   maintenancePlans MaintenancePlan[]
   messageThreads   MessageThread[]
   documents        Document[]
+  quotes           Quote[]
+  invoices         Invoice[]
+  accountingCustomers AccountingCustomer[]
 
   users User[]
 
@@ -368,6 +429,8 @@ model Contact {
   smsMessages        SmsMessage[]
   channelPreferences ChannelPreference[]
   portalDelegation   PortalDelegation?
+  quotes              Quote[]
+  invoices            Invoice[]
 
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
@@ -435,6 +498,7 @@ model Product {
   workOrder     WorkOrder[]
   reportUnits   ReportUnit[]
   contractLines ContractLine[]
+  quotes        Quote[]
 
   /// Fysisk sted der utstyret står. Tomt betyr kundens primære adresse.
   siteId String?
@@ -660,6 +724,7 @@ model Contract {
 
   lines      ContractLine[]
   workOrders WorkOrder[]
+  quotes     Quote[]
 
   @@index([customerId])
   @@index([departmentId])
@@ -767,6 +832,25 @@ model SlaClock {
   @@index([policyId])
 }
 
+/// Én kjøring av den automatiske SLA-oppryddingen. Raden brukes av
+/// driftsmålinger og alarmen for «siste kjøring»; selve kanselleringene har
+/// egne revisjonslogger på hver klokke.
+model SlaCleanupRun {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// RUNNING, SUCCEEDED eller FAILED.
+  status     String    @default("RUNNING")
+  dryRun     Boolean   @default(false)
+  scanned    Int       @default(0)
+  kept       Int       @default(0)
+  cancelled  Int       @default(0)
+  error      String?
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+}
+
 /// Åpningstider per ukedag, minutter fra midnatt i Europe/Oslo. 0 = mandag.
 model BusinessHours {
   id           String     @id @default(cuid())
@@ -833,6 +917,32 @@ enum WorkStatus {
   OPEN
 }
 
+/// Hvordan en oppdragsstatus oppfører seg i lister, rapporter og lukkelogikk.
+/// Administratoren kan endre dette uten å endre selve statusverdiene.
+enum WorkOrderStatusCategory {
+  OPEN
+  PLANNED
+  CLOSED
+}
+
+/// Installationsspesifikk funksjon for hver innebygde oppdragsstatus.
+model WorkOrderStatusSetting {
+  status      WorkStatus             @id
+  category    WorkOrderStatusCategory @default(OPEN)
+  sortOrder   Int                    @default(0)
+  isActive    Boolean                @default(true)
+  updatedAt   DateTime               @updatedAt
+  updatedById String?
+}
+
+/// Standard status for nye oppdrag. PENDING betyr «åpen, venter på planlegging».
+model WorkOrderSettings {
+  id            String     @id @default("default")
+  defaultStatus WorkStatus @default(PENDING)
+  updatedAt     DateTime   @updatedAt
+  updatedById   String?
+}
+
 /// Kundens bestilling fra kundeportalen. Én bestilling hører til nøyaktig ett
 /// oppdrag, og beholder ønsket tid, utstyr og kontaktperson som et snapshot.
 enum BookingRequestStatus {
@@ -887,7 +997,7 @@ model WorkOrder {
   scheduledFor          DateTime?  @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
   scheduledTo           DateTime?  @db.Date
-  status                WorkStatus @default(PLANNED)
+  status                WorkStatus @default(PENDING)
   creatorName           String?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @default(now()) @updatedAt
@@ -938,9 +1048,14 @@ model WorkOrder {
   reviews           Review[]
   messageThreads    MessageThread[]
   smsMessages       SmsMessage[]
+  quotes            Quote[]
+  invoices          Invoice[]
 
   /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
   maintenanceOccurrence MaintenancePlanOccurrence?
+
+  /// Innmeldt ordre fra et eksternt ordresystem. Unik per kilde og ekstern id.
+  externalOrder ExternalOrder?
 
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
@@ -959,6 +1074,34 @@ model WorkOrder {
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
 }
 
+/// Idempotent referanse for en ordre mottatt fra et eksternt ordresystem.
+/// `(source, externalId)` er alltid idempotensnøkkelen. `idempotencyKey` er en
+/// valgfri sekundær nøkkel fra `Idempotency-Key`-headeren. Selve payloaden og
+/// linjene lagres som JSON, slik at en replayed forespørsel kan sammenlignes og
+/// historikken er lesbar uten å følge relasjoner.
+model ExternalOrder {
+  id             String    @id @default(cuid())
+  source         String
+  externalId     String
+  idempotencyKey String?
+  workOrderId    String    @unique
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  priority       String?
+  /// SHA-256 av den normaliserte forespørselen. Ulike data på samme nøkkel
+  /// avvises med 409 i stedet for å overskrive en eksisterende ordre.
+  requestHash    String
+  payload        Json?
+  lines          Json?
+  receivedAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@unique([source, externalId])
+  @@unique([source, idempotencyKey])
+  @@index([workOrderId])
+  @@index([source, receivedAt])
+}
+
 /// En planlagt, tildelbar tidsblokk i et oppdrag. Et oppdrag kan ha flere
 /// visiter; `WorkOrder.scheduledFor`/`scheduledTo` er avledet fra disse.
 /// Tidsstemplene er absolutte tidspunkt (timestamptz), slik at sommertid
@@ -968,6 +1111,8 @@ model Visit {
   workOrderId String
   workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   sequence    Int         @default(0)
+  /// Manuell rekkefølge i montørens rute for dagen. Null betyr automatisk.
+  routeSequence Int?
   startsAt    DateTime    @db.Timestamptz(3)
   endsAt      DateTime    @db.Timestamptz(3)
   allDay      Boolean     @default(false)
@@ -1465,9 +1610,14 @@ model Report {
   deletedBy String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
   legalHold Boolean   @default(false)
+  /// Satt når kundens direkte identifikatorer er fjernet fra rapportens
+  /// strukturerte felt. En allerede signert PDF bevares uendret som
+  /// tjenestebevis og kan derfor fortsatt inneholde opprinnelige data.
+  customerDataRedactedAt DateTime?
 
   units     ReportUnit[]
   revisions ReportRevision[]
+  invoices  Invoice[]
 
   @@unique([workOrderId, templateId])
   @@index([workOrderId])
@@ -1623,6 +1773,26 @@ model Upload {
   @@index([contentHash])
 }
 
+/// Kortlevd reservering av opplastingskvote. Raden opprettes før filen skrives
+/// til den endelige mappen og slettes når `Upload`-raden er skrevet eller
+/// opplastingen er avvist. Da teller samtidige opplastinger mot kvoten selv om
+/// de ennå ikke har fått en `Upload`-rad.
+///
+/// Utløpte rader ignoreres i kvoteberegningen og ryddes av cronjobben, slik at
+/// en krasjet prosess ikke låser kvoten permanent.
+model UploadQuotaReservation {
+  id         String   @id @default(cuid())
+  userId     String
+  customerId String?
+  size       Int
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([userId, expiresAt])
+  @@index([customerId, expiresAt])
+  @@index([expiresAt])
+}
+
 enum JobStatus {
   PENDING
   RUNNING
@@ -1655,6 +1825,17 @@ model RateLimit {
   resetAt DateTime
 
   @@index([resetAt])
+}
+
+/// Database-fallback for cache når Redis ikke er konfigurert. Verdien er JSON
+/// som tekst, slik at modellen er driver-uavhengig. Radene har TTL og ryddes av
+/// jobbworkeren; Redis-nøkler bruker Redis sin egen TTL.
+model InfraCache {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model AuditLog {
@@ -1735,7 +1916,7 @@ model CustomerTransferJob {
   actorId String
   /// EXPORT | IMPORT
   kind   String
-  /// PENDING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
+  /// PENDING | QUEUED | RUNNING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
   status String @default("PENDING")
 
   /// SHA-256 av hele ZIP-filen. Bindes til forhåndsvisningen og bekreftelsen.
@@ -1832,9 +2013,83 @@ model Notification {
   emailLockedBy      String?
   createdAt          DateTime  @default(now())
 
+  pushMessages PushMessage[]
+
   @@index([userId, readAt, createdAt])
   @@index([createdAt])
   @@index([emailSentAt, emailNextAttemptAt])
+}
+
+/// Registrert mobilenhet for pushvarsler.
+///
+/// Tokenet er unikt per plattform. Samme fysiske enhet kan bytte eier etter en
+/// ny innlogging: registreringen flytter da raden til den nye brukeren i
+/// stedet for å lage en duplikat. Selve tokenet logges aldri.
+model PushDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// android | ios
+  platform   String
+  token      String
+  appVersion String?
+  /// Klientens stabile enhets-id, når appen oppgir den. Ikke et push-token.
+  deviceId   String?
+  active     Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages PushMessage[]
+
+  @@unique([platform, token])
+  @@index([userId, active])
+  @@index([active, lastSeenAt])
+  @@index([deviceId])
+}
+
+/// Vedvarende utboks for pushvarsler. Én rad per varsel og enhet, slik at
+/// gjentatt innsetting er idempotent og en krasjet worker kan gjenoppta.
+model PushMessage {
+  id String @id @default(cuid())
+  /// Stabil idempotensnøkkel, f.eks. «<notificationId>:<deviceId>».
+  idempotencyKey String @unique
+
+  notificationId String?
+  notification   Notification? @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId String
+  device   PushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  /// Kopi av plattformen på køtidspunktet, slik at en senere enhetsendring
+  /// ikke sender meldingen til feil leverandør.
+  platform String
+  /// Tittel/tekst brukes bare for testvarsler. Vanlige varsler slås opp fra
+  /// Notification ved sending, med mottakerens språk.
+  title  String?
+  body   String?
+  path   String?
+  /// PENDING | SENDING | SENT | SKIPPED | FAILED | DEAD_LETTER
+  status String @default("PENDING")
+
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?
+  /// Stabil feilkode fra leverandøradapteret. Aldri rå leverandørtekst.
+  errorCode     String?
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@index([deviceId, status])
+  @@index([notificationId])
 }
 
 model NotificationPreference {
@@ -1846,6 +2101,66 @@ model NotificationPreference {
   email  Boolean @default(true)
 
   @@unique([userId, type])
+}
+
+enum EmailMessageStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+/// Vedvarende utboks for transaksjons-e-post.
+///
+/// Hendelser legger en rad i denne tabellen i stedet for å sende SMTP i
+/// request-stien. Jobbworkeren henter én rad med `FOR UPDATE SKIP LOCKED`,
+/// renderer malen og sender via den eksisterende SMTP-transporten. Raden er
+/// idempotent på `idempotencyKey`, slik at et dobbeltklikk eller en gjentatt
+/// hendelse aldri gir to e-poster.
+model EmailMessage {
+  id             String             @id @default(cuid())
+  to             String
+  subject        String
+  /// Hendelsesnøkkelen, f.eks. `quoteSent` eller `bookingConfirmed`.
+  template       String
+  /// Maldata. Inneholder personopplysninger frem til sending; etter vellykket
+  /// sending tømmes feltet fordi det ikke lenger trengs for retry.
+  payload        Json
+  locale         String             @default("nb")
+  status         EmailMessageStatus @default(PENDING)
+  attempts       Int                @default(0)
+  nextAttemptAt  DateTime           @default(now())
+  /// Kort, PII-fri feilkode (f.eks. `ECONNECTION`). Aldri rå SMTP-melding.
+  lastError      String?
+  /// Unik nøkkel per hendelse/mottaker. Gjør enqueue idempotent.
+  idempotencyKey String             @unique
+  /// Kort lease mens en instans sender, så en krasjet prosess kan ryddes.
+  lockedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@index([createdAt])
+}
+
+/// Globale innstillinger for transaksjons-e-post. Én rad med id "default".
+/// Av/på per hendelsestype og avsender/reply-to. SMTP-hemmelighetene ligger
+/// fortsatt i miljøvariabler og vises aldri her.
+model EmailSettings {
+  id               String   @id @default("default")
+  fromName         String?
+  fromAddress      String?
+  replyTo          String?
+  quoteSent        Boolean  @default(true)
+  invoiceSent      Boolean  @default(true)
+  paymentReceived  Boolean  @default(true)
+  bookingRequested Boolean  @default(true)
+  bookingConfirmed Boolean  @default(true)
+  bookingCancelled Boolean  @default(true)
+  workOrderAssigned Boolean @default(true)
+  updatedAt        DateTime @default(now()) @updatedAt
+  updatedById      String?
 }
 
 model SavedSearch {
@@ -2142,4 +2457,799 @@ model ReminderDispatch {
   @@index([status, scheduledFor])
   @@index([visitId, status])
   @@index([departmentId, createdAt])
+}
+
+/// Installasjonsnivåmoduler. Én rad per modulnøkkel. Data i modulens tabeller
+/// beholdes når modulen slås av; raden styrer bare om kode, sider, API-er og
+/// arbeidsjobber er tilgjengelige. Kjernen (`core`) har alltid enabled=true.
+model ModuleState {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
+}
+
+// ---------------------------------------------------------------------------
+// Tilbud og fakturering (modulene `quotes` og `invoicing`)
+//
+// Modellene er bevisst selvstendige: en faktura kan peke på et tilbud, et
+// oppdrag eller en rapport, men beløpene ligger alltid lagret på fakturaen.
+// Det gjør historikken lesbar selv om kilden senere endres.
+// ---------------------------------------------------------------------------
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CREDITED
+}
+
+/// Hvordan en betaling ble mottatt. `ONLINE` er en betaling bekreftet av en
+/// betalingsleverandør (PSP); kortdata lagres aldri i systemet.
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  OTHER
+  ONLINE
+}
+
+/// Tilstanden til fakturaens betalingslenke. `NONE` betyr at ingen lenke er
+/// opprettet. Selve betalingen registreres som en `Payment` når webhooken
+/// bekrefter den.
+enum PaymentLinkStatus {
+  NONE
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  FAILED
+  EXPIRED
+}
+
+/// Ett tilbud med linjer og en revisjonshistorikk. Versjonen økes hver gang
+/// tilbudet sendes eller klones, slik at kunden alltid kan knyttes til en
+/// bestemt utgave.
+model Quote {
+  id      String      @id @default(cuid())
+  /// Menneskelig tilbudsnummer. Tildeles når tilbudet opprettes.
+  quoteNumber String?  @unique
+  title       String
+  status      QuoteStatus @default(DRAFT)
+  version     Int         @default(1)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Navn som brukes dersom tilbudet ikke er knyttet til en kundekort ennå.
+  /// Konvertering oppretter da kunden.
+  customerName String?
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  /// Utstyret tilbudet gjelder. Kobles til oppdraget ved konvertering.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  currency String @default("NOK")
+  subtotal Decimal @db.Decimal(12, 2) @default(0)
+  vatTotal Decimal @db.Decimal(12, 2) @default(0)
+  total    Decimal @db.Decimal(12, 2) @default(0)
+  vatRate  Decimal @db.Decimal(5, 2) @default(25)
+
+  validUntil DateTime? @db.Date
+  notes      String?
+
+  createdById   String?
+  createdByName String?
+
+  /// Portalgodkjenning. Bare SHA-256-hashen lagres. Tokenet er kortlivet og
+  /// kan brukes én gang.
+  tokenHash      String?   @unique
+  tokenExpiresAt DateTime?
+  tokenUsedAt    DateTime?
+
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+  rejectedReason String?
+
+  /// Satt når et akseptert tilbud er konvertert til oppdrag. Unik hindrer at
+  /// to samtidige konverteringer lager hvert sitt oppdrag.
+  convertedWorkOrderId String?   @unique
+  convertedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines    QuoteLine[]
+  versions QuoteVersion[]
+  invoices Invoice[]
+
+  @@index([customerId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([validUntil])
+  @@index([workOrderId])
+  @@index([createdAt])
+}
+
+model QuoteLine {
+  id          String @id @default(cuid())
+  quoteId     String
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sortOrder   Int    @default(0)
+  description String
+  quantity    Decimal @db.Decimal(12, 2) @default(1)
+  unit        String  @default("stk")
+  unitPrice   Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+  lineTotal   Decimal @db.Decimal(12, 2) @default(0)
+  lineVat     Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([quoteId, sortOrder])
+}
+
+/// Uforanderlig snapshot av et tilbud ved innsending eller kloning. Linjene
+/// ligger i JSON fordi historikken skal være lesbar uten å følge relasjoner.
+model QuoteVersion {
+  id             String      @id @default(cuid())
+  quoteId        String
+  quote          Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  version        Int
+  status         QuoteStatus
+  title          String
+  snapshotJson   String
+  subtotal       Decimal @db.Decimal(12, 2)
+  vatTotal       Decimal @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+  vatRate        Decimal @db.Decimal(5, 2)
+  validUntil     DateTime? @db.Date
+  notes          String?
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime @default(now())
+
+  @@unique([quoteId, version])
+  @@index([quoteId, createdAt])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  /// Tildeles når fakturaen sendes. Unik på tvers av installasjonen.
+  invoiceNumber String?       @unique
+  status        InvoiceStatus @default(DRAFT)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  contactId  String?
+  contact    Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  reportId    String?
+  report      Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  quoteId     String?
+  quote       Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  currency String @default("NOK")
+  subtotal    Decimal @db.Decimal(12, 2) @default(0)
+  vatTotal    Decimal @db.Decimal(12, 2) @default(0)
+  total       Decimal @db.Decimal(12, 2) @default(0)
+  paidTotal   Decimal @db.Decimal(12, 2) @default(0)
+  creditedTotal Decimal @db.Decimal(12, 2) @default(0)
+  outstanding Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+
+  /// Betalingslenke opprettet hos PSP. Bare URL og leverandørens id lagres –
+  /// aldri kortdata eller hemmeligheter. `paymentStatus` speiler lenkens
+  /// tilstand, ikke fakturaens bokføring.
+  paymentProvider    String?
+  paymentLinkId      String?
+  paymentLinkUrl     String?
+  paymentStatus      PaymentLinkStatus @default(NONE)
+  paymentLinkCreatedAt DateTime?
+  paymentLinkUpdatedAt DateTime?
+
+  issueDate DateTime? @db.Date
+  dueDate   DateTime? @db.Date
+  notes     String?
+
+  sentAt     DateTime?
+  paidAt     DateTime?
+  creditedAt DateTime?
+  createdById   String?
+  createdByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines       InvoiceLine[]
+  payments    Payment[]
+  creditNotes CreditNote[]
+  accountingSyncs AccountingSync[]
+
+  @@index([customerId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([workOrderId])
+  @@index([quoteId])
+  @@index([createdAt])
+  @@index([paymentProvider, paymentLinkId])
+  @@index([paymentStatus])
+}
+
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  sortOrder   Int     @default(0)
+  description String
+  quantity    Decimal @db.Decimal(12, 2) @default(1)
+  unit        String  @default("stk")
+  unitPrice   Decimal @db.Decimal(12, 2) @default(0)
+  vatRate     Decimal @db.Decimal(5, 2) @default(25)
+  lineTotal   Decimal @db.Decimal(12, 2) @default(0)
+  lineVat     Decimal @db.Decimal(12, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([invoiceId, sortOrder])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Decimal       @db.Decimal(12, 2)
+  paidAt    DateTime      @db.Date
+  method    PaymentMethod @default(BANK_TRANSFER)
+  reference String?
+  note      String?
+  /// Klientens idempotensnøkkel. Samme nøkkel på samme faktura gir samme
+  /// betalingsrad, aldri et dobbeltbeløp.
+  idempotencyKey String?
+  createdById    String?
+  /// PSP-metadata. `providerEventId` er leverandørens hendelses-id;
+  /// `providerReference` er betalingens id hos leverandøren. Begge er
+  /// idempotensgrunnlag og inneholder aldri kortdata.
+  provider          String?
+  providerEventId   String?
+  providerReference String?
+  createdAt      DateTime @default(now())
+
+  @@unique([invoiceId, idempotencyKey])
+  @@unique([provider, providerEventId])
+  @@index([invoiceId, paidAt])
+  @@index([provider, providerReference])
+  accountingPayments AccountingPayment[]
+}
+
+model CreditNote {
+  id               String  @id @default(cuid())
+  creditNoteNumber String  @unique
+  invoiceId        String
+  invoice          Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount           Decimal @db.Decimal(12, 2)
+  vatAmount        Decimal @db.Decimal(12, 2)
+  total            Decimal @db.Decimal(12, 2)
+  reason           String?
+  issuedAt         DateTime @db.Date
+  createdById      String?
+  createdByName    String?
+  createdAt        DateTime @default(now())
+
+  @@index([invoiceId, issuedAt])
+}
+
+/// Én rad med faktureringsinnstillinger. MVA-satsen er redigerbar, men
+/// beløpene på en faktura fryses når den sendes.
+model BillingSettings {
+  id                  String @id @default("default")
+  vatRate             Decimal @db.Decimal(5, 2) @default(25)
+  invoiceDueDays      Int     @default(14)
+  quoteValidityDays   Int     @default(30)
+  approvalTokenTtlHours Int   @default(72)
+  invoicePrefix       String  @default("F")
+  nextInvoiceNumber   Int     @default(1)
+  creditNotePrefix    String  @default("K")
+  nextCreditNoteNumber Int    @default(1)
+  updatedAt           DateTime @default(now()) @updatedAt
+  updatedById         String?
+}
+
+// ---------------------------------------------------------------------------
+// Betaling (PSP) og regnskap
+// ---------------------------------------------------------------------------
+
+/// Status for en regnskapssynk. `EXPORTED` brukes av CSV-fallbacken: filen er
+/// laget lokalt og er ikke skrevet til et eksternt system.
+enum AccountingSyncStatus {
+  PENDING
+  SYNCED
+  EXPORTED
+  FAILED
+  SKIPPED
+}
+
+/// Installasjonsnivå for regnskapsintegrasjonen. Selve leverandøren og
+/// hemmelighetene kommer fra miljøet; raden styrer om synk er slått på og
+/// husker siste test/synk for administratorpanelet.
+model AccountingSettings {
+  id            String @id @default("default")
+  provider      String @default("csv")
+  enabled       Boolean @default(false)
+  lastTestedAt  DateTime?
+  lastTestOk    Boolean?
+  lastTestError String?
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  updatedAt     DateTime @default(now()) @updatedAt
+  updatedById   String?
+}
+
+/// Kobling mellom en kunde i FSM og samme kunde hos regnskapsleverandøren.
+/// Unik per leverandør, slik at en ny synk gjenbruker ekstern id.
+model AccountingCustomer {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  provider   String
+  externalId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([customerId, provider])
+  @@index([provider, externalId])
+}
+
+/// Tilstand for én faktura hos én regnskapsleverandør. `idempotencyKey` er
+/// stabil per faktura/leverandør, slik at gjentatte synkeforsøk gjenbruker
+/// raden i stedet for å lage et nytt eksternt dokument.
+model AccountingSync {
+  id        String @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  provider  String
+  status    AccountingSyncStatus @default(PENDING)
+  idempotencyKey String @unique
+
+  externalCustomerId    String?
+  externalInvoiceId     String?
+  externalInvoiceNumber String?
+
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  payments AccountingPayment[]
+
+  @@unique([invoiceId, provider])
+  @@index([provider, status])
+  @@index([lastAttemptAt])
+}
+
+/// Betalingssynk per betalingsrad. Idempotensnøkkelen hindrer at samme
+/// betaling bokføres to ganger hos regnskapsleverandøren.
+model AccountingPayment {
+  id         String @id @default(cuid())
+  syncId     String
+  sync       AccountingSync @relation(fields: [syncId], references: [id], onDelete: Cascade)
+  paymentId  String?
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  provider   String
+  status     AccountingSyncStatus @default(PENDING)
+  idempotencyKey String @unique
+  externalId String?
+  attemptCount Int @default(0)
+  lastAttemptAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([syncId, paymentId])
+  @@index([provider, status])
+}
+
+// ---------------------------------------------------------------------------
+// OPS-05: Lager og reservedeler
+// ---------------------------------------------------------------------------
+
+/// Fysisk lager eller montørbil. Bil-lokasjoner kan knyttes til en bruker, slik
+/// at montøren ser eget lagerbeholdning i felt.
+enum InventoryLocationType {
+  WAREHOUSE
+  VAN
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUST
+  RESERVE
+  RELEASE
+  CONSUME
+}
+
+enum InventoryReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model InventoryLocation {
+  id   String                @id @default(cuid())
+  name String
+  type InventoryLocationType @default(WAREHOUSE)
+
+  /// Avdelingen lokasjonen tilhører. Avdelingssperren gjenbruker samme
+  /// prinsipp som oppdrag: ansatte ser bare egen avdeling.
+  departmentId String?
+  /// Satt for montørbiler der en bestemt bruker er ansvarlig.
+  assignedUserId String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations InventoryReservation[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([departmentId])
+  @@index([assignedUserId])
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id          String  @id @default(cuid())
+  sku         String  @unique
+  name        String
+  unit        String  @default("stk")
+  /// Bestillingspunkt. Når tilgjengelig beholdning faller under dette nivået
+  /// lager tjenestelaget et kjøpsforslag; ingen egen tabell er nødvendig.
+  minLevel    Decimal @default(0) @db.Decimal(12, 3)
+  active      Boolean @default(true)
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations InventoryReservation[]
+  purchaseOrderLines PurchaseOrderLine[]
+
+  @@index([active])
+  @@index([name])
+}
+
+model StockLevel {
+  id         String @id @default(cuid())
+  itemId     String
+  item       InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Decimal @default(0) @db.Decimal(12, 3)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([itemId, locationId])
+  @@index([itemId])
+  @@index([locationId])
+}
+
+/// Alle beholdningsendringer er sporet. `quantity` er positiv for IN/OUT/
+/// RESERVE/RELEASE/CONSUME, mens ADJUST lagrer den signerte differansen.
+model StockMovement {
+  id         String            @id @default(cuid())
+  itemId     String
+  item       InventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  type       StockMovementType
+  quantity   Decimal           @db.Decimal(12, 3)
+  reason     String?
+
+  workOrderId  String?
+  visitId      String?
+  userId       String?
+  reservationId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId, createdAt])
+  @@index([locationId, createdAt])
+  @@index([workOrderId])
+  @@index([visitId])
+}
+
+/// Reservert mengde mot et oppdrag eller en arbeidsøkt. Reservasjonen holder
+/// ikke tilbake fysisk vare før den forbrukes, men reduserer tilgjengelig
+/// beholdning og hindrer at to montører reserverer samme del.
+model InventoryReservation {
+  id         String                     @id @default(cuid())
+  itemId     String
+  item       InventoryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Decimal                    @db.Decimal(12, 3)
+  status     InventoryReservationStatus @default(ACTIVE)
+
+  workOrderId String?
+  visitId     String?
+  createdById String?
+  note        String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  releasedAt DateTime?
+  consumedAt DateTime?
+
+  @@index([itemId, status])
+  @@index([locationId, status])
+  @@index([workOrderId, status])
+  @@index([visitId, status])
+}
+
+/// Leverandør for innkjøp. `departmentId` er valgfri: en leverandør uten
+/// avdeling er felles for hele installasjonen, mens en avdelingsleverandør
+/// bare er synlig for den avdelingen.
+model Supplier {
+  id           String  @id @default(cuid())
+  name         String
+  orgNumber    String?
+  email        String?
+  phone        String?
+  departmentId String?
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@index([orgNumber])
+  @@index([active])
+}
+
+/// Innkjøpsordre. Nummeret er menneskelig og tildeles av tjenestelaget fra en
+/// PostgreSQL-sekvens, slik at to samtidige opprettelser aldri kolliderer.
+/// `departmentId` fryses fra mottakslokasjonen og styrer avdelingssperren.
+model PurchaseOrder {
+  id     String              @id @default(cuid())
+  number String              @unique
+  status PurchaseOrderStatus @default(DRAFT)
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  /// Lokasjonen varene skal mottas på. Beholdningen økes her ved mottak.
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  departmentId String?
+
+  expectedAt DateTime? @db.Date
+  notes      String?
+
+  createdById String?
+  receivedAt  DateTime?
+  orderedAt   DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines PurchaseOrderLine[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@index([locationId])
+  @@index([departmentId, status])
+  @@index([createdAt])
+}
+
+/// Én varelinje per innkjøpsordre. Summer beregnes på lesetid; verken
+/// linjebeløp eller ordretotal lagres, slik at en klient aldri kan sende inn
+/// et avvikende beløp.
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  orderedQuantity  Decimal @db.Decimal(12, 3)
+  receivedQuantity Decimal @default(0) @db.Decimal(12, 3)
+  unitCost         Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder        Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([purchaseOrderId, inventoryItemId])
+  @@index([inventoryItemId])
+  @@index([purchaseOrderId, sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// FLD-01: Kjøreturer, utlegg og lønnsgrunnlag
+// ---------------------------------------------------------------------------
+
+enum MileageStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayrollLineKind {
+  WORK
+  TRAVEL
+  MILEAGE
+  EXPENSE
+}
+
+/// Kjøretur registrert av montøren. `amount` beregnes alltid av tjenestelaget
+/// som `km × rate` avrundet til øre, slik at klienten ikke kan sende et avvik.
+model MileageTrip {
+  id           String        @id @default(cuid())
+  userId       String
+  departmentId String?
+  workOrderId  String?
+  visitId      String?
+
+  date        DateTime @db.Date
+  fromAddress String
+  toAddress   String
+  km          Decimal  @db.Decimal(10, 2)
+  rate        Decimal  @db.Decimal(10, 4)
+  amount      Decimal  @db.Decimal(12, 2)
+  purpose     String?
+
+  status          MileageStatus @default(PENDING)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+
+  /// Settes når turen er med i en låst lønnsperiode. Da kan den ikke eksporteres
+  /// på nytt i en overlappende periode.
+  payrollExportId String?
+  exportedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId, date])
+  @@index([departmentId, status])
+  @@index([workOrderId])
+  @@index([visitId])
+  @@index([payrollExportId])
+}
+
+/// Utlegg med kvittering. `amount` er bruttobeløp inkl. mva, og `vatAmount` er
+/// mva-delen. Lønnsgrunnlaget bruker beløpet slik det står på kvitteringen.
+model Expense {
+  id           String        @id @default(cuid())
+  userId       String
+  departmentId String?
+  workOrderId  String?
+
+  date        DateTime @db.Date
+  category    String
+  description String?
+  amount      Decimal  @db.Decimal(12, 2)
+  vatAmount   Decimal  @default(0) @db.Decimal(12, 2)
+
+  /// Enten en fil fra den eksisterende opplastingsruten (`/uploads/...`) eller
+  /// et dokument i dokumentbiblioteket. Begge valideres av tjenestelaget.
+  receiptUrl  String?
+  documentId  String?
+
+  status          ExpenseStatus @default(PENDING)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+
+  payrollExportId String?
+  exportedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId, date])
+  @@index([departmentId, status])
+  @@index([workOrderId])
+  @@index([payrollExportId])
+}
+
+/// Låst lønnsperiode. Raden gjør eksporten idempotent: samme avdeling og
+/// periode returnerer nøyaktig samme CSV, og overlappende perioder avvises.
+model PayrollExport {
+  id           String @id @default(cuid())
+  departmentId String
+  periodStart  DateTime @db.Date
+  periodEnd    DateTime @db.Date
+  createdById  String
+  checksum     String
+  rowCount     Int
+  csvText      String
+
+  createdAt DateTime @default(now())
+
+  lines PayrollExportLine[]
+
+  @@unique([departmentId, periodStart, periodEnd])
+  @@index([departmentId, createdAt])
+}
+
+model PayrollExportLine {
+  id       String        @id @default(cuid())
+  exportId String
+  export   PayrollExport @relation(fields: [exportId], references: [id], onDelete: Cascade)
+  kind     PayrollLineKind
+
+  /// Stabil referanse innenfor eksporten: bruker+dato for tid, ellers rad-id.
+  refId       String
+  userId      String
+  userName    String
+  workOrderId String?
+  occurredOn  DateTime @db.Date
+  description String?
+  quantity    Decimal  @db.Decimal(12, 3)
+  unit        String
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
+  vatAmount   Decimal  @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([exportId, kind, refId])
+  @@index([exportId])
 }

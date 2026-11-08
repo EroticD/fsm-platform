@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runScheduledJobs } from "@/lib/recurring-scheduler";
 import { safeEqual } from "@/lib/secrets";
+import { moduleEnabled } from "@/server/modules";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 401 });
   }
 
+  const [contractsEnabled, equipmentEnabled] = await Promise.all([
+    moduleEnabled("contracts"),
+    moduleEnabled("equipment"),
+  ]);
+  if (!contractsEnabled && !equipmentEnabled) {
+    return NextResponse.json(
+      { error: "module_disabled" },
+      { status: 404 },
+    );
+  }
+
   const run = await runScheduledJobs();
 
   return NextResponse.json({
@@ -35,6 +47,7 @@ export async function GET(request: Request) {
     renewed: run.lifecycle.renewed,
     expired: run.lifecycle.expired,
     sla: run.sla,
+    slaCleanup: run.slaCleanup,
     results: run.recurring,
   });
 }

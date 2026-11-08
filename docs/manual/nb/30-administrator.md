@@ -1,6 +1,6 @@
 # Administrator
 
-Gjelder FSM-plattformen **0.8.9** (2026-11-04). Målgruppen er systemadministratorer som konfigurerer plattformen, administrerer brukere og tilganger, setter opp integrasjoner og har ansvar for data, sikkerhet og drift. Kapitlet beskriver konfigurasjon og governance. Daglige arbeidsflyter for kontor, tekniker og kundeportal står i egne kapitler.
+Gjelder FSM-plattformen **0.8.11** (2026-11-08). Målgruppen er systemadministratorer som konfigurerer plattformen, administrerer brukere og tilganger, setter opp integrasjoner og har ansvar for data, sikkerhet og drift. Kapitlet beskriver konfigurasjon og governance. Daglige arbeidsflyter for kontor, tekniker og kundeportal står i egne kapitler.
 
 ## 1. Administratorrollen og delegering
 
@@ -36,6 +36,33 @@ Oppdrag, serviceavtaler og ansatte hører til en avdeling. Ansatte ser bare oppd
 **Advarsel:** Deaktivering logger ut alle ansatte i avdelingen, sletter kalenderabonnementer og gjør oppdragene utilgjengelige fordi spørringene krever en aktiv avdeling. Kontoene beholdes, og avdelingen kan aktiveres igjen. Varsle brukerne på forhånd.
 
 
+## Moduler
+
+Plattformen har en kjerne og en katalog med moduler. Kjernen (kunder, oppdrag,
+arbeidsdager, tid, revisjon og innstillinger) kan kjøres uten valgfrie moduler.
+Modulene slås av og på under **Innstillinger → Moduler**. Modulvakten gir `404`
+på sider og API-er når modulen er av, og fjerner navigasjon, innstillinger,
+søketreff, eksport/import og bakgrunnsjobber for området. Dataene beholdes.
+
+| Modul | Nøkkel | Avhenger av | Gir |
+| --- | --- | --- | --- |
+| **Tilbud** | `quotes` | Kunder, oppdrag | Tilbud, versjoner, godkjenningslenke |
+| **Fakturering** | `invoicing` | Kunder, oppdrag | Faktura, betaling, kreditnota, regnskapssynk |
+| **Lager** | `inventory` | Utstyr | Varer, beholdning, reservasjoner, innkjøp |
+| **Utlegg** | `fieldExpenses` | Kalender | Kjøreturer, utlegg og lønns-CSV |
+| **Lønnsomhet** | `bi` | Rapporter | Estimert og faktisk omsetning |
+| **Kundeportal** | `portal` | Kunder | Kundens egen flate |
+| **API** | `api` | – | REST-API under `/api/v1` |
+
+Eksisterende installasjoner får alle leverte moduler på. `MODULE_PRESET` kan
+brukes ved oppstart for å velge et forhåndsdefinert sett. Slår du av en modul som
+andre avhenger av, stopper valideringen og du får en tydelig feil. Alle
+modulendringer revisjonslogges.
+
+> **Merk:** Å slå av en modul skjuler funksjonen, men sletter ikke data. En
+> faktura, et lager eller en utleggsrad blir liggende og kommer tilbake når
+> modulen slås på igjen.
+
 ## 3. Brukere, invitasjoner og økter
 
 **Opprette bruker:**
@@ -58,7 +85,7 @@ Brukeren opprettes inaktiv. Du får en bekreftelse på at invitasjonen er sendt,
 
 ### Endre passord, 2FA og gjenopprettingskoder
 
-1. For å bytte passord, logg ut og bruk **Glemt passord** på innloggingssiden. 0.8.9 har ingen egen «endre passord»-side. Lenken er gyldig i én time, og alle andre økter avvises når passordet er satt.
+1. For å bytte passord, logg ut og bruk **Glemt passord** på innloggingssiden. 0.8.11 har ingen egen «endre passord»-side. Lenken er gyldig i én time, og alle andre økter avvises når passordet er satt.
 2. Gå til **Innstillinger → Sikkerhet** for å slå på **To-trinns verifisering**. Skann QR-koden med autentiseringsappen og skriv den 6-sifrede koden.
 3. Lagre **Gjenopprettingskodene** på et sikkert sted. De vises bare én gang, og hver kode kan brukes én gang. **Lag nye koder** gjør de gamle ugyldige.
 4. Bruk **Logg ut** på delte enheter. Ved mistanke om misbruk: bytt passord via **Glemt passord** og tilbakestill 2FA.
@@ -74,10 +101,20 @@ PKCE, state/nonce og verifisert e-post. Redirect-URL-en er
 **Innstillinger → SSO og SCIM** leverandørens status, issuer, standardrolle og
 tillatte domener. Passordinnlogging blir alltid stående som break-glass.
 
+**SAML 2.0** er additivt og bruker `SAML_PROVIDERS` og `SAML_<SLUG>_*`. OIDC-
+variablene er urørt, så en installasjon kan ha begge deler. Registrer SP entity
+ID og ACS-URL fra `/api/auth/saml/<slug>/metadata` i IdP-en. Serveren validerer
+signert assertion, audience, recipient og tidsvindu, og avviser replay av samme
+assertion. `ALLOW_IDP_INITIATED=true` gjelder bare IdP-initierte innlogginger;
+signatur, audience, recipient og replay er fortsatt på.
+
 SCIM 2.0 ligger på `/api/scim/v2` og bruker et eget Bearer-token som opprettes,
 roteres og tilbakekalles i samme fane. `DELETE` deaktiverer brukeren uten å
 slette den, og `ADMIN` krever både eksplisitt gruppemapping og
-`SCIM_ALLOW_ADMIN=true`. Full oppskrift, feltmapping og feilsøking står i
+`SCIM_ALLOW_ADMIN=true`. **SCIM Groups** ligger på `/api/scim/v2/Groups`.
+Gruppemedlemskap gir bare rolle og avdeling gjennom `SCIM_GROUP_ROLE_MAP` og
+`SCIM_GROUP_DEPARTMENT_MAP`; uten mapping skjer ingenting, og motstridende
+mappinger endrer ingenting. Full oppskrift, feltmapping og feilsøking står i
 [SSO og SCIM](31-sso-scim.md).
 
 ## 4. Roller og rettigheter
@@ -131,7 +168,7 @@ Portalbrukere ser aldri andre kunder, interne notater, interne rettigheter, klad
 
 **Sikkerhet:** Bruk egne kontoer per person. **Deaktiver** når noen slutter; det logger ut, sletter kalenderabonnementet og tilbakekaller portaltilgangen. Sletter du kunden, deaktiveres alle portalbrukere, øktene ugyldiggjøres og booking stenges. Ved gjenoppretting må hver portalbruker aktiveres bevisst på nytt. En portalbruker må alltid ha gyldig kontakt på samme kunde.
 
-**Delegasjon:** Portalen har serverhåndhevede kapabiliteter for booking, dokumenter, avtaler og utstyr, men 0.8.9 har ikke eget skjema for å redigere dem. En kontakt uten delegasjonsrad får full portaltilgang. Begrenset portal må settes opp og testes med den aktuelle kontoen.
+**Delegasjon:** Portalen har serverhåndhevede kapabiliteter for booking, dokumenter, avtaler og utstyr, men 0.8.11 har ikke eget skjema for å redigere dem. En kontakt uten delegasjonsrad får full portaltilgang. Begrenset portal må settes opp og testes med den aktuelle kontoen.
 
 ## 6. Sjekklister og maler
 
@@ -187,7 +224,7 @@ kategori **HMS-skjema**.
 
 **Rapportnummer:** HMS-rapporter får automatisk `abc1234` (tre små bokstaver og fire tall) ved første innsending. Nummeret beholdes ved revisjoner. Vanlige servicerapporter har ikke automatisk nummer.
 
-**PDF og merkevare:** PDF-en bruker firmanavn, logo og primærfarge fra **Merkevare**, lagres som `WORK_ORDER`-opplasting og krever `reports.view`. Svaret er `no-store`. Merkevaren inngår i PDF-hashen, så endringer slår inn neste gang PDF-en genereres. Rapport-PDF-etikettene er norske i 0.8.9; avtale-PDF har etiketter for alle fire språk. Tittelen på automatiske utbedringsoppdrag er også norsk («Utbedring av avvik – …»).
+**PDF og merkevare:** PDF-en bruker firmanavn, logo og primærfarge fra **Merkevare**, lagres som `WORK_ORDER`-opplasting og krever `reports.view`. Svaret er `no-store`. Merkevaren inngår i PDF-hashen, så endringer slår inn neste gang PDF-en genereres. Rapport-PDF-etikettene er norske i 0.8.11; avtale-PDF har etiketter for alle fire språk. Tittelen på automatiske utbedringsoppdrag er også norsk («Utbedring av avvik – …»).
 
 **Bevaringsplikt og retensjon:** Bevaringsplikt hindrer hard sletting og fryser rapporten. På oppdrag arver alle rapporter flagget. Å slå av krever grunn og frigjør ikke rapportenes egne flagg; **Rapport-hold** oppheves per rapport med egen grunn. Mykt slettede oppdrag kan hard-slettes etter `RETENTION_DAYS` (standard 365) bare når de ikke har rapporter. Oppdrag med rapporter beholdes på ubestemt tid. **Papirkurv** og **Gjenopprett** er bare for administrator.
 
@@ -203,7 +240,7 @@ kategori **HMS-skjema**.
 
 **Fornyelse:** **Automatisk** fornyer ved passert sluttdato og genererer nytt oppdrag. **Manuell** blir **Utløpt** ved passert sluttdato. **Varsel (dager)** styrer forfallsvarsel. Automatisk fornyelse er betinget og kjører nøyaktig én gang selv med flere instanser.
 
-**Prislister:** Opprettes under **SLA og åpningstider → Prislister** med **Kode**, **Beskrivelse**, **Enhet** og **Beløp**. De er referansedata for visning i avtale-PDF og innstillinger; systemet beregner, fakturerer eller eksporterer aldri beløp.
+**Prislister:** Opprettes under **SLA og åpningstider → Prislister** med **Kode**, **Beskrivelse**, **Enhet** og **Beløp**. De er referansedata for visning i avtale-PDF og innstillinger, og for timepris i lønnsomhet. Fakturering skjer bare når `invoicing` er på, og prislisten oppgir ikke automatisk et fakturabeløp.
 
 ## 9. Booking, SMS, sporing og omtaler
 
@@ -217,17 +254,19 @@ SMS sendes bare når mottakeren har `optedIn = true` og `optedOut = false`; STOP
 
 **Sporing:** Av som standard per avdeling. Slå på i **Avdelinger → Rediger avdeling → Aktiver live-sporing** etter en DPIA, fordi montørens posisjon er en personopplysning. Tildelt montør kan dele posisjon mens visitten er `EN_ROUTE`. Offentlig lenke viser bare fornavn, status, ETA, planlagt tid og sist oppdatert – aldri koordinater, kart eller historikk. Ping lagres i maks 24 timer og slettes ved `DONE`/`CANCELLED`. Lenken lever til visittens slutt pluss to timer, gir 404 etter utløp. Det er én aktiv lenke per visitt. `TRACKING_AVERAGE_SPEED_KMH` (standard 50) styrer reserveberegningen. Med `OSRM_BASE_URL` brukes ekstern ruteleverandør for ETA; uten den beregnes ETA lokalt. Et ping eldre enn ti minutter vises som **sist kjente posisjon**, ikke som live. Den offentlige ETA-ruten polles hvert 30. sekund og har egen rate limit per token.
 
-**Omtaler:** Interne, publiseres ikke. Kunden kan be om omtale i portalen etter fullført visitt, eller kontoret kan sende SMS med «Be om vurdering». Omtalen krever fullført visitt, kan sendes én gang og lagres med hashet token. Omtalene er ikke vist som eget dashboard i 0.8.9.
+**Omtaler:** Interne, publiseres ikke. Kunden kan be om omtale i portalen etter fullført visitt, eller kontoret kan sende SMS med «Be om vurdering». Omtalen krever fullført visitt, kan sendes én gang og lagres med hashet token. Omtalene er ikke vist som eget dashboard i 0.8.11.
 
 ## 10. Merkevare, kart, språk og varsler
 
-**Dispatch og arbeidsstyrke:** Under **Innstillinger → Dispatch** settes **Fordelingsregler** (vekter for kompetanse, avstand, reisetid, ledighet, SLA og belastning) og **Territorier**. Vektene er relative. **Kapasitetsplaner** vises i **Kalender → Kapasitet**, men redigeres ikke i **Innstillinger** i 0.8.9. Kompetanse, fravær og arbeidstid brukes av forslagene, men har heller ikke eget skjema i **Innstillinger**; hold dataene oppdatert utenfor grensesnittet.
+**Dispatch og arbeidsstyrke:** Under **Innstillinger → Dispatch** settes **Fordelingsregler** (vekter for kompetanse, avstand, reisetid, ledighet, SLA og belastning) og **Territorier**. Vektene er relative. **Kapasitetsplaner** vises i **Kalender → Kapasitet**, men redigeres ikke i **Innstillinger** i 0.8.11. Kompetanse, fravær og arbeidstid brukes av forslagene, men har heller ikke eget skjema i **Innstillinger**; hold dataene oppdatert utenfor grensesnittet.
+
+**Ruting og overtid:** Ruteplanen bruker `OSRM_BASE_URL` for ruter og reisematrise, og `GOOGLE_ROUTES_API_KEY` for valgfri trafikkbevisst ETA på enkeltstrekninger. Uten nøkkel er ETA et rute- og hastighetsanslag, ikke sanntidstrafikk; uten begge faller den tilbake til luftlinje × 1,35. `ROUTE_ALLOW_OVERTIME` (standard `true`) og `ROUTE_MAX_OVERTIME_MINUTES` (0 = ingen grense) styrer om visiter kan planlegges utenfor arbeidstiden. `ROUTING_PROVIDER=haversine` slår bevisst av alle eksterne rute- og trafikkall. Overvåk Google-kvote og kostnader; cache og rate limit er per prosess. Se `docs/ROUTING.md`.
 
 **Merkevare:** Under **Innstillinger → Merkevare** setter du **Firmanavn**, **Hovedfarge (Hex-kode)** og **Firmalogo (valgfritt)**. Logoen må lastes opp gjennom appen; eksterne URL-er avvises. Den brukes i rapporter, e-post og dashbordheader, og gjelder kontor og kundeportal, ikke feltappens mørke flate. Kunder kan ha egen farge og logo i portalen.
 
 **Kart og geokoding:** Under **Innstillinger → Kart** velger du **Kartleverandør**. **OpenStreetMap (ingen nøkkel)** er standard; **MapTiler** og **Mapbox** krever **API-nøkkel**. Nøkkelen lagres på serveren og sendes bare til kartet i nettleseren; bruk en domenebegrenset nøkkel. Du kan sette **Standardkartlag**, **Standard zoom (2–19)**, **Senter** og **Aktiver zoom med scrollhjulet**. Geokoding er på som standard (`GEOCODE_ENABLED=true`) og prøver OpenStreetMap/Nominatim, deretter Kartverket og Photon. Sett `GEOCODE_USER_AGENT` for å identifisere installasjonen, eller slå av med `GEOCODE_ENABLED=false`. Knappen **Geokod adresser** på kartet viser om adressen ikke ble funnet, om tjenesten ikke svarte eller om geokoding er slått av.
 
-**Språk:** Norsk, engelsk, polsk og tysk har komplette kataloger. Språkvelgeren i topplinjen lagrer `NEXT_LOCALE`-cookien og bruker `router.refresh()`, uten URL-prefiks. Datoer og tall følger `nb-NO`, `en-GB`, `pl-PL` og `de-DE`. SMS bruker mottakerens kontakt-`locale`; e-postvarsler bruker brukerens `locale`. Rapporter har norske PDF-etiketter i 0.8.9; oversettelser redigeres i `messages/` og kontrolleres med `npm run check:i18n`.
+**Språk:** Norsk, engelsk, polsk og tysk har komplette kataloger. Språkvelgeren i topplinjen lagrer `NEXT_LOCALE`-cookien og bruker `router.refresh()`, uten URL-prefiks. Datoer og tall følger `nb-NO`, `en-GB`, `pl-PL` og `de-DE`. SMS bruker mottakerens kontakt-`locale`; e-postvarsler bruker brukerens `locale`. Rapporter har norske PDF-etiketter i 0.8.11; oversettelser redigeres i `messages/` og kontrolleres med `npm run check:i18n`.
 
 **Varsler:** In-app og e-post. Hver bruker velger hendelser og kanaler under **Varsler → Innstillinger**; det finnes ingen global standard. Sørg for at SMTP er konfigurert. E-postkoen ligger i `Notification`, prøver fem ganger med backoff, hopper over deaktiverte brukere og bruker en lease (en tidsbegrenset lås) mot dobbeltsending. Varseltyper inkluderer tildeling, datoendring, kansellering, rapport klar, booking, avtale, forfalt, kontaktoppdatering, SLA og garanti.
 
@@ -247,25 +286,152 @@ API-et ligger under `/api/v1` og bruker Bearer-nøkler med prefikset `fsm_`. Nex
 
 Nøkkelen vises bare én gang. Serveren lagrer bare SHA-256-hash og et kort visningsprefiks. Mister du den, må du tilbakekalle og lage ny.
 
-API-et har ikke egne scopes. Nøkkelen arver nøyaktig rettighetene, avdelingen og kundeomfanget til eieren. Rolle- og rettighetsendringer gjelder også nøkkelen; deaktivert bruker gir `401`. **Viktig:** I grensesnittet opprettes nøkkelen for administratoren som er innlogget, og får dermed alle administratorens rettigheter. Behandle den som en administratorhemmelighet. Trenger du lavere privilegium, opprett en egen aktiv integrasjonsbruker med smal rolle og bruk `scripts/create-api-key.mjs` med `API_KEY_USER_EMAIL`, `API_KEY_NAME` og eventuelt `API_KEY_EXPIRES_AT`.
+Nøkkelen arver rettighetene, avdelingen og kundeomfanget til eieren, og har i
+tillegg eksplisitte **scopes** og kan merkes skrivebeskyttet. Nye nøkler må ha
+minst ett scope. En nøkkel med bare lese-scopes får `403` på skriveendepunkter.
+Standard levetid er 90 dager, maks 365.
+
+| Scope | Dekker |
+| --- | --- |
+| `workorders:read` / `workorders:write` | Oppdrag og endringer |
+| `visits:read` / `visits:write` | Visiter |
+| `customers:read` | Kunder |
+| `contracts:read` / `contracts:write` | Serviceavtaler og PDF |
+| `sla:read` | SLA-policyer |
+| `equipment:read` / `equipment:write` | Utstyr og målinger |
+| `maintenance:read` / `maintenance:write` | Vedlikeholdsplaner |
+| `reports:read` | Rapporter og PDF |
+| `documents:read` | Dokumenter |
+| `quotes:read` / `quotes:write` | Tilbud og sending |
+| `orders:read` / `orders:write` | Eksterne ordrer |
+| `inventory:read` / `inventory:write` | Lager og reservasjoner |
+
+**Tilbud, eksterne ordrer og lager:** `/api/v1/quotes` oppretter og sender
+tilbud; `/api/v1/orders` tar imot ordrer fra et eksternt ordresystem;
+`/api/v1/inventory/**` leser varer, lokasjoner og beholdning og oppretter,
+frigjør eller forbruker reservasjoner. Ordreendepunktet bruker `source` +
+`externalId` som idempotensnøkkel og godtar `Idempotency-Key` som sekundær
+nøkkel. En replay med samme innhold gir `200` med `Idempotent-Replay: true`;
+samme nøkkel med annet innhold gir `409`. API-et sender ingen webhooks tilbake –
+kildesystemet må polle.
+
+**Viktig:** I grensesnittet opprettes nøkkelen for administratoren som er
+innlogget, og får dermed alle administratorens rettigheter. Behandle den som en
+administratorhemmelighet. Trenger du lavere privilegium, opprett en egen aktiv
+integrasjonsbruker med smal rolle og bruk `scripts/create-api-key.mjs` med
+`API_KEY_USER_EMAIL`, `API_KEY_NAME` og eventuelt `API_KEY_EXPIRES_AT`.
 
 **Tilbakekall** virker umiddelbart og gir `401`. Utløpte nøkler gir også `401`. Listen viser **Eier**, **Opprettet**, **Sist brukt**, **Utløper** og status **Aktiv**, **Utløpt** eller **Tilbakekalt**.
 
 Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429` med `Retry-After`. Paginering bruker `page` og `limit` (maks 100). OpenAPI 3.1 ligger på `/api/v1/openapi.json`; dokumentasjon med eksempler i `docs/API.md`.
 
+![Figur: API-nøkler med scopes, eier og sist brukt](../../../screenshots/manual/api-oversikt.jpg)
+
+*Figur: API-oversikten viser nøkler, scopes og sist brukt.*
+
+Se på **Scopes** og **Sist brukt** før du roterer eller tilbakekaller. En nøkkel
+uten scopes er en gammel nøkkel som regnes som «alle scopes» til den roteres.
+Bruk én nøkkel per integrasjon, og kontroller at skrivebeskyttede nøkler ikke
+får skriveendepunkter.
+
 **Sikker bruk:** Bruk HTTPS, én nøkkel per integrasjon, utløpsdato, hemmelighetslager og **Sist brukt**. Ved rotasjon: opprett ny, rull ut, verifiser med `GET /me`, tilbakekall den gamle. Ved lekkasje: tilbakekall først, opprett ny og undersøk aktivitetsloggen.
+
+## Automatisk e-post og utboks
+
+Transaksjons-e-post (tilbud, faktura, betaling, booking og tildeling) sendes fra
+en vedvarende utboks i databasen, ikke direkte fra request-stien. Da kan en treg
+eller nede SMTP-server aldri rulle tilbake en faktura, et tilbud eller en
+booking, og hver utsendelse har retry, historikk og idempotens.
+
+| Hendelse | Utløses av | Mottaker |
+| --- | --- | --- |
+| `quoteSent` | Tilbud sendes | Kundens kontakt |
+| `invoiceSent` | Faktura sendes | Kundens kontakt |
+| `paymentReceived` | Faktura blir betalt | Kundens kontakt |
+| `bookingRequested` | Kunden bestiller | Kunden |
+| `bookingConfirmed` | Kontoret bekrefter | Kunden |
+| `bookingCancelled` | Avbestilling | Kunden |
+| `workOrderAssigned` | Tildeling eller flytting | Montøren |
+
+1. Sett `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` og
+   `APP_URL`. Uten brukernavn og passord er utboksen en trygg no-op: meldingene
+   blir liggende `PENDING` uten å telle som feilede forsøk.
+2. Åpne **Innstillinger → Automatisk e-post**.
+3. Sett **Avsendernavn**, **Avsenderadresse** og **Reply-to**. Tom avsender
+   bruker `SMTP_USER`; tomt navn bruker bedriftsnavnet fra merkevaren.
+4. Slå hver hendelse av eller på. Av betyr bare at e-posten ikke sendes;
+   forretningshendelsen lagres som før.
+5. Trykk **Send test-e-post**. Testen går gjennom utboksen, men sendes
+   umiddelbart, og påvirker ikke av/på-innstillingene.
+
+Utboksen prøver på nytt etter 60 sekunder, deretter eksponentielt opp til én
+time, og gir opp etter fem forsøk. Bare en kort feilkode lagres, aldri rå
+SMTP-melding eller mottakeradresse i loggen. `FOR UPDATE SKIP LOCKED` gjør at
+flere app-instanser kan dele køen. Rader som blir stående i `SENDING` av en
+krasjet prosess settes tilbake etter 15 minutter. Er modulen for en hendelse av,
+utsettes meldingen i stedet for å forkastes.
+
+![Figur: Innstillinger for automatisk e-post med testutsending](../../../screenshots/manual/innstillinger-email.jpg)
+
+*Figur: Automatisk e-post styres per hendelse, med avsender og test.*
+
+Legg merke til at **Send test-e-post** er et eget skjema. Testen bekrefter at
+SMTP og avsenderadressen virker, men endrer ikke av/på-valgene. Sjekk også
+**Reply-to** og avsendernavnet før du slår på kundehendelsene.
+
+## Pushvarsler
+
+Push er et supplement til in-app-varslene. Hvert varsel lagres først i
+`Notification`, deretter legges én rad per aktiv mobilenhet i utboksen
+`PushMessage`. Workeren sender i bakgrunnen, slik at en treg leverandør aldri
+blokkerer handlingen som utløste varselet.
+
+- **Android:** FCM HTTP v1 med en Google-tjenestekonto i
+  `FCM_SERVICE_ACCOUNT_JSON`.
+- **iOS:** APNs med `.p8`-nøkkel i `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`,
+  `APNS_BUNDLE_ID` og `APNS_ENV`.
+- `PUSH_WORKER=false` slår av workeren. Uten leverandør er funksjonen en trygg
+  no-op.
+
+Appen registrerer enheten etter innlogging og ved tokenrotasjon. Ved
+`UNREGISTERED` eller `BadDeviceToken` deaktiveres enheten. Under **Innstillinger
+→ Pushvarsler** ser du om leverandørene er konfigurert, og kan rydde deaktiverte
+enheter og enheter som ikke er sett på 90 dager. Testvarsel bruker en tilfeldig
+nøkkel og går til administratorens egne registrerte enheter.
+
+Push følger modulene som eier varseltypen. Er modulen av, lages ingen push-rad,
+og en allerede køet rad hoppes over. Dype lenker inneholder alltid en intern sti
+som starter med `/`; appen skal aldri åpne eksterne URL-er. Driftsmålinger ligger
+i `/api/metrics` som `fsm_push_messages{status="pending"}` og
+`fsm_push_messages{status="dead_letter"}`.
+
+![Figur: Pushinnstillinger med leverandørstatus og enhetsrydding](../../../screenshots/manual/innstillinger-push.jpg)
+
+*Figur: Pushinnstillingene viser om FCM og APNs er konfigurert.*
+
+Se på leverandørstatusen, ikke bare på knappen for testvarsel. Er bare FCM satt,
+sendes Android-varsler, mens iOS-enheter hoppes over med `not_configured`.
+Testvarselet gir 0 enheter hvis administratoren ikke har registrert sin egen
+enhet.
 
 ## 12. Aktivitetslogg, personvern og data
 
-**Aktivitetslogg:** **Innstillinger → Aktivitetslogg** viser systemhendelser, sikkerhetshendelser som feilede 2FA-forsøk og brukeraktivitet med søk, **Fra dato** og **Til dato**, 50 rader per side. Oppdrag og kunder har egne aktivitetsfaner; rapporter har revisjoner. Loggen skrives i samme transaksjon som mutasjonen, kan ikke redigeres eller slettes i grensesnittet, og er ikke hash-kjedet i 0.8.9.
+**Aktivitetslogg:** **Innstillinger → Aktivitetslogg** viser systemhendelser, sikkerhetshendelser som feilede 2FA-forsøk og brukeraktivitet med søk, **Fra dato** og **Til dato**, 50 rader per side. Oppdrag og kunder har egne aktivitetsfaner; rapporter har revisjoner. Loggen skrives i samme transaksjon som mutasjonen, kan ikke redigeres eller slettes i grensesnittet, og er ikke hash-kjedet i 0.8.11.
 
 **Personvern:** Samle bare nødvendige data, bruk avdelings- og kundeomfang, og gi `reports.viewAllDepartments` bare ved behov. Bruk egne portalbrukere og deaktiver ved avslutning. Vurder DPIA før sporing i en ny avdeling; sporing er opt-in, begrenset til `EN_ROUTE`, viser ikke rute eller koordinater og sletter ping etter 24 timer. Innhent SMS-samtykke, og hold omtaler interne. Kundesletting deaktiverer portalbrukere og stenger booking; gjenoppretting krever manuell reaktivering.
+
+**GDPR-sletting:** **Personvern / Slett kundedata** på kundekortet anonymiserer kundens direkte identifikatorer. Forhåndsvisningen viser antall berørte rader og blokkerer hvis et oppdrag, en rapport eller et revisjonshold har bevaringsplikt. Skriv grunn og bekreft med kundens nåværende navn. Oppdrag, rapporter, revisjoner, teknikersignaturer og revisjonslogg bevares; kundens egne vedlegg og dokumentbibliotek slettes. Signerte rapport-PDF-er bevares uendret som tjenestebevis og kan fortsatt inneholde opprinnelige data. Andre kjøring er en no-op. Se `docs/privacy-erasure.md` for retensjonsmatrise og bevis.
 
 **Eksport:** Det finnes ingen automatisk eksportjobb eller selvbetjent GDPR-eksport. Bevis eksporteres via databasebackup eller en administratorstyrt spørring mot `WorkOrder`, `Report`, `ReportRevision` og `AuditLog` for ett oppdrag om gangen. Eksporter ikke rapporter fra klienten eller en offentlig rute.
 
 **Retensjon:** `RETENTION_DAYS` (standard 365) styrer hard sletting av mykt slettede oppdrag uten rapporter. Oppdrag med rapporter beholdes på ubestemt tid. Bevaringsplikt stopper all automatisk sletting. Filer ryddes først når ingen rader refererer til dem.
 
-**Backup og oppgradering:** Ta backup før migrering og rollback. Følg `docs/OPERATIONS.md`, bruk `scripts/backup.sh` og `scripts/restore-test.sh`. I produksjon bør `REQUIRE_BACKUP_BEFORE_MIGRATE=true` stå på, slik at appen nekter å migrere uten `BACKUP_CONFIRMED=true`. Det bekrefter bare at backup er tatt, ikke at den er god; kjør restore-testen først. Gjenopprett database og opplastingsvolum fra samme tidsstempel, stop appen før databasebytte, bruk `prisma migrate deploy` og aldri `prisma db push`. Pinn `APP_IMAGE` til en publisert versjon eller digest, ikke `latest`. Kjør aldri `docker system prune --volumes`.
+**Backup og oppgradering:** Ta backup før migrering og rollback. Følg `docs/OPERATIONS.md` og `docs/BACKUP-RESTORE.md`, bruk `scripts/backup.sh`, `scripts/restore-test.sh` og `restore-pitr.sh` for PITR. I produksjon bør `REQUIRE_BACKUP_BEFORE_MIGRATE=true` stå på, slik at appen nekter å migrere uten `BACKUP_CONFIRMED=true`. Det bekrefter bare at backup er tatt, ikke at den er god; kjør restore-testen først. Gjenopprett database og opplastingsvolum fra samme tidsstempel, stopp appen før databasebytte, bruk `prisma migrate deploy` og aldri `prisma db push`. Pinn `APP_IMAGE` til en publisert versjon eller digest, ikke `latest`. Kjør aldri `docker system prune --volumes`.
+
+Ved PITR: velg et tidspunkt **før** feilen, gjenopprett til et eget miljø først,
+kontroller dataintegritet og filreferanser, og bytt først deretter produksjon.
+Dokumenter RPO/RTO og resultatet av øvelsen. Backup uten testet gjenoppretting er
+ikke et bevis på at data kan reddes.
 
 ## 13. Drift og helse
 
@@ -273,13 +439,90 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 
 **Migrasjoner:** Appen kjører `prisma migrate deploy` ved oppstart. `DATABASE_MIGRATION_URL` kan brukes for DDL-rolle, `DATABASE_RUNTIME_URL` for appen. Vil du kjøre migrasjonene separat, start med `SKIP_MIGRATIONS=true` og kjør manuelt. Verifiser med `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`.
 
-**Jobber:** `RECURRING_SCHEDULER=true` kjører serviceavtaler og vedlikeholdsplaner hver sjette time og ved oppstart. `POST /api/cron/recurring` og `/api/cron/cleanup` krever `Authorization: Bearer <CRON_SECRET>`. `PDF_JOB_WORKER` styrer OCR/dokumentjobber med maks to samtidige per instans; rapport-PDF-er rendres i prosessen med en egen samtidighetsgrense. `SMS_WORKER` er uavhengig.
+**Jobber:** `RECURRING_SCHEDULER=true` kjører serviceavtaler og vedlikeholdsplaner hver sjette time og ved oppstart. SLA-oppryddingen kjører i samme scheduler med `SLA_CLEANUP_INTERVAL_HOURS` (standard 6) og kan slås av med `SLA_CLEANUP_ENABLED=false`. `POST /api/cron/recurring` og `/api/cron/cleanup` krever `Authorization: Bearer <CRON_SECRET>`. `PDF_JOB_WORKER` styrer OCR/dokumentjobber med maks to samtidige per instans; rapport-PDF-er rendres i prosessen med en egen samtidighetsgrense. `SMS_WORKER` er uavhengig.
 
 **Opplasting og OCR:** Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`). `/uploads/...` krever innlogging og sjekker `Upload`-raden. Grensene er 15 MB for bilder og 50 MB for PDF. I tillegg gjelder en rullerende døgnkvote på 2 GiB per bruker og 10 GiB samlet lagring per kunde. Juster med `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt ha egen body-grense (55 MB i Caddy-eksempelet). Over kvoten får brukeren en tydelig feil, og opplastingen skrives ikke. OCR bruker `TESSDATA_DIR` og `/tmp`; store PDF-er kan fylle `/tmp`, og da feiler jobben uten å fylle rotfilsystemet. Sjekk `DocumentJob`, `PDF_JOB_WORKER` og disk.
 
-**Miljøvariabler:** De viktigste er `DATABASE_URL`, `NEXTAUTH_URL`, `APP_URL`, `NEXTAUTH_SECRET`, `SMTP_*`, `SMS_*`, `SSO_*`, `SCIM_*`, `PDF_JOB_WORKER`, `RECURRING_SCHEDULER`, `CRON_SECRET`, `READY_SECRET`, `RETENTION_DAYS`, `UPLOAD_*`, `TESSDATA_DIR`, `GEOCODE_*`, `ROUTING_*`, `TRACKING_AVERAGE_SPEED_KMH`, `TRUST_PROXY` og `BACKUP_*`. `.env` skal ha `chmod 600`, aldri committes eller deles. Endringer krever ny deploy eller restart.
+**Miljøvariabler:** De viktigste er `DATABASE_URL`, `NEXTAUTH_URL`, `APP_URL`, `NEXTAUTH_SECRET`, `SMTP_*`, `SMS_*`, `SSO_*`, `SCIM_*`, `PDF_JOB_WORKER`, `RECURRING_SCHEDULER`, `SLA_CLEANUP_ENABLED`, `SLA_CLEANUP_INTERVAL_HOURS`, `CRON_SECRET`, `READY_SECRET`, `RETENTION_DAYS`, `UPLOAD_*`, `TESSDATA_DIR`, `GEOCODE_*`, `ROUTING_*`, `TRACKING_AVERAGE_SPEED_KMH`, `TRUST_PROXY` og `BACKUP_*`. `.env` skal ha `chmod 600`, aldri committes eller deles. Endringer krever ny deploy eller restart.
 
 **Sjekk før eskalering:** Er `/api/health` 200 og `/api/ready` 200/503? Er `app` `healthy`, og øker `RestartCount`? Hva sier loggen? Svarer Postgres? Er det ledig disk og skrivbart opplastingsvolum? Står `DocumentJob`, `Notification` eller `SmsMessage` fast? Stoppet appen på `REQUIRE_BACKUP_BEFORE_MIGRATE`? Ta med `requestId`, tidspunkt og feilmelding – aldri hemmeligheter eller persondata.
+
+## Lagring, Redis og høy tilgjengelighet
+
+Standardoppsettet med én app, lokal disk og databasekø er fullt støttet. For
+flere replikaer eller ekstern lagring finnes en egen HA-profil.
+
+### Lagring (S3/MinIO)
+
+Opplastinger går gjennom et felles `StorageDriver`-grensesnitt. `STORAGE_DRIVER=local`
+er standard; `STORAGE_DRIVER=s3` gjør filene delt mellom replikaer. URL-ene og de
+lagrede filnavnene er uendret (`/uploads/<filnavn>`).
+
+1. Sett `S3_BUCKET`, `S3_REGION`, `S3_PREFIX` og eventuelt `S3_ENDPOINT`,
+   `S3_ACCESS_KEY_ID` og `S3_SECRET_ACCESS_KEY`.
+2. Kjør `npm run storage:migrate -- --dry-run` og deretter uten `--dry-run`
+   **før** du bytter driver.
+3. Verifiser med `--verify` og kontroller med `--check`.
+4. Stopp appen, kjør migreringen en siste gang, sett `STORAGE_DRIVER=s3` og
+   start appen.
+5. Slå på versjonering og kryptering i bøtta, og blokker offentlig tilgang.
+   `/uploads` håndhever fortsatt tilgangskontrollen.
+
+Kildefilene slettes ikke av migreringen. Behold dem til minst én vellykket
+backup/restore og en driftsperiode med S3 har gått. Rollback er å bytte tilbake
+til `STORAGE_DRIVER=local`, men filer skrevet mens S3 var aktiv ligger bare i S3.
+Se `docs/STORAGE.md`.
+
+### Redis og jobbkø
+
+`QUEUE_DRIVER=db` er standard og bruker `DocumentJob` med `FOR UPDATE SKIP LOCKED`.
+`QUEUE_DRIVER=redis` legger i tillegg hver jobb-ID i en Redis-sortert liste.
+Redis er en vekkemekanisme, ikke en duplikatkø: databasen avgjør om jobben skal
+kjøres. Redis nede gir fallback til databaseclaim, og Redis tømt mister ingen
+jobber. Det samme gjelder `RATE_LIMIT_DRIVER` og `CACHE_DRIVER`; databasen er
+alltid fallback.
+
+### HA og PITR
+
+`docker-compose.ha.yml` har flere app-replikaer, Caddy, Redis, delt S3 og
+Postgres med WAL-arkivering. Start med:
+
+```bash
+docker compose -f docker-compose.ha.yml up -d --scale app=3
+```
+
+Hver appprosess åpner maks `DATABASE_POOL_MAX` tilkoblinger. Regn med
+`app_replikaer × DATABASE_POOL_MAX + migrasjoner + drift < max_connections`.
+Rull én replika om gangen, og kontroller `/api/ready` med `READY_SECRET` og en
+ekte opplasting/PDF. WAL-arkivet må kopieres offsite; uten det er PITR bare lokal
+historie. Gjenoppretting med `restore-pitr.sh` og øvelsesoppskriften står i
+`docs/BACKUP-RESTORE.md`; kapasitet, readiness og når du **ikke** bør skru på HA
+står i `docs/SCALING.md`.
+
+> **Advarsel:** S3, Redis og PITR er ikke verifisert i produksjon uten ekte
+> legitimasjon og miljø. Kjør alltid en restore-test og en ekte
+> opplasting/PDF-generering mot HA-profilen før du lover høytilgjengelighet.
+
+## Etterlevelse, ISO 27001 og SOC 2
+
+Etterlevelsespakken i `docs/compliance/` er et **readiness-grunnlag**, ikke en
+sertifisering, attestering eller revisjonsrapport. Den beskriver hvordan
+plattformen er tenkt styrt, driftet og dokumentert, og hva som gjenstår.
+
+- **ISO/IEC 27001:** Statement of Applicability dekker alle 93 Annex A-kontroller,
+  men bare et akkreditert sertifiseringsorgan kan utstede sertifikat.
+- **SOC 2:** TSC-mappingen dekker 51 kriterier. En SOC 2 Type I eller Type II
+  krever en uavhengig CPA-firma og en eksamensperiode.
+- **Status:** 29 kontroller er implementert i design/repo, 50 delvise, 11
+  planlagte og 3 ikke relevante. Dette er designbevis, ikke testet operasjonell
+  effektivitet.
+- **Bevis:** `npm run compliance:evidence` samler repository-, CI- og
+  driftsbevis uten skyLegitimasjon. `npm run compliance:links` kontrollerer
+  dokumentlenkene.
+
+Bruk `docs/compliance/GAP-ANALYSIS.md` som arbeidsliste. Ikke omtal tjenesten som
+«ISO 27001-sertifisert» eller «SOC 2-compliant» i kundesvar før sertifikatet
+eller rapporten faktisk foreligger og omfanget stemmer med kundens bruk.
 
 ## 14. Administratorrutiner
 
@@ -313,6 +556,12 @@ Hver nøkkel kan bruke **120 forespørsler per minutt**; overskridelse gir `429`
 | API gir `401`/`403`/`429` | Utløpt nøkkel, manglende rettighet eller rate limit. | Lag ny nøkkel, gi rettighet, eller vent på `Retry-After`. |
 | `/api/ready` gir 503 | Database, opplastingsvolum eller jobbkø. | Sjekk Postgres, `UPLOAD_DIR`, disk og kø. |
 | Appen restarter i loop | Migrasjonssperre, OOM eller feil i `.env`. | Se logger, `dmesg` og `REQUIRE_BACKUP_BEFORE_MIGRATE`. |
+| E-post blir liggende `PENDING` | SMTP mangler, eller hendelsen er slått av | Kontroller `SMTP_*`, `APP_URL` og **Automatisk e-post** |
+| Test-e-post feiler | Feil vert, port, TLS eller avsender | Kontroller SMTP-innstillingene og avsenderadressen |
+| Push gir `not_configured` | FCM/APNs mangler i alle app-instanser | Sett `FCM_*`/`APNS_*` og restart alle replikaer |
+| Push gir `invalid_token` | Enheten er avregistrert eller tokenet er rotert | La appen registrere enheten på nytt |
+| S3 gir 404 på gamle filer | Filene er ikke migrert | Kjør `storage:migrate --check` og migrer |
+| `/api/ready` gir 503 etter HA-oppstart | Redis, S3 eller database mangler i miljøet | Kontroller `REDIS_URL`, `S3_*` og `/api/ready` med `READY_SECRET` |
 
 ## 16. Sammenheng med kontor- og teknikerkapitlene
 
@@ -323,3 +572,11 @@ Administratorkapitlet beskriver oppsett og styring; kontor- og teknikerkapitlene
 - **Bevaringsplikt** fryser data for alle parter; bare administrator kan oppheve den.
 
 Se `10-kontor.md` for kundekort, oppdrag, avtaler, bookingkø og rapporter. Se `20-tekniker.md` for feltapp, offline-kladd, skjema, innsending og sporing. Se `90-oppslag.md` for begreper, feilkoder og oppslag.
+
+Administrator kan tilpasse hvilke oppdragsstatuser som er åpne, planlagte
+eller lukkede under **Innstillinger → Oppdragsstatus**. Standardoppsettet
+beholder de innebygde statusene. Nye oppdrag starter som «åpen, venter på
+planlegging» (PENDING) med mindre du velger en annen åpen eller planlagt
+standardstatus. En status markert som lukket regnes som avsluttet i lister,
+søk, rapporter, portal, varsler, ruting og låsing. Minst én åpen og én lukket
+status må være aktiv. Endringer revideres.

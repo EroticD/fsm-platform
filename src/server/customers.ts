@@ -1,7 +1,5 @@
 // i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
 // oversettes ved visning i audit-actions.ts.
-import fs from "fs/promises";
-import path from "path";
 import crypto from "node:crypto";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -29,7 +27,7 @@ import {
 import { isSafeLogoUrl } from "@/lib/logo";
 import { searchNormalizedIds } from "@/lib/search-sql";
 import { claimUpload } from "@/lib/upload-access";
-import { uploadDir } from "@/lib/uploads";
+import { statUploadFile } from "@/lib/uploads";
 import {
   can,
   fail,
@@ -41,14 +39,18 @@ import {
   type ServiceResult,
 } from "./actor";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import {
+  CUSTOMER_CONTACT_FIELDS,
+  redactRecord,
+} from "@/lib/field-rbac";
 import { contractScopeFor } from "./contracts";
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
-function attachmentPath(fileUrl: string): string | null {
+function attachmentKey(fileUrl: string): string | null {
   if (!UPLOAD_URL.test(fileUrl)) return null;
-  return path.join(uploadDir(), path.basename(fileUrl));
+  return fileUrl.slice("/uploads/".length);
 }
 
 export const CUSTOMER_ACTIVE_STATUSES: WorkStatus[] = [
@@ -669,13 +671,35 @@ export async function getCustomerDetail(
       : Promise.resolve([]),
   ]);
 
+  // Feltnivå-RBAC: kontaktinfo maskeres for roller uten tilgang, mens navn,
+  // adresse og oppdrag forblir lesbare. ADMIN/OFFICE er uendret.
+  const safeCustomer = redactRecord(actor, customer, {
+    group: "customerContact",
+    fields: CUSTOMER_CONTACT_FIELDS,
+    customerId: customer.id,
+  });
+  const safeContacts = customer.contacts.map((contact) =>
+    redactRecord(actor, contact, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+  const safePortalUsers = portalUsers.map((user) =>
+    redactRecord(actor, user, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+
   return ok({
-    customer,
+    customer: { ...safeCustomer, contacts: safeContacts },
     customerAuditLogs,
     customerComments,
     activityFeed,
     recentActivity: activityFeed.slice(0, 5),
-    portalUsers,
+    portalUsers: safePortalUsers,
     templates,
     departments,
     defaultDepartmentId,
@@ -1327,12 +1351,10 @@ export async function addCustomerAttachment(
 
   if (!customerId || !fileUrl) return fail("invalid");
 
-  const filePath = attachmentPath(fileUrl);
-  if (!filePath) return fail("invalid");
+  const fileKey = attachmentKey(fileUrl);
+  if (!fileKey) return fail("invalid");
 
-  try {
-    await fs.access(filePath);
-  } catch {
+  if (!(await statUploadFile(fileKey))) {
     return fail("file_not_found");
   }
 

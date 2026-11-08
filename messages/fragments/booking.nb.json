@@ -32,8 +32,8 @@
       "held": "Timen er reservert hos {technician} kl. {from}–{to}. Du har {minutes} minutter på deg.",
       "release": "Frigjør timen",
       "selectedSlot": "Valgt time: {technician}, {date} kl. {from}–{to}.",
-      "confirm": "Bekreft bookingen",
-      "confirming": "Bekrefter …",
+      "confirm": "Send forespørselen",
+      "confirming": "Sender …",
       "successConfirmedTitle": "Bookingen er bekreftet",
       "successConfirmedBody": "Timen er satt av hos {technician}. Du ser den under «Dine bestillinger».",
       "unconfiguredPolicy": "{count} montør(er) mangler arbeidstid. Standard arbeidstid fra avdelingens åpningstider er brukt.",
@@ -81,8 +81,8 @@
       "planSuccess": "Bookingen er planlagt og bekreftet.",
       "alreadyConfirmed": "Bookingen var allerede bekreftet.",
       "planErrors": {
-        "noTechnician": "Ingen ledig montør i dette tidsrommet. Velg en annen tid eller montør.",
-        "unavailable": "Montøren er opptatt, fraværende eller utilgjengelig i dette tidsrommet.",
+        "noTechnician": "Ingen ledig montør foreslått for dette tidsrommet. Du kan velge en annen montør.",
+        "unavailable": "Montøren er fraværende eller utenfor arbeidstid i dette tidsrommet.",
         "needsPlanning": "Forespørselen mangler tid. Velg dato og klokkeslett.",
         "invalidTime": "Tidsrommet er ugyldig. Slutt må være etter start.",
         "forbidden": "Du har ikke tilgang til å bekrefte bookinger.",
@@ -92,7 +92,7 @@
         "error": "Bookingen kunne ikke bekreftes. Prøv igjen."
       },
       "cancel": "Avlys",
-      "noTechnician": "Ingen ledig montør for ønsket tid",
+      "noTechnician": "Ingen ledig montør foreslått for ønsket tid",
       "chooseTechnician": "Velg montør",
       "status": {
         "PENDING": "Venter",

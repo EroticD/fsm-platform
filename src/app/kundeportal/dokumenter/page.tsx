@@ -7,6 +7,7 @@ import PortalShell from "@/components/portal/PortalShell";
 import { brandCard } from "@/components/ui/brandStyles";
 import { getPortalDocuments } from "@/server/portal-expansion";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { requireModulePage } from "@/lib/module-guards";
 
 function formatBytes(bytes: number, locale: string): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,6 +26,7 @@ export default async function PortalDocumentsPage({
 }: {
   searchParams: Promise<{ side?: string }>;
 }) {
+  await requireModulePage("documents");
   const context = await loadPortalPage();
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");

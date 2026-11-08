@@ -71,7 +71,8 @@ Dette er minste trygge rekkefølge. Ikke hopp over verifiseringen.
 | Verdi | Hvor den ligger | Tas den med av `scripts/backup.sh`? | Gjenopprettes fra |
 | --- | --- | --- | --- |
 | PostgreSQL-data | Docker-volumet `fsm_postgres_data` (prosjektprefiks, f.eks. `fsm-platform_fsm_postgres_data`) eller ekstern PostgreSQL/Azure Database for PostgreSQL | **Ja for Compose-databasen**; ekstern DB krever Azure-native backup eller manuell `pg_dump` (se [§6.7](#67-database-only-restore-fra-ekstern-server)) | `db-<stamp>.sql.gz[.age]`, Azure PITR eller Azure Backup |
-| Opplastede filer | Docker-volumet `fsm_uploads`, montert på `/app/uploads` (`UPLOAD_DIR=/app/uploads`) | **Ja**, som `tar.gz` (valgfritt age-kryptert) | `uploads-<stamp>.tar.gz[.age]` |
+| Opplastede filer (lokal driver) | Docker-volumet `fsm_uploads`, montert på `/app/uploads` (`UPLOAD_DIR=/app/uploads`) | **Ja**, som `tar.gz` (valgfritt age-kryptert) | `uploads-<stamp>.tar.gz[.age]` |
+| Opplastede filer (S3/MinIO) | Bucket `S3_BUCKET` med `S3_PREFIX` | **Nei** av `scripts/backup.sh` | S3-versjonering/replikering + egen bucket-backup; se [`STORAGE.md`](STORAGE.md) |
 | `.env` og hemmeligheter | `/opt/fsm-platform/.env` på verten | **Nei** | Hemmelighetshvelv, segl/offline kopi eller Azure Key Vault |
 | age-identitet (privat nøkkel) | Primært offline/Key Vault; for automatisert restore-test en beskyttet kopi på verten, f.eks. `/etc/fsm/age/keys.txt` (0600, kun `fsmbackup`) | **Nei** | Minst to offline kopier; se [§4.5](#45-nøkler-og-nøkkelgjenoppretting) |
 | Applikasjonsimage og versjon | `APP_IMAGE` i `.env`, image i GHCR | **Nei** (registry) | Samme tag/digest fra GHCR; se [§6.8](#68-versjons--og-migrasjonsavvik) |
@@ -163,6 +164,7 @@ hemmeligheter og skal behandles som en egen verdi med egen tilgangskontroll.
 | --- | --- | --- | --- |
 | Lokal Compose-installasjon, daglig backup | **≤ 24 timer** | **≤ 2 timer** for full restore | Siste backup er fersk og verifisert; age-nøkkel tilgjengelig; opplastingsvolumet er overkommelig |
 | Samme, men timesbackup | **≤ 1 time** | **≤ 2 timer** | `fsm-backup.timer` endres bevisst; mer disk og I/O; testet |
+| Compose med WAL-arkiv + nattlig base-backup (`docker-compose.ha.yml`) | **≤ 60 sekunder** | **≤ 60 minutter** | WAL-arkivet er intakt og kopiert offsite; base-backup med `_SUCCESS`; se [§6.5.1](#651-point-in-time-restore-med-compose-og-wal-arkiv) |
 | Ekstern PostgreSQL med PITR (f.eks. Azure Flexible Server) | **≤ 1 time**, typisk få minutter | **≤ 1–2 timer** | PITR aktivert, innenfor retention, ny server kan opprettes; opplastinger har egen backup |
 | Azure Backup/LTR i tillegg | Policyavhengig (typisk daglig/ukentlig) | Lengre enn PITR | Policy, vault og restore-prosedyre er testet |
 | Kun database, liten installasjon | Siste verifiserte dump | **≤ 1 time** | `restore-test.sh` er kjørt; målrettet databasebytte |
@@ -595,6 +597,23 @@ age-nøkkel.
   offline re-kryptering av eldre backuper. Slett ikke den gamle identiteten før
   dere er sikre på at ingen gamle backuper trengs.
 - Dokumentér nøkkelutstedelse, kopier, oppbevaringssted og destruksjon.
+
+### 4.6 Compose PITR: WAL-arkiv og base-backup
+
+For `docker-compose.ha.yml` ligger verktøyene i
+[`deploy/postgres/pitr/`](../deploy/postgres/pitr/README.md). Kort:
+
+- Postgres arkiverer hver WAL-fil med `archive-wal.sh` til
+  `fsm_wal_archive`. Skriptet returnerer bare 0 når filen er synlig i arkivet.
+- `postgres-basebackup` kjører `pg_basebackup -X stream`, verifiserer med
+  `pg_verifybackup` og skriver `_SUCCESS` først etter at begge er grønne.
+- `restore-pitr.sh` gjenoppretter til et **nytt** datakatalog, promoterer og
+  verifiserer `_prisma_migrations`. Alle feil gir nonzero exit.
+- WAL og base-backup må kopieres offsite (rclone/restic/Azure Blob). En volume
+  på samme VM er ikke en disaster-recovery-kopi.
+- Skriptene er ikke kjørt mot en ekte S3/Redis/Postgres i denne endringen;
+  kjør en øvelse før de tas i bruk. Se restrisiko i
+  [`remaining-features.md`](remaining-features.md).
 
 ---
 
@@ -1256,6 +1275,28 @@ Restore skjer til en ny server. Følg Microsofts prosedyre for deres policy og
 verifiser at både database og opplastinger er dekket; Azure Backup for
 PostgreSQL dekker ikke Docker-volumet med opplastinger.
 
+### 6.5.1 Point-in-time restore med Compose og WAL-arkiv
+
+Bruk denne når dere kjører `docker-compose.ha.yml` og har WAL-arkiv +
+base-backup. Restore skjer alltid til et nytt katalog og en annen port.
+
+1. Stopp appen: `docker compose -f docker-compose.ha.yml stop app`.
+2. Finn siste **verifiserte** base-backup før ønsket tidspunkt:
+   `docker run --rm -v fsm_base_backups:/backup:ro postgres:15.13 sh -c 'ls -1 /backup/base-*/_SUCCESS | tail -1'`.
+3. Kontroller at WAL-filene for intervallet finnes i `fsm_wal_archive`.
+4. Kjør `restore-pitr.sh` mot et nytt, tomt datakatalog og port 55432. Se
+   [`deploy/postgres/pitr/README.md`](../deploy/postgres/pitr/README.md) for
+   eksakt `docker run`-kommando.
+5. Verifiser at `pg_is_in_recovery()` er `false`, at `_prisma_migrations` har
+   forventet antall, og at tellinger for oppdrag/rapporter/opplastinger ligger
+   mellom kjente punkter.
+6. Pek `DATABASE_RUNTIME_URL` mot den nye databasen, start **én** app-replika,
+   kontroller `/api/ready`, og skaler deretter ut.
+7. Opplastinger i S3 er **ikke** rullet tilbake av PITR. Bruk S3-versjonering
+   eller en bucket-backup fra samme tidsvindu, og verifiser at fil-URL-ene
+   fortsatt finnes.
+8. Skriv hendelseslogg med base-backup, target-time, operatør og målt RTO.
+
 ### 6.6 Uploads-only og enkeltfilgjenoppretting
 
 Bruk denne når databasen er OK, men filer mangler eller er skadet.
@@ -1701,6 +1742,10 @@ revisjonsspor. Backupene arver dette.
 ### 10.4 Kvartalsvis
 
 - [ ] Full restore-øvelse på isolert vert, med database + opplastinger + app.
+- [ ] PITR-øvelse med `deploy/postgres/pitr/restore-pitr.sh` mot et nytt
+      katalog; mål RTO og kontroller at WAL-arkivet er kopiert offsite.
+- [ ] Kontroller at S3-bucket har versjonering og at en slettet fil kan
+      gjenopprettes (eller at bucket-backup finnes).
 - [ ] Prøv både nyeste og en eldre backup innenfor retention.
 - [ ] Mål RTO og oppdater [§3](#3-rpo-og-rto).
 - [ ] Test gjenoppretting **uten** den opprinnelige serveren (bare offline
@@ -1733,7 +1778,8 @@ revisjonsspor. Backupene arver dette.
 
 **Scope.** The backup covers the PostgreSQL database (`fsm_postgres_data` or an
 external/Azure PostgreSQL server) and the uploads volume (`fsm_uploads`,
-mounted at `/app/uploads`). It does **not** cover `.env`/secrets, the private
+mounted at `/app/uploads`). With `STORAGE_DRIVER=s3`, uploads live in the bucket
+and are protected by bucket versioning/replication instead of `backup.sh`. It does **not** cover `.env`/secrets, the private
 age identity, the app image, proxy/DNS configuration, `.next` cache, `/tmp`,
 container logs, or monitoring data. Store `.env` in a secret manager and keep at
 least two offline copies of the age identity.

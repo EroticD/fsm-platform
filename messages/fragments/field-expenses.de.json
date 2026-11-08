@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "expenses": "Auslagen"
+  },
+  "expenses": {
+    "title": "Auslagen",
+    "eyebrow": "FLD-01 · Fahrten und Auslagen",
+    "description": "Erfassen Sie Fahrten und Auslagen mit Belegen. Das Büro genehmigt sie und exportiert die Lohndaten pro Zeitraum.",
+    "officeLink": "Büro und Genehmigung",
+    "linkedWorkOrder": "Mit Auftrag verknüpft",
+    "workOrderLink": "Auslagen und Fahrten",
+    "date": "Datum",
+    "amount": "Betrag",
+    "vat": "MwSt.",
+    "receipt": "Beleg",
+    "document": "Dokument",
+    "statusLabel": "Status",
+    "actions": "Aktionen",
+    "openWorkOrder": "Auftrag",
+    "submitToApproval": "Zur Genehmigung einreichen",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen",
+    "rejectReason": "Grund der Ablehnung",
+    "feedback": {
+      "saved": "Gespeichert.",
+      "error": "Die Aktion konnte nicht abgeschlossen werden. Prüfen Sie Felder, Beleg und Berechtigungen."
+    },
+    "totals": {
+      "pending": "Wartet auf Genehmigung",
+      "approved": "Genehmigt"
+    },
+    "status": {
+      "draft": "Entwurf",
+      "pending": "Wartet auf Genehmigung",
+      "approved": "Genehmigt",
+      "rejected": "Abgelehnt"
+    },
+    "trip": {
+      "title": "Fahrten",
+      "km": "Kilometer",
+      "from": "Von",
+      "to": "Bis",
+      "rate": "Satz pro km",
+      "purpose": "Zweck",
+      "submit": "Fahrt erfassen",
+      "listTitle": "Meine Fahrten",
+      "empty": "Es wurden keine Fahrten erfasst.",
+      "route": "Strecke",
+      "approvalTitle": "Fahrten zur Genehmigung"
+    },
+    "expense": {
+      "title": "Auslage",
+      "category": "Kategorie",
+      "amount": "Betrag inkl. MwSt.",
+      "vatRate": "MwSt.-Satz",
+      "description": "Beschreibung",
+      "receipt": "Beleg",
+      "uploading": "Wird hochgeladen …",
+      "uploadError": "Der Beleg konnte nicht hochgeladen werden.",
+      "submit": "Auslage erfassen",
+      "listTitle": "Meine Auslagen",
+      "empty": "Es wurden keine Auslagen erfasst.",
+      "approvalTitle": "Auslagen zur Genehmigung"
+    },
+    "office": {
+      "title": "Auslagen und Lohn",
+      "description": "Genehmigen Sie Fahrten und Auslagen und sperren Sie die Lohndaten für einen Zeitraum. Abgelehnte Zeilen werden nie exportiert.",
+      "myExpenses": "Meine Auslagen",
+      "pendingSummary": "Zur Genehmigung: {count} · {amount}",
+      "empty": "Keine Zeilen in diesem Status.",
+      "noReceipt": "Kein Beleg"
+    },
+    "payroll": {
+      "title": "Lohndaten",
+      "description": "Der Export verwendet vorhandene Besuchs- und Fahrzeiten, genehmigte Fahrten und genehmigte Auslagen. Derselbe Zeitraum liefert dieselbe Datei.",
+      "from": "Von",
+      "to": "Bis",
+      "preview": "Vorschau",
+      "export": "CSV herunterladen",
+      "workHours": "Arbeitsstunden",
+      "travelHours": "Fahrstunden",
+      "mileageKm": "Kilometer",
+      "mileageAmount": "Kilometerpauschale",
+      "expenseAmount": "Auslagen",
+      "rows": "Zeilen",
+      "period": "Zeitraum",
+      "created": "Gesperrt",
+      "checksum": "Prüfsumme",
+      "download": "Herunterladen"
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { saveSmsSettings, saveSmsTemplate } from "@/server/sms";
+import { moduleEnabled } from "@/server/modules";
 import {
   deleteReminderRule,
   saveReminderRule,
@@ -22,6 +23,7 @@ function revalidateSms() {
 }
 
 export async function saveSmsSettingsAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -38,6 +40,7 @@ export async function saveSmsSettingsAction(formData: FormData) {
 }
 
 export async function saveSmsTemplateAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -54,6 +57,7 @@ export async function saveSmsTemplateAction(formData: FormData) {
 }
 
 export async function saveReminderRuleAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
@@ -76,6 +80,7 @@ export async function saveReminderRuleAction(formData: FormData) {
 }
 
 export async function deleteReminderRuleAction(formData: FormData) {
+  if (!(await moduleEnabled("sms"))) redirect("/");
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 

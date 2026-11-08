@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
+  quota: {
+    reserve: vi.fn(),
+    commit: vi.fn(),
+    release: vi.fn(),
+  },
   prisma: {
-    upload: { aggregate: vi.fn(), create: vi.fn() },
     workOrder: { findFirst: vi.fn() },
     customer: { findFirst: vi.fn() },
   },
@@ -19,6 +23,11 @@ vi.mock("@/lib/rate-limit-db", () => ({
   allowRequestDb: vi.fn(async () => ({ allowed: true, retryAfterSeconds: 0 })),
 }));
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("@/lib/upload-quota", () => ({
+  reserveUploadQuota: mocks.quota.reserve,
+  commitUploadQuota: mocks.quota.commit,
+  releaseUploadQuota: mocks.quota.release,
+}));
 vi.mock("@/lib/upload-slot", () => ({
   MAX_REQUEST_BYTES: 8 * 1024,
   maxBytesForMime: () => 8 * 1024,
@@ -77,8 +86,14 @@ let uploadRoot: string | null = null;
 beforeEach(async () => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue(user());
-  mocks.prisma.upload.aggregate.mockResolvedValue({ _sum: { size: 0 } });
-  mocks.prisma.upload.create.mockResolvedValue({ id: "upload-1" });
+  mocks.quota.reserve.mockResolvedValue({
+    allowed: true,
+    reservationId: "reservation-1",
+    reservedBytes: 1024,
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+  mocks.quota.commit.mockResolvedValue({ ok: true });
+  mocks.quota.release.mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -101,7 +116,7 @@ describe("POST /api/upload – innholdskontroll", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "mime_mismatch",
     });
-    expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
+    expect(mocks.quota.reserve).not.toHaveBeenCalled();
   });
 
   it("avviser en chunked forespørsel over grensen før den bufres ferdig", async () => {
@@ -209,8 +224,11 @@ describe("POST /api/upload – strømming og kvote", () => {
   it("svarer 507 når brukerkvoten er brukt opp", async () => {
     uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
     process.env.UPLOAD_DIR = uploadRoot;
-    mocks.prisma.upload.aggregate.mockResolvedValue({
-      _sum: { size: 2 * 1024 * 1024 * 1024 },
+    mocks.quota.reserve.mockResolvedValue({
+      allowed: false,
+      scope: "user",
+      usedBytes: 2 * 1024 * 1024 * 1024,
+      limitBytes: 2 * 1024 * 1024 * 1024,
     });
 
     const response = await POST(multipart(pdfFile()));
@@ -219,11 +237,43 @@ describe("POST /api/upload – strømming og kvote", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "storage_quota_exceeded",
     });
-    expect(mocks.prisma.upload.create).not.toHaveBeenCalled();
+    expect(mocks.quota.commit).not.toHaveBeenCalled();
     const tempEntries = await fs
       .readdir(path.join(uploadRoot, ".tmp"))
       .catch(() => []);
     expect(tempEntries).toEqual([]);
+    expect(
+      (await fs.readdir(uploadRoot)).filter((name) => name.endsWith(".pdf")),
+    ).toEqual([]);
+  });
+
+  it("svarer 507 og fjerner filen når kvoten avvises ved commit", async () => {
+    uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
+    process.env.UPLOAD_DIR = uploadRoot;
+    mocks.quota.commit.mockResolvedValue({
+      ok: false,
+      reason: "quota",
+      scope: "customer",
+      usedBytes: 10 * 1024 * 1024 * 1024,
+      limitBytes: 10 * 1024 * 1024 * 1024,
+    });
+
+    const response = await POST(multipart(pdfFile()));
+
+    expect(response.status).toBe(507);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "storage_quota_exceeded",
+    });
+    // Verken endelig fil eller temp-fil skal ligge igjen.
+    expect(
+      (await fs.readdir(uploadRoot)).filter((name) => name.endsWith(".pdf")),
+    ).toEqual([]);
+    const tempEntries = await fs
+      .readdir(path.join(uploadRoot, ".tmp"))
+      .catch(() => []);
+    expect(tempEntries).toEqual([]);
+    // Reservasjonen frigjøres uansett utfall.
+    expect(mocks.quota.release).toHaveBeenCalledWith("reservation-1");
   });
 });
 
@@ -256,7 +306,7 @@ describe("POST /api/upload – låst oppdrag", () => {
       await expect(response.json()).resolves.toMatchObject({
         error: "work_order_locked",
       });
-      expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
+      expect(mocks.quota.reserve).not.toHaveBeenCalled();
     },
   );
 
@@ -272,7 +322,7 @@ describe("POST /api/upload – låst oppdrag", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "legal_hold",
     });
-    expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
+    expect(mocks.quota.reserve).not.toHaveBeenCalled();
   });
 
   it("avviser opplasting til en deaktivert avdeling", async () => {
@@ -295,6 +345,6 @@ describe("POST /api/upload – låst oppdrag", () => {
         }),
       }),
     );
-    expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
+    expect(mocks.quota.reserve).not.toHaveBeenCalled();
   });
 });

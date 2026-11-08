@@ -5,6 +5,7 @@ import { audit } from "@/lib/audit";
 import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 import {
+  ssoDepartmentFromClaims,
   ssoDisplayName,
   ssoEmail,
   ssoEmailDomainAllowed,
@@ -66,6 +67,7 @@ export type SsoFailureReason =
   | "role_conflict"
   | "invalid_role"
   | "invalid_department"
+  | "department_conflict"
   | "customer_account"
   | "identity_conflict"
   | "server_error";
@@ -130,29 +132,64 @@ async function resolveDepartmentId(
   return department ? { ok: true, id: department.id } : { ok: false };
 }
 
-async function applyRoleSync(
+async function applyGroupSync(
   user: UserRow,
   role: string,
+  department: string | null,
   config: SsoProviderConfig,
   matchedGroups: string[],
-): Promise<{ user: UserRow; roleChanged: boolean; invalidRole: boolean }> {
-  if (!config.syncRoles || !role || role === user.role) {
-    return { user, roleChanged: false, invalidRole: false };
+): Promise<{
+  user: UserRow;
+  roleChanged: boolean;
+  departmentChanged: boolean;
+  invalidRole: boolean;
+  invalidDepartment: boolean;
+}> {
+  const nextRole = config.syncRoles && role && role !== user.role ? role : null;
+  const nextDepartment =
+    config.syncDepartment && department && department !== user.departmentId
+      ? department
+      : null;
+
+  if (!nextRole && !nextDepartment) {
+    return {
+      user,
+      roleChanged: false,
+      departmentChanged: false,
+      invalidRole: false,
+      invalidDepartment: false,
+    };
   }
-  if (!(await roleExists(role))) {
-    return { user, roleChanged: false, invalidRole: true };
+  if (nextRole && !(await roleExists(nextRole))) {
+    return {
+      user,
+      roleChanged: false,
+      departmentChanged: false,
+      invalidRole: true,
+      invalidDepartment: false,
+    };
   }
 
   const updated = await prisma.$transaction(async (tx) => {
     const next = await tx.user.update({
       where: { id: user.id },
-      data: { role, sessionVersion: { increment: 1 } },
+      data: {
+        ...(nextRole ? { role: nextRole } : {}),
+        ...(nextDepartment ? { departmentId: nextDepartment } : {}),
+        sessionVersion: { increment: 1 },
+      },
       select: SSO_USER_SELECT,
     });
+    const action =
+      nextRole && !nextDepartment
+        ? `SSO: rolle oppdatert fra grupper (${config.slug})`
+        : nextDepartment && !nextRole
+          ? `SSO: avdeling oppdatert fra grupper (${config.slug})`
+          : `SSO: rolle og avdeling oppdatert fra grupper (${config.slug})`;
     await audit(tx, {
       entityType: "User",
       entityId: user.id,
-      action: `SSO: rolle oppdatert fra grupper (${config.slug})`,
+      action,
       actor: {
         id: user.id,
         name: user.name,
@@ -162,13 +199,21 @@ async function applyRoleSync(
       metadata: {
         provider: config.slug,
         previousRole: user.role,
-        role,
+        role: next.role,
+        previousDepartmentId: user.departmentId,
+        departmentId: next.departmentId,
         groups: matchedGroups,
       },
     });
     return next;
   });
-  return { user: updated, roleChanged: true, invalidRole: false };
+  return {
+    user: updated,
+    roleChanged: Boolean(nextRole),
+    departmentChanged: Boolean(nextDepartment),
+    invalidRole: false,
+    invalidDepartment: false,
+  };
 }
 
 export async function resolveSsoUser(
@@ -192,6 +237,16 @@ export async function resolveSsoUser(
     const mapping = ssoRoleFromGroups(groups, config.groupRoleMap);
     if (mapping.conflict.length > 0) {
       return { ok: false, reason: "role_conflict" };
+    }
+    const departmentMapping = ssoDepartmentFromClaims(claims, groups, config);
+    if (departmentMapping.conflict.length > 0) {
+      return { ok: false, reason: "department_conflict" };
+    }
+    const mappedDepartment = departmentMapping.department
+      ? await resolveDepartmentId(departmentMapping.department)
+      : { ok: true as const, id: null };
+    if (!mappedDepartment.ok) {
+      return { ok: false, reason: "invalid_department" };
     }
 
     const identity = await prisma.ssoIdentity.findUnique({
@@ -217,13 +272,17 @@ export async function resolveSsoUser(
         select: { id: true },
       });
 
-      const synced = await applyRoleSync(
+      const synced = await applyGroupSync(
         identity.user,
         mapping.role ?? "",
+        mappedDepartment.id,
         config,
         mapping.matchedGroups,
       );
       if (synced.invalidRole) return { ok: false, reason: "invalid_role" };
+      if (synced.invalidDepartment) {
+        return { ok: false, reason: "invalid_department" };
+      }
       return {
         ok: true,
         user: toSessionUser(synced.user),
@@ -281,13 +340,17 @@ export async function resolveSsoUser(
         if (!isUniqueConstraintError(error)) throw error;
       }
 
-      const synced = await applyRoleSync(
+      const synced = await applyGroupSync(
         existing,
         mapping.role ?? "",
+        mappedDepartment.id,
         config,
         mapping.matchedGroups,
       );
       if (synced.invalidRole) return { ok: false, reason: "invalid_role" };
+      if (synced.invalidDepartment) {
+        return { ok: false, reason: "invalid_department" };
+      }
       return {
         ok: true,
         user: toSessionUser(synced.user),
@@ -306,7 +369,9 @@ export async function resolveSsoUser(
     if (!(await roleExists(role))) {
       return { ok: false, reason: "invalid_role" };
     }
-    const department = await resolveDepartmentId(config.defaultDepartment);
+    const department = mappedDepartment.id
+      ? mappedDepartment
+      : await resolveDepartmentId(config.defaultDepartment);
     if (!department.ok) return { ok: false, reason: "invalid_department" };
 
     const created = await prisma.$transaction(async (tx) => {

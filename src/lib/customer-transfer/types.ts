@@ -51,6 +51,11 @@ export type ExportOptions = {
   includeLegalHold: boolean;
   includeAudit: boolean;
   includeSignatures: boolean;
+  /**
+   * Modulene som var på da eksporten ble bestilt. Utelatt betyr «alle» og
+   * brukes av eldre tester/kall. Serveren setter alltid denne.
+   */
+  modules?: import("@/lib/modules").ModuleKey[];
 };
 
 export type ImportOptions = {
@@ -87,6 +92,9 @@ export type ImportAnalysis = {
 
 export type ImportPreview = {
   jobId: string;
+  /** Vedvarende jobbstatus, slik at UI kan polle en asynkron import. */
+  status?: string;
+  progressStage?: string | null;
   package: {
     schemaVersion: string;
     sourceInstanceId: string;

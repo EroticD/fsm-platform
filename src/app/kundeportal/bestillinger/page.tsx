@@ -23,12 +23,14 @@ import {
   updatePortalSiteAction,
 } from "../portal-expansion-actions";
 import { PortalNoAccess, loadPortalPage } from "../portal-page";
+import { requireModulePage } from "@/lib/module-guards";
 
 export default async function PortalBookingsPage({
   searchParams,
 }: {
   searchParams: Promise<{ side?: string; feil?: string; lagret?: string }>;
 }) {
+  await requireModulePage("booking");
   const context = await loadPortalPage();
   if (!context) return <PortalNoAccess />;
   const t = await getTranslations("common");

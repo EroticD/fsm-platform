@@ -20,6 +20,8 @@ import OfflineBanner from "@/components/OfflineBanner";
 import OfflineDraftLock from "@/components/OfflineDraftLock";
 import OfflineSessionGuard from "@/components/OfflineSessionGuard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
+import { listEnabledModules } from "@/server/modules";
+import { loadWorkOrderStatusConfig } from "@/server/work-order-status-settings";
 
 const openSans = Open_Sans({
   variable: "--font-open-sans",
@@ -78,6 +80,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const permissions = currentUser
     ? Array.from(effectivePermissions(currentUser))
     : [];
+  // Modultilstandene leses én gang per forespørsel og sendes til menyen.
+  // Kjernen er alltid med; en DB-feil faller tilbake til alle aktive moduler.
+  const [enabledModules] = await Promise.all([
+    listEnabledModules(),
+    loadWorkOrderStatusConfig(),
+  ]);
   // Merkevaren hentes én gang på serveren, slik at første maling får riktig
   // navn, logo og farge uten en ekstra klientforespørsel.
   const branding = await prisma.branding.findFirst().catch(() => null);
@@ -124,12 +132,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
-            <OfflineBanner userId={currentUser?.id} />
-            <OfflineDraftLock userId={currentUser?.id} />
+            {enabledModules.includes("offline") && (
+              <>
+                <OfflineBanner userId={currentUser?.id} />
+                <OfflineDraftLock userId={currentUser?.id} />
+              </>
+            )}
             <BrandedHeader
               showNav
               role={role}
               permissions={permissions}
+              enabledModules={enabledModules}
               companyName={companyName}
               logoUrl={logoUrl}
               primaryColor={primaryColor}
@@ -138,7 +151,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
             {isStaff(role) && (
               <>
-                <OfflineSessionGuard />
+                {enabledModules.includes("offline") && <OfflineSessionGuard />}
                 <RealtimeRefresh />
               </>
             )}
@@ -154,8 +167,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             >
               {children}
             </main>
-            <MobileTabBar role={role} permissions={permissions} />
-            <ServiceWorkerRegister />
+            <MobileTabBar
+              role={role}
+              permissions={permissions}
+              enabledModules={enabledModules}
+            />
+            {enabledModules.includes("offline") && <ServiceWorkerRegister />}
           </ToastProvider>
         </NextIntlClientProvider>
       </body>

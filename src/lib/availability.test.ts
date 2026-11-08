@@ -259,4 +259,38 @@ describe("isRangeBookable", () => {
       }),
     ).toBe(false);
   });
+
+  it("behandler visiter som opptatt-markering når overlapp er tillatt", () => {
+    const range = {
+      date: monday,
+      now,
+      businessHours,
+      availability,
+      visits: [
+        visit("2026-11-09T09:00:00+01:00", "2026-11-09T10:00:00+01:00"),
+      ],
+      holds: [],
+    };
+    const candidate = {
+      startsAt: new Date("2026-11-09T09:30:00+01:00"),
+      endsAt: new Date("2026-11-09T10:30:00+01:00"),
+    };
+
+    expect(isRangeBookable({ ...range, ...candidate })).toBe(false);
+    expect(
+      isRangeBookable({ ...range, ...candidate, allowVisitOverlap: true }),
+    ).toBe(true);
+
+    // En aktiv reservasjon er alltid hard, også når visiter er en markering.
+    expect(
+      isRangeBookable({
+        ...range,
+        ...candidate,
+        allowVisitOverlap: true,
+        holds: [
+          visit("2026-11-09T09:30:00+01:00", "2026-11-09T10:30:00+01:00"),
+        ],
+      }),
+    ).toBe(false);
+  });
 });

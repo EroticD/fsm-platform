@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { cleanText, LIMITS } from "@/lib/sanitize";
+import { moduleEnabled } from "@/server/modules";
 import {
   getSmsProvider,
   resolveSmsProviderName,
@@ -768,7 +769,10 @@ export function startSmsWorker(): void {
   void requeueStaleSmsMessages();
 
   const run = () => {
-    void processSmsQueue(SMS_WORKER_CONCURRENCY).catch((error) => {
+    void (async () => {
+      if (!(await moduleEnabled("sms"))) return;
+      await processSmsQueue(SMS_WORKER_CONCURRENCY);
+    })().catch((error) => {
       logger.error("SMS worker failed", {
         error: error instanceof Error ? error.message : String(error),
       });

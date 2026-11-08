@@ -1,0 +1,129 @@
+{
+  "nav": {
+    "profitability": "Rentowność"
+  },
+  "metadata": {
+    "routes": {
+      "lonnsomhet": "Rentowność"
+    }
+  },
+  "bi": {
+    "title": "Rentowność",
+    "subtitle": "Zlecenia, czas, naprawa za pierwszym razem i szacowany/rzeczywisty przychód według działu, klienta i technika.",
+    "export": "Eksportuj CSV",
+    "errors": {
+      "invalid": "Filtry są nieprawidłowe. Sprawdź okres i spróbuj ponownie.",
+      "forbidden": "Nie masz dostępu do raportu rentowności.",
+      "tooLarge": "Zestaw danych jest zbyt duży. Wybierz krótszy okres lub węższy filtr."
+    },
+    "filters": {
+      "title": "Filtry",
+      "from": "Od",
+      "to": "Do",
+      "department": "Dział",
+      "customer": "Klient",
+      "technician": "Technik",
+      "allDepartments": "Wszystkie działy",
+      "allCustomers": "Wszyscy klienci",
+      "allTechnicians": "Wszyscy technicy",
+      "apply": "Pokaż",
+      "reset": "Wyczyść"
+    },
+    "estimate": {
+      "title": "Przychód i wynik są szacunkowe",
+      "basis": "Podstawa: {basis}. {coverage} zleceń ma stawkę godzinową.",
+      "costMissing": "Wynik nie jest obliczony, ponieważ brakuje wewnętrznej stawki kosztu.",
+      "costConfigured": "Wynik jest obliczony z wewnętrzną stawką kosztu {rate} za godzinę."
+    },
+    "actual": {
+      "availableTitle": "Szacowany i rzeczywisty przychód",
+      "availableDescription": "Rzeczywisty przychód to kwota netto zafakturowana bez VAT dla {invoices} faktur w okresie. Szkice faktur są wyłączone, korekty są odejmowane, a status płatności nie wpływa na rozpoznanie przychodu. Szacunek ze stawki godzinowej umowy jest pokazany obok.",
+      "unavailableDescription": "Rzeczywisty przychód jest niedostępny, ponieważ moduł fakturowania jest wyłączony lub nie ma faktur innych niż szkice dla zleceń w okresie. Szacunek jest obliczany ze stawki godzinowej umowy i czasu pracy."
+    },
+    "basis": {
+      "contract_price_list": "stawka godzinowa z cennika umowy",
+      "partial": "brak stawki godzinowej dla niektórych zleceń",
+      "missing": "nie znaleziono stawki godzinowej"
+    },
+    "capacityBasis": {
+      "capacity_plan": "jawne plany wydajności",
+      "availability": "zarejestrowany czas pracy",
+      "business_hours": "godziny otwarcia działu",
+      "default_8h": "standardowy 8-godzinny dzień",
+      "mixed": "mieszanka planów wydajności i czasu pracy",
+      "none": "brak dostępności"
+    },
+    "kpis": {
+      "title": "Kluczowe wskaźniki",
+      "orders": "Zlecenia",
+      "ordersSub": "{completed} ukończonych · {cancelled} anulowanych",
+      "completionRate": "Wskaźnik ukończenia",
+      "completionRateSub": "Ukończone zlecenia ze wszystkich w okresie",
+      "firstTimeFix": "Naprawa za pierwszym razem",
+      "firstTimeFixSub": "{fixed} z {eligible} mierzalnych zleceń",
+      "hours": "Łączne godziny",
+      "hoursSub": "{work} godz. pracy · {travel} godz. jazdy",
+      "utilisation": "Wykorzystanie",
+      "utilisationSub": "z {available} godz. dostępnego czasu",
+      "revenue": "Szacowany przychód",
+      "revenueSub": "z {orders} zleceń ze stawką godzinową",
+      "actualRevenue": "Rzeczywisty przychód",
+      "actualRevenueSub": "{invoices} faktur · {orders} zleceń",
+      "actualRevenueUnavailable": "niedostępny – brak faktur w zakresie",
+      "profit": "Szacowany wynik",
+      "profitSub": "po wewnętrznej stawce kosztu {rate}/godz.",
+      "profitMissing": "nie obliczono – brak stawki kosztu"
+    },
+    "chart": {
+      "title": "Godziny na technika",
+      "description": "Słupki pokazują łączny czas pracy i jazdy. Dostępność opiera się na: {basis}.",
+      "hoursOf": "{hours} godz. · {utilisation} wykorzystania",
+      "hoursAria": "{name}: {hours} godzin, {utilisation} wykorzystania",
+      "utilisationAria": "{name}: {percent} wykorzystania",
+      "note": "Praca {work} godz. i jazda {travel} godz. są wliczone w sumę. Wspólna wizyta liczy się dla każdego technika w tabeli, ale tylko raz w sumie."
+    },
+    "empty": {
+      "period": "Brak danych w okresie.",
+      "title": "Brak zleceń w okresie",
+      "description": "Zmień okres lub wybierz inny dział, klienta albo technika."
+    },
+    "tables": {
+      "technicians": "Na technika",
+      "techniciansDescription": "Zlecenia, godziny, wykorzystanie i szacowany/rzeczywisty przychód.",
+      "customers": "Na klienta",
+      "customersDescription": "Zlecenia, godziny i szacowany/rzeczywisty przychód na klienta.",
+      "orders": "Na zlecenie",
+      "ordersDescription": "{count} zleceń w okresie z czasem, naprawą za pierwszym razem i szacowanym/rzeczywistym przychodem."
+    },
+    "table": {
+      "technician": "Technik",
+      "customer": "Klient",
+      "order": "Zlecenie",
+      "orders": "Zlecenia",
+      "work": "Praca",
+      "travel": "Jazda",
+      "total": "Razem",
+      "available": "Dostępne",
+      "utilisation": "Wykorzystanie",
+      "firstTimeFix": "Naprawa za pierwszym razem",
+      "estimatedRevenue": "Szacowany przychód",
+      "actualRevenue": "Rzeczywisty przychód",
+      "completedOf": "{completed} z {total} ukończonych",
+      "status": "Status"
+    },
+    "status": {
+      "PLANNED": "Zaplanowane",
+      "IN_PROGRESS": "W toku",
+      "WAITING": "Oczekuje",
+      "COMPLETED": "Ukończone",
+      "PENDING": "Wstrzymane",
+      "CANCELLED": "Anulowane",
+      "OPEN": "Otwarte"
+    },
+    "firstTimeFix": {
+      "fixed": "Naprawione za pierwszym razem",
+      "not_fixed": "Odchylenie – nie za pierwszym razem",
+      "not_measurable": "Niemierzalne"
+    }
+  }
+}

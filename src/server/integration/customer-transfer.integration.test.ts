@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, generateKeyPairSync } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -11,14 +11,23 @@ import { readPackage } from "@/lib/customer-transfer/read-package";
 import {
   cleanupExpiredTransfers,
   createTransferJob,
+  removeJobStaging,
   writeStagedPackage,
 } from "@/lib/customer-transfer/jobs";
+import {
+  reconcileTransferFiles,
+  writeFinalFilesLedger,
+} from "@/lib/customer-transfer/reconcile";
+import { uploadDir } from "@/lib/uploads";
+import { encryptPackageBuffer } from "@/lib/customer-transfer/encryption";
 import { exportRateLimitKey } from "@/lib/customer-transfer/export-request";
 import { POST as exportRoutePost } from "@/app/api/innstillinger/kunder/eksport/route";
+import { POST as importRoutePost } from "@/app/api/innstillinger/kunder/import/route";
 import { GET as downloadRouteGet } from "@/app/api/innstillinger/kunder/eksport/[jobId]/download/route";
 import {
   confirmImport,
   createImportJob,
+  downloadExportPackage,
   dryRunImport,
   exportCustomerPackage,
 } from "@/server/customer-transfer";
@@ -26,6 +35,10 @@ import type { ServiceActor } from "@/server/actor";
 import { parseChecksumsFile } from "@/lib/customer-transfer/manifest";
 import { analysePackage } from "@/lib/customer-transfer/analyse";
 import { DEFAULT_POLICIES } from "@/lib/customer-transfer/constants";
+import {
+  requeueStaleTransferJobs,
+  runTransferQueueOnce,
+} from "@/lib/customer-transfer/worker";
 
 const sessionState = vi.hoisted(() => ({
   user: null as Record<string, unknown> | null,
@@ -781,7 +794,14 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
       where: { actorId: { in: [ids.adminId, ids.officeId, ids.technicianId] } },
     });
     await prisma.rateLimit.deleteMany({
-      where: { key: exportRateLimitKey(ids.adminId) },
+      where: {
+        key: {
+          in: [
+            exportRateLimitKey(ids.adminId),
+            `customer-transfer-import:${ids.adminId}`,
+          ],
+        },
+      },
     });
     sessionState.user = null;
     if (tempRoot) {
@@ -805,7 +825,7 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     const byPath = new Map(entries.map((entry) => [entry.path, entry.data]));
     const manifest = JSON.parse((byPath.get("manifest.json") ?? Buffer.from("{}")).toString("utf8"));
     expect(manifest.format).toBe("fsm-customer-export");
-    expect(manifest.schemaVersion).toBe("1.0");
+    expect(manifest.schemaVersion).toBe("1.1");
     expect(manifest.counts).toEqual(counts);
     expect(manifest.counts.customers).toBe(1);
     expect(manifest.counts.portalUsers).toBe(1);
@@ -874,25 +894,31 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
       });
 
     const first = await exportRoutePost(request() as never);
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(202);
     const firstBody = (await first.json()) as {
       id: string;
       status: string;
-      downloadUrl: string;
-      fileName: string;
+      downloadUrl?: string;
+      fileName?: string;
       reused: boolean;
+      progressStage: string | null;
     };
-    expect(firstBody.status).toBe("READY");
+    // Ruten returnerer jobben med en gang; pakken bygges i workeren.
+    expect(firstBody.status).toBe("PENDING");
     expect(firstBody.reused).toBe(false);
-    expect(firstBody.downloadUrl).toContain(`/eksport/${firstBody.id}/download`);
+    expect(firstBody.downloadUrl).toBeUndefined();
 
+    await runTransferQueueOnce();
     const stored = await prisma.customerTransferJob.findUniqueOrThrow({
       where: { id: firstBody.id },
     });
+    expect(stored.status).toBe("READY");
     expect(stored.packageChecksum).toBeTruthy();
+    expect(stored.progressStage).toBe("ready");
+    const downloadUrl = `/api/innstillinger/kunder/eksport/${firstBody.id}/download`;
 
     const download = await downloadRouteGet(
-      new Request(`http://localhost${firstBody.downloadUrl}`, {
+      new Request(`http://localhost${downloadUrl}`, {
         headers: { Origin: "http://localhost" },
       }),
       { params: Promise.resolve({ jobId: firstBody.id }) },
@@ -1013,7 +1039,7 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     const preview = await dryRunImport(admin, importJobId);
     expect(preview.ok).toBe(true);
     if (!preview.ok) return;
-    expect(preview.data.package.schemaVersion).toBe("1.0");
+    expect(preview.data.package.schemaVersion).toBe("1.1");
     expect(preview.data.package.checksum).toBe(packageChecksum);
     expect(preview.data.errors).toEqual([]);
     expect(preview.data.canImport).toBe(true);
@@ -1394,6 +1420,471 @@ describeIntegration("Kundeoverføring mot ekte PostgreSQL", () => {
     expect(
       analysis.plan.get("EquipmentQrCode:ct-qr-other-asset")?.action,
     ).toBe("CONFLICT");
+  });
+
+  it("signerer pakken og avviser endret manifest", async () => {
+    const previousKey = process.env.CUSTOMER_TRANSFER_SIGNING_KEY;
+    const previousRequired = process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE;
+    process.env.CUSTOMER_TRANSFER_SIGNING_KEY = "x".repeat(64);
+    process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE = "true";
+    try {
+      const signed = await buildCustomerPackage(admin, {
+        customerIds: [ids.customerBId],
+        includeFiles: true,
+        includeDeleted: false,
+        includeLegalHold: false,
+        includeAudit: false,
+        includeSignatures: false,
+      });
+      const good = readPackage(signed.buffer);
+      expect(good.ok).toBe(true);
+      if (!good.ok) return;
+
+      const entries = readZip(signed.buffer);
+      const manifestEntry = entries.find(
+        (entry) => entry.path === "manifest.json",
+      );
+      expect(manifestEntry).toBeTruthy();
+      if (!manifestEntry) return;
+      const tamperedManifest = JSON.parse(
+        manifestEntry.data.toString("utf8"),
+      ) as Record<string, unknown>;
+      tamperedManifest.exportedAt = new Date(
+        Date.parse(String(manifestEntry.data.toString("utf8").match(/"exportedAt": "([^"]+)"/)?.[1] ?? "")) +
+          1000,
+      ).toISOString();
+      const tampered = createZip(
+        entries.map((entry) =>
+          entry.path === "manifest.json"
+            ? {
+                path: entry.path,
+                data: Buffer.from(
+                  `${JSON.stringify(tamperedManifest, null, 2)}\n`,
+                  "utf8",
+                ),
+              }
+            : { path: entry.path, data: entry.data },
+        ),
+      );
+      const rejected = readPackage(tampered);
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) {
+        expect(
+          rejected.errors.some(
+            (error) => error.code === "customer_transfer.signature_invalid",
+          ),
+        ).toBe(true);
+      }
+
+      // En usignert pakke avvises når signaturen er påkrevd.
+      delete process.env.CUSTOMER_TRANSFER_SIGNING_KEY;
+      const unsigned = await buildCustomerPackage(admin, {
+        customerIds: [ids.customerBId],
+        includeFiles: true,
+        includeDeleted: false,
+        includeLegalHold: false,
+        includeAudit: false,
+        includeSignatures: false,
+      });
+      const missing = readPackage(unsigned.buffer);
+      expect(missing.ok).toBe(false);
+      if (!missing.ok) {
+        expect(
+          missing.errors.some(
+            (error) => error.code === "customer_transfer.signature_missing",
+          ),
+        ).toBe(true);
+      }
+    } finally {
+      if (previousKey === undefined) {
+        delete process.env.CUSTOMER_TRANSFER_SIGNING_KEY;
+      } else {
+        process.env.CUSTOMER_TRANSFER_SIGNING_KEY = previousKey;
+      }
+      if (previousRequired === undefined) {
+        delete process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE;
+      } else {
+        process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE = previousRequired;
+      }
+    }
+  });
+
+  it("signerer med Ed25519, avviser endret manifest og ukjent offentlig nøkkel", async () => {
+    const envKeys = [
+      "CUSTOMER_TRANSFER_SIGNING_KEY",
+      "CUSTOMER_TRANSFER_REQUIRE_SIGNATURE",
+      "CUSTOMER_TRANSFER_SIGNATURE_MODE",
+      "CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY",
+      "CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY",
+      "CUSTOMER_TRANSFER_ED25519_KEY_ID",
+    ] as const;
+    const previous = Object.fromEntries(
+      envKeys.map((key) => [key, process.env[key]]),
+    ) as Record<(typeof envKeys)[number], string | undefined>;
+
+    const signer = generateKeyPairSync("ed25519");
+    const other = generateKeyPairSync("ed25519");
+    const privatePem = signer.privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const publicPem = signer.publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+    const otherPublicPem = other.publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+
+    delete process.env.CUSTOMER_TRANSFER_SIGNING_KEY;
+    process.env.CUSTOMER_TRANSFER_SIGNATURE_MODE = "ed25519";
+    process.env.CUSTOMER_TRANSFER_REQUIRE_SIGNATURE = "true";
+    process.env.CUSTOMER_TRANSFER_ED25519_PRIVATE_KEY = privatePem;
+    process.env.CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY = publicPem;
+    process.env.CUSTOMER_TRANSFER_ED25519_KEY_ID = "integration-ed25519";
+
+    try {
+      const signed = await buildCustomerPackage(admin, {
+        customerIds: [ids.customerBId],
+        includeFiles: true,
+        includeDeleted: false,
+        includeLegalHold: false,
+        includeAudit: false,
+        includeSignatures: false,
+      });
+      const entries = readZip(signed.buffer);
+      const paths = entries.map((entry) => entry.path);
+      expect(paths).toContain("manifest.sig.ed25519");
+      expect(paths).not.toContain("manifest.sig");
+
+      const good = readPackage(signed.buffer);
+      expect(good.ok).toBe(true);
+
+      const manifestEntry = entries.find(
+        (entry) => entry.path === "manifest.json",
+      );
+      expect(manifestEntry).toBeTruthy();
+      if (!manifestEntry) return;
+      const tamperedManifest = JSON.parse(
+        manifestEntry.data.toString("utf8"),
+      ) as Record<string, unknown>;
+      tamperedManifest.exportedAt = new Date(
+        Date.parse(String(tamperedManifest.exportedAt)) + 1000,
+      ).toISOString();
+      const tampered = createZip(
+        entries.map((entry) =>
+          entry.path === "manifest.json"
+            ? {
+                path: entry.path,
+                data: Buffer.from(
+                  `${JSON.stringify(tamperedManifest, null, 2)}\n`,
+                  "utf8",
+                ),
+              }
+            : { path: entry.path, data: entry.data },
+        ),
+      );
+      const rejected = readPackage(tampered);
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) {
+        expect(
+          rejected.errors.some(
+            (error) => error.code === "customer_transfer.signature_invalid",
+          ),
+        ).toBe(true);
+      }
+
+      // Riktig pakke, men feil offentlig nøkkel er konfigurert i mottakeren.
+      process.env.CUSTOMER_TRANSFER_ED25519_PUBLIC_KEY = otherPublicPem;
+      const untrusted = readPackage(signed.buffer);
+      expect(untrusted.ok).toBe(false);
+      if (!untrusted.ok) {
+        expect(
+          untrusted.errors.some(
+            (error) => error.code === "customer_transfer.signature_untrusted",
+          ),
+        ).toBe(true);
+      }
+    } finally {
+      for (const key of envKeys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it("tar imot multipart-passfrase via importruten", async () => {
+    const passphrase = "korrekt hest batteri stiftemaskin";
+    const envelope = encryptPackageBuffer(packageBuffer, passphrase);
+
+    const post = (passphraseValue?: string) => {
+      const form = new FormData();
+      form.append(
+        "file",
+        new File([new Uint8Array(envelope)], "encrypted.fsmenc", {
+          type: "application/octet-stream",
+        }),
+      );
+      if (passphraseValue !== undefined) {
+        form.append("passphrase", passphraseValue);
+      }
+      return importRoutePost(
+        new Request("http://localhost/api/innstillinger/kunder/import", {
+          method: "POST",
+          headers: { Origin: "http://localhost" },
+          body: form,
+        }) as never,
+      );
+    };
+
+    const missing = await post();
+    expect(missing.status).toBe(422);
+    const missingBody = (await missing.json()) as {
+      error: string;
+      messageKey: string;
+    };
+    expect(missingBody.error).toBe("customer_transfer.passphrase_required");
+    expect(missingBody.messageKey).toBe(
+      "errors.customerTransfer.passphraseRequired",
+    );
+
+    const wrong = await post("feil passfrase som er lang nok");
+    expect(wrong.status).toBe(422);
+    const wrongBody = (await wrong.json()) as { error: string };
+    expect(wrongBody.error).toBe("customer_transfer.decryption_failed");
+
+    const accepted = await post(passphrase);
+    expect(accepted.status).toBe(202);
+    const acceptedBody = (await accepted.json()) as { id: string };
+    expect(acceptedBody.id).toBeTruthy();
+    await removeJobStaging(acceptedBody.id);
+    await prisma.customerTransferJob.delete({ where: { id: acceptedBody.id } });
+  });
+
+
+  it("migrerer en 1.0-pakke deterministisk og avviser en fremtidig majorversjon", () => {
+    const entries = readZip(packageBuffer);
+    const manifestEntry = entries.find((entry) => entry.path === "manifest.json");
+    expect(manifestEntry).toBeTruthy();
+    if (!manifestEntry) return;
+    const manifest = JSON.parse(manifestEntry.data.toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+
+    const legacyManifest: Record<string, unknown> = { ...manifest, schemaVersion: "1.0" };
+    delete legacyManifest.packageId;
+    const legacy = createZip(
+      entries.map((entry) =>
+        entry.path === "manifest.json"
+          ? {
+              path: entry.path,
+              data: Buffer.from(
+                `${JSON.stringify(legacyManifest, null, 2)}\n`,
+                "utf8",
+              ),
+            }
+          : { path: entry.path, data: entry.data },
+      ),
+    );
+    const migrated = readPackage(legacy);
+    expect(migrated.ok).toBe(true);
+    if (migrated.ok) {
+      expect(migrated.result.manifest.schemaVersion).toBe("1.1");
+      expect(migrated.result.manifest.packageId).toMatch(/^[a-f0-9]{32}$/);
+      expect(
+        migrated.result.warnings.some(
+          (warning) =>
+            warning.detail === "1.0->1.1" &&
+            warning.messageKey ===
+              "errors.customerTransfer.schemaMigrated",
+        ),
+      ).toBe(true);
+    }
+
+    const future = createZip(
+      entries.map((entry) =>
+        entry.path === "manifest.json"
+          ? {
+              path: entry.path,
+              data: Buffer.from(
+                `${JSON.stringify({ ...manifest, schemaVersion: "2.0" }, null, 2)}\n`,
+                "utf8",
+              ),
+            }
+          : { path: entry.path, data: entry.data },
+      ),
+    );
+    const rejected = readPackage(future);
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(
+        rejected.errors.some(
+          (error) => error.code === "customer_transfer.unsupported_schema",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("tar imot kryptert pakke bare med riktig passfrase", async () => {
+    const passphrase = "korrekt hest batteri stiftemaskin";
+    const envelope = encryptPackageBuffer(packageBuffer, passphrase);
+
+    const missing = await createImportJob(
+      admin,
+      envelope,
+      "encrypted.fsmenc",
+    );
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.status).toBe(422);
+      expect(missing.code).toBe("customer_transfer.passphrase_required");
+    }
+
+    const wrong = await createImportJob(admin, envelope, "encrypted.fsmenc", {
+      passphrase: "feil passfrase som er lang nok",
+    });
+    expect(wrong.ok).toBe(false);
+    if (!wrong.ok) {
+      expect(wrong.status).toBe(422);
+      expect(wrong.code).toBe("customer_transfer.decryption_failed");
+    }
+
+    const accepted = await createImportJob(
+      admin,
+      envelope,
+      "encrypted.fsmenc",
+      { passphrase },
+    );
+    expect(accepted.ok).toBe(true);
+    if (!accepted.ok) return;
+    const preview = await dryRunImport(admin, accepted.data.id);
+    expect(preview.ok).toBe(true);
+    if (preview.ok) expect(preview.data.package.checksum).toBe(packageChecksum);
+    await removeJobStaging(accepted.data.id);
+    await prisma.customerTransferJob.delete({
+      where: { id: accepted.data.id },
+    });
+  });
+
+  it("behandler bekreftet import som en varig jobb med aktiv lås", async () => {
+    const first = await createImportJob(admin, packageBuffer, "queue-1.zip");
+    const second = await createImportJob(admin, packageBuffer, "queue-2.zip");
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    const firstPreview = await dryRunImport(admin, first.data.id);
+    const secondPreview = await dryRunImport(admin, second.data.id);
+    expect(firstPreview.ok).toBe(true);
+    expect(secondPreview.ok).toBe(true);
+    if (!firstPreview.ok || !secondPreview.ok) return;
+
+    const queued = await confirmImport(
+      admin,
+      first.data.id,
+      {
+        previewToken: firstPreview.data.previewToken ?? "",
+        policies: {},
+        createMissingReferences: false,
+        confirmation: true,
+      },
+      { mode: "queue" },
+    );
+    expect(queued.ok).toBe(true);
+    if (queued.ok) expect(queued.data.status).toBe("QUEUED");
+
+    const blocked = await confirmImport(
+      admin,
+      second.data.id,
+      {
+        previewToken: secondPreview.data.previewToken ?? "",
+        policies: {},
+        createMissingReferences: false,
+        confirmation: true,
+      },
+      { mode: "queue" },
+    );
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.status).toBe(409);
+
+    const processed = await runTransferQueueOnce();
+    expect(processed).toBeGreaterThanOrEqual(1);
+    const completed = await prisma.customerTransferJob.findUniqueOrThrow({
+      where: { id: first.data.id },
+    });
+    expect(completed.status).toBe("COMPLETED");
+    expect(completed.progressStage).toBe("completed");
+
+    await removeJobStaging(second.data.id);
+    await prisma.customerTransferJob.delete({ where: { id: second.data.id } });
+  });
+
+  it("avstemmer filer fra en simulert krasjet import og beholder refererte filer", async () => {
+    const referencedDocument = await prisma.document.findFirst({
+      where: { filePath: { startsWith: "/uploads/" } },
+      select: { filePath: true },
+    });
+    expect(referencedDocument).toBeTruthy();
+    if (!referencedDocument?.filePath) return;
+    const referenced = {
+      storedName: referencedDocument.filePath.replace("/uploads/", ""),
+    };
+
+    const job = await createTransferJob({
+      actorId: ids.adminId,
+      kind: "IMPORT",
+      status: "FAILED",
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+    const orphan = `00000000-0000-4000-8000-000000000001.pdf`;
+    await fs.writeFile(
+      path.join(uploadDir(), orphan),
+      Buffer.from("%PDF-1.4\nkrasjet\n%%EOF\n"),
+    );
+    await writeFinalFilesLedger(job.id, [orphan, referenced.storedName]);
+
+    const result = await reconcileTransferFiles({ staleMs: 0 });
+    expect(result.filesDeleted).toBeGreaterThanOrEqual(1);
+    await expect(
+      fs.access(path.join(uploadDir(), orphan)),
+    ).rejects.toBeTruthy();
+    await expect(
+      fs.access(path.join(uploadDir(), referenced.storedName)),
+    ).resolves.toBeUndefined();
+    await removeJobStaging(job.id);
+  });
+
+  it("re-køer en gammel RUNNING-jobb og nekter nedlasting etter utløp", async () => {
+    const stale = await createTransferJob({
+      actorId: ids.adminId,
+      kind: "EXPORT",
+      status: "RUNNING",
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+    await prisma.customerTransferJob.update({
+      where: { id: stale.id },
+      data: { updatedAt: new Date(Date.now() - 2 * 60 * 60_000) },
+    });
+    const requeued = await requeueStaleTransferJobs();
+    expect(requeued).toBeGreaterThanOrEqual(1);
+    const after = await prisma.customerTransferJob.findUniqueOrThrow({
+      where: { id: stale.id },
+    });
+    expect(after.status).toBe("PENDING");
+    await prisma.customerTransferJob.delete({ where: { id: stale.id } });
+
+    const expired = await createTransferJob({
+      actorId: ids.adminId,
+      kind: "EXPORT",
+      status: "READY",
+      packageChecksum: "a".repeat(64),
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+    await writeStagedPackage(expired.id, Buffer.from("expired-download"));
+    const downloaded = await downloadExportPackage(admin, expired.id);
+    expect(downloaded.ok).toBe(false);
+    if (!downloaded.ok) expect(downloaded.status).toBe(410);
+    await removeJobStaging(expired.id);
+    await prisma.customerTransferJob.delete({ where: { id: expired.id } });
   });
 
   it("rydder utløpte staging-kataloger", async () => {

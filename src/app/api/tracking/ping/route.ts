@@ -4,6 +4,7 @@ import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 import { recordLocationPing } from "@/server/tracking";
+import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ function json(body: unknown, status = 200) {
  * setter en egen rate limit per bruker.
  */
 export async function POST(request: Request) {
+  const moduleGuard = await moduleApiGuard("tracking");
+  if (moduleGuard) return moduleGuard;
   if (!assertSameOrigin(request)) {
     return json({ error: "ugyldig-origin" }, 403);
   }

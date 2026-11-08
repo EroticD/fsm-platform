@@ -296,34 +296,43 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   territorier og fordelingsregler, mens selve tildelingen fortsatt bruker
   `workorders.assign`.
 
-## Phase 5A — ekte tilgjengelighetsbooking (2026-10-30)
+## Phase 5A — datoforespørsel og kontorplanlegging (revidert 2026-11-07)
 
-- **Samtidighet uten `btree_gist`.** Vi bruker `SERIALIZABLE`-transaksjon +
-  `pg_advisory_xact_lock` per montør, og kontrollerer tilgjengeligheten på nytt
-  inne i låsen. Det gir nøyaktig én bekreftet booking for samme montør og time
-  uten å kreve en PostgreSQL-extension. En eksklusjonsconstraint kan komme
-  senere når alle montører er representert i én egen tabell.
+- **Nye bestillinger er datoforespørsler.** Kunden velger sted, tjeneste og
+  ønsket dato; ønsket klokkeslett skrives i beskrivelsen. `createBooking`
+  oppretter alltid `BookingRequest(PENDING)`, `WorkOrder(OPEN)` og ingen
+  `Visit`. Kontoret eller montøren planlegger tid og montør i `/bookinger`.
+  Den tidligere direkte slotbekreftelsen er fjernet fordi den ikke var nåbar
+  fra kundeportalen.
+- **Samtidighet uten `btree_gist`.** Kontorets bekreftelse bruker
+  `SERIALIZABLE`-transaksjon + `pg_advisory_xact_lock` per montør, og
+  kontrollerer arbeidstid, fravær og reservasjoner på nytt inne i låsen.
+  Overlappende visiter er en opptatt-markering, ikke en hard sperre: kontoret
+  kan bevisst bekrefte to oppdrag på samme tid, og montøren kan tildeles flere
+  samtidige oppdrag. En eksklusjonsconstraint er derfor ikke ønsket.
 - **30-minutters slots, 60 dagers horisont, maks tre per dag per montør.**
   Slotmatematikken ligger i `src/lib/availability.ts` og er uten I/O.
   `BusinessHours` snittes med `UserAvailability`; fravær, aktive visiter,
-  aktive `BookingHold` og 24 timers ledetid trekkes fra. `DONE` og `CANCELLED`
-  blokkerer ikke. Heldagsvisiter er en planleggingsmarkør som gjør montøren
-  opptatt, men stenger ikke hele kalenderdagen; timevisiter opptar sin konkrete
-  tid. Montører kan likevel tildeles overlappende oppdrag.
+  aktive `BookingHold` og 24 timers ledetid trekkes fra når systemet foreslår
+  ledige tider. `DONE` og `CANCELLED` blokkerer ikke. Heldagsvisiter er en
+  planleggingsmarkør som gjør montøren opptatt, men stenger ikke hele
+  kalenderdagen. Forslagene er råd; kontorets eksplisitte valg kan overlappe.
 - **Manglende arbeidstid er en eksplisitt standard.** Har en montør ingen
   `UserAvailability`, brukes avdelingens åpningstider og resultatet flagger
   `unconfiguredPolicy = "business_hours"`. Har avdelingen ingen
   `BusinessHours`, brukes hverdager 08–16 og `businessHoursConfigured = false`.
-  Valget er synlig i portalen, ikke en stille fallback.
-- **BookingHold varer i fem minutter.** Portalen reserverer timen før kunden
-  fyller ut skjemaet. Bekreftelse konsumerer reservasjonen i samme transaksjon
-  som `BookingRequest(CONFIRMED)` og `Visit(PLANNED)` opprettes. En
-  bakgrunnsjobb sletter utløpte/konsumerte rader, og utløpte `PENDING`-
-  forespørsler merkes `EXPIRED`.
-- **Direkte bekreftelse, med eldre kø bevart.** Nye bestillinger bekreftes
-  direkte mot en slot. `PENDING` beholdes for eldre forespørsler og vises i
-  kontorets `/bookinger`-kø, der de kan bekreftes mot en ledig montør eller
-  avlyses.
+  Valget er synlig i portalen, ikke en stille fallback. Dette gjelder bare
+  forslagsmotoren og den eldre ombookingsflyten.
+- **BookingHold er bare en del av den eldre ombookingsflyten.** En kunde med
+  en allerede bekreftet avtale kan bruke slotvelgeren til å flytte den; da
+  reserveres timen i fem minutter mens skjemaet fylles ut. Nye bestillinger
+  oppretter aldri hold. En bakgrunnsjobb sletter utløpte/konsumerte rader, og
+  utløpte `PENDING`-forespørsler merkes `EXPIRED`.
+- **Alle ventende datoforespørsler kan bekreftes.** `PENDING` uten lagret
+  tidsvindu krever at kontoret oppgir dato, start og slutt. Eldre
+  `PENDING`-rader med et gyldig lagret vindu kan fortsatt bekreftes med det.
+  Begge veier ender i `BookingRequest(CONFIRMED)`, `WorkOrder(PLANNED)` og
+  `Visit(PLANNED)` i samme transaksjon.
 - **Kundebestillingen lagrer et stedsnapshot.** `CustomerSite` er en enkel
   liste per kunde. `BookingRequest.siteId` peker på stedet, og adressen kopieres
   til oppdraget slik at senere endringer i stedsregisteret ikke flytter
@@ -553,3 +562,24 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   gyldig dekning og allerede kansellerte klokker røres ikke. Kansellerte
   klokker ignoreres av sveipingen, dispatch-prioritering og SLA-panelet.
 
+
+## Modulær plattform (2026-11-07)
+
+- **Kjerne og moduler, ikke tenants.** Én installasjon har én database og én
+  kodebase. Kjernen (auth, brukere, avdelinger, kunder, oppdrag,
+  arbeidsdager/tid, revisjon og innstillinger) er alltid på. Øvrige
+  kapabiliteter er installasjonsnivåmoduler med en eksplisitt katalog i
+  `src/lib/modules.ts`.
+- **Av betyr gated kode, ikke slettede data.** `ModuleState` styrer bare om
+  sider, handlinger, API-er og arbeidsjobber er tilgjengelige. Tabeller og rader
+  røres ikke; en avslått modul kan slås på igjen uten datatap.
+- **Avhengigheter valideres i begge retninger.** En modul kan ikke slås på før
+  avhengighetene er på, og kan ikke slås av mens en avhengig modul er på.
+  Kjernen kan aldri slås av.
+- **Eksisterende installasjoner får alt på.** Første oppstart uten
+  `ModuleState` bruker `MODULE_PRESET=full` som standard. Nye kjerne-only
+  installasjoner setter `MODULE_PRESET=core`. Endringer revideres og caches i
+  maks ti sekunder per prosess.
+- **Direkte kall feiler lukket.** Navigasjon og faner skjules, men server
+  actions, API-ruter og direkte URL-er sjekker modulen på nytt. Søk og
+  kundeoverføring filtrerer bort data fra avslåtte moduler.
