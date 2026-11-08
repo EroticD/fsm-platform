@@ -107,6 +107,95 @@
       "consumeVisit": "Forbruk deler ved fullført økt",
       "consumeVisitDescription": "Forbruker alle aktive reservasjoner som er knyttet til økten. Bruk denne når arbeidet faktisk er utført.",
       "consumeAll": "Forbruk alle"
+    },
+    "purchasing": {
+      "title": "Innkjøp",
+      "eyebrow": "OPS-05 · Innkjøp og leverandører",
+      "description": "Innkjøpsordrer fra kjøpsforslag, varemottak mot lager og leverandørregister. Beholdningen økes først når varene faktisk mottas.",
+      "link": "Innkjøp",
+      "suppliersLink": "Leverandører",
+      "back": "Tilbake til innkjøp",
+      "ordersTitle": "Innkjøpsordrer",
+      "empty": "Ingen innkjøpsordrer er registrert ennå.",
+      "create": {
+        "title": "Ny innkjøpsordre fra kjøpsforslag",
+        "description": "Velg leverandør og mottakslokasjon. Huk av varene som skal bestilles; foreslått mengde regnes ut på nytt på serveren.",
+        "supplier": "Leverandør",
+        "chooseSupplier": "Velg leverandør",
+        "noSuppliers": "Ingen leverandører er registrert.",
+        "location": "Mottakslokasjon",
+        "expectedAt": "Forventet levering",
+        "notes": "Notat",
+        "selectItems": "Velg varer",
+        "createButton": "Opprett utkast"
+      },
+      "filter": {
+        "status": "Filtrer på status",
+        "all": "Alle statuser",
+        "apply": "Filtrer"
+      },
+      "table": {
+        "number": "Nummer",
+        "supplier": "Leverandør",
+        "location": "Lokasjon",
+        "status": "Status",
+        "expectedAt": "Forventet",
+        "lines": "Linjer",
+        "orderedTotal": "Sum bestilt"
+      },
+      "status": {
+        "draft": "Utkast",
+        "ordered": "Bestilt",
+        "partially_received": "Delvis mottatt",
+        "received": "Mottatt",
+        "cancelled": "Avbestilt"
+      },
+      "order": {
+        "supplier": "Leverandør",
+        "location": "Mottakslokasjon",
+        "expectedAt": "Forventet levering",
+        "orderedAt": "Bestilt",
+        "receivedAt": "Mottatt",
+        "cancelledAt": "Avbestilt",
+        "notes": "Notat",
+        "noNotes": "Ingen notat.",
+        "created": "Opprettet",
+        "totals": {
+          "ordered": "Sum bestilt",
+          "received": "Sum mottatt"
+        },
+        "linesTitle": "Varelinjer",
+        "noLines": "Ordren har ingen varelinjer ennå.",
+        "addLine": "Legg til vare",
+        "chooseItem": "Velg vare",
+        "orderedQuantity": "Bestilt mengde",
+        "receivedQuantity": "Mottatt",
+        "remaining": "Gjenstår",
+        "unitCost": "Enhetskost",
+        "lineTotal": "Linjesum",
+        "remove": "Fjern",
+        "addButton": "Legg til",
+        "editTitle": "Rediger utkast",
+        "saveButton": "Lagre utkast",
+        "orderButton": "Bestill",
+        "cancelButton": "Avbestill",
+        "receiveTitle": "Varemottak",
+        "receiveDescription": "Mottak øker beholdningen på mottakslokasjonen og kan ikke overstige bestilt mengde. Delvis mottak setter ordren til delvis mottatt.",
+        "receiveButton": "Motta varer",
+        "receiveQuantity": "Mottatt nå"
+      },
+      "suppliers": {
+        "title": "Leverandører",
+        "description": "Leverandører brukes på innkjøpsordrer. Leverandører uten avdeling er felles for installasjonen.",
+        "empty": "Ingen leverandører er registrert ennå.",
+        "create": "Ny leverandør",
+        "name": "Navn",
+        "orgNumber": "Organisasjonsnummer",
+        "email": "E-post",
+        "phone": "Telefon",
+        "createButton": "Opprett leverandør",
+        "created": "Leverandøren er opprettet."
+      }
     }
   }
 }

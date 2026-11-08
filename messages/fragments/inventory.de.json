@@ -107,6 +107,95 @@
       "consumeVisit": "Consume parts for a completed session",
       "consumeVisitDescription": "Consumes all active reservations tied to the session. Use this when the work has actually been done.",
       "consumeAll": "Consume all"
+    },
+    "purchasing": {
+      "title": "Einkauf",
+      "eyebrow": "OPS-05 · Einkauf und Lieferanten",
+      "description": "Bestellungen aus Beschaffungsvorschlägen, Wareneingang ins Lager und ein Lieferantenregister. Der Bestand steigt erst, wenn die Ware tatsächlich eintrifft.",
+      "link": "Einkauf",
+      "suppliersLink": "Lieferanten",
+      "back": "Zurück zum Einkauf",
+      "ordersTitle": "Bestellungen",
+      "empty": "Es sind noch keine Bestellungen erfasst.",
+      "create": {
+        "title": "Neue Bestellung aus Vorschlägen",
+        "description": "Lieferant und Empfangslager wählen. Artikel ankreuzen; die vorgeschlagene Menge wird auf dem Server neu berechnet.",
+        "supplier": "Lieferant",
+        "chooseSupplier": "Lieferant wählen",
+        "noSuppliers": "Es sind keine Lieferanten erfasst.",
+        "location": "Empfangslager",
+        "expectedAt": "Erwartete Lieferung",
+        "notes": "Notiz",
+        "selectItems": "Artikel wählen",
+        "createButton": "Entwurf erstellen"
+      },
+      "filter": {
+        "status": "Nach Status filtern",
+        "all": "Alle Status",
+        "apply": "Filtern"
+      },
+      "table": {
+        "number": "Nummer",
+        "supplier": "Lieferant",
+        "location": "Lager",
+        "status": "Status",
+        "expectedAt": "Erwartet",
+        "lines": "Positionen",
+        "orderedTotal": "Bestellsumme"
+      },
+      "status": {
+        "draft": "Entwurf",
+        "ordered": "Bestellt",
+        "partially_received": "Teilweise erhalten",
+        "received": "Erhalten",
+        "cancelled": "Storniert"
+      },
+      "order": {
+        "supplier": "Lieferant",
+        "location": "Empfangslager",
+        "expectedAt": "Erwartete Lieferung",
+        "orderedAt": "Bestellt",
+        "receivedAt": "Erhalten",
+        "cancelledAt": "Storniert",
+        "notes": "Notiz",
+        "noNotes": "Keine Notiz.",
+        "created": "Erstellt",
+        "totals": {
+          "ordered": "Bestellsumme",
+          "received": "Erhaltene Summe"
+        },
+        "linesTitle": "Bestellpositionen",
+        "noLines": "Die Bestellung hat noch keine Positionen.",
+        "addLine": "Artikel hinzufügen",
+        "chooseItem": "Artikel wählen",
+        "orderedQuantity": "Bestellte Menge",
+        "receivedQuantity": "Erhalten",
+        "remaining": "Offen",
+        "unitCost": "Stückkosten",
+        "lineTotal": "Positionssumme",
+        "remove": "Entfernen",
+        "addButton": "Hinzufügen",
+        "editTitle": "Entwurf bearbeiten",
+        "saveButton": "Entwurf speichern",
+        "orderButton": "Bestellen",
+        "cancelButton": "Stornieren",
+        "receiveTitle": "Wareneingang",
+        "receiveDescription": "Der Wareneingang erhöht den Bestand am Empfangslager und kann die bestellte Menge nie überschreiten. Ein Teilwareneingang setzt die Bestellung auf teilweise erhalten.",
+        "receiveButton": "Ware erhalten",
+        "receiveQuantity": "Jetzt erhalten"
+      },
+      "suppliers": {
+        "title": "Lieferanten",
+        "description": "Lieferanten werden in Bestellungen verwendet. Lieferanten ohne Abteilung gelten für die gesamte Installation.",
+        "empty": "Es sind noch keine Lieferanten erfasst.",
+        "create": "Neuer Lieferant",
+        "name": "Name",
+        "orgNumber": "Organisationsnummer",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "createButton": "Lieferant erstellen",
+        "created": "Der Lieferant wurde erstellt."
+      }
     }
   }
 }

@@ -79,6 +79,9 @@ export default async function InventoryPage({
                 {t("inventory.search")}
               </button>
             </form>
+            <Link className={INK_BUTTON} href="/lager/innkjop">
+              {t("inventory.purchasing.link")}
+            </Link>
           </div>
         </header>
 

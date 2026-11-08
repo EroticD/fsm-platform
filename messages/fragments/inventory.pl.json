@@ -107,6 +107,95 @@
       "consumeVisit": "Consume parts for a completed session",
       "consumeVisitDescription": "Consumes all active reservations tied to the session. Use this when the work has actually been done.",
       "consumeAll": "Consume all"
+    },
+    "purchasing": {
+      "title": "Zakupy",
+      "eyebrow": "OPS-05 · Zakupy i dostawcy",
+      "description": "Zamówienia zakupu z sugestii zakupowych, przyjęcia towaru do magazynu i rejestr dostawców. Stan magazynu rośnie dopiero po faktycznym przyjęciu towaru.",
+      "link": "Zakupy",
+      "suppliersLink": "Dostawcy",
+      "back": "Powrót do zakupów",
+      "ordersTitle": "Zamówienia zakupu",
+      "empty": "Nie zarejestrowano jeszcze żadnych zamówień zakupu.",
+      "create": {
+        "title": "Nowe zamówienie zakupu z sugestii",
+        "description": "Wybierz dostawcę i lokalizację przyjęcia. Zaznacz towary do zamówienia; sugerowana ilość jest ponownie obliczana na serwerze.",
+        "supplier": "Dostawca",
+        "chooseSupplier": "Wybierz dostawcę",
+        "noSuppliers": "Nie zarejestrowano żadnych dostawców.",
+        "location": "Lokalizacja przyjęcia",
+        "expectedAt": "Przewidywana dostawa",
+        "notes": "Notatka",
+        "selectItems": "Wybierz towary",
+        "createButton": "Utwórz szkic"
+      },
+      "filter": {
+        "status": "Filtruj według statusu",
+        "all": "Wszystkie statusy",
+        "apply": "Filtruj"
+      },
+      "table": {
+        "number": "Numer",
+        "supplier": "Dostawca",
+        "location": "Lokalizacja",
+        "status": "Status",
+        "expectedAt": "Przewidywana",
+        "lines": "Pozycje",
+        "orderedTotal": "Suma zamówienia"
+      },
+      "status": {
+        "draft": "Szkic",
+        "ordered": "Zamówione",
+        "partially_received": "Częściowo przyjęte",
+        "received": "Przyjęte",
+        "cancelled": "Anulowane"
+      },
+      "order": {
+        "supplier": "Dostawca",
+        "location": "Lokalizacja przyjęcia",
+        "expectedAt": "Przewidywana dostawa",
+        "orderedAt": "Zamówiono",
+        "receivedAt": "Przyjęto",
+        "cancelledAt": "Anulowano",
+        "notes": "Notatka",
+        "noNotes": "Brak notatki.",
+        "created": "Utworzono",
+        "totals": {
+          "ordered": "Suma zamówienia",
+          "received": "Suma przyjęta"
+        },
+        "linesTitle": "Pozycje zamówienia",
+        "noLines": "Zamówienie nie ma jeszcze pozycji.",
+        "addLine": "Dodaj towar",
+        "chooseItem": "Wybierz towar",
+        "orderedQuantity": "Zamówiona ilość",
+        "receivedQuantity": "Przyjęto",
+        "remaining": "Pozostało",
+        "unitCost": "Koszt jednostkowy",
+        "lineTotal": "Wartość pozycji",
+        "remove": "Usuń",
+        "addButton": "Dodaj",
+        "editTitle": "Edytuj szkic",
+        "saveButton": "Zapisz szkic",
+        "orderButton": "Złóż zamówienie",
+        "cancelButton": "Anuluj zamówienie",
+        "receiveTitle": "Przyjęcie towaru",
+        "receiveDescription": "Przyjęcie zwiększa stan w lokalizacji przyjęcia i nigdy nie może przekroczyć zamówionej ilości. Częściowe przyjęcie ustawia status częściowo przyjęte.",
+        "receiveButton": "Przyjmij towar",
+        "receiveQuantity": "Przyjęto teraz"
+      },
+      "suppliers": {
+        "title": "Dostawcy",
+        "description": "Dostawcy są używani w zamówieniach zakupu. Dostawcy bez działu są wspólni dla całej instalacji.",
+        "empty": "Nie zarejestrowano jeszcze żadnych dostawców.",
+        "create": "Nowy dostawca",
+        "name": "Nazwa",
+        "orgNumber": "Numer organizacji",
+        "email": "E-mail",
+        "phone": "Telefon",
+        "createButton": "Utwórz dostawcę",
+        "created": "Dostawca został utworzony."
+      }
     }
   }
 }

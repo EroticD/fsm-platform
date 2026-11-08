@@ -2499,6 +2499,14 @@ enum InventoryReservationStatus {
   CONSUMED
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 model InventoryLocation {
   id   String                @id @default(cuid())
   name String
@@ -2517,6 +2525,7 @@ model InventoryLocation {
   stockLevels  StockLevel[]
   movements    StockMovement[]
   reservations InventoryReservation[]
+  purchaseOrders PurchaseOrder[]
 
   @@index([departmentId])
   @@index([assignedUserId])
@@ -2540,6 +2549,7 @@ model InventoryItem {
   stockLevels  StockLevel[]
   movements    StockMovement[]
   reservations InventoryReservation[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@index([active])
   @@index([name])
@@ -2611,6 +2621,90 @@ model InventoryReservation {
   @@index([locationId, status])
   @@index([workOrderId, status])
   @@index([visitId, status])
+}
+
+/// Leverandør for innkjøp. `departmentId` er valgfri: en leverandør uten
+/// avdeling er felles for hele installasjonen, mens en avdelingsleverandør
+/// bare er synlig for den avdelingen.
+model Supplier {
+  id           String  @id @default(cuid())
+  name         String
+  orgNumber    String?
+  email        String?
+  phone        String?
+  departmentId String?
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@index([orgNumber])
+  @@index([active])
+}
+
+/// Innkjøpsordre. Nummeret er menneskelig og tildeles av tjenestelaget fra en
+/// PostgreSQL-sekvens, slik at to samtidige opprettelser aldri kolliderer.
+/// `departmentId` fryses fra mottakslokasjonen og styrer avdelingssperren.
+model PurchaseOrder {
+  id     String              @id @default(cuid())
+  number String              @unique
+  status PurchaseOrderStatus @default(DRAFT)
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  /// Lokasjonen varene skal mottas på. Beholdningen økes her ved mottak.
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  departmentId String?
+
+  expectedAt DateTime? @db.Date
+  notes      String?
+
+  createdById String?
+  receivedAt  DateTime?
+  orderedAt   DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  lines PurchaseOrderLine[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@index([locationId])
+  @@index([departmentId, status])
+  @@index([createdAt])
+}
+
+/// Én varelinje per innkjøpsordre. Summer beregnes på lesetid; verken
+/// linjebeløp eller ordretotal lagres, slik at en klient aldri kan sende inn
+/// et avvikende beløp.
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  orderedQuantity  Decimal @db.Decimal(12, 3)
+  receivedQuantity Decimal @default(0) @db.Decimal(12, 3)
+  unitCost         Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder        Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([purchaseOrderId, inventoryItemId])
+  @@index([inventoryItemId])
+  @@index([purchaseOrderId, sortOrder])
 }
 
 // ---------------------------------------------------------------------------
