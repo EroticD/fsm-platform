@@ -119,7 +119,7 @@ export default function DashboardRail({
           <div className="flex items-center justify-between gap-3">
             <h2
               id="next-action-title"
-              className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--paper,#f2efe6)]/65"
+              className="text-2xs font-black uppercase tracking-[0.14em] text-[var(--paper,#f2efe6)]/65"
             >
               {t("dashboard.nextAction.title")}
             </h2>
@@ -135,7 +135,7 @@ export default function DashboardRail({
 
           {nextOrder ? (
             <>
-              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--risk,#f04427)] px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.08em] text-[var(--ink,#101310)]">
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--risk,#f04427)] px-2 py-0.5 text-2xs font-black uppercase tracking-[0.08em] text-[var(--ink,#101310)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--ink,#101310)]" aria-hidden />
                 {t("dashboard.kpi.overdue")}
                 <span aria-hidden>·</span>
@@ -207,11 +207,11 @@ export default function DashboardRail({
         <div className="flex items-center justify-between gap-3">
           <h2
             id="progress-title"
-            className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
+            className="text-2xs font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
           >
             {t("dashboard.progress.title")}
           </h2>
-          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[11px] font-black tabular-nums text-[var(--ink,#101310)]">
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-2xs font-black tabular-nums text-[var(--ink,#101310)]">
             {t("dashboard.progress.percent", { percent })}
           </span>
         </div>
@@ -248,7 +248,7 @@ export default function DashboardRail({
                 style={{ width: `${percent}%` }}
               />
             </div>
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--muted,#62685f)]">
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-2xs font-bold text-[var(--muted,#62685f)]">
               <span className="inline-flex items-center gap-1.5">
                 <span
                   aria-hidden
@@ -276,7 +276,7 @@ export default function DashboardRail({
           <div className="min-w-0">
             <h2
               id="team-title"
-              className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
+              className="text-2xs font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
             >
               {t("dashboard.team.title")}
             </h2>
@@ -289,7 +289,7 @@ export default function DashboardRail({
             {canAssign ? (
               <p
                 id="dashboard-team-dnd-hint"
-                className="mt-1 flex items-start gap-1 text-[11px] font-bold leading-snug text-[var(--muted,#62685f)]"
+                className="mt-1 flex items-start gap-1 text-2xs font-bold leading-snug text-[var(--muted,#62685f)]"
               >
                 <Icon
                   name="dots"
@@ -338,7 +338,7 @@ export default function DashboardRail({
               >
                 <div className="flex items-center gap-2.5">
                   <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink,#101310)] text-[11px] font-black uppercase text-[var(--signal,#d8ff3e)]"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink,#101310)] text-2xs font-black uppercase text-[var(--signal,#d8ff3e)]"
                     aria-hidden
                   >
                     {initials(member.name)}
@@ -348,7 +348,7 @@ export default function DashboardRail({
                       <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
                         {member.name || t("dashboard.unknownUser")}
                       </span>
-                      <span className="shrink-0 text-[11px] font-bold tabular-nums text-[var(--muted,#62685f)]">
+                      <span className="shrink-0 text-2xs font-bold tabular-nums text-[var(--muted,#62685f)]">
                         {t("dashboard.team.load", { count: member.count })}
                       </span>
                     </div>
@@ -356,7 +356,7 @@ export default function DashboardRail({
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <FieldStatusBadge status={member.field.status} t={t} />
                         {member.field.visit ? (
-                          <span className="min-w-0 truncate text-[11px] font-medium text-[var(--muted,#62685f)]">
+                          <span className="min-w-0 truncate text-2xs font-medium text-[var(--muted,#62685f)]">
                             {member.field.visit.title}
                           </span>
                         ) : null}
@@ -404,11 +404,11 @@ export default function DashboardRail({
         <div className="flex items-center justify-between gap-3">
           <h2
             id="reviews-title"
-            className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
+            className="text-2xs font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
           >
             {t("reviews.railTitle")}
           </h2>
-          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[11px] font-black tabular-nums text-[var(--ink,#101310)]">
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-2xs font-black tabular-nums text-[var(--ink,#101310)]">
             {reviewSummary.count}
           </span>
         </div>
@@ -433,7 +433,7 @@ export default function DashboardRail({
       </section>
       )}
 
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
+      <p className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
         <span
           aria-hidden
           className="h-1.5 w-1.5 rounded-full bg-[var(--signal,#d8ff3e)] ring-1 ring-[#101310]/40"

@@ -8,20 +8,15 @@ import { hasPermission } from "@/lib/permissions";
 import { EQUIPMENT_ERROR_KEYS } from "@/lib/equipment-feedback";
 import { getEquipmentFormOptions } from "@/server/equipment";
 import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import SubmitButton from "@/components/SubmitButton";
+import Card from "@/components/ui/Card";
+import { Field, Input, Select } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
 import Icon from "@/components/icons";
 import { createEquipmentAction } from "../actions";
 import EquipmentCustomerFields from "./EquipmentCustomerFields";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "mt-1 min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
-const SIGNAL_BUTTON =
-  "signal-button inline-flex min-h-11 items-center justify-center gap-1.5 px-4 text-sm";
-const INK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -50,169 +45,117 @@ export default async function NewEquipmentPage({
     : null;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <header className={CARD}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span
-                aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]"
-              >
-                <Icon name="plus" className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
-                  {t("assets.form.title")}
-                </h1>
-                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
-                  {t("assets.form.subtitle")}
-                </p>
-              </div>
-            </div>
-            <Link href="/enheter" className={INK_BUTTON}>
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("assets.form.cancel")}
-            </Link>
-          </div>
-        </header>
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("assets.form.title")}
+        subtitle={t("assets.form.subtitle")}
+        icon={<Icon name="plus" className="h-5 w-5" />}
+        actions={
+          <Link
+            href="/enheter"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("assets.form.cancel")}
+          </Link>
+        }
+      />
 
-        {errorMessage && <ErrorBanner message={errorMessage} />}
+      {errorMessage && <ErrorBanner message={errorMessage} />}
 
-        <form action={createEquipmentAction} className={`${CARD} space-y-4`}>
+      <Card as="section" className="p-4 sm:p-5">
+        <form action={createEquipmentAction} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <EquipmentCustomerFields customers={result.data.customers} />
-            <div>
-              <label htmlFor="model" className={LABEL}>
-                {t("assets.form.model")} *
-              </label>
-              <input
+            <Field id="model" label={t("assets.form.model")} required>
+              <Input
                 id="model"
                 name="model"
                 type="text"
                 required
                 maxLength={200}
-                className={CONTROL}
               />
-            </div>
-            <div>
-              <label htmlFor="serialNumber" className={LABEL}>
-                {t("assets.form.serialNumber")}
-              </label>
-              <input
+            </Field>
+            <Field id="serialNumber" label={t("assets.form.serialNumber")}>
+              <Input
                 id="serialNumber"
                 name="serialNumber"
                 type="text"
                 maxLength={500}
-                className={CONTROL}
               />
-            </div>
-            <div>
-              <label htmlFor="location" className={LABEL}>
-                {t("assets.form.location")}
-              </label>
-              <input
+            </Field>
+            <Field id="location" label={t("assets.form.location")}>
+              <Input
                 id="location"
                 name="location"
                 type="text"
                 maxLength={500}
-                className={CONTROL}
               />
-            </div>
-            <div>
-              <label htmlFor="categoryId" className={LABEL}>
-                {t("assets.form.category")}
-              </label>
-              <select id="categoryId" name="categoryId" className={CONTROL}>
+            </Field>
+            <Field id="categoryId" label={t("assets.form.category")}>
+              <Select id="categoryId" name="categoryId">
                 <option value="">{t("assets.detail.noCategory")}</option>
                 {result.data.categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="status" className={LABEL}>
-                {t("assets.form.status")}
-              </label>
-              <select id="status" name="status" defaultValue="ACTIVE" className={CONTROL}>
-                {(["ACTIVE", "OUT_OF_SERVICE", "RETIRED"] as const).map((status) => (
-                  <option key={status} value={status}>
-                    {t(`assets.status.${status}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="criticality" className={LABEL}>
-                {t("assets.form.criticality")}
-              </label>
-              <select
-                id="criticality"
-                name="criticality"
-                defaultValue="2"
-                className={CONTROL}
-              >
+              </Select>
+            </Field>
+            <Field id="status" label={t("assets.form.status")}>
+              <Select id="status" name="status" defaultValue="ACTIVE">
+                {(["ACTIVE", "OUT_OF_SERVICE", "RETIRED"] as const).map(
+                  (status) => (
+                    <option key={status} value={status}>
+                      {t(`assets.status.${status}`)}
+                    </option>
+                  ),
+                )}
+              </Select>
+            </Field>
+            <Field id="criticality" label={t("assets.form.criticality")}>
+              <Select id="criticality" name="criticality" defaultValue="2">
                 {(["1", "2", "3"] as const).map((level) => (
                   <option key={level} value={level}>
                     {t(`assets.criticality.${level}`)}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="installDate" className={LABEL}>
-                {t("assets.form.installDate")}
-              </label>
-              <input
-                id="installDate"
-                name="installDate"
-                type="date"
-                className={CONTROL}
-              />
-            </div>
-            <div>
-              <label htmlFor="warrantyUntil" className={LABEL}>
-                {t("assets.form.warrantyUntil")}
-              </label>
-              <input
-                id="warrantyUntil"
-                name="warrantyUntil"
-                type="date"
-                className={CONTROL}
-              />
-            </div>
-            <div>
-              <label htmlFor="meterUnit" className={LABEL}>
-                {t("assets.form.meterUnit")}
-              </label>
-              <input
+              </Select>
+            </Field>
+            <Field id="installDate" label={t("assets.form.installDate")}>
+              <Input id="installDate" name="installDate" type="date" />
+            </Field>
+            <Field id="warrantyUntil" label={t("assets.form.warrantyUntil")}>
+              <Input id="warrantyUntil" name="warrantyUntil" type="date" />
+            </Field>
+            <Field
+              id="meterUnit"
+              label={t("assets.form.meterUnit")}
+              hint={t("assets.form.meterUnitHint")}
+              className="sm:col-span-2"
+            >
+              <Input
                 id="meterUnit"
                 name="meterUnit"
                 type="text"
                 maxLength={20}
-                aria-describedby="meterUnitHint"
-                className={CONTROL}
               />
-              <p id="meterUnitHint" className="mt-1 text-xs text-[var(--muted,#62685f)]">
-                {t("assets.form.meterUnitHint")}
-              </p>
-            </div>
+            </Field>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--line,#dedcd1)] pt-4">
-            <Link href="/enheter" className={INK_BUTTON}>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
+            <Link
+              href="/enheter"
+              className={buttonClassName({ variant: "secondary", size: "sm" })}
+            >
               {t("assets.form.cancel")}
             </Link>
-            <SubmitButton
-              className={`${SIGNAL_BUTTON} border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]`}
-            >
+            <SubmitButton className={buttonClassName({ variant: "primary" })}>
               {t("assets.form.submit")}
             </SubmitButton>
           </div>
         </form>
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

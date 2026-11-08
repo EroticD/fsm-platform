@@ -40,7 +40,7 @@ export default function ErrorBanner({
       aria-live="assertive"
       aria-atomic="true"
       tabIndex={-1}
-      className={`rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-800 outline-none focus:ring-2 focus:ring-red-400 ${className}`}
+      className={`rounded-2xl border-2 border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-5 py-4 text-sm font-bold text-[var(--risk-text,#b42318)] outline-none [--focus-ring:var(--risk-text,#b42318)] focus:ring-2 focus:ring-[var(--risk,#f04427)] ${className}`}
     >
       {message}
     </div>

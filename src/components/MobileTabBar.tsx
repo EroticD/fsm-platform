@@ -63,7 +63,7 @@ export default function MobileTabBar({
       aria-label={t("components.header.quickNav")}
       className={`fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] backdrop-blur ${fieldMode ? "[--focus-ring:var(--signal,#d8ff3e)]" : "[--focus-ring:var(--ink,#101310)]"} ${
         fieldMode
-          ? "border-t border-[#2a3328] bg-[var(--field-card)] text-[var(--paper)] shadow-[0_-10px_30px_rgba(0,0,0,0.35)]"
+          ? "border-t border-[var(--field-line)] bg-[var(--field-card)] text-[var(--paper)] shadow-[0_-10px_30px_rgba(0,0,0,0.35)]"
           : "border-t border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)]/95 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:hidden"
       }`}
     >
@@ -81,7 +81,7 @@ export default function MobileTabBar({
           type="button"
           onClick={openMenu}
           aria-haspopup="dialog"
-          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-bold transition ${
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-2xs font-bold transition ${
             fieldMode
               ? hasActiveTab
                 ? "text-[var(--paper,#f2efe6)]/60 hover:bg-[var(--paper,#f2efe6)]/5 hover:text-[var(--paper,#f2efe6)]"
@@ -115,7 +115,7 @@ function TabLink({
     <Link
       href={item.href}
       aria-current={isActive ? "page" : undefined}
-      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-bold transition ${
+      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-2xs font-bold transition ${
         fieldMode
           ? isActive
             ? "bg-[var(--paper,#f2efe6)]/[0.06] text-[var(--signal)]"

@@ -5,6 +5,28 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Design, UX og tilgjengelighet
+- Ny felles kontorramme `PageShell` og oppdatert `PageHeader` med
+  `type-title-1`, brytbar tittel og eyebrow. Alle kontorsider bruker samme
+  maksbredde, luft og vertikale rytme.
+- `Card`, `Button`/`buttonClassName`, `Field`, `StatusBadge`, `EmptyState` og
+  `ErrorBanner` er konsolidert. Knapper har variantene primær, sekundær,
+  ghost, fare og fare-outline; skjemafelt får synlig `required`-markør og
+  `aria-required`.
+- 12 px tekstgulv innført (`text-2xs`), rå felt-hex erstattet med
+  `--field-line`, og gamle `min-h-screen`-sidemaler og Command Center-hex
+  fjernet fra kontorflatene.
+- `docs/DESIGN.md` dokumenterer de nye primitivene og `--field-line`,
+  statusflatene og typografiklassene.
+- **UX-08:** FullCalendar 7 viser riktig dato og ISO-ukenummer i begge
+  ukeradene i to-ukersvisningen, også på mobil. Timegrid åpner på 07:00 i en
+  rullbar beholder, og korte hendelser beholder tid/tittel uten å klippe.
+  Ny E2E-dekning i `e2e/calendar-visual.spec.ts`.
+- **UX-09:** live-kartets tomtilstander forklarer både avdelingens sporing og
+  montørens «Del posisjon», med lenker til innstillinger og feltflaten.
+  Negative tester dekker gamle pinger, avsluttede visiter og avdeling med
+  sporing av.
+
 ### Dokumentasjon og backlog
 - Ny `docs/BACKLOG.md` er eneste kilde til gjenstående arbeid: leverte ting,
   åpne P1/P2/P3-oppgaver, avhengigheter, akseptansekriterier og

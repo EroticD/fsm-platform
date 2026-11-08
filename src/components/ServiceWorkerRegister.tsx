@@ -123,7 +123,7 @@ export default function ServiceWorkerRegister() {
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-paper/70 transition hover:bg-white/10"
+          className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-paper/70 transition hover:bg-surface/10"
         >
           {t("components.serviceWorker.later")}
         </button>

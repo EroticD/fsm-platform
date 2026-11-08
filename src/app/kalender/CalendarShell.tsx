@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import PageShell from "@/components/PageShell";
 import CalendarTabs from "@/app/kalender/CalendarTabs";
 import type {
   CalendarTabKey,
@@ -45,7 +46,7 @@ export default async function CalendarShell({
   const t = await getTranslations("common");
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+    <PageShell>
       <div className="mx-auto max-w-7xl space-y-4">
         <header className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
@@ -89,6 +90,6 @@ export default async function CalendarShell({
 
         {children}
       </div>
-    </div>
+    </PageShell>
   );
 }

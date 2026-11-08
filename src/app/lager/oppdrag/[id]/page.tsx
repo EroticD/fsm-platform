@@ -14,16 +14,15 @@ import {
   releaseReservationAction,
   reserveStockAction,
 } from "../../actions";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
-const SIGNAL_BUTTON =
-  "signal-button inline-flex min-h-10 items-center justify-center px-3 text-xs font-bold";
-const INK_BUTTON =
-  "inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { Field, Input, Select } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
+import { brandInset } from "@/components/ui/brandStyles";
+import Icon from "@/components/icons";
 
 function param(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -67,162 +66,201 @@ export default async function WorkOrderPartsPage({
   const returnTo = `/lager/oppdrag/${workOrder.id}`;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-5xl space-y-4">
-        <header className={CARD}>
-          <Link href={`/oppdrag/${workOrder.id}`} className="text-xs font-bold underline underline-offset-4">
+    <PageShell>
+      <PageHeader
+        eyebrow={workOrder.reference}
+        title={t("inventory.workOrderParts.title")}
+        subtitle={workOrder.title}
+        icon={<Icon name="clipboard" className="h-5 w-5" />}
+        actions={
+          <Link
+            href={`/oppdrag/${workOrder.id}`}
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
             {t("inventory.workOrderParts.backToWorkOrder")}
           </Link>
-          <p className={`${LABEL} mt-2`}>{workOrder.reference}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {t("inventory.workOrderParts.title")}
-          </h1>
-          <p className="mt-1 text-sm text-[var(--muted,#62685f)]">{workOrder.title}</p>
-        </header>
+        }
+      />
 
-        {meldt && (
-          <div className="rounded-lg border border-[#a9c96a] bg-[#eef7d6] px-4 py-3 text-sm font-bold text-[#283509]">
-            {t("inventory.feedback.saved")}
-          </div>
-        )}
-        {feil && (
-          <div className="rounded-lg border border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
-            {t("inventory.feedback.error")}
-          </div>
-        )}
+      {meldt && (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
+          {t("inventory.feedback.saved")}
+        </p>
+      )}
+      <ErrorBanner message={feil ? t("inventory.feedback.error") : undefined} />
 
-        {canWork && (
-          <section className={CARD}>
-            <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-              {t("inventory.reserve.title")}
-            </h2>
-            <form action={reserveStockAction} className="mt-3 grid gap-2 sm:grid-cols-2">
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input type="hidden" name="workOrderId" value={workOrder.id} />
-              <select className={CONTROL} name="itemId" required>
+      {canWork && (
+        <Card as="section" className="p-4 sm:p-5">
+          <h2 className="type-eyebrow text-ink">{t("inventory.reserve.title")}</h2>
+          <form action={reserveStockAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="workOrderId" value={workOrder.id} />
+            <Field id="parts-item" label={t("inventory.item.name")} required>
+              <Select id="parts-item" name="itemId" required>
                 <option value="">{t("inventory.reserve.chooseItem")}</option>
                 {items.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.sku} · {item.name}
                   </option>
                 ))}
-              </select>
-              <select className={CONTROL} name="locationId" required>
+              </Select>
+            </Field>
+            <Field id="parts-location" label={t("inventory.location")} required>
+              <Select id="parts-location" name="locationId" required>
                 <option value="">{t("inventory.chooseLocation")}</option>
                 {locations.map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name}
                   </option>
                 ))}
-              </select>
-              <input className={CONTROL} name="quantity" type="number" step="0.001" min="0.001" placeholder={t("inventory.reserve.quantity")} required />
-              <select className={CONTROL} name="visitId" defaultValue="">
+              </Select>
+            </Field>
+            <Field id="parts-quantity" label={t("inventory.reserve.quantity")} required>
+              <Input
+                id="parts-quantity"
+                name="quantity"
+                type="number"
+                step="0.001"
+                min="0.001"
+                required
+              />
+            </Field>
+            <Field id="parts-visit" label={t("inventory.workOrder")}>
+              <Select id="parts-visit" name="visitId" defaultValue="">
                 <option value="">{t("inventory.reserve.noVisit")}</option>
                 {visits.map((visit) => (
                   <option key={visit.id} value={visit.id}>
                     {`#${visit.sequence + 1} · ${formatDateTimeLocalized(visit.startsAt, locale)} · ${visit.status}`}
                   </option>
                 ))}
-              </select>
-              <input className={`${CONTROL} sm:col-span-2`} name="note" placeholder={t("inventory.reserve.note")} />
-              <button className={`${SIGNAL_BUTTON} sm:col-span-2`} type="submit">
-                {t("inventory.reserve.button")}
-              </button>
-            </form>
-          </section>
-        )}
+              </Select>
+            </Field>
+            <Field
+              id="parts-note"
+              label={t("inventory.reserve.note")}
+              className="sm:col-span-2"
+            >
+              <Input id="parts-note" name="note" />
+            </Field>
+            <button
+              className={`${buttonClassName({ variant: "primary" })} sm:col-span-2`}
+              type="submit"
+            >
+              {t("inventory.reserve.button")}
+            </button>
+          </form>
+        </Card>
+      )}
 
-        <section className={CARD}>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-            {t("inventory.reservations.title")}
-          </h2>
-          {reservations.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--muted,#62685f)]">
-              {t("inventory.reservations.empty")}
-            </p>
-          ) : (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[40rem] text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted,#62685f)]">
-                    <th className="px-2 py-2">{t("inventory.item.name")}</th>
-                    <th className="px-2 py-2">{t("inventory.location")}</th>
-                    <th className="px-2 py-2 text-right">{t("inventory.reserve.quantity")}</th>
-                    <th className="px-2 py-2">{t("inventory.status")}</th>
-                    <th className="px-2 py-2">{t("inventory.actions")}</th>
+      <Card as="section" className="p-4 sm:p-5">
+        <h2 className="type-eyebrow text-ink">
+          {t("inventory.reservations.title")}
+        </h2>
+        {reservations.length === 0 ? (
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="clipboard" className="h-6 w-6" />}
+            title={t("inventory.reservations.empty")}
+          />
+        ) : (
+          <div
+            className="mt-3 overflow-x-auto"
+            role="region"
+            aria-label={t("inventory.reservations.title")}
+            tabIndex={0}
+          >
+            <table className="office-table min-w-[40rem]">
+              <thead>
+                <tr>
+                  <th scope="col">{t("inventory.item.name")}</th>
+                  <th scope="col">{t("inventory.location")}</th>
+                  <th scope="col" className="text-right">
+                    {t("inventory.reserve.quantity")}
+                  </th>
+                  <th scope="col">{t("inventory.status")}</th>
+                  <th scope="col">{t("inventory.actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reservations.map((reservation) => (
+                  <tr key={reservation.id}>
+                    <td>
+                      <Link className="font-bold hover:underline" href={`/lager/varer/${reservation.itemId}`}>
+                        {reservation.sku} · {reservation.name}
+                      </Link>
+                    </td>
+                    <td>{reservation.locationName}</td>
+                    <td className="text-right tabular-nums">
+                      {formatQuantity(reservation.quantity)} {reservation.unit}
+                    </td>
+                    <td className="text-xs font-bold">{reservation.status}</td>
+                    <td>
+                      {reservation.status === "ACTIVE" && canWork && (
+                        <div className="flex flex-wrap gap-2">
+                          <form action={releaseReservationAction}>
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <input type="hidden" name="reservationId" value={reservation.id} />
+                            <input type="hidden" name="workOrderId" value={workOrder.id} />
+                            <button
+                              className={buttonClassName({ variant: "secondary", size: "sm" })}
+                              type="submit"
+                            >
+                              {t("inventory.reservations.release")}
+                            </button>
+                          </form>
+                          <form action={consumeReservationAction}>
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <input type="hidden" name="reservationId" value={reservation.id} />
+                            <input type="hidden" name="workOrderId" value={workOrder.id} />
+                            <button
+                              className={buttonClassName({ variant: "primary", size: "sm" })}
+                              type="submit"
+                            >
+                              {t("inventory.reservations.consume")}
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {reservations.map((reservation) => (
-                    <tr key={reservation.id} className="border-t border-[var(--line,#dedcd1)]">
-                      <td className="px-2 py-2">
-                        <Link className="font-bold hover:underline" href={`/lager/varer/${reservation.itemId}`}>
-                          {reservation.sku} · {reservation.name}
-                        </Link>
-                      </td>
-                      <td className="px-2 py-2">{reservation.locationName}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">
-                        {formatQuantity(reservation.quantity)} {reservation.unit}
-                      </td>
-                      <td className="px-2 py-2 text-xs font-bold">{reservation.status}</td>
-                      <td className="px-2 py-2">
-                        {reservation.status === "ACTIVE" && canWork && (
-                          <div className="flex flex-wrap gap-2">
-                            <form action={releaseReservationAction}>
-                              <input type="hidden" name="returnTo" value={returnTo} />
-                              <input type="hidden" name="reservationId" value={reservation.id} />
-                              <input type="hidden" name="workOrderId" value={workOrder.id} />
-                              <button className={INK_BUTTON} type="submit">
-                                {t("inventory.reservations.release")}
-                              </button>
-                            </form>
-                            <form action={consumeReservationAction}>
-                              <input type="hidden" name="returnTo" value={returnTo} />
-                              <input type="hidden" name="reservationId" value={reservation.id} />
-                              <input type="hidden" name="workOrderId" value={workOrder.id} />
-                              <button className={SIGNAL_BUTTON} type="submit">
-                                {t("inventory.reservations.consume")}
-                              </button>
-                            </form>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        {canWork && visits.length > 0 && (
-          <section className={CARD}>
-            <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-              {t("inventory.workOrderParts.consumeVisit")}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-              {t("inventory.workOrderParts.consumeVisitDescription")}
-            </p>
-            <ul className="mt-3 space-y-2">
-              {visits.map((visit) => (
-                <li key={visit.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 text-sm">
-                  <span>
-                    {`#${visit.sequence + 1} · ${formatDateTimeLocalized(visit.startsAt, locale)} · ${visit.status}`}
-                  </span>
-                  <form action={consumeVisitReservationsAction} className="flex items-center gap-2">
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <input type="hidden" name="visitId" value={visit.id} />
-                    <input type="hidden" name="workOrderId" value={workOrder.id} />
-                    <button className={INK_BUTTON} type="submit">
-                      {t("inventory.workOrderParts.consumeAll")}
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          </section>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
-    </div>
+      </Card>
+
+      {canWork && visits.length > 0 && (
+        <Card as="section" className="p-4 sm:p-5">
+          <h2 className="type-eyebrow text-ink">
+            {t("inventory.workOrderParts.consumeVisit")}
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            {t("inventory.workOrderParts.consumeVisitDescription")}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {visits.map((visit) => (
+              <li key={visit.id} className={`${brandInset} flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm`}>
+                <span>
+                  {`#${visit.sequence + 1} · ${formatDateTimeLocalized(visit.startsAt, locale)} · ${visit.status}`}
+                </span>
+                <form action={consumeVisitReservationsAction} className="flex items-center gap-2">
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <input type="hidden" name="visitId" value={visit.id} />
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
+                  <button
+                    className={buttonClassName({ variant: "secondary", size: "sm" })}
+                    type="submit"
+                  >
+                    {t("inventory.workOrderParts.consumeAll")}
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </PageShell>
   );
 }

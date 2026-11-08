@@ -64,7 +64,7 @@ export default function RotateApiKeyForm({
         <p className="text-xs font-extrabold text-[var(--ink,#101310)]">
           {t("settings.apiKeys.rotatedTitle", { name })}
         </p>
-        <p className="mt-1 flex items-start gap-1.5 text-xs font-bold text-[#6b4a05]">
+        <p className="mt-1 flex items-start gap-1.5 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
           <Icon name="alert" className="mt-px h-3.5 w-3.5 shrink-0" />
           {t("settings.apiKeys.createdWarning")}
         </p>

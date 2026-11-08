@@ -52,7 +52,7 @@ export default async function ReportRevisionPdfViewerPage({
     return (
       <div className="office-app flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
         <div className={`${CARD} max-w-md p-6`}>
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]">
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]">
             <Icon name="alert" className="h-5 w-5" />
           </span>
           <p className={`mt-3 text-sm font-bold ${MUTED}`}>{message}</p>

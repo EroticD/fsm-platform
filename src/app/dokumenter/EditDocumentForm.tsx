@@ -48,7 +48,7 @@ export default function EditDocumentForm({
   const t = useTranslations("common");
   const locale = useLocale();
   const fieldClass =
-    "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+    "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
   const labelClass =
     "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
   const [open, setOpen] = useState(false);
@@ -217,7 +217,7 @@ export default function EditDocumentForm({
         </form>
 
         {doc.versions && doc.versions.length > 0 && (
-          <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-white p-3">
+          <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-surface p-3">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
               <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
               {t("documents.edit.previousVersions", { count: doc.versions.length })}

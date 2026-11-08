@@ -188,7 +188,7 @@ export default async function ReportHistory({
                       </div>
 
                       {report.customerAcknowledgedAt ? (
-                        <div className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-xs text-[#24502f]">
+                        <div className="rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-xs text-[var(--success-text,#283509)]">
                           <p className="font-bold">
                             {t("p3.portalReports.acknowledged", {
                               date: formatDateLocalized(report.customerAcknowledgedAt, locale),

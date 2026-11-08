@@ -21,18 +21,18 @@ const TONES: Record<KpiTone, ToneStyle> = {
   },
   green: {
     accent: "bg-[var(--signal,#d8ff3e)]",
-    icon: "border-[#c7d98e] bg-[#f3fbd1] text-[var(--ink,#101310)]",
+    icon: "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--ink,#101310)]",
     sub: "text-[#4f5b2d]",
   },
   amber: {
     accent: "bg-[#d97706]",
-    icon: "border-[#e9c9a9] bg-[#fbeadb] text-[#8a3511]",
-    sub: "text-[#8a3511]",
+    icon: "border-[#e9c9a9] bg-[#fbeadb] text-[var(--warning-text,#7a4f0c)]",
+    sub: "text-[var(--warning-text,#7a4f0c)]",
   },
   red: {
     accent: "bg-[var(--risk,#f04427)]",
-    icon: "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12]",
-    sub: "text-[#a92a12]",
+    icon: "border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+    sub: "text-[var(--risk-text,#b42318)]",
   },
   gray: {
     accent: "bg-[var(--line,#dedcd1)]",

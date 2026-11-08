@@ -28,7 +28,7 @@ const CARD = "office-card space-y-4 p-4 sm:p-5";
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85";
 const DANGER_BUTTON =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-white px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-surface px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]";
 const WEIGHTS = [
   "skills",
   "distance",
@@ -47,7 +47,7 @@ function activeBadge(active: boolean, t: (key: string) => string) {
     <span
       className={`rounded-full border px-2 py-0.5 text-2xs font-bold ${
         active
-          ? "border-[#a9c96a] bg-[#eef7d6] text-[#283509]"
+          ? "border-[#a9c96a] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
           : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
       }`}
     >
@@ -111,7 +111,7 @@ export default async function DispatchSettingsTab({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {WEIGHTS.map((key) => (
             <label key={key} className="block">
-              <span className="mb-1 block text-[11px] font-bold text-[var(--muted,#62685f)]">
+              <span className="mb-1 block text-2xs font-bold text-[var(--muted,#62685f)]">
                 {t(`settings.dispatch.weightLabels.${key}`)}
               </span>
               <input
@@ -156,7 +156,7 @@ export default async function DispatchSettingsTab({
         </div>
       ) : null}
       {ok ? (
-        <div className="rounded-xl border border-[#bcd39a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+        <div className="rounded-xl border border-[#bcd39a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
           {t("settings.dispatch.saved")}
         </div>
       ) : null}

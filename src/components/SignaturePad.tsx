@@ -243,8 +243,8 @@ export default function SignaturePad({
               onClick={clear}
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition ${
                 expanded
-                  ? "bg-white/10 text-paper hover:bg-white/20"
-                  : "bg-white/50 text-ink hover:bg-white/70"
+                  ? "bg-surface/10 text-paper hover:bg-surface/20"
+                  : "bg-surface/50 text-ink hover:bg-surface/70"
               }`}
             >
               <Icon name="trash" className="h-4 w-4" />
@@ -259,7 +259,7 @@ export default function SignaturePad({
             className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition ${
               expanded
                 ? "signal-button"
-                : "border border-line bg-white text-ink hover:bg-white"
+                : "border border-line bg-surface text-ink hover:bg-surface"
             }`}
           >
             <Icon name={expanded ? "close" : "pen"} className="h-4 w-4" />
@@ -308,8 +308,8 @@ export default function SignaturePad({
         ref={canvasWrapRef}
         className={
           expanded
-            ? "min-h-[180px] flex-1 rounded-xl border-2 border-dashed border-signal/50 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
-            : "overflow-hidden rounded-xl border-2 border-dashed border-line bg-white"
+            ? "min-h-[180px] flex-1 rounded-xl border-2 border-dashed border-signal/50 bg-surface shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
+            : "overflow-hidden rounded-xl border-2 border-dashed border-line bg-surface"
         }
       >
         <SignatureCanvas
@@ -340,8 +340,8 @@ export default function SignaturePad({
       <details
         className={`rounded-xl border p-3 ${
           expanded
-            ? "border-[#2a3328] bg-field-card"
-            : "border-line bg-white/50"
+            ? "border-[var(--field-line)] bg-field-card"
+            : "border-line bg-surface/50"
         }`}
       >
         <summary
@@ -368,8 +368,8 @@ export default function SignaturePad({
             placeholder={t("p3.signature.keyboardPlaceholder")}
             className={`min-w-0 flex-1 rounded-xl border-2 p-2.5 text-base font-bold sm:text-sm ${
               expanded
-                ? "border-[#2a3328] bg-field text-paper placeholder:text-paper/65! focus:border-signal"
-                : "border-line bg-white text-ink focus:border-success"
+                ? "border-[var(--field-line)] bg-field text-paper placeholder:text-paper/65! focus:border-signal"
+                : "border-line bg-surface text-ink focus:border-success"
             }`}
           />
           <button
@@ -405,8 +405,8 @@ export default function SignaturePad({
             placeholder={t("components.signature.namePlaceholder")}
             className={`w-full rounded-xl border-2 p-2.5 text-base font-bold sm:text-sm ${
               expanded
-                ? "border-[#2a3328] bg-field-card text-paper placeholder:text-paper/65! focus:border-signal"
-                : "border-line bg-white text-ink focus:border-success"
+                ? "border-[var(--field-line)] bg-field-card text-paper placeholder:text-paper/65! focus:border-signal"
+                : "border-line bg-surface text-ink focus:border-success"
             }`}
           />
         </div>

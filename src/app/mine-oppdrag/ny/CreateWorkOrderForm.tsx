@@ -20,7 +20,7 @@ const HINT = "mt-1 text-xs leading-5 text-[var(--muted,#62685f)]";
 const SECTION_TITLE =
   "flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
 const SECTION =
-  "rounded-xl border border-[var(--line,#dedcd1)] bg-white/55 p-3 sm:p-4";
+  "rounded-xl border border-[var(--line,#dedcd1)] bg-surface/55 p-3 sm:p-4";
 
 /**
  * Fjerner ledende symbol-ikoner fra oversettelser som ennå har emoji i
@@ -62,7 +62,7 @@ export default function CreateWorkOrderForm({
             <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
             {withoutLeadingSymbol(t("orders.fieldNew.backToMyWorkOrders"))}
           </Link>
-          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.18em] text-signal">
+          <p className="mt-4 text-2xs font-black uppercase tracking-[0.18em] text-signal">
             {t("workOrder")}
           </p>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-paper">

@@ -16,7 +16,7 @@
 | Tester | 403 testfiler, 3 257 enhetstester, 41 integrasjonsfiler / 222 tester, 12 E2E-spesifikasjoner |
 | P0 | Ingen åpne P0 |
 | P1 | 7 produksjons-/governanceoppgaver |
-| P2 | 19 produkt-/integrasjons-/plattformoppgaver |
+| P2 | 17 produkt-/integrasjons-/plattformoppgaver |
 | P3 | 5 strategiske valg som krever eiergodkjenning |
 
 **Kort status.** Kjerne, sikkerhet, GDPR, revisjon, arbeidsdager, SMS,
@@ -65,6 +65,20 @@ bevisste produktvalg** – ikke manglende kjernefunksjonalitet.
   overtidsplanlegging.
 - **Kalender:** FullCalendar 7, arbeidsdager, faktisk tid, reisetid og
   live feltstatus/kart.
+- **UX-08 · FullCalendar 7 visuell QA:** to-ukersvisningen viser ukedag i
+  overskriften og riktig kompakt dato + ISO-ukenummer i begge ukeradene,
+  også på 390 px. Timegrid åpner på 07:00 i en faktisk rullbar beholder, og
+  korte hendelser (< 30 min) skjuler adresse/status men beholder tid og
+  tittel. E2E-dekning i `e2e/calendar-visual.spec.ts`.
+- **UX-09 · Live-kartets forutsetninger:** tomtilstandene forklarer både
+  avdelingens sporing og montørens «Del posisjon», med lenker til
+  `/innstillinger?tab=avdelinger` og `/mine-oppdrag`. Negative tester dekker
+  gamle pinger, avsluttede visiter og avdeling med sporing av.
+- **Designkonsolidering:** `PageShell`, `PageHeader`, `Card`, `Button`,
+  `Field`, `StatusBadge`, `EmptyState` og `ErrorBanner` er felles primitiver
+  på tvers av kontorflatene. 12 px tekstgulv, `--field-line`, `.office-page`,
+  `.office-table` og `buttonClassName` er tatt i bruk; gamle
+  `min-h-screen`-skall, 10/11 px tekst og rå felt-hex er fjernet.
 - **P2 v1:** tilbud og versjoner, faktura/MVA/delbetaling/kreditnota,
   Stripe/Vipps-betalingslenker, regnskapssynk (Fiken/Tripletex/PowerOffice
   Go/CSV), lager/beholdning/innkjøp/varemottak, utlegg/godkjenning,
@@ -116,8 +130,6 @@ for kunder med reelle krav.
 | **REV-03** · Prisbok og god/bedre/best | `PriceList` brukes til avtalerater, ikke som salgbar prisbok med marginer/pakker. Ingen god/bedre/best-mal. | **Åpen** | M | Prisbok med varer/pakker, kost/margin, gjenbruk i tilbud, gode/bedre/beste-varianter og tester for tilbud-til-faktura-konsistens. |
 | **RBAC-01** · Redigerbar feltmatrise og granulering | Feltnivå-RBAC er rollebasert og skrivebeskyttet i UI. Ingen eksplisitte per-felt-tilganger, aggregert maskering eller avklart tekniker-/kundesegmentering av signaturer. | **Åpen** | M | Redigerbar adminmatrise, eksplisitte per-felt-tilganger, maskering i eksport/PDF der det kreves, policy for aggregater og tester per rolle. |
 | **FLD-02** · Automatisk lukking av siste kjøring | Siste jobb på dagen må i dag lukkes manuelt med «Avslutt kjøring». | **Åpen** | S | Policy for auto-lukking (tidspunkt/avstand) som aldri gjetter ulønnet reise; handlingen revideres og kan korrigeres; felt-UI forklarer hvorfor; tester for neste `EN_ROUTE`, siste jobb og overnatting. |
-| **UX-08** · FullCalendar 7 visuell QA | To-ukersvisning, `scrollTime` 07:00 og korte tidsstyrte kort har kjente visuelle kanttilfeller uten visuell regresjonstest. | **Åpen** | S | Riktig dato/ukenummer i begge uker i nb/en/pl/de og smale bredder; timegrid åpner på arbeidsdagen; korte hendelser er lesbare; visuell/E2E-test fanger regresjoner. |
-| **UX-09** · Live-kartets forutsetninger | Kartet krever `Department.trackingEnabled` og at montøren deler posisjon. Tomtilstanden forklarer ikke begge forutsetningene fullt ut. | **Åpen** | S | Tomtilstand forklarer begge forutsetningene og lenker til riktig sted; ingen markører fra gamle/avsluttede visiter; test for sporing av, ingen deling og fersk posisjon. |
 | **OPS-07** · Masseoperasjoner | Bare dokumentopplasting har masseoperasjoner. Kunder, utstyr og oppdrag mangler masse-redigering/arkivering/tildeling. | **Åpen** | M | Massehandlinger med scope-sjekk, forhåndsvisning, resultat per rad, revisjon og rollback-/gjenopprettingssemantikk. |
 | **SSO-01** · SAML/SCIM-enterpriserester | Entra group overage via Graph, IdP-metadata redigeres bare med miljøvariabler, og SAML er testet med én selvsignert test-IdP – ikke en ekte tenant i CI. | **Åpen** | M | Overage-håndtering eller dokumentert begrensning, metadata-admin-UI, minst én ekte IdP-røyktest og migrerings-/rollback-dokumentasjon. |
 | **XFER-01** · Kundeoverføringsresidualer | ZIP bygges i minnet, eksportkryptering er CLI-only, automatisk nøkkeldistribusjon mangler, og Ed25519 er én deploy-identitet. Den durabelige workeren er en polling-løkke i app-prosessen, ikke en egen køtjeneste; en deployment uten app-prosesser har ingen worker. | **Åpen** | M | Strømmende ZIP, kryptering i vanlig adminflyt, nøkkeldistribusjon/rotasjon, verifisering per jobb og en worker som ikke avhenger av én app-prosess. |
@@ -187,7 +199,7 @@ når de ikke rører samme filer.
 3. **Integrasjonsflate:** INT-01, API-01 og INT-05. Deretter INT-03 og INT-04
    som dybde i eksisterende leverandørflyt.
 4. **Produktdybde:** REV-03, BI-01, INV-01, RBAC-01 og OPS-07.
-5. **Feltkvalitet:** FLD-02, UX-08 og UX-09.
+5. **Feltkvalitet:** FLD-02.
 6. **Plattformhygiene:** PLAT-10, PLAT-11, PLAT-12 og XFER-01.
 7. **Strategisk:** BOOK-01, MKT-01, PLAT-07, SCH-02 og AI-01 – bare etter
    eiergodkjenning.

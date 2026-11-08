@@ -9,12 +9,11 @@ import { EQUIPMENT_ERROR_KEYS } from "@/lib/equipment-feedback";
 import { getEquipment } from "@/server/equipment";
 import { getEquipmentMovePreview } from "@/server/equipment-move";
 import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import { buttonClassName } from "@/components/ui/Button";
 import Icon from "@/components/icons";
 import EquipmentMoveForm from "./EquipmentMoveForm";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const INK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -66,49 +65,38 @@ export default async function MoveEquipmentPage({
   const preview = previewResult.data;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <header className={CARD}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]"
-              >
-                <Icon name="sync" className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="break-words text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)] sm:text-3xl">
-                  {t("assets.move.heading")}
-                </h1>
-                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
-                  {t("assets.move.subtitle")}
-                </p>
-                <p className="mt-2 text-sm font-bold text-[var(--ink,#101310)]">
-                  {equipment.model}
-                  {equipment.serialNumber ? ` · ${equipment.serialNumber}` : ""}
-                </p>
-              </div>
-            </div>
-            <Link
-              href={`/enheter/${equipment.id}`}
-              className={`${INK_BUTTON} shrink-0`}
-            >
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("assets.move.back")}
-            </Link>
-          </div>
-        </header>
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("assets.move.heading")}
+        subtitle={
+          <>
+            {t("assets.move.subtitle")}
+            <span className="mt-2 block font-bold text-ink">
+              {equipment.model}
+              {equipment.serialNumber ? ` · ${equipment.serialNumber}` : ""}
+            </span>
+          </>
+        }
+        icon={<Icon name="sync" className="h-5 w-5" />}
+        actions={
+          <Link
+            href={`/enheter/${equipment.id}`}
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("assets.move.back")}
+          </Link>
+        }
+      />
 
-        {errorMessage && <ErrorBanner message={errorMessage} />}
+      {errorMessage && <ErrorBanner message={errorMessage} />}
 
-        <EquipmentMoveForm
-          equipmentId={equipment.id}
-          equipmentModel={equipment.model}
-          currentCustomerName={equipment.customer.name}
-          initialCounts={preview.counts}
-        />
-      </div>
-    </div>
+      <EquipmentMoveForm
+        equipmentId={equipment.id}
+        equipmentModel={equipment.model}
+        currentCustomerName={equipment.customer.name}
+        initialCounts={preview.counts}
+      />
+    </PageShell>
   );
 }

@@ -199,7 +199,7 @@ async function RevisionSnapshot({
                 <span
                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                     status === "AVVIK"
-                      ? "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]"
+                      ? "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
                       : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
                   }`}
                 >
@@ -267,7 +267,7 @@ async function RevisionSnapshot({
                   <span
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                       unit.status === "AVVIK"
-                        ? "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]"
+                        ? "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
                         : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
                     }`}
                   >
@@ -280,7 +280,7 @@ async function RevisionSnapshot({
                       : t("orders.detail.report.approvedShort")}
                   </span>
                 </div>
-                <div className="space-y-2 bg-white p-3">
+                <div className="space-y-2 bg-surface p-3">
                   <FieldRows
                     fields={fields}
                     answers={answers}
@@ -336,7 +336,7 @@ async function RevisionSnapshot({
               <img
                 src={technicianSignature}
                 alt={t("orders.detail.report.technicianSignature")}
-                className="h-20 rounded border border-[var(--line,#dedcd1)] bg-white"
+                className="h-20 rounded border border-[var(--line,#dedcd1)] bg-surface"
               />
             )}
             <p className="mt-1 text-sm font-bold text-[var(--ink,#101310)]">
@@ -352,7 +352,7 @@ async function RevisionSnapshot({
               <img
                 src={customerSignature}
                 alt={t("orders.detail.report.customerSignature")}
-                className="h-20 rounded border border-[var(--line,#dedcd1)] bg-white"
+                className="h-20 rounded border border-[var(--line,#dedcd1)] bg-surface"
               />
             )}
             <p className="mt-1 text-sm font-bold text-[var(--ink,#101310)]">
@@ -449,7 +449,7 @@ export default async function ReportRevisionsPage({
     : "";
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+    <div className="office-app office-page">
       <div className="mx-auto max-w-5xl space-y-4">
         <PageHeader
           title={t("orders.revisions.title")}
@@ -538,7 +538,7 @@ export default async function ReportRevisionsPage({
                     {report.legalHold && (
                       <>
                         <span aria-hidden>·</span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#dfc98b] bg-[#fdf5e4] px-2 py-0.5 font-bold text-[#6b4808]">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#dfc98b] bg-[var(--warning-surface,#fdf5e4)] px-2 py-0.5 font-bold text-[#6b4808]">
                           <Icon name="shield" className="h-3 w-3 shrink-0" />
                           {t("orders.detail.legalHoldBadge")}
                         </span>
@@ -610,7 +610,7 @@ export default async function ReportRevisionsPage({
           />
         )}
         {snapshot && !snapshot.ok && (
-          <p className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]">
+          <p className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]">
             {t("orders.revisions.snapshotMissing")}
           </p>
         )}

@@ -44,7 +44,7 @@ export default async function Loading() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col p-1.5 sm:p-3">
-          <div className="mx-auto flex min-h-[18rem] w-full flex-1 flex-col rounded-lg border border-[var(--line,#dedcd1)] bg-white p-6 shadow-sm sm:p-10">
+          <div className="mx-auto flex min-h-[18rem] w-full flex-1 flex-col rounded-lg border border-[var(--line,#dedcd1)] bg-surface p-6 shadow-sm sm:p-10">
             <div className="space-y-3">
               <Bar className="h-6 w-1/2" />
               <Bar className="h-4 w-1/3" />

@@ -52,7 +52,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
     <div className="field-app min-h-screen p-4 pb-32 sm:p-6 sm:pb-12">
       <div className="mx-auto max-w-3xl space-y-5">
         {/* TOPPTEKST OG TILBAKE */}
-        <div className="flex flex-col justify-between gap-3 border-b border-[#2a3328] pb-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-3 border-b border-[var(--field-line)] pb-4 sm:flex-row sm:items-center">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-black text-[var(--paper,#f2efe6)]">
               <Icon name="users" className="h-6 w-6 shrink-0" strokeWidth={2} />
@@ -64,7 +64,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
           </div>
           <Link
             href="/mine-oppdrag"
-            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] px-4 py-2 text-sm font-bold text-[var(--paper,#f2efe6)]/85 transition hover:bg-[var(--paper,#f2efe6)]/10"
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[var(--field-line)] bg-[var(--field-card,#151a14)] px-4 py-2 text-sm font-bold text-[var(--paper,#f2efe6)]/85 transition hover:bg-[var(--paper,#f2efe6)]/10"
           >
             {t("orders.fieldCustomers.backToMyWorkOrders")}
           </Link>
@@ -78,7 +78,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
             aria-label={t("orders.fieldCustomers.search")}
             defaultValue={searchQuery}
             placeholder={t("orders.fieldCustomers.searchPlaceholder")}
-            className="min-h-11 w-full rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] px-4 py-3 text-sm font-medium text-[var(--paper,#f2efe6)] outline-none transition focus:border-[var(--signal,#d8ff3e)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--field-line)] bg-[var(--field-card,#151a14)] px-4 py-3 text-sm font-medium text-[var(--paper,#f2efe6)] outline-none transition focus:border-[var(--signal,#d8ff3e)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)]"
           />
           <button type="submit" className="signal-button shrink-0 px-5 text-sm">
             {t("orders.fieldCustomers.search")}
@@ -88,7 +88,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
               href="/mine-oppdrag/kunder"
               aria-label={t("orders.fieldCustomers.clear")}
               title={t("orders.fieldCustomers.clear")}
-              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] text-[var(--paper,#f2efe6)] transition hover:bg-[var(--paper,#f2efe6)]/10"
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--field-line)] bg-[var(--field-card,#151a14)] text-[var(--paper,#f2efe6)] transition hover:bg-[var(--paper,#f2efe6)]/10"
             >
               <Icon name="close" className="h-4 w-4" />
             </Link>

@@ -44,7 +44,7 @@ export default async function SamlSettingsSection({
       {configErrors.length > 0 && (
         <div
           role="alert"
-          className="mb-4 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-4 py-3 text-xs font-bold text-[#6b4a05]"
+          className="mb-4 rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-4 py-3 text-xs font-bold text-[var(--warning-text,#7a4f0c)]"
         >
           <p className="mb-1 flex items-center gap-1.5">
             <Icon name="alert" className="h-4 w-4 shrink-0" />

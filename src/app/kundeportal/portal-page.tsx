@@ -62,7 +62,7 @@ export async function PortalNoAccess() {
           aria-hidden="true"
           className="mx-auto mb-4 block h-1 w-10 rounded-full bg-[var(--risk,#f04427)]"
         />
-        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[#a92a12]">
+        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[var(--risk-text,#b42318)]">
           {t("portal.noAccessTitle")}
         </h1>
         <p className="text-sm leading-6 text-[var(--muted,#62685f)]">

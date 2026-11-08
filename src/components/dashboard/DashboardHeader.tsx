@@ -61,7 +61,7 @@ export default function DashboardHeader({
   return (
     <header className="flex flex-col gap-5 pb-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--muted,#62685f)]">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs font-black uppercase tracking-[0.16em] text-[var(--muted,#62685f)]">
           <span
             aria-hidden
             className="inline-block h-2 w-2 bg-[var(--ink,#101310)]"
@@ -103,7 +103,7 @@ export default function DashboardHeader({
           <span aria-hidden className="text-[var(--line,#dedcd1)]">
             ·
           </span>
-          <span className="inline-flex items-center gap-1.5 text-[#3f4a1a]">
+          <span className="inline-flex items-center gap-1.5 text-[var(--success-text,#283509)]">
             <span
               aria-hidden
               className="h-2 w-2 rounded-full bg-[var(--signal,#d8ff3e)] ring-1 ring-[var(--ink,#101310)]"

@@ -143,7 +143,7 @@ export default async function SlaSettingsTab({
       {errorKey ? (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(errorKey)}
         </p>
@@ -151,7 +151,7 @@ export default async function SlaSettingsTab({
       {okKey ? (
         <p
           role="status"
-          className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]"
+          className="rounded-xl border border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]"
         >
           {t(okKey)}
         </p>
@@ -273,10 +273,10 @@ export default async function SlaSettingsTab({
                 <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 text-sm font-bold">
                   <span>{policy.name}</span>
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase ${
+                    className={`rounded-full border px-2 py-0.5 text-2xs font-black uppercase ${
                       policy.isActive
                         ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
-                        : "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]"
+                        : "border-[#e4c98f] bg-[var(--warning-surface,#fdf5e4)] text-[#6b4808]"
                     }`}
                   >
                     {policy.isActive
@@ -399,7 +399,7 @@ export default async function SlaSettingsTab({
                       <button
                         type="submit"
                         formAction={deactivatePolicy}
-                        className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[#e7b5ae] bg-[#fbe9e7] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
                       >
                         <Icon name="close" className="h-4 w-4" />
                         {t("settings.sla.policy.deactivate")}
@@ -620,7 +620,7 @@ export default async function SlaSettingsTab({
                   <input type="hidden" name="id" value={holiday.id} />
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[#e7b5ae] bg-[#fbe9e7] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
                   >
                     <Icon name="trash" className="h-4 w-4" />
                     {t("delete")}

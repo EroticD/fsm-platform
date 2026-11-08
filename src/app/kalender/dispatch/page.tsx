@@ -7,6 +7,12 @@ import Link from "next/link";
 import CalendarShell from "@/app/kalender/CalendarShell";
 import Icon from "@/components/icons";
 import IsoDateInput from "@/components/IsoDateInput";
+import ErrorBanner from "@/components/ErrorBanner";
+import Button, { buttonClassName } from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import { controlClassName } from "@/components/ui/controlStyles";
 import DispatchBoard from "@/app/kalender/dispatch/DispatchBoard";
 import type {
   DispatchAttentionItem,
@@ -325,118 +331,125 @@ export default async function DispatchPage({
       newWorkOrderHref="/oppdrag/ny"
     >
       {legacyError && (
-        <div
-          role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
-        >
-          {legacyError === "ugyldig-status"
-            ? t("calendar.dispatch.invalidStatus")
-            : t("calendar.dispatch.genericError")}
-        </div>
+        <ErrorBanner
+          message={
+            legacyError === "ugyldig-status"
+              ? t("calendar.dispatch.invalidStatus")
+              : t("calendar.dispatch.genericError")
+          }
+        />
       )}
 
-      <form
-        action="/kalender/dispatch"
-        method="get"
-        className="office-card grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-5"
-        aria-label={t("calendar.dispatch.filters.search")}
-      >
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-          {t("calendar.dispatch.filters.dateFrom")}
-          <IsoDateInput
-            name="fra"
-            defaultValue={range.fromText}
-            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-          {t("calendar.dispatch.filters.dateTo")}
-          <IsoDateInput
-            name="til"
-            defaultValue={range.toText}
-            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)] sm:col-span-2">
-          {t("calendar.dispatch.filters.search")}
-          <input
-            type="search"
-            name="q"
-            defaultValue={query}
-            placeholder={t("calendar.dispatch.filters.searchPlaceholder")}
-            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition placeholder:text-[var(--muted,#62685f)] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
-          />
-        </label>
-        <div className="flex min-w-0 items-end gap-2">
-          <button
-            type="submit"
-            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--ink,#101310)] px-4 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85"
+      <Card>
+        <form
+          action="/kalender/dispatch"
+          method="get"
+          className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-5"
+          aria-label={t("calendar.dispatch.filters.search")}
+        >
+          <Field
+            id="dispatch-from"
+            label={t("calendar.dispatch.filters.dateFrom")}
+            className="min-w-0"
           >
-            <Icon name="check" className="h-4 w-4" />
-            {t("calendar.dispatch.filters.apply")}
-          </button>
-          <Link
-            href="/kalender/dispatch"
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-white px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+            <IsoDateInput
+              id="dispatch-from"
+              name="fra"
+              defaultValue={range.fromText}
+              className={controlClassName("min-w-0")}
+            />
+          </Field>
+          <Field
+            id="dispatch-to"
+            label={t("calendar.dispatch.filters.dateTo")}
+            className="min-w-0"
           >
-            {t("calendar.dispatch.filters.clear")}
-          </Link>
-        </div>
-      </form>
+            <IsoDateInput
+              id="dispatch-to"
+              name="til"
+              defaultValue={range.toText}
+              className={controlClassName("min-w-0")}
+            />
+          </Field>
+          <Field
+            label={t("calendar.dispatch.filters.search")}
+            className="min-w-0 sm:col-span-2"
+          >
+            <Input
+              type="search"
+              name="q"
+              defaultValue={query}
+              placeholder={t("calendar.dispatch.filters.searchPlaceholder")}
+            />
+          </Field>
+          <div className="flex min-w-0 items-end gap-2">
+            <Button type="submit" size="sm" className="flex-1">
+              <Icon name="check" className="h-4 w-4" />
+              {t("calendar.dispatch.filters.apply")}
+            </Button>
+            <Link
+              href="/kalender/dispatch"
+              className={buttonClassName({ variant: "secondary", size: "sm" })}
+            >
+              {t("calendar.dispatch.filters.clear")}
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       {range.invalid && (
-        <div
-          role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
-        >
-          {range.invalidOrder
-            ? t("calendar.dispatch.filters.rangeError")
-            : t("calendar.dispatch.filters.dateError")}
-        </div>
+        <ErrorBanner
+          message={
+            range.invalidOrder
+              ? t("calendar.dispatch.filters.rangeError")
+              : t("calendar.dispatch.filters.dateError")
+          }
+        />
       )}
 
       {unassignedCount > 0 && (
-        <div className="office-card min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4">
+        <Card className="min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div className="flex min-w-0 items-start gap-3">
               <span
                 aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
               >
                 <Icon name="alert" className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <h2 className="text-base font-black tracking-tight text-[var(--ink,#101310)]">
+                <h2 className="type-title-3 text-[var(--ink,#101310)]">
                   {t("calendar.dispatch.unassignedCount", {
                     count: unassignedCount,
                   })}
                 </h2>
-                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
+                <p className="type-ui mt-1 text-[var(--muted,#62685f)]">
                   {t("calendar.dispatch.unassignedWarning")}
                 </p>
               </div>
             </div>
             <Link
               href={baseHref}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:opacity-85"
+              className={`${buttonClassName({ size: "sm" })} shrink-0`}
             >
               <Icon name="sync" className="h-4 w-4" />
               {t("calendar.dispatch.refresh")}
             </Link>
           </div>
-        </div>
+        </Card>
       )}
 
       {attentionItems.length > 0 && (
-        <section
+        <Card
+          as="section"
           aria-labelledby="dispatch-attention-title"
-          className="office-card min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4"
+          className="min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4"
         >
           <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
             <div className="min-w-0">
               <h2
                 id="dispatch-attention-title"
-                className="flex items-center gap-2 text-base font-black tracking-tight text-[var(--ink,#101310)]"
+                className="type-title-3 flex items-center gap-2 text-[var(--ink,#101310)]"
               >
                 <Icon
                   name="alert"
@@ -444,11 +457,11 @@ export default async function DispatchPage({
                 />
                 {t("calendar.dispatch.attentionTitle")}
               </h2>
-              <p className="mt-1 text-xs font-medium text-[#7a4f0c]">
+              <p className="type-meta mt-1 text-[var(--warning-text,#7a4f0c)]">
                 {t("calendar.dispatch.attentionHint")}
               </p>
             </div>
-            <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
+            <span className="type-meta shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 tabular-nums text-[var(--muted,#62685f)]">
               {t("calendar.dispatch.attentionCount", {
                 count: attentionItems.length,
               })}
@@ -466,7 +479,7 @@ export default async function DispatchPage({
                       {item.title}
                     </span>
                     {item.isOverdue && (
-                      <span className="shrink-0 rounded bg-[#fdf5e4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#7a4f0c]">
+                      <span className="shrink-0 rounded bg-[var(--warning-surface,#fdf5e4)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-[var(--warning-text,#7a4f0c)]">
                         {t("calendar.dispatch.overdue")}
                       </span>
                     )}
@@ -485,7 +498,7 @@ export default async function DispatchPage({
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted,#62685f)]">
@@ -504,14 +517,14 @@ export default async function DispatchPage({
             {pagination.page > 1 ? (
               <Link
                 href={hrefFor(pagination.page - 1)}
-                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                className={buttonClassName({ variant: "secondary", size: "sm" })}
               >
                 {t("calendar.dispatch.pagePrevious")}
               </Link>
             ) : (
               <span
                 aria-disabled="true"
-                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 font-bold text-[var(--muted,#62685f)] opacity-60"
+                className={`${buttonClassName({ variant: "ghost", size: "sm" })} opacity-60`}
               >
                 {t("calendar.dispatch.pagePrevious")}
               </span>
@@ -525,14 +538,14 @@ export default async function DispatchPage({
             {pagination.page < pagination.totalPages ? (
               <Link
                 href={hrefFor(pagination.page + 1)}
-                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                className={buttonClassName({ variant: "secondary", size: "sm" })}
               >
                 {t("calendar.dispatch.pageNext")}
               </Link>
             ) : (
               <span
                 aria-disabled="true"
-                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 font-bold text-[var(--muted,#62685f)] opacity-60"
+                className={`${buttonClassName({ variant: "ghost", size: "sm" })} opacity-60`}
               >
                 {t("calendar.dispatch.pageNext")}
               </span>

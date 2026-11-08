@@ -73,7 +73,7 @@ export default function InviteActionForm({
       )}
 
       {state.status === "error" && (
-        <div className="mb-3 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] p-3 text-xs font-semibold text-[var(--risk-text,#b42318)]">
+        <div className="mb-3 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] p-3 text-xs font-semibold text-[var(--risk-text,#b42318)]">
           {labels.error}
         </div>
       )}

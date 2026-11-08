@@ -553,11 +553,11 @@ export default async function SearchResultsPage({
                 </div>
               </SectionCard>
             ) : rateLimited ? (
-              <div className="rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-6 text-center">
-                <p className="font-bold text-[#6b4a05]">
+              <div className="rounded-card border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-6 text-center">
+                <p className="font-bold text-[var(--warning-text,#7a4f0c)]">
                   {t("components.search.tooMany")}
                 </p>
-                <p className="mt-1 text-sm text-[#6b4a05]">
+                <p className="mt-1 text-sm text-[var(--warning-text,#7a4f0c)]">
                   {t("components.search.retry", {
                     seconds: searchLimit.retryAfterSeconds,
                   })}
@@ -566,7 +566,7 @@ export default async function SearchResultsPage({
             ) : backendError ? (
               <div
                 role="alert"
-                className="rounded-card border border-[var(--risk,#f04427)] bg-[#fae8e0] p-6 text-center"
+                className="rounded-card border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] p-6 text-center"
               >
                 <p className="font-bold text-[var(--risk-text,#b42318)]">
                   {t("components.search.errorTitle")}
@@ -669,11 +669,11 @@ export default async function SearchResultsPage({
                 {paginationBar()}
 
                 {results.total === 0 ? (
-                  <div className="rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-6 text-center">
-                    <p className="font-bold text-[#6b4a05]">
+                  <div className="rounded-card border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-6 text-center">
+                    <p className="font-bold text-[var(--warning-text,#7a4f0c)]">
                       {t("components.search.noHits")}
                     </p>
-                    <p className="mt-1 text-sm text-[#6b4a05]">
+                    <p className="mt-1 text-sm text-[var(--warning-text,#7a4f0c)]">
                       {t("components.search.noHitsHint")}
                     </p>
                   </div>

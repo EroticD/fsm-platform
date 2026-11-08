@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
-import ErrorBanner from "@/components/ErrorBanner";
 import BrandMark from "@/components/BrandMark";
 import LoginSsoButtons from "@/components/LoginSsoButtons";
 import LoginSamlButtons from "@/components/LoginSamlButtons";
-import { controlClassName } from "@/components/ui/controlStyles";
+import {
+  AuthAlert,
+  AuthHeader,
+  AuthShell,
+} from "@/components/auth/AuthShell";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 import { readSsoConfig } from "@/lib/sso";
 import { samlProviderConfigs } from "@/lib/saml";
@@ -97,94 +102,66 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:p-6">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
-        />
-        <div className="mb-6 flex flex-col items-center">
-          <BrandMark size={48} className="mb-3" />
-          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
-            {t("loginTitle")}
-          </h1>
-          <p className="mt-1 text-center text-sm leading-6 text-[var(--muted,#62685f)]">
-            {t("loginDescCompany", { companyName })}
-          </p>
-        </div>
+    <AuthShell>
+      <AuthHeader
+        mark={<BrandMark size={48} />}
+        title={t("loginTitle")}
+        description={t("loginDescCompany", { companyName })}
+      />
 
-        <ErrorBanner id="login-error" message={error} className="mb-4 border" />
+      <AuthAlert message={error ?? ""} />
 
-        <LoginSsoButtons
-          providers={ssoProviders}
-          callbackUrl={safeCallbackUrl}
-        />
-        <LoginSamlButtons
-          providers={samlProviders}
-          callbackUrl={safeCallbackUrl}
-        />
+      <LoginSsoButtons
+        providers={ssoProviders}
+        callbackUrl={safeCallbackUrl}
+      />
+      <LoginSamlButtons
+        providers={samlProviders}
+        callbackUrl={safeCallbackUrl}
+      />
 
-        {/*
-          Skjemaet sender e-post og passord i selve forespørselen (POST) via en
-          server-action, slik at passordet aldri havner i adressefeltet – og
-          slik at innloggingen også virker på enheter der JavaScript ikke har
-          rukket å laste/hydrere ennå.
-        */}
-        <form action={loginAction} className="space-y-4">
-          <input type="hidden" name="callbackUrl" value={safeCallbackUrl} />
+      {/*
+        Skjemaet sender e-post og passord i selve forespørselen (POST) via en
+        server-action, slik at passordet aldri havner i adressefeltet – og
+        slik at innloggingen også virker på enheter der JavaScript ikke har
+        rukket å laste/hydrere ennå.
+      */}
+      <form action={loginAction} className="space-y-4">
+        <input type="hidden" name="callbackUrl" value={safeCallbackUrl} />
 
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-            >
-              {t("emailLabel")}
-            </label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              required
-              autoComplete="username"
-              placeholder={t("emailPlaceholder")}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "login-error" : undefined}
-              className={controlClassName("min-h-11")}
-            />
-          </div>
+        <Field label={t("emailLabel")} required>
+          <Input
+            type="email"
+            name="email"
+            required
+            autoComplete="username"
+            placeholder={t("emailPlaceholder")}
+            aria-invalid={error ? true : undefined}
+          />
+        </Field>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-            >
-              {t("passwordLabel")}
-            </label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "login-error" : undefined}
-              className={controlClassName("min-h-11")}
-            />
-          </div>
+        <Field label={t("passwordLabel")} required>
+          <Input
+            type="password"
+            name="password"
+            required
+            autoComplete="current-password"
+            placeholder="••••••••"
+            aria-invalid={error ? true : undefined}
+          />
+        </Field>
 
-          <SubmitButton idleLabel={t("loginButton")} pendingLabel={t("loginPending")} />
-        </form>
+        <SubmitButton idleLabel={t("loginButton")} pendingLabel={t("loginPending")} />
+      </form>
 
-        <div className="text-center mt-6">
-          <Link
-            href="/glemt-passord"
-            className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
-          >
-            {t("forgotPassword")}
-          </Link>
-        </div>
+      <div className="mt-6 text-center">
+        <Link
+          href="/glemt-passord"
+          className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
+        >
+          {t("forgotPassword")}
+        </Link>
       </div>
-    </div>
+    </AuthShell>
   );
 }

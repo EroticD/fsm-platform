@@ -27,7 +27,7 @@ export default function FieldStatLink({
   return (
     <a
       href={href}
-      className="group flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-[#2a3328] bg-white/[0.04] px-2 py-2 text-center transition hover:border-signal/50 hover:bg-white/[0.08]"
+      className="group flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--field-line)] bg-surface/[0.04] px-2 py-2 text-center transition hover:border-signal/50 hover:bg-surface/[0.08]"
     >
       <span
         className={`flex items-center gap-1 text-lg font-black leading-none tabular-nums ${valueClass}`}
@@ -35,7 +35,7 @@ export default function FieldStatLink({
         <Icon name={icon} className="h-3.5 w-3.5 opacity-70" />
         {value}
       </span>
-      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-paper/55">
+      <span className="text-2xs font-black uppercase tracking-[0.12em] text-paper/55">
         {label}
       </span>
     </a>

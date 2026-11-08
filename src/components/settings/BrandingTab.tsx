@@ -30,7 +30,7 @@ export default async function BrandingTab({
         </h2>
       </div>
       {error === "logo" && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
           <Icon name="alert" className="h-4 w-4 shrink-0" />
           {t("settings.branding.logoError")}
         </div>

@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import ErrorBanner from "@/components/ErrorBanner";
 import { requireModulePage } from "@/lib/module-guards";
@@ -20,14 +24,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const PAGE_SIZE = 25;
-
-const STATUS_TONE: Record<string, string> = {
-  DRAFT: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
-  SENT: "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  ACCEPTED: "border-[#b6d7a6] bg-[#edf8e8] text-[#255d17]",
-  REJECTED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
-  EXPIRED: "border-[#c9c0ac] bg-[#efeee8] text-[#4a473e]",
-};
 
 export default async function QuotesPage({
   searchParams,
@@ -89,35 +85,35 @@ export default async function QuotesPage({
   };
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <PageHeader
-          title={t("quotes.list.title")}
-          subtitle={t("quotes.list.subtitle")}
-          icon={<Icon name="file" className="h-5 w-5" />}
-          actions={
-            canManage ? (
-              <Link
-                href="/tilbud/ny"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]"
-              >
-                <Icon name="plus" className="h-4 w-4" />
-                {t("quotes.list.new")}
-              </Link>
-            ) : null
-          }
-        />
+    <PageShell>
+      <PageHeader
+        title={t("quotes.list.title")}
+        subtitle={t("quotes.list.subtitle")}
+        icon={<Icon name="file" className="h-5 w-5" />}
+        actions={
+          canManage ? (
+            <Link
+              href="/tilbud/ny"
+              className={buttonClassName({ variant: "primary" })}
+            >
+              <Icon name="plus" className="h-4 w-4" />
+              {t("quotes.list.new")}
+            </Link>
+          ) : null
+        }
+      />
 
-        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
-        {params.versioned ? (
-          <p className="rounded-xl border border-[#b6d7a6] bg-[#edf8e8] px-4 py-3 text-sm font-bold text-[#255d17]">
-            {t("quotes.list.versioned")}
-          </p>
-        ) : null}
+      {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      {params.versioned ? (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
+          {t("quotes.list.versioned")}
+        </p>
+      ) : null}
 
-        <form method="get" className="office-card flex flex-wrap items-end gap-2 p-3 sm:p-4">
+      <Card className="p-3 sm:p-4">
+        <form method="get" className="flex flex-wrap items-end gap-2">
           <label className="min-w-56 flex-1">
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
+            <span className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]">
               {t("quotes.list.search")}
             </span>
             <input
@@ -128,7 +124,7 @@ export default async function QuotesPage({
             />
           </label>
           <label>
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
+            <span className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]">
               {t("quotes.list.status")}
             </span>
             <select
@@ -146,75 +142,76 @@ export default async function QuotesPage({
           </label>
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]"
+            className={buttonClassName({ variant: "secondary" })}
           >
             <Icon name="search" className="h-4 w-4" />
             {t("search")}
           </button>
           {status || query ? (
-            <Link href="/tilbud" className="inline-flex min-h-11 items-center px-2 text-xs font-bold underline">
+            <Link
+              href="/tilbud"
+              className={buttonClassName({ variant: "ghost" })}
+            >
               {t("reset")}
             </Link>
           ) : null}
         </form>
+      </Card>
 
-        {quotes.length === 0 ? (
-          <EmptyState title={t("quotes.list.emptyTitle")} description={t("quotes.list.emptyDescription")} />
-        ) : (
-          <div data-quotes-list className="space-y-2">
-            {quotes.map((quote) => (
-              <article
-                key={quote.id}
-                className="office-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/tilbud/${quote.id}`}
-                      className="text-sm font-black underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
-                    >
-                      {quote.title}
-                    </Link>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase ${
-                        STATUS_TONE[quote.status] ?? STATUS_TONE.DRAFT
-                      }`}
-                    >
-                      {statusLabel(quote.status)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
-                    {quote.quoteNumber ?? t("quotes.list.noNumber")} · {quote.customer?.name ?? t("quotes.list.noCustomer")}
-                    {quote.validUntil ? ` · ${t("quotes.list.validUntil", { date: formatDateLocalized(quote.validUntil, locale) })}` : ""}
-                    {" · "}
-                    {t("quotes.list.version", { version: quote.version })}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-black">{formatAmount(quote.total, "NOK")}</p>
-                  <p className="text-xs text-[var(--muted,#62685f)]">
-                    {t("quotes.list.updated", { date: formatDateLocalized(quote.updatedAt, locale) })}
-                  </p>
+      {quotes.length === 0 ? (
+        <EmptyState title={t("quotes.list.emptyTitle")} description={t("quotes.list.emptyDescription")} />
+      ) : (
+        <div data-quotes-list className="space-y-2">
+          {quotes.map((quote) => (
+            <Card
+              as="article"
+              key={quote.id}
+              className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/tilbud/${quote.id}/skriv`}
-                    className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs font-bold underline"
+                    href={`/tilbud/${quote.id}`}
+                    className="type-ui underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                   >
-                    <Icon name="file" className="h-4 w-4" />
-                    {t("quotes.print.action")}
+                    {quote.title}
                   </Link>
+                  <StatusBadge
+                    status={quote.status}
+                    label={statusLabel(quote.status)}
+                  />
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
+                <p className="type-meta mt-0.5 text-[var(--muted,#62685f)]">
+                  {quote.quoteNumber ?? t("quotes.list.noNumber")} · {quote.customer?.name ?? t("quotes.list.noCustomer")}
+                  {quote.validUntil ? ` · ${t("quotes.list.validUntil", { date: formatDateLocalized(quote.validUntil, locale) })}` : ""}
+                  {" · "}
+                  {t("quotes.list.version", { version: quote.version })}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="type-ui">{formatAmount(quote.total, "NOK")}</p>
+                <p className="type-meta text-[var(--muted,#62685f)]">
+                  {t("quotes.list.updated", { date: formatDateLocalized(quote.updatedAt, locale) })}
+                </p>
+                <Link
+                  href={`/tilbud/${quote.id}/skriv`}
+                  className={`${buttonClassName({ variant: "ghost", size: "sm" })} mt-1`}
+                >
+                  <Icon name="file" className="h-4 w-4" />
+                  {t("quotes.print.action")}
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hrefFor={(target) => hrefWith({ side: target > 1 ? String(target) : null })}
-          labels={paginationLabels(t)}
-        />
-      </div>
-    </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(target) => hrefWith({ side: target > 1 ? String(target) : null })}
+        labels={paginationLabels(t)}
+      />
+    </PageShell>
   );
 }

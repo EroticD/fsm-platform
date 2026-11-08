@@ -118,7 +118,7 @@ export default function RouteError({
         </p>
 
         <div className="mt-5 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-left">
-          <p className="text-[11px] font-black uppercase tracking-wider text-[var(--muted,#62685f)]">
+          <p className="text-2xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">
             {labels.reference}
           </p>
           {digest ? (

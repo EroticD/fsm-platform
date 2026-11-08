@@ -378,7 +378,7 @@ export default function ImageUploadField({
 
         <label
           htmlFor={galleryId}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-4 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--field-line)] bg-surface/5 px-4 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-surface/10"
         >
           <Icon name="image" className="h-4 w-4" />
           {t("orders.imageUpload.choosePhoto")}
@@ -447,7 +447,7 @@ export default function ImageUploadField({
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/50"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface/50"
                     >
                       <Icon
                         name={item.status === "error" ? "alert" : "camera"}
@@ -485,7 +485,7 @@ export default function ImageUploadField({
                       )}
                     </p>
                     {item.status === "error" && item.error && (
-                      <p className="mt-0.5 break-words text-[11px] font-bold text-risk">
+                      <p className="mt-0.5 break-words text-2xs font-bold text-risk">
                         {item.error}
                       </p>
                     )}

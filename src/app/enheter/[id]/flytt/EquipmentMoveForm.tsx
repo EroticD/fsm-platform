@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Icon from "@/components/icons";
 import SubmitButton from "@/components/SubmitButton";
+import Card from "@/components/ui/Card";
+import { Field, Input, Select } from "@/components/ui";
+import Button, { buttonClassName } from "@/components/ui/Button";
 import type {
   EquipmentMoveCounts,
   EquipmentMoveCustomerOption,
@@ -11,14 +14,6 @@ import type {
   EquipmentMoveSummary,
 } from "@/server/equipment-move";
 import { moveEquipmentToCustomerAction } from "./actions";
-
-const CARD = "office-card min-w-0 space-y-4 p-4 sm:p-5";
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "mt-1 min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
-const SIGNAL_BUTTON =
-  "signal-button inline-flex min-h-11 items-center justify-center gap-1.5 border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 text-sm text-[var(--ink,#101310)] disabled:cursor-not-allowed disabled:opacity-50";
 
 const COUNT_KEYS: Array<keyof EquipmentMoveCounts> = [
   "products",
@@ -52,12 +47,12 @@ function Counts({ counts }: { counts: EquipmentMoveCounts }) {
       {COUNT_KEYS.filter((key) => counts[key] > 0).map((key) => (
         <div
           key={key}
-          className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2"
+          className="rounded-xl border border-line bg-paper px-3 py-2"
         >
-          <dt className="text-2xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+          <dt className="type-eyebrow text-muted">
             {t(`assets.move.counts.${key}`)}
           </dt>
-          <dd className="text-lg font-black tabular-nums text-[var(--ink,#101310)]">
+          <dd className="text-lg font-black tabular-nums text-ink">
             {counts[key]}
           </dd>
         </div>
@@ -72,7 +67,7 @@ function Blockers({ preview }: { preview: EquipmentMoveSummary }) {
   return (
     <div
       role="alert"
-      className="rounded-2xl border-2 border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+      className="rounded-2xl border-2 border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
     >
       <p>{t("assets.move.blocked")}</p>
       <ul className="mt-1 list-disc space-y-1 pl-5 font-medium">
@@ -92,7 +87,7 @@ function Warnings({ preview }: { preview: EquipmentMoveSummary }) {
   const t = useTranslations("common");
   if (preview.warnings.length === 0) return null;
   return (
-    <ul className="space-y-1 rounded-xl border border-[#e4c98f] bg-[#fdf5e4] px-4 py-3 text-xs font-bold text-[#7a4f0c]">
+    <ul className="space-y-1 rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] px-4 py-3 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
       {preview.warnings.map((warning, index) => (
         <li key={`${warning.code}-${index}`}>
           {t(`assets.move.warnings.${warning.code}`)}
@@ -229,16 +224,16 @@ export default function EquipmentMoveForm({
 
   return (
     <div className="space-y-4">
-      <section className={CARD} aria-labelledby="move-customer">
+      <Card as="section" className="space-y-4 p-4 sm:p-5" aria-labelledby="move-customer">
         <h2
           id="move-customer"
-          className="border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em]"
+          className="border-b border-line pb-2 type-eyebrow text-ink"
         >
           {t("assets.move.targetCustomer")}
         </h2>
-        <p className="mt-2 text-sm text-[var(--muted,#62685f)]">
+        <p className="mt-2 text-sm text-muted">
           {t("assets.move.currentCustomer")}:{" "}
-          <span className="font-bold text-[var(--ink,#101310)]">
+          <span className="font-bold text-ink">
             {currentCustomerName}
           </span>
           {" · "}
@@ -246,18 +241,22 @@ export default function EquipmentMoveForm({
         </p>
 
         {selected ? (
-          <div className="mt-3 rounded-xl border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] p-3">
-            <p className={LABEL}>{t("assets.move.selectedCustomer")}</p>
-            <p className="mt-1 text-lg font-black text-[var(--ink,#101310)]">
+          <div className="mt-3 rounded-xl border border-ink bg-paper p-3">
+            <p className="type-eyebrow text-muted">
+              {t("assets.move.selectedCustomer")}
+            </p>
+            <p className="mt-1 text-lg font-black text-ink">
               {selected.name}
             </p>
-            <p className="text-xs text-[var(--muted,#62685f)]">
+            <p className="text-xs text-muted">
               {[selected.customerNumber, selected.city]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setSelected(null);
                 setQuery("");
@@ -272,45 +271,47 @@ export default function EquipmentMoveForm({
                 setPreviewLoading(false);
                 setPreviewError(false);
               }}
-              className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-xs font-bold underline underline-offset-2"
+              className="mt-2"
             >
               {t("assets.move.changeCustomer")}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-3">
-            <label htmlFor={customerSearchId} className={LABEL}>
-              {t("assets.move.searchLabel")}
-            </label>
-            <input
+            <Field
               id={customerSearchId}
-              type="search"
-              value={query}
-              onChange={(event) => {
-                const value = event.target.value;
-                setQuery(value);
-                setSearchError(false);
-                if (value.trim().length < 2) {
-                  setResults([]);
-                  setSearching(false);
-                } else {
-                  setSearching(true);
-                }
-              }}
-              placeholder={t("assets.move.searchPlaceholder")}
-              autoComplete="off"
-              className={CONTROL}
-            />
-            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-              {t("assets.move.searchHint")}
-            </p>
+              label={t("assets.move.searchLabel")}
+              hint={t("assets.move.searchHint")}
+            >
+              <Input
+                id={customerSearchId}
+                type="search"
+                value={query}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setQuery(value);
+                  setSearchError(false);
+                  if (value.trim().length < 2) {
+                    setResults([]);
+                    setSearching(false);
+                  } else {
+                    setSearching(true);
+                  }
+                }}
+                placeholder={t("assets.move.searchPlaceholder")}
+                autoComplete="off"
+              />
+            </Field>
             {searching && (
               <p className="mt-2 text-xs font-bold" role="status">
                 {t("assets.move.searching")}
               </p>
             )}
             {searchError && (
-              <p className="mt-2 text-xs font-bold text-[var(--risk-text,#b42318)]" role="alert">
+              <p
+                className="mt-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
+                role="alert"
+              >
                 {t("assets.move.searchError")}
               </p>
             )}
@@ -318,12 +319,12 @@ export default function EquipmentMoveForm({
               !searchError &&
               query.trim().length >= 2 &&
               results.length === 0 && (
-                <p className="mt-2 text-xs italic text-[var(--muted,#62685f)]">
+                <p className="mt-2 text-xs italic text-muted">
                   {t("assets.move.searchEmpty")}
                 </p>
               )}
             {results.length > 0 && (
-              <ul className="mt-2 divide-y divide-[var(--line,#dedcd1)] rounded-xl border border-[var(--line,#dedcd1)]">
+              <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
                 {results.map((customer) => (
                   <li key={customer.id}>
                     <button
@@ -341,10 +342,10 @@ export default function EquipmentMoveForm({
                         setPreviewLoading(true);
                         setPreviewError(false);
                       }}
-                      className="flex min-h-11 w-full flex-col items-start px-3 py-2 text-left hover:bg-[var(--paper,#f2efe6)]"
+                      className="flex min-h-11 w-full flex-col items-start px-3 py-2 text-left transition hover:bg-paper"
                     >
                       <span className="text-sm font-bold">{customer.name}</span>
-                      <span className="text-xs text-[var(--muted,#62685f)]">
+                      <span className="text-xs text-muted">
                         {[customer.customerNumber, customer.city]
                           .filter(Boolean)
                           .join(" · ")}
@@ -359,54 +360,55 @@ export default function EquipmentMoveForm({
 
         {selected && (
           <div className="mt-4">
-            <label htmlFor={siteId} className={LABEL}>
-              {t("assets.move.targetSite")}
-            </label>
-            <select
+            <Field
               id={siteId}
-              value={targetSiteId}
-              onChange={(event) => {
-                setTargetSiteId(event.target.value);
-                setPreview(null);
-                setPreviewLoading(true);
-                setPreviewError(false);
-              }}
-              disabled={sitesLoading}
-              className={CONTROL}
+              label={t("assets.move.targetSite")}
+              hint={
+                sitesLoading
+                  ? t("assets.move.siteLoading")
+                  : sitesError
+                    ? t("assets.move.siteError")
+                    : t("assets.move.targetSiteHint")
+              }
             >
-              <option value="">{t("assets.move.siteNone")}</option>
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name}
-                  {site.address ? ` — ${site.address}` : ""}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-              {sitesLoading
-                ? t("assets.move.siteLoading")
-                : sitesError
-                  ? t("assets.move.siteError")
-                  : t("assets.move.targetSiteHint")}
-            </p>
+              <Select
+                id={siteId}
+                value={targetSiteId}
+                onChange={(event) => {
+                  setTargetSiteId(event.target.value);
+                  setPreview(null);
+                  setPreviewLoading(true);
+                  setPreviewError(false);
+                }}
+                disabled={sitesLoading}
+              >
+                <option value="">{t("assets.move.siteNone")}</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                    {site.address ? ` — ${site.address}` : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className={CARD} aria-labelledby="move-preview">
+      <Card as="section" className="space-y-4 p-4 sm:p-5" aria-labelledby="move-preview">
         <h2
           id="move-preview"
-          className="border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em]"
+          className="border-b border-line pb-2 type-eyebrow text-ink"
         >
           {t("assets.move.whatMoves")}
         </h2>
-        <p className="mt-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]">
+        <p className="mt-2 rounded-xl border border-line bg-paper px-3 py-2 text-xs font-bold text-ink">
           {t("assets.move.warning")}
         </p>
         <Counts counts={preview?.counts ?? initialCounts} />
 
         {!selected && (
-          <p className="mt-3 text-xs italic text-[var(--muted,#62685f)]">
+          <p className="mt-3 text-xs italic text-muted">
             {t("assets.move.noSelection")}
           </p>
         )}
@@ -416,7 +418,10 @@ export default function EquipmentMoveForm({
           </p>
         )}
         {previewError && (
-          <p className="mt-3 text-xs font-bold text-[var(--risk-text,#b42318)]" role="alert">
+          <p
+            className="mt-3 text-xs font-bold text-[var(--risk-text,#b42318)]"
+            role="alert"
+          >
             {t("assets.move.previewError")}
           </p>
         )}
@@ -427,72 +432,74 @@ export default function EquipmentMoveForm({
             {preview.noop && (
               <p
                 role="status"
-                className="rounded-xl border border-[#a9c96a] bg-[#eef7d6] px-4 py-3 text-sm font-bold text-[#283509]"
+                className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]"
               >
                 {t("assets.move.noop")}
               </p>
             )}
           </div>
         )}
-        <p className="mt-3 text-xs text-[var(--muted,#62685f)]">
+        <p className="mt-3 text-xs text-muted">
           {t("assets.move.contractsNote")}
         </p>
-      </section>
+      </Card>
 
-      <form action={moveEquipmentToCustomerAction} className={CARD}>
-        <input type="hidden" name="id" value={equipmentId} />
-        <input type="hidden" name="targetCustomerId" value={selected?.id ?? ""} />
-        <input type="hidden" name="targetSiteId" value={targetSiteId} />
-        <input type="hidden" name="previewHash" value={preview?.previewHash ?? ""} />
+      <Card as="section" className="space-y-4 p-4 sm:p-5">
+        <form action={moveEquipmentToCustomerAction} className="space-y-4">
+          <input type="hidden" name="id" value={equipmentId} />
+          <input type="hidden" name="targetCustomerId" value={selected?.id ?? ""} />
+          <input type="hidden" name="targetSiteId" value={targetSiteId} />
+          <input type="hidden" name="previewHash" value={preview?.previewHash ?? ""} />
 
-        <h2 className="border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em]">
-          {t("assets.move.confirm")}
-        </h2>
-        <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
-          {t("assets.move.confirmHint")}
-        </p>
+          <h2 className="border-b border-line pb-2 type-eyebrow text-ink">
+            {t("assets.move.confirm")}
+          </h2>
+          <p className="mt-2 text-xs text-muted">
+            {t("assets.move.confirmHint")}
+          </p>
 
-        <div className="mt-3">
-          <label htmlFor={confirmId} className={LABEL}>
-            {t("assets.move.confirmTyping", { name: selected?.name ?? "" })}
-          </label>
-          <input
+          <Field
             id={confirmId}
-            type="text"
-            value={typedName}
-            onChange={(event) => setTypedName(event.target.value)}
-            disabled={!selected || !preview?.canMove}
-            autoComplete="off"
-            className={CONTROL}
-          />
-        </div>
-
-        <label
-          htmlFor={checkboxId}
-          className="mt-3 flex items-start gap-2 text-sm font-bold text-[var(--ink,#101310)]"
-        >
-          <input
-            id={checkboxId}
-            type="checkbox"
-            checked={understood}
-            onChange={(event) => setUnderstood(event.target.checked)}
-            disabled={!selected || !preview?.canMove}
-            className="mt-0.5 h-5 w-5 rounded border-[var(--line,#dedcd1)]"
-          />
-          <span>{t("assets.move.confirmCheckbox")}</span>
-        </label>
-
-        <div className="mt-4">
-          <SubmitButton
-            className={SIGNAL_BUTTON}
-            disabled={!canSubmit}
-            pendingLabel={t("assets.move.submitting")}
+            label={t("assets.move.confirmTyping", { name: selected?.name ?? "" })}
+            className="mt-3"
           >
-            <Icon name="sync" className="h-4 w-4" />
-            {t("assets.move.submit")}
-          </SubmitButton>
-        </div>
-      </form>
+            <Input
+              id={confirmId}
+              type="text"
+              value={typedName}
+              onChange={(event) => setTypedName(event.target.value)}
+              disabled={!selected || !preview?.canMove}
+              autoComplete="off"
+            />
+          </Field>
+
+          <label
+            htmlFor={checkboxId}
+            className="mt-3 flex items-start gap-2 text-sm font-bold text-ink"
+          >
+            <input
+              id={checkboxId}
+              type="checkbox"
+              checked={understood}
+              onChange={(event) => setUnderstood(event.target.checked)}
+              disabled={!selected || !preview?.canMove}
+              className="mt-0.5 h-5 w-5 rounded border-line"
+            />
+            <span>{t("assets.move.confirmCheckbox")}</span>
+          </label>
+
+          <div className="mt-4">
+            <SubmitButton
+              className={buttonClassName({ variant: "primary" })}
+              disabled={!canSubmit}
+              pendingLabel={t("assets.move.submitting")}
+            >
+              <Icon name="sync" className="h-4 w-4" />
+              {t("assets.move.submit")}
+            </SubmitButton>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

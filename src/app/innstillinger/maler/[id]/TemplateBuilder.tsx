@@ -339,7 +339,7 @@ export default function TemplateBuilder({
                     )}
 
                     {field.type === "STATUS" && (
-                      <div className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] p-3">
+                      <div className="rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-3">
                         <label htmlFor={`${idPrefix}-${field.id}-comment-options`} className={LABEL}>
                           {t("settings.templateBuilder.commentOptionsLabel")}
                         </label>
@@ -359,7 +359,7 @@ export default function TemplateBuilder({
                           placeholder={t("settings.templateBuilder.commentOptionsPlaceholder")}
                           className={SMALL_FIELD}
                         />
-                        <p id={`${idPrefix}-${field.id}-comment-options-help`} className="mt-1 text-xs text-[#6b4a05]">
+                        <p id={`${idPrefix}-${field.id}-comment-options-help`} className="mt-1 text-xs text-[var(--warning-text,#7a4f0c)]">
                           {t("settings.templateBuilder.commentOptionsHelp")}
                         </p>
                       </div>
@@ -369,7 +369,7 @@ export default function TemplateBuilder({
                   <button 
                     type="button" 
                     onClick={() => removeField(field.id)} 
-                    className="mt-1 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#e7b7a4] bg-[#fae8e0] p-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]"
+                    className="mt-1 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] p-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]"
                     title={t("settings.templateBuilder.deleteField")}
                   >
                     <Icon name="trash" className="h-4 w-4" />
@@ -429,7 +429,7 @@ export default function TemplateBuilder({
               onClick={() => addField(type)}
               className={`inline-flex min-h-11 items-center rounded-[10px] border px-3.5 py-2 text-xs font-bold text-[var(--ink,#101310)] transition ${
                 type === "STATUS"
-                  ? "border-[#c7d98e] bg-[#f3fbd1] hover:bg-[var(--signal,#d8ff3e)]"
+                  ? "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] hover:bg-[var(--signal,#d8ff3e)]"
                   : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
               }`}
             >

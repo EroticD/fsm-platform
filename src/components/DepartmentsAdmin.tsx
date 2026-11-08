@@ -98,7 +98,7 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
             <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--muted,#62685f)]">
               {t("settings.departments.info")}
             </div>
-            <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
+            <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-surface px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
               <input
                 type="checkbox"
                 name="trackingEnabled"
@@ -144,15 +144,15 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                   <Icon name="building" className="h-4 w-4 shrink-0" />
                   <span className="break-words">{department.name}</span>
                   {department.isDefault && (
-                    <span className={`${CHIP} border-[#c7d98e] bg-[#f3fbd1] text-[#283509]`}>
+                    <span className={`${CHIP} border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]`}>
                       {t("settings.departments.default")}
                     </span>
                   )}
                   <span
                     className={`${CHIP} ${
                       department.isActive
-                        ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
-                        : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
+                        ? "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
+                        : "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]"
                     }`}
                   >
                     {department.isActive
@@ -194,7 +194,7 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                       type="submit"
                       className={`inline-flex min-h-9 items-center justify-center rounded-lg border px-3 text-xs font-bold transition ${
                         department.isActive
-                          ? "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]"
+                          ? "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)] hover:bg-[#f6e8c5]"
                           : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] hover:bg-[#cbef35]"
                       }`}
                     >
@@ -257,7 +257,7 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                   <input id={`department-${department.id}-city`} type="text" name="city" defaultValue={department.city ?? ""} className={FIELD} />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
+                  <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-surface px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
                     <input
                       type="checkbox"
                       name="trackingEnabled"

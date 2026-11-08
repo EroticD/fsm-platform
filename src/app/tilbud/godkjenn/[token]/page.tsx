@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const CARD = "rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4 sm:p-6";
 const INPUT =
-  "min-h-11 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-sm";
+  "min-h-11 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-surface px-3 py-2 text-sm";
 
 export default async function QuoteApprovalPage({
   params,
@@ -63,7 +63,7 @@ export default async function QuoteApprovalPage({
           </p>
         ) : null}
         {query.result === "rejected" || quote.status === "REJECTED" ? (
-          <p role="status" className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[#8a1f12]">
+          <p role="status" className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[#8a1f12]">
             {t("quotes.approval.rejected")}
           </p>
         ) : null}

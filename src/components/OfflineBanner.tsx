@@ -290,7 +290,7 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
             type="button"
             onClick={() => void retryNow()}
             disabled={busy}
-            className="rounded-lg border border-current px-2.5 py-1 font-black transition hover:bg-white/60 disabled:opacity-60"
+            className="rounded-lg border border-current px-2.5 py-1 font-black transition hover:bg-surface/60 disabled:opacity-60"
           >
             {busy
               ? t("p3.offline.retrying")

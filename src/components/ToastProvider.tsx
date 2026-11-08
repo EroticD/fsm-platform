@@ -76,7 +76,7 @@ function ToastItem({
     <div
       className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold shadow-[0_10px_28px_-18px_rgba(16,19,16,0.4)] ${
         item.tone === "success"
-          ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
+          ? "border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
           : item.tone === "error"
             ? "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
             : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)]"

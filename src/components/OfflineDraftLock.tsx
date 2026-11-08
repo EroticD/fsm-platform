@@ -393,7 +393,7 @@ export default function OfflineDraftLock({
               <button
                 type="button"
                 onClick={() => openMode("setup")}
-                className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-white/60"
+                className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-surface/60"
               >
                 {legacy
                   ? t("p3.offlineLock.migrateAction")
@@ -404,7 +404,7 @@ export default function OfflineDraftLock({
               <button
                 type="button"
                 onClick={() => openMode("unlock")}
-                className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-white/60"
+                className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-surface/60"
               >
                 {t("p3.offlineLock.unlockAction")}
               </button>
@@ -415,7 +415,7 @@ export default function OfflineDraftLock({
                   type="button"
                   onClick={() => void lockNow()}
                   disabled={busy}
-                  className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-white/60 disabled:opacity-60"
+                  className="rounded-lg border border-current px-2.5 py-1 text-xs font-black transition hover:bg-surface/60 disabled:opacity-60"
                 >
                   {t("p3.offlineLock.lockAction")}
                 </button>
@@ -483,7 +483,7 @@ export default function OfflineDraftLock({
               <div className="min-w-32 flex-1">
                 <label
                   htmlFor={currentId}
-                  className="mb-1 block text-[11px] font-black uppercase tracking-wide"
+                  className="mb-1 block text-2xs font-black uppercase tracking-wide"
                 >
                   {t("p3.offlineLock.currentPinLabel")}
                 </label>
@@ -499,7 +499,7 @@ export default function OfflineDraftLock({
                     setCurrentPin(event.target.value.replace(/\D/g, ""))
                   }
                   aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
-                  className="min-h-10 w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-base font-bold tracking-widest text-blue-950"
+                  className="min-h-10 w-full rounded-lg border border-blue-300 bg-surface px-3 py-2 text-base font-bold tracking-widest text-blue-950"
                 />
               </div>
             )}
@@ -507,7 +507,7 @@ export default function OfflineDraftLock({
             <div className="min-w-32 flex-1">
               <label
                 htmlFor={pinId}
-                className="mb-1 block text-[11px] font-black uppercase tracking-wide"
+                className="mb-1 block text-2xs font-black uppercase tracking-wide"
               >
                 {effectiveMode === "change"
                   ? t("p3.offlineLock.newPinLabel")
@@ -528,7 +528,7 @@ export default function OfflineDraftLock({
                   setPin(event.target.value.replace(/\D/g, ""))
                 }
                 aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
-                className="min-h-10 w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-base font-bold tracking-widest text-blue-950"
+                className="min-h-10 w-full rounded-lg border border-blue-300 bg-surface px-3 py-2 text-base font-bold tracking-widest text-blue-950"
               />
             </div>
 
@@ -536,7 +536,7 @@ export default function OfflineDraftLock({
               <div className="min-w-32 flex-1">
                 <label
                   htmlFor={confirmId}
-                  className="mb-1 block text-[11px] font-black uppercase tracking-wide"
+                  className="mb-1 block text-2xs font-black uppercase tracking-wide"
                 >
                   {t("p3.offlineLock.pinConfirmLabel")}
                 </label>
@@ -552,7 +552,7 @@ export default function OfflineDraftLock({
                     setConfirmation(event.target.value.replace(/\D/g, ""))
                   }
                   aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
-                  className="min-h-10 w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-base font-bold tracking-widest text-blue-950"
+                  className="min-h-10 w-full rounded-lg border border-blue-300 bg-surface px-3 py-2 text-base font-bold tracking-widest text-blue-950"
                 />
               </div>
             )}
@@ -572,7 +572,7 @@ export default function OfflineDraftLock({
                   : t("p3.offlineLock.unlockAction")}
             </button>
 
-            <p id={hintId} className="w-full text-[11px] text-blue-900/75">
+            <p id={hintId} className="w-full text-2xs text-blue-900/75">
               {t("p3.offlineLock.pinHint", { min: PIN_MIN_LENGTH })}
             </p>
             {error && (

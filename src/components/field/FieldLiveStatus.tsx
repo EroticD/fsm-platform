@@ -51,7 +51,7 @@ export default function FieldLiveStatus({
 
   return (
     <span
-      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#2a3328] bg-white/[0.05] px-2.5 text-[11px] font-bold text-paper/70 ${className}`}
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[var(--field-line)] bg-surface/[0.05] px-2.5 text-2xs font-bold text-paper/70 ${className}`}
     >
       <span
         aria-hidden

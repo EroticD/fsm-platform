@@ -233,7 +233,7 @@ export default async function CustomerPortalTab({
                       className={`rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
                         u.isActive
                           ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
-                          : "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]"
+                          : "border-[#e4c98f] bg-[var(--warning-surface,#fdf5e4)] text-[#6b4808]"
                       }`}
                     >
                       {u.isActive
@@ -263,7 +263,7 @@ export default async function CustomerPortalTab({
                       </>
                     }
                     buttonClassName={CUSTOMER_INK_BUTTON}
-                    bannerClassName="w-full rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] p-3 text-xs text-[#24502f]"
+                    bannerClassName="w-full rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] p-3 text-xs text-[var(--success-text,#283509)]"
                     labels={inviteLabels}
                   >
                     <input type="hidden" name="customerId" value={customerId} />

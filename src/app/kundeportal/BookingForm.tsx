@@ -127,7 +127,7 @@ export default function BookingForm({
       {state.status === "success" && (
         <div
           role="status"
-          className="space-y-2 rounded-2xl border border-[#b9cdb4] bg-[#eaf3e4] px-4 py-3 text-[#24502f]"
+          className="space-y-2 rounded-2xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-[var(--success-text,#283509)]"
         >
           <p className="text-base font-black">
             {state.duplicate
@@ -159,7 +159,7 @@ export default function BookingForm({
           </div>
           <a
             href="#bestillinger"
-            className="inline-flex min-h-11 items-center text-sm font-bold text-[#24502f] underline decoration-[#24502f] decoration-2 underline-offset-4"
+            className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--success-text,#283509)] underline decoration-[var(--success-text,#283509)] decoration-2 underline-offset-4"
           >
             {t("portal.booking.seeRequests")}
           </a>
@@ -169,7 +169,7 @@ export default function BookingForm({
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[#a92a12]"
+          className="rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(ERROR_KEYS[state.reason] ?? "portal.booking.errors.generic")}
         </p>

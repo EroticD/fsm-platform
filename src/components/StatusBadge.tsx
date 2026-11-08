@@ -1,43 +1,64 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import Icon, { type IconName } from "@/components/icons";
+import type { ReactNode } from "react";
 
 /**
- * Statuspillene holder seg til de semantiske fargene: grønn for fullført,
- * signal-lime for pågående, gul/oransje for de to ventetilstandene og
- * risiko-oransje for kansellert. PENDING og WAITING har fortsatt hver sin
- * tekst, slik at de ikke blandes selv om begge venter. Ikonet gjør i tillegg
- * statusen lesbar uten å måtte tolke fargen.
+ * Statuspill etter DESIGN.md: 6 px prikk + tekst, 9999 px radius, 12/16 700.
+ * Fargen er alltid arbeidsflytstatus, aldri prioritet:
+ *
+ * - Åpen/planlagt: nøytral `--surface`
+ * - Pågår: signal
+ * - Venter: amber
+ * - Fullført: dempet grønn
+ * - Kansellert: risiko, ikke alarm
+ *
+ * API-et er fortsatt `status: string`. `label` er valgfri og lar faktura- og
+ * tilbudslistene beholde sine egne, allerede oversatte statusnavn.
  */
+const NEUTRAL =
+  "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)]";
+
 const STATUS_STYLES: Record<string, string> = {
   COMPLETED:
-    "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f] [--status-dot:#3f7a4b]",
+    "border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
   IN_PROGRESS:
-    "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] [--status-dot:var(--ink,#101310)]",
+    "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
   CANCELLED:
-    "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12] [--status-dot:var(--risk,#f04427)]",
-  OPEN:
-    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)] [--status-dot:#7a7468]",
-  PENDING:
-    "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] [--status-dot:#a47a0a]",
-  PLANNED:
-    "border-[#c9c0ac] bg-[#efe9db] text-[#3d372b] [--status-dot:#6b6353]",
+    "border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  OPEN: NEUTRAL,
+  PENDING: NEUTRAL,
+  PLANNED: NEUTRAL,
   WAITING:
-    "border-[#e6b896] bg-[#fbe7d8] text-[#8a3a0e] [--status-dot:#c05621]",
+    "border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
+
+  // Faktura
+  DRAFT: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]",
+  SENT: "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
+  PARTIALLY_PAID:
+    "border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
+  PAID: "border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
+  OVERDUE:
+    "border-[color-mix(in_srgb,var(--risk,#f04427)_28%,transparent)] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  CREDITED:
+    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
+
+  // Tilbud
+  ACCEPTED:
+    "border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
+  REJECTED:
+    "border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  EXPIRED:
+    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
 };
 
-const STATUS_ICONS: Record<string, IconName> = {
-  COMPLETED: "check",
-  IN_PROGRESS: "flag",
-  CANCELLED: "alert",
-  OPEN: "clock",
-  PENDING: "clock",
-  PLANNED: "clock",
-  WAITING: "clock",
-};
-
-export default function StatusBadge({ status }: { status: string }) {
+export default function StatusBadge({
+  status,
+  label,
+}: {
+  status: string;
+  label?: ReactNode;
+}) {
   const t = useTranslations("common");
   const statusLabels: Record<string, string> = {
     COMPLETED: t("statusCompleted"),
@@ -48,22 +69,21 @@ export default function StatusBadge({ status }: { status: string }) {
     PLANNED: t("statusPlanned"),
     WAITING: t("statusWaiting"),
   };
-  const ariaLabel = statusLabels[status] || status;
-  const style =
-    STATUS_STYLES[status] ??
-    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)] [--status-dot:#7a7468]";
+  const visible = label ?? statusLabels[status] ?? status;
+  const ariaLabel =
+    typeof label === "string" ? label : statusLabels[status] || status;
+  const style = STATUS_STYLES[status] ?? NEUTRAL;
 
   return (
     <span
-      className={`inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold leading-4 tracking-wide ${style}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-bold leading-4 ${style}`}
       aria-label={ariaLabel}
     >
-      <Icon
-        name={STATUS_ICONS[status] ?? "flag"}
-        className="h-3.5 w-3.5 shrink-0"
-        strokeWidth={2}
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
       />
-      {statusLabels[status] ?? status}
+      {visible}
     </span>
   );
 }

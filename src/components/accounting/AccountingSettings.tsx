@@ -149,7 +149,7 @@ export default async function AccountingSettings() {
                     </p>
                   ) : null}
                 </div>
-                <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] px-2 py-0.5 text-[11px] font-bold">
+                <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] px-2 py-0.5 text-2xs font-bold">
                   {t(`invoicing.accounting.status.${row.status}`)}
                 </span>
               </li>

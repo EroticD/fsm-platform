@@ -186,8 +186,8 @@ async function login(page, credentials) {
     timeout: 30_000,
   });
 
-  await page.getByLabel("E-post", { exact: true }).fill(email);
-  await page.getByLabel("Passord", { exact: true }).fill(password);
+  await page.getByLabel("E-post").fill(email);
+  await page.getByLabel("Passord").fill(password);
 
   try {
     await Promise.all([

@@ -153,12 +153,12 @@ export default async function UsersAdmin({
   const inkButton =
     "inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-1";
   const dangerButton =
-    "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1";
+    "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1";
 
   return (
     <div className="space-y-6">
       {errorMessage && (
-        <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
           <Icon name="alert" className="h-4 w-4 shrink-0" />
           {errorMessage}
         </div>
@@ -364,7 +364,7 @@ export default async function UsersAdmin({
                         {u.name || t("users.list.noName")}
                       </span>
                       {isMe && (
-                        <span className="inline-flex shrink-0 rounded border border-[#c7d98e] bg-[#f3fbd1] px-1.5 py-0.5 text-xs font-bold uppercase text-[#283509]">
+                        <span className="inline-flex shrink-0 rounded border border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] px-1.5 py-0.5 text-xs font-bold uppercase text-[var(--success-text,#283509)]">
                           <span className="sm:hidden">
                             {t("users.list.thisIsYouShort")}
                           </span>
@@ -394,8 +394,8 @@ export default async function UsersAdmin({
                   <span
                     className={`${statusBadgeClass} ${
                       u.isActive
-                        ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
-                        : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
+                        ? "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
+                        : "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]"
                     }`}
                   >
                     {u.isActive ? t("users.list.active") : t("users.list.inactive")}
@@ -413,7 +413,7 @@ export default async function UsersAdmin({
                       <span className="min-w-0 truncate">{u.email}</span>
                     </span>
                     {isMe && (
-                      <span className={`${statusBadgeClass} border-[#c7d98e] bg-[#f3fbd1] text-[#283509] sm:hidden`}>
+                      <span className={`${statusBadgeClass} border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)] sm:hidden`}>
                         {t("users.list.thisIsYou")}
                       </span>
                     )}
@@ -571,7 +571,7 @@ export default async function UsersAdmin({
                               type="submit"
                               className={`${actionButtonClass} ${
                                 u.isActive
-                                  ? "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]"
+                                  ? "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)] hover:bg-[#f6e8c5]"
                                   : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] hover:bg-[#cbef35]"
                               }`}
                             >
@@ -595,7 +595,7 @@ export default async function UsersAdmin({
                             <input type="hidden" name="id" value={u.id} />
                             <button
                               type="submit"
-                              className={`${actionButtonClass} border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]`}
+                              className={`${actionButtonClass} border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)] hover:bg-[#f6e8c5]`}
                               title={t("users.list.resetTwoFactorHint")}
                             >
                               {t("users.list.resetTwoFactor")}
@@ -630,7 +630,7 @@ export default async function UsersAdmin({
                         <form action={changePermissions} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
                           <input type="hidden" name="id" value={u.id} />
                           {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
-                            <div className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] p-3 text-xs text-[#6b4a05]">
+                            <div className="rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-3 text-xs text-[var(--warning-text,#7a4f0c)]">
                               {u.role === "ADMIN"
                                 ? t("users.list.adminHint")
                                 : t("users.list.customerHint")}

@@ -265,7 +265,7 @@ export default async function ReportViewerPage({
                 {heading}
               </h1>
               {selectedReport?.reportNumber && (
-                <span className="shrink-0 rounded-full border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 font-mono text-[11px] font-bold text-[var(--ink,#101310)]">
+                <span className="shrink-0 rounded-full border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 font-mono text-2xs font-bold text-[var(--ink,#101310)]">
                   {t("orders.detail.report.reportNumber", {
                     number: selectedReport.reportNumber,
                   })}
@@ -315,10 +315,10 @@ export default async function ReportViewerPage({
             {selectedReport && (
               <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-bold ${
                     selectedReport.isLocked
                       ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
-                      : "border-[#dfc98b] bg-[#fdf5e4] text-[#6b4808]"
+                      : "border-[#dfc98b] bg-[var(--warning-surface,#fdf5e4)] text-[#6b4808]"
                   }`}
                   title={lockTitle}
                 >
@@ -332,7 +332,7 @@ export default async function ReportViewerPage({
                 </span>
                 {acknowledgement && (
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-bold ${
                       acknowledgement.acknowledged
                         ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
                         : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
@@ -354,7 +354,7 @@ export default async function ReportViewerPage({
                   </span>
                 )}
                 {summary && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--ink,#101310)]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-surface px-2 py-0.5 text-2xs font-bold text-[var(--ink,#101310)]">
                     <Icon name="wrench" className="h-3 w-3 shrink-0" />
                     {summary.usesUnits
                       ? t("orders.revisions.unitSummary", {
@@ -367,7 +367,7 @@ export default async function ReportViewerPage({
                 {revisionsHref && (
                   <Link
                     href={revisionsHref}
-                    className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[11px] font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-2xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
                   >
                     <Icon name="clock" className="h-3 w-3 shrink-0" />
                     {selectedReport.revision > 0

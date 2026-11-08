@@ -52,9 +52,9 @@ export default function OrderViewTabs({
         role="region"
         aria-label={ariaLabel}
         tabIndex={0}
-        className="-mx-1 overflow-x-auto px-1 pb-1 pr-9 [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal,#c8f135)] focus-visible:ring-offset-2 md:overflow-visible md:pb-0 md:pr-0"
+        className="-mx-1 overflow-x-auto px-1 pb-1 pr-9 [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal,#d8ff3e)] focus-visible:ring-offset-2 md:overflow-visible md:pb-0 md:pr-0"
       >
-        <div className="flex w-max gap-1 border-b border-[var(--line,#d8d3c5)] md:w-full md:flex-wrap">
+        <div className="flex w-max gap-1 border-b border-[var(--line,#dedcd1)] md:w-full md:flex-wrap">
           {tabs.map((tab) => {
             const active = tab.key === activeKey;
             return (
@@ -66,8 +66,8 @@ export default function OrderViewTabs({
                 aria-current={active ? "page" : undefined}
                 className={`-mb-px flex items-center gap-1.5 whitespace-nowrap rounded-t-md border-b-[3px] px-2.5 py-2 text-xs font-bold transition ${
                   active
-                    ? "border-[var(--signal,#c8f135)] bg-[var(--ink,#131711)] text-[var(--paper,#fbfaf4)]"
-                    : "border-transparent text-[var(--ink,#131711)] hover:border-[var(--line,#d8d3c5)] hover:bg-white/70"
+                    ? "border-[var(--signal,#d8ff3e)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                    : "border-transparent text-[var(--ink,#101310)] hover:border-[var(--line,#dedcd1)] hover:bg-surface/70"
                 }`}
               >
                 <Icon name={tab.icon} className="h-3.5 w-3.5 shrink-0" />
@@ -75,8 +75,8 @@ export default function OrderViewTabs({
                 <span
                   className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums ${
                     active
-                      ? "bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]"
-                      : "border border-[var(--line,#d8d3c5)] bg-white text-[#5e6356]"
+                      ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                      : "border border-[var(--line,#dedcd1)] bg-surface text-[#62685f]"
                   }`}
                 >
                   {tab.count}

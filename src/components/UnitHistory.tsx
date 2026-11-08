@@ -128,7 +128,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
               <span
                 className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${
                   ok
-                    ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
+                    ? "border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
                     : "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
                 }`}
               >

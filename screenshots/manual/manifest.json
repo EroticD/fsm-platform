@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-08T12:22:27.062Z",
-  "appVersion": "0.8.11",
-  "baseUrl": "http://127.0.0.1:3101",
+  "generatedAt": "2026-11-08T18:55:25.884Z",
+  "appVersion": "0.9.0",
+  "baseUrl": "http://127.0.0.1:3105",
   "database": "fsm_ui_e2e (isolert E2E-database)",
   "viewport": {
     "width": 1440,
@@ -34,16 +34,16 @@
       "note": "Skjemaet lagrer en manuell rekkefølge uten å endre datoene.",
       "dimensions": {
         "width": 2564,
-        "height": 470
+        "height": 478
       },
       "width": 2564,
-      "height": 470,
-      "bytes": 61756,
+      "height": 478,
+      "bytes": 62105,
       "h1": [
         "Kalender"
       ],
-      "finalUrl": "http://127.0.0.1:3101/kalender/rute",
-      "capturedAt": "2026-11-08T12:21:57.436Z"
+      "finalUrl": "http://127.0.0.1:3105/kalender/rute",
+      "capturedAt": "2026-11-08T18:54:56.215Z"
     },
     {
       "file": "screenshots/manual/rute-overtid.jpg",
@@ -61,12 +61,12 @@
       },
       "width": 1316,
       "height": 152,
-      "bytes": 19823,
+      "bytes": 20147,
       "h1": [
         "Kalender"
       ],
-      "finalUrl": "http://127.0.0.1:3101/kalender/rute",
-      "capturedAt": "2026-11-08T12:21:59.088Z"
+      "finalUrl": "http://127.0.0.1:3105/kalender/rute",
+      "capturedAt": "2026-11-08T18:54:57.933Z"
     },
     {
       "file": "screenshots/manual/oppdrag-rekkefolge.jpg",
@@ -79,17 +79,17 @@
       },
       "note": "Rekkefølgen settes per arbeidsdag på oppdraget.",
       "dimensions": {
-        "width": 1530,
-        "height": 398
+        "width": 1828,
+        "height": 332
       },
-      "width": 1530,
-      "height": 398,
-      "bytes": 32589,
+      "width": 1828,
+      "height": 332,
+      "bytes": 41747,
       "h1": [
         "Feilsøking – portåpner"
       ],
-      "finalUrl": "http://127.0.0.1:3101/oppdrag/cmw7rieln000ovtfj6pwca3tc",
-      "capturedAt": "2026-11-08T12:22:01.058Z"
+      "finalUrl": "http://127.0.0.1:3105/oppdrag/cmw7rieln000ovtfj6pwca3tc",
+      "capturedAt": "2026-11-08T18:54:59.942Z"
     },
     {
       "file": "screenshots/manual/tilbud-liste.jpg",
@@ -102,17 +102,17 @@
       },
       "note": "Ett demotilbud i status Sendt.",
       "dimensions": {
-        "width": 2392,
-        "height": 324
+        "width": 2840,
+        "height": 312
       },
-      "width": 2392,
-      "height": 324,
-      "bytes": 40349,
+      "width": 2840,
+      "height": 312,
+      "bytes": 38352,
       "h1": [
         "Tilbud"
       ],
-      "finalUrl": "http://127.0.0.1:3101/tilbud",
-      "capturedAt": "2026-11-08T12:22:02.719Z"
+      "finalUrl": "http://127.0.0.1:3105/tilbud",
+      "capturedAt": "2026-11-08T18:55:01.594Z"
     },
     {
       "file": "screenshots/manual/faktura-betaling.jpg",
@@ -125,17 +125,17 @@
       },
       "note": "Betalingsleverandør er ikke konfigurert i demomiljøet, så panelet viser den deaktiverte tilstanden med forklaring.",
       "dimensions": {
-        "width": 1880,
-        "height": 276
+        "width": 1496,
+        "height": 278
       },
-      "width": 1880,
-      "height": 276,
-      "bytes": 22095,
+      "width": 1496,
+      "height": 278,
+      "bytes": 19126,
       "h1": [
         "DEMO-2001"
       ],
-      "finalUrl": "http://127.0.0.1:3101/faktura/cmw7rm2ed00064nfjnmdha6lp",
-      "capturedAt": "2026-11-08T12:22:04.557Z"
+      "finalUrl": "http://127.0.0.1:3105/faktura/cmw7rm2ed00064nfjnmdha6lp",
+      "capturedAt": "2026-11-08T18:55:03.405Z"
     },
     {
       "file": "screenshots/manual/regnskap-innstillinger.jpg",
@@ -153,12 +153,12 @@
       },
       "width": 1432,
       "height": 764,
-      "bytes": 67231,
+      "bytes": 67199,
       "h1": [
         "Fakturering og tilbud"
       ],
-      "finalUrl": "http://127.0.0.1:3101/faktura/innstillinger",
-      "capturedAt": "2026-11-08T12:22:06.199Z"
+      "finalUrl": "http://127.0.0.1:3105/faktura/innstillinger",
+      "capturedAt": "2026-11-08T18:55:05.073Z"
     },
     {
       "file": "screenshots/manual/lager-innkjop.jpg",
@@ -171,17 +171,17 @@
       },
       "note": "Ett demoinnkjøp i status Bestilt.",
       "dimensions": {
-        "width": 2392,
+        "width": 2840,
         "height": 630
       },
-      "width": 2392,
+      "width": 2840,
       "height": 630,
-      "bytes": 58324,
+      "bytes": 64615,
       "h1": [
         "Innkjøp"
       ],
-      "finalUrl": "http://127.0.0.1:3101/lager/innkjop",
-      "capturedAt": "2026-11-08T12:22:07.901Z"
+      "finalUrl": "http://127.0.0.1:3105/lager/innkjop",
+      "capturedAt": "2026-11-08T18:55:06.790Z"
     },
     {
       "file": "screenshots/manual/utlegg-godkjenning.jpg",
@@ -194,17 +194,17 @@
       },
       "note": "Én demokjøretur og ett demoutlegg, begge i status Til godkjenning.",
       "dimensions": {
-        "width": 2392,
-        "height": 1000
+        "width": 2840,
+        "height": 984
       },
-      "width": 2392,
-      "height": 1000,
-      "bytes": 108583,
+      "width": 2840,
+      "height": 984,
+      "bytes": 121044,
       "h1": [
         "Utlegg og lønn"
       ],
-      "finalUrl": "http://127.0.0.1:3101/utlegg/kontor",
-      "capturedAt": "2026-11-08T12:22:09.922Z"
+      "finalUrl": "http://127.0.0.1:3105/utlegg/kontor",
+      "capturedAt": "2026-11-08T18:55:08.617Z"
     },
     {
       "file": "screenshots/manual/lonnsomhet-kpi.jpg",
@@ -217,17 +217,17 @@
       },
       "note": "Tallene er estimater fra demo-oppdragene i perioden.",
       "dimensions": {
-        "width": 2648,
+        "width": 2840,
         "height": 568
       },
-      "width": 2648,
+      "width": 2840,
       "height": 568,
-      "bytes": 102048,
+      "bytes": 104775,
       "h1": [
         "Lønnsomhet"
       ],
-      "finalUrl": "http://127.0.0.1:3101/lonnsomhet",
-      "capturedAt": "2026-11-08T12:22:17.060Z"
+      "finalUrl": "http://127.0.0.1:3105/lonnsomhet",
+      "capturedAt": "2026-11-08T18:55:15.760Z"
     },
     {
       "file": "screenshots/manual/innstillinger-email.jpg",
@@ -245,12 +245,12 @@
       },
       "width": 2136,
       "height": 1964,
-      "bytes": 222087,
+      "bytes": 222071,
       "h1": [
         "Innstillinger"
       ],
-      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=email",
-      "capturedAt": "2026-11-08T12:22:19.318Z"
+      "finalUrl": "http://127.0.0.1:3105/innstillinger?tab=email",
+      "capturedAt": "2026-11-08T18:55:17.782Z"
     },
     {
       "file": "screenshots/manual/innstillinger-push.jpg",
@@ -268,12 +268,12 @@
       },
       "width": 2136,
       "height": 1492,
-      "bytes": 128889,
+      "bytes": 128888,
       "h1": [
         "Innstillinger"
       ],
-      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=push",
-      "capturedAt": "2026-11-08T12:22:21.217Z"
+      "finalUrl": "http://127.0.0.1:3105/innstillinger?tab=push",
+      "capturedAt": "2026-11-08T18:55:19.700Z"
     },
     {
       "file": "screenshots/manual/innstillinger-saml.jpg",
@@ -291,12 +291,12 @@
       },
       "width": 2136,
       "height": 494,
-      "bytes": 74139,
+      "bytes": 74157,
       "h1": [
         "Innstillinger"
       ],
-      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=sso",
-      "capturedAt": "2026-11-08T12:22:22.961Z"
+      "finalUrl": "http://127.0.0.1:3105/innstillinger?tab=sso",
+      "capturedAt": "2026-11-08T18:55:21.494Z"
     },
     {
       "file": "screenshots/manual/innstillinger-feltpolicy.jpg",
@@ -314,12 +314,12 @@
       },
       "width": 2136,
       "height": 872,
-      "bytes": 139523,
+      "bytes": 140186,
       "h1": [
         "Innstillinger"
       ],
-      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=roller",
-      "capturedAt": "2026-11-08T12:22:25.006Z"
+      "finalUrl": "http://127.0.0.1:3105/innstillinger?tab=roller",
+      "capturedAt": "2026-11-08T18:55:23.584Z"
     },
     {
       "file": "screenshots/manual/api-oversikt.jpg",
@@ -337,12 +337,12 @@
       },
       "width": 2136,
       "height": 2086,
-      "bytes": 227081,
+      "bytes": 227083,
       "h1": [
         "Innstillinger"
       ],
-      "finalUrl": "http://127.0.0.1:3101/innstillinger?tab=api",
-      "capturedAt": "2026-11-08T12:22:27.035Z"
+      "finalUrl": "http://127.0.0.1:3105/innstillinger?tab=api",
+      "capturedAt": "2026-11-08T18:55:25.855Z"
     }
   ],
   "failures": []

@@ -13,16 +13,16 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
-import { portalBranding } from "@/lib/portal-branding";
 import { resolvePortalAccess } from "@/server/portal-access";
 import { pageWindow, parsePage } from "@/lib/pagination";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon from "@/components/icons";
 import ReportHistory from "@/components/portal/ReportHistory";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
-import PortalSectionNav from "@/components/portal/PortalSectionNav";
-import PortalTabs from "@/components/portal/PortalTabs";
+import PortalShell from "@/components/portal/PortalShell";
 import StatusBadge from "@/components/StatusBadge";
+import { buttonClassName } from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import {
   BOOKING_MIN_LEAD_HOURS,
@@ -33,6 +33,7 @@ import {
 } from "@/server/portal";
 import BookingForm from "./BookingForm";
 import BookingRequests from "./BookingRequests";
+import { PortalNoAccess } from "./portal-page";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
@@ -110,22 +111,7 @@ export default async function KundeportalPage({
 
   const portalAccess = await resolvePortalAccess(user);
   if (!portalAccess.ok) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)]">
-        <div className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center shadow-[0_1px_2px_rgba(20,17,11,0.05)]">
-          <span
-            aria-hidden="true"
-            className="mx-auto mb-4 block h-1 w-10 rounded-full bg-[var(--risk,#f04427)]"
-          />
-          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[#a92a12]">
-            {t("portal.noAccessTitle")}
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted,#62685f)]">
-            {t("portal.noAccessDesc")}
-          </p>
-        </div>
-      </div>
-    );
+    return <PortalNoAccess />;
   }
 
   const customer = await prisma.customer.findFirst({
@@ -144,35 +130,14 @@ export default async function KundeportalPage({
   });
 
   if (!customer) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)]">
-        <div className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center shadow-[0_1px_2px_rgba(20,17,11,0.05)]">
-          <span
-            aria-hidden="true"
-            className="mx-auto mb-4 block h-1 w-10 rounded-full bg-[var(--risk,#f04427)]"
-          />
-          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[#a92a12]">
-            {t("portal.noAccessTitle")}
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted,#62685f)]">
-            {t("portal.noAccessDesc")}
-          </p>
-        </div>
-      </div>
-    );
+    return <PortalNoAccess />;
   }
 
-  const branding = portalBranding(customer);
-  const brandColor = branding.color;
-  const customerLogo = branding.logo;
   const canBookCapability = portalAccess.data.capabilities.canBook;
   const canViewDocuments = portalAccess.data.capabilities.canViewDocuments;
   const canViewEquipment = portalAccess.data.capabilities.canViewEquipment;
   const canViewContracts = portalAccess.data.capabilities.canViewContracts;
-  const [bookingEnabled, reportsEnabled] = await Promise.all([
-    moduleEnabled("booking"),
-    moduleEnabled("reports"),
-  ]);
+  const bookingEnabled = await moduleEnabled("booking");
   const canBook = canBookCapability && bookingEnabled;
 
   const todayText = todayInOslo();
@@ -284,77 +249,25 @@ export default async function KundeportalPage({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] px-4 py-5 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        {/* HEADER */}
-        <header className="relative overflow-hidden rounded-[20px] border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-5 py-6 text-[var(--paper,#f2efe6)] shadow-[4px_4px_0_var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)] sm:px-7 sm:py-7">
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1.5"
-            style={{ backgroundColor: brandColor }}
-          />
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              {customerLogo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={customerLogo}
-                  alt={t("portal.expansion.branding.logoAlt", {
-                    customerName: customer.name,
-                  })}
-                  className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-extrabold text-[var(--ink,#101310)]"
-                  style={{ backgroundColor: brandColor }}
-                >
-                  {customer.name.trim().charAt(0).toUpperCase() || "?"}
-                </span>
-              )}
-              <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#cfc8b9]">
-                {t("portal.headerEyebrow")}
-              </p>
-              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[var(--paper,#f2efe6)] md:text-3xl">
-                {t("portal.headerTitle", { customerName: customer.name })}
-              </h1>
-              <p className="mt-1 text-sm leading-6 text-[#ded8ca]">
-                {t("portal.headerWelcome", {
-                  userName: user.name ?? user.email ?? "",
-                })}
-              </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <Link
-                href="/"
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
-              >
-                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-                {t("portal.home")}
-              </Link>
-              <Link
-                href="/innstillinger?tab=sikkerhet"
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
-              >
-                <Icon name="shield" className="h-4 w-4 shrink-0" />
-                {t("nav.accountSecurity")}
-              </Link>
-              <Link
-                href="/kundeportal"
-                className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--signal,#d8ff3e)] bg-[var(--signal,#d8ff3e)] px-4 text-sm font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_#f2efe6] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_#f2efe6] sm:col-span-1"
-              >
-                {t("portal.refresh")}
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        <PortalTabs active="oversikt" />
-
-        {/* OVERSIKT: neste avtale, ventende saker og rapportkvitteringer */}
+    <PortalShell
+      active="oversikt"
+      customer={{
+        id: customer.id,
+        name: customer.name,
+        brandColor: customer.brandColor,
+        logoUrl: customer.logoUrl,
+      }}
+      userName={user.name ?? user.email ?? ""}
+      headerAction={
+        <Link
+          href="/kundeportal"
+          className={buttonClassName({ size: "sm" })}
+        >
+          {t("portal.refresh")}
+        </Link>
+      }
+    >
+      {/* OVERSIKT: neste avtale, ventende saker og rapportkvitteringer */}
         <section
           id="oversikt"
           aria-labelledby="oversikt-title"
@@ -362,7 +275,7 @@ export default async function KundeportalPage({
         >
           <h2
             id="oversikt-title"
-            className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted,#62685f)]"
+            className="type-eyebrow mb-3 text-[var(--muted,#62685f)]"
           >
             {t("portal.summary.title")}
           </h2>
@@ -468,18 +381,13 @@ export default async function KundeportalPage({
           </div>
         </section>
 
-        <PortalSectionNav
-          showBookings={bookingEnabled}
-          showReports={reportsEnabled}
-        />
-
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* VENSTRE: Utstyr & Avtaler */}
           <div className="space-y-6 lg:col-span-1">
             {/* Registrert utstyr */}
             {canViewEquipment && (
-            <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
-              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <Card as="section" className="space-y-4 p-4 sm:p-5">
+              <h2 className="type-title-3 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-[var(--ink,#101310)]">
                 <span
                   aria-hidden="true"
                   className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
@@ -515,13 +423,13 @@ export default async function KundeportalPage({
                   ))
                 )}
               </div>
-            </section>
+            </Card>
             )}
 
             {/* Serviceavtaler */}
             {canViewContracts && (
-            <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
-              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <Card as="section" className="space-y-4 p-4 sm:p-5">
+              <h2 className="type-title-3 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-[var(--ink,#101310)]">
                 <span
                   aria-hidden="true"
                   className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
@@ -541,7 +449,7 @@ export default async function KundeportalPage({
                           {contract.title}
                         </p>
                         {!contract.isActive && (
-                          <span className="inline-flex min-h-6 items-center rounded-full border border-[#e2cf9b] bg-[#fbf1d2] px-2 py-0.5 text-xs font-bold uppercase text-[#6b4a05]">
+                          <span className="inline-flex min-h-6 items-center rounded-full border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] px-2 py-0.5 text-xs font-bold uppercase text-[var(--warning-text,#7a4f0c)]">
                             {t("portal.contracts.paused")}
                           </span>
                         )}
@@ -576,7 +484,7 @@ export default async function KundeportalPage({
                   ))
                 )}
               </div>
-            </section>
+            </Card>
             )}
           </div>
 
@@ -584,11 +492,12 @@ export default async function KundeportalPage({
           <div className="space-y-6 lg:col-span-2">
             {/* SEND NY FORESPØRSEL */}
             {bookingEnabled && (
-            <section
+            <Card
+              as="section"
               id="bestillinger"
-              className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
+              className="scroll-mt-24 p-4 sm:p-5"
             >
-              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+              <h2 className="type-title-3 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-[var(--ink,#101310)]">
                 <span
                   aria-hidden="true"
                   className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
@@ -613,7 +522,7 @@ export default async function KundeportalPage({
                 sites={customer.sites}
               />
               ) : (
-                <p className="mb-4 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-3 py-2 text-sm leading-5 text-[#6b4a05]">
+                <p className="mb-4 rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] px-3 py-2 text-sm leading-5 text-[var(--warning-text,#7a4f0c)]">
                   {t("portal.expansion.booking.forbidden")}
                 </p>
               )}
@@ -634,13 +543,14 @@ export default async function KundeportalPage({
                 labels={paginationLabels(t)}
                 className="pt-3"
               />
-            </section>
+            </Card>
             )}
 
             {/* KOMMENDE OPPDRAG */}
-            <section
+            <Card
+              as="section"
               id="kommende"
-              className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
+              className="scroll-mt-24 p-4 sm:p-5"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
                 <div className="min-w-0">
@@ -724,7 +634,7 @@ export default async function KundeportalPage({
                 })}
                 className="pt-3"
               />
-            </section>
+            </Card>
           </div>
         </div>
 
@@ -737,14 +647,15 @@ export default async function KundeportalPage({
         )}
 
         {/* KONTAKTINFO: avdeling, ansvarlig montør og oppdateringsskjema */}
-        <section
+        <Card
+          as="section"
           id="kontakt"
           aria-labelledby="kontakt-title"
-          className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
+          className="scroll-mt-24 p-4 sm:p-5"
         >
           <h2
             id="kontakt-title"
-            className="mb-4 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]"
+            className="type-title-3 mb-4 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-[var(--ink,#101310)]"
           >
             <span
               aria-hidden="true"
@@ -874,8 +785,7 @@ export default async function KundeportalPage({
           </div>
 
           <ContactUpdateForm />
-        </section>
-      </div>
-    </div>
+        </Card>
+    </PortalShell>
   );
 }

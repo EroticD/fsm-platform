@@ -23,20 +23,14 @@ import {
 } from "./feedback";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import CustomerToast from "@/components/customer/CustomerToast";
-import {
-  CUSTOMER_CARD,
-  CUSTOMER_CONTROL,
-  CUSTOMER_EYEBROW,
-  CUSTOMER_INK_BUTTON,
-  CUSTOMER_INSET,
-  CUSTOMER_LABEL,
-  CUSTOMER_MUTED,
-  CUSTOMER_RISK_BUTTON,
-  CUSTOMER_SIGNAL_BUTTON,
-  LEGACY_SURFACE,
-} from "@/components/customer/customerStyles";
+import { CUSTOMER_CONTROL, LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
+import { brandInset } from "@/components/ui/brandStyles";
 import Icon from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import SubmitButton from "@/components/SubmitButton";
@@ -215,24 +209,22 @@ export default async function KunderPage({
   };
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <header className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-3 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <p className={CUSTOMER_EYEBROW}>{t("metadata.routes.kunder")}</p>
-            <h1 className="mt-0.5 flex flex-wrap items-baseline gap-2 text-3xl font-black tracking-tight text-[var(--ink,#101310)] md:text-4xl">
-              <span className="truncate">{t("customers.list.title")}</span>
-              <span className={`text-sm font-bold tabular-nums ${CUSTOMER_MUTED}`}>
-                {t("customers.list.total", { total })}
-              </span>
-            </h1>
-          </div>
-          <div className="flex w-full flex-wrap gap-2 md:w-auto">
+    <PageShell>
+      <PageHeader
+        eyebrow={t("metadata.routes.kunder")}
+        title={t("customers.list.title")}
+        subtitle={
+          <span className="type-meta type-tabular">
+            {t("customers.list.total", { total })}
+          </span>
+        }
+        actions={
+          <>
             {user.role === "ADMIN" && (
               <Link
                 href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
                 prefetch={false}
-                className={CUSTOMER_INK_BUTTON}
+                className={buttonClassName({ variant: "secondary", size: "sm" })}
               >
                 <Icon
                   name={showDeleted ? "chevronRight" : "trash"}
@@ -243,163 +235,173 @@ export default async function KunderPage({
                   : t("customers.list.showDeleted")}
               </Link>
             )}
-            <Link href="/" className={CUSTOMER_INK_BUTTON}>
+            <Link
+              href="/"
+              className={buttonClassName({ variant: "secondary", size: "sm" })}
+            >
               <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
               {t("customers.list.backToDashboard")}
             </Link>
-          </div>
-        </header>
+          </>
+        }
+      />
 
-        {statusKey && <CustomerToast message={t(statusKey)} tone="success" />}
+      {statusKey && <CustomerToast message={t(statusKey)} tone="success" />}
 
-        <ErrorBanner
-          message={errorKey ? t(errorKey) : undefined}
-        />
+      <ErrorBanner
+        message={errorKey ? t(errorKey) : undefined}
+      />
 
-        {varsel === "enheter" && (
-          <div
-            className={`${CUSTOMER_INSET} flex items-start gap-2 p-3 text-xs font-bold text-[var(--ink,#101310)]`}
-          >
-            <Icon name="wrench" className="mt-0.5 h-4 w-4 shrink-0" />
-            {t("customers.list.unitsNotice")}
-          </div>
-        )}
+      {varsel === "enheter" && (
+        <div
+          className={`${brandInset} flex items-start gap-2 p-3 text-xs font-bold text-[var(--ink,#101310)]`}
+        >
+          <Icon name="wrench" className="mt-0.5 h-4 w-4 shrink-0" />
+          {t("customers.list.unitsNotice")}
+        </div>
+      )}
 
-        {showDeleted && (
-          <div className="rounded-xl border border-[#e4c98f] bg-[#fdf5e4] p-3 text-xs font-bold text-[#6b4808]">
-            {t("customers.list.deletedTitle")}
-          </div>
-        )}
+      {showDeleted && (
+        <div className="rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] p-3 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
+          {t("customers.list.deletedTitle")}
+        </div>
+      )}
 
-        {/* Søk, sortering og «Ny kunde» samlet i én kompakt verktøylinje. */}
-        <section className={`${CUSTOMER_CARD} overflow-hidden`}>
-          <div className="space-y-3 p-3 sm:p-4">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-              <form
-                method="GET"
-                action="/kunder"
-                className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+      {/* Søk, sortering og «Ny kunde» samlet i én kompakt verktøylinje. */}
+      <Card className="overflow-hidden">
+        <div className="space-y-3 p-3 sm:p-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <form
+              method="GET"
+              action="/kunder"
+              className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+            >
+              {showDeleted && <input type="hidden" name="slettet" value="1" />}
+              {sortKey !== "name" && (
+                <input type="hidden" name="sort" value={sortKey} />
+              )}
+              {sortDir !== "asc" && (
+                <input type="hidden" name="dir" value={sortDir} />
+              )}
+              <div className="relative min-w-[14rem] flex-1">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted,#62685f)]"
+                />
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={search}
+                  aria-label={t("customers.list.searchPlaceholder")}
+                  placeholder={t("customers.list.searchPlaceholder")}
+                  className={`${CUSTOMER_CONTROL} pl-9 text-sm`}
+                />
+              </div>
+              <button
+                type="submit"
+                className={buttonClassName({ variant: "secondary", size: "sm" })}
               >
-                {showDeleted && <input type="hidden" name="slettet" value="1" />}
-                {sortKey !== "name" && (
-                  <input type="hidden" name="sort" value={sortKey} />
-                )}
-                {sortDir !== "asc" && (
-                  <input type="hidden" name="dir" value={sortDir} />
-                )}
-                <div className="relative min-w-[14rem] flex-1">
-                  <Icon
-                    name="search"
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted,#62685f)]"
-                  />
+                {t("customers.list.search")}
+              </button>
+              {search && (
+                <Link
+                  href="/kunder"
+                  prefetch={false}
+                  className={buttonClassName({ variant: "ghost", size: "sm" })}
+                >
+                  {t("customers.list.reset")}
+                </Link>
+              )}
+            </form>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="type-eyebrow text-[var(--muted,#62685f)]">
+                {t("orders.list.sortLabel")}
+              </span>
+              {SORT_OPTIONS.map((option) => {
+                const active = sortKey === option.key;
+                return (
+                  <Link
+                    key={option.key}
+                    href={sortHref(option.key)}
+                    prefetch={false}
+                    aria-current={active ? "true" : undefined}
+                    className={`type-ui inline-flex min-h-9 items-center gap-1 rounded-full border px-3 transition ${
+                      active
+                        ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                        : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                    }`}
+                  >
+                    {t(option.labelKey)}
+                    <span aria-hidden="true" className="inline-flex">
+                      {sortIndicator(option.key)}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ny kunde er fortsatt sammenlagt som standard. */}
+          {office && !showDeleted && (
+            <details className="border-t border-[var(--line,#dedcd1)] pt-3">
+              <summary
+                className={`${buttonClassName({ variant: "primary", size: "sm" })} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
+              >
+                <Icon name="plus" className="h-4 w-4 shrink-0" />
+                {t("customers.list.newCustomer")}
+              </summary>
+              <form
+                action={addCustomer}
+                className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+              >
+                <div>
+                  <label
+                    htmlFor="customer-name"
+                    className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                  >
+                    {t("customers.list.companyName")}
+                  </label>
                   <input
-                    type="search"
-                    name="q"
-                    defaultValue={search}
-                    aria-label={t("customers.list.searchPlaceholder")}
-                    placeholder={t("customers.list.searchPlaceholder")}
-                    className={`${CUSTOMER_CONTROL} pl-9 text-sm`}
+                    id="customer-name"
+                    type="text"
+                    name="name"
+                    placeholder={t("customers.list.namePlaceholder")}
+                    required
+                    aria-required="true"
+                    className={CUSTOMER_CONTROL}
                   />
                 </div>
-                <button type="submit" className={CUSTOMER_INK_BUTTON}>
-                  {t("customers.list.search")}
-                </button>
-                {search && (
-                  <Link
-                    href="/kunder"
-                    prefetch={false}
-                    className={CUSTOMER_INK_BUTTON}
+                <div>
+                  <label
+                    htmlFor="customer-org-number"
+                    className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
                   >
-                    {t("customers.list.reset")}
-                  </Link>
-                )}
+                    {t("customers.list.orgNumber")}
+                  </label>
+                  <input
+                    id="customer-org-number"
+                    type="text"
+                    name="orgNumber"
+                    placeholder={t("customers.list.orgNumberPlaceholder")}
+                    className={CUSTOMER_CONTROL}
+                  />
+                </div>
+                <SubmitButton
+                  pendingLabel={t("customers.list.saving")}
+                  className={`${buttonClassName({ variant: "primary" })} self-end`}
+                >
+                  {t("customers.list.save")}
+                </SubmitButton>
               </form>
+            </details>
+          )}
+        </div>
+      </Card>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className={CUSTOMER_EYEBROW}>
-                  {t("orders.list.sortLabel")}
-                </span>
-                {SORT_OPTIONS.map((option) => {
-                  const active = sortKey === option.key;
-                  return (
-                    <Link
-                      key={option.key}
-                      href={sortHref(option.key)}
-                      prefetch={false}
-                      aria-current={active ? "true" : undefined}
-                      className={`inline-flex min-h-9 items-center gap-1 rounded-full border px-3 text-xs font-bold transition ${
-                        active
-                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
-                          : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
-                      }`}
-                    >
-                      {t(option.labelKey)}
-                      <span aria-hidden="true" className="inline-flex">
-                        {sortIndicator(option.key)}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Ny kunde er fortsatt sammenlagt som standard. */}
-            {office && !showDeleted && (
-              <details className="border-t border-[var(--line,#dedcd1)] pt-3">
-                <summary
-                  className={`${CUSTOMER_SIGNAL_BUTTON} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
-                >
-                  <Icon name="plus" className="h-4 w-4 shrink-0" />
-                  {t("customers.list.newCustomer")}
-                </summary>
-                <form
-                  action={addCustomer}
-                  className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
-                >
-                  <div>
-                    <label htmlFor="customer-name" className={CUSTOMER_LABEL}>
-                      {t("customers.list.companyName")}
-                    </label>
-                    <input
-                      id="customer-name"
-                      type="text"
-                      name="name"
-                      placeholder={t("customers.list.namePlaceholder")}
-                      required
-                      aria-required="true"
-                      className={CUSTOMER_CONTROL}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="customer-org-number"
-                      className={CUSTOMER_LABEL}
-                    >
-                      {t("customers.list.orgNumber")}
-                    </label>
-                    <input
-                      id="customer-org-number"
-                      type="text"
-                      name="orgNumber"
-                      placeholder={t("customers.list.orgNumberPlaceholder")}
-                      className={CUSTOMER_CONTROL}
-                    />
-                  </div>
-                  <SubmitButton
-                    pendingLabel={t("customers.list.saving")}
-                    className={`${CUSTOMER_SIGNAL_BUTTON} self-end`}
-                  >
-                    {t("customers.list.save")}
-                  </SubmitButton>
-                </form>
-              </details>
-            )}
-          </div>
-        </section>
-
-        {/* Desktop: tett tabell på papirflate. Hele raden er klikkbar via en
-            dekkende lenke; handlingene løftes over lenken. */}
-        <section className={`${CUSTOMER_CARD} hidden overflow-hidden md:block`}>
+      {/* Desktop: tett tabell på papirflate. Hele raden er klikkbar via en
+          dekkende lenke; handlingene løftes over lenken. */}
+      <Card as="section" className="hidden overflow-hidden md:block">
           <div
             className="overflow-x-auto"
             role="region"
@@ -409,12 +411,7 @@ export default async function KunderPage({
             <table className="office-table min-w-[60rem]">
               <caption className="sr-only">{t("customers.list.title")}</caption>
               <thead>
-                <tr
-                  style={{
-                    backgroundColor: "var(--ink, #101310)",
-                    color: "var(--paper, #f2efe6)",
-                  }}
-                >
+                <tr>
                   {(
                     [
                       { key: "name", label: t("customers.list.companyName") },
@@ -435,13 +432,7 @@ export default async function KunderPage({
                       aria-sort={
                         column.key ? ariaSort(column.key) : undefined
                       }
-                      style={{
-                        color: "var(--paper, #f2efe6)",
-                        borderBottomColor: "var(--signal, #d8ff3e)",
-                        borderBottomWidth: "2px",
-                        fontSize: "0.75rem",
-                        textAlign: index === 6 ? "right" : "left",
-                      }}
+                      style={{ textAlign: index === 6 ? "right" : "left" }}
                       className="whitespace-nowrap"
                     >
                       {column.key ? (
@@ -451,7 +442,7 @@ export default async function KunderPage({
                           aria-label={t("customers.list.sortBy", {
                             column: column.label,
                           })}
-                          className="inline-flex items-center gap-1 font-bold text-[var(--paper,#f2efe6)] transition hover:text-[var(--signal,#d8ff3e)]"
+                          className="inline-flex items-center gap-1 font-bold transition hover:text-[var(--ink,#101310)]"
                         >
                           {column.label}
                           <span aria-hidden="true">
@@ -468,8 +459,9 @@ export default async function KunderPage({
               <tbody>
                 {customers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className={`p-4 ${LEGACY_SURFACE}`}>
+                    <td colSpan={7} className="p-4">
                       <EmptyState
+                        variant="plain"
                         icon={<Icon name="building" className="h-8 w-8" />}
                         title={
                           search
@@ -481,7 +473,10 @@ export default async function KunderPage({
                             <Link
                               href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
                               prefetch={false}
-                              className={CUSTOMER_SIGNAL_BUTTON}
+                              className={buttonClassName({
+                                variant: "primary",
+                                size: "sm",
+                              })}
                             >
                               {t("customers.list.reset")}
                             </Link>
@@ -499,10 +494,7 @@ export default async function KunderPage({
                     const openOrders = customer._count.workOrder;
 
                     return (
-                      <tr
-                        key={customer.id}
-                        className="group relative border-b border-[var(--line,#dedcd1)] transition last:border-0 hover:bg-[var(--paper,#f2efe6)]/60"
-                      >
+                      <tr key={customer.id} className="group relative transition">
                         <td className="max-w-[22rem] px-3 py-2 align-top">
                           <Link
                             href={`/kunder/${customer.id}`}
@@ -515,9 +507,7 @@ export default async function KunderPage({
                           <span className="relative z-10 block truncate font-bold text-[var(--ink,#101310)]">
                             {customer.name}
                           </span>
-                          <span
-                            className={`relative z-10 mt-0.5 block text-xs ${CUSTOMER_MUTED}`}
-                          >
+                          <span className="relative z-10 mt-0.5 block text-xs text-[var(--muted,#62685f)]">
                             {customer.orgNumber || "–"}
                           </span>
                         </td>
@@ -530,9 +520,7 @@ export default async function KunderPage({
                               <span className="block text-xs font-bold text-[var(--ink,#101310)]">
                                 {contact.name}
                               </span>
-                              <span
-                                className={`block text-xs ${CUSTOMER_MUTED}`}
-                              >
+                              <span className="block text-xs text-[var(--muted,#62685f)]">
                                 {contact.phone || customer.phone || "–"}
                               </span>
                             </>
@@ -576,7 +564,10 @@ export default async function KunderPage({
                                 />
                                 <button
                                   type="submit"
-                                  className={CUSTOMER_INK_BUTTON}
+                                  className={buttonClassName({
+                                    variant: "secondary",
+                                    size: "sm",
+                                  })}
                                 >
                                   <Icon
                                     name="check"
@@ -590,7 +581,10 @@ export default async function KunderPage({
                                 <Link
                                   href={`/kunder/${customer.id}`}
                                   prefetch={false}
-                                  className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-md border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2 text-xs font-bold text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-none"
+                                  className={buttonClassName({
+                                    variant: "primary",
+                                    size: "sm",
+                                  })}
                                 >
                                   {t("customers.list.viewDetails")}
                                   <Icon
@@ -604,7 +598,10 @@ export default async function KunderPage({
                                     prefetch={false}
                                     aria-label={t("customers.list.edit")}
                                     title={t("customers.list.edit")}
-                                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                                    className={`${buttonClassName({
+                                      variant: "secondary",
+                                      size: "sm",
+                                    })} min-w-9 px-0`}
                                   >
                                     <Icon name="edit" className="h-4 w-4" />
                                   </Link>
@@ -629,7 +626,10 @@ export default async function KunderPage({
                                       type="submit"
                                       aria-label={t("customers.list.delete")}
                                       title={t("customers.list.delete")}
-                                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7]"
+                                      className={`${buttonClassName({
+                                        variant: "danger-outline",
+                                        size: "sm",
+                                      })} min-w-9 px-0`}
                                     >
                                       <Icon name="trash" className="h-4 w-4" />
                                     </button>
@@ -646,204 +646,221 @@ export default async function KunderPage({
               </tbody>
             </table>
           </div>
-        </section>
+      </Card>
 
-        {/* Mobil: stablete papirkort med synlige handlinger. */}
-        <div className="space-y-3 md:hidden">
-          {customers.length === 0 ? (
-            <div className={`${CUSTOMER_CARD} p-4 ${LEGACY_SURFACE}`}>
-              <EmptyState
-                icon={<Icon name="building" className="h-8 w-8" />}
-                title={
-                  search
-                    ? t("customers.list.noMatches", { query: search })
-                    : t("customers.list.empty")
-                }
-                action={
-                  search ? (
+      {/* Mobil: stablete papirkort med synlige handlinger. */}
+      <div className="space-y-3 md:hidden">
+        {customers.length === 0 ? (
+          <Card className="p-4">
+            <EmptyState
+              variant="plain"
+              icon={<Icon name="building" className="h-8 w-8" />}
+              title={
+                search
+                  ? t("customers.list.noMatches", { query: search })
+                  : t("customers.list.empty")
+              }
+              action={
+                search ? (
+                  <Link
+                    href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                    prefetch={false}
+                    className={buttonClassName({
+                      variant: "primary",
+                      size: "sm",
+                    })}
+                  >
+                    {t("customers.list.reset")}
+                  </Link>
+                ) : undefined
+              }
+            />
+          </Card>
+        ) : (
+          customers.map((customer) => {
+            const contact = customer.contacts[0] ?? null;
+            const lastService = customer.workOrder[0];
+            const lastServiceDate =
+              lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
+            const openOrders = customer._count.workOrder;
+
+            return (
+              <Card
+                as="article"
+                key={customer.id}
+                className="space-y-3 p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
                     <Link
-                      href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                      href={`/kunder/${customer.id}`}
                       prefetch={false}
-                      className={CUSTOMER_SIGNAL_BUTTON}
+                      className="break-words text-base font-bold text-[var(--ink,#101310)] hover:underline"
                     >
-                      {t("customers.list.reset")}
+                      {customer.name}
                     </Link>
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : (
-            customers.map((customer) => {
-              const contact = customer.contacts[0] ?? null;
-              const lastService = customer.workOrder[0];
-              const lastServiceDate =
-                lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
-              const openOrders = customer._count.workOrder;
+                    <p className="mt-0.5 break-words text-xs text-[var(--muted,#62685f)]">
+                      {customer.orgNumber || "–"}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
+                      openOrders > 0
+                        ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                        : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
+                    }`}
+                  >
+                    <Icon name="folder" className="h-3.5 w-3.5" />
+                    {openOrders} {t("customers.list.openOrders")}
+                  </span>
+                </div>
 
-              return (
-                <article
-                  key={customer.id}
-                  className={`${CUSTOMER_CARD} space-y-3 p-3`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                  <div className="min-w-0">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
+                      {t("customers.list.city")}
+                    </dt>
+                    <dd className="break-words text-[var(--ink,#101310)]">
+                      {customer.city || "–"}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
+                      {t("customers.list.contact")}
+                    </dt>
+                    <dd className="break-words text-[var(--ink,#101310)]">
+                      {contact ? (
+                        <>
+                          <span className="block font-bold">
+                            {contact.name}
+                          </span>
+                          <span className="block text-[var(--muted,#62685f)]">
+                            {contact.phone || customer.phone || "–"}
+                          </span>
+                        </>
+                      ) : (
+                        customer.phone || t("customers.list.noContact")
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
+                      {t("customers.list.openOrders")}
+                    </dt>
+                    <dd className="font-bold tabular-nums text-[var(--ink,#101310)]">
+                      {openOrders}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
+                      {t("customers.list.lastService")}
+                    </dt>
+                    <dd className="break-words text-[var(--ink,#101310)]">
+                      {formatDateLocalized(
+                        lastServiceDate,
+                        locale,
+                        undefined,
+                        t("customers.list.neverServiced"),
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line,#dedcd1)] pt-3">
+                  {showDeleted ? (
+                    <form action={restoreCustomerAction}>
+                      <input type="hidden" name="id" value={customer.id} />
+                      <button
+                        type="submit"
+                        className={buttonClassName({
+                          variant: "secondary",
+                          size: "sm",
+                        })}
+                      >
+                        <Icon name="check" className="h-4 w-4 shrink-0" />
+                        {t("customers.list.restore")}
+                      </button>
+                    </form>
+                  ) : (
+                    <>
                       <Link
                         href={`/kunder/${customer.id}`}
                         prefetch={false}
-                        className="break-words text-base font-bold text-[var(--ink,#101310)] hover:underline"
+                        className={buttonClassName({
+                          variant: "primary",
+                          size: "sm",
+                        })}
                       >
-                        {customer.name}
+                        {t("customers.list.viewDetails")}
+                        <Icon
+                          name="arrowRight"
+                          className="h-3.5 w-3.5 shrink-0"
+                        />
                       </Link>
-                      <p
-                        className={`mt-0.5 break-words text-xs ${CUSTOMER_MUTED}`}
-                      >
-                        {customer.orgNumber || "–"}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
-                        openOrders > 0
-                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
-                          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
-                      }`}
-                    >
-                      <Icon name="folder" className="h-3.5 w-3.5" />
-                      {openOrders} {t("customers.list.openOrders")}
-                    </span>
-                  </div>
-
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                    <div className="min-w-0">
-                      <dt className={CUSTOMER_EYEBROW}>
-                        {t("customers.list.city")}
-                      </dt>
-                      <dd className="break-words text-[var(--ink,#101310)]">
-                        {customer.city || "–"}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className={CUSTOMER_EYEBROW}>
-                        {t("customers.list.contact")}
-                      </dt>
-                      <dd className="break-words text-[var(--ink,#101310)]">
-                        {contact ? (
-                          <>
-                            <span className="block font-bold">
-                              {contact.name}
-                            </span>
-                            <span className={`block ${CUSTOMER_MUTED}`}>
-                              {contact.phone || customer.phone || "–"}
-                            </span>
-                          </>
-                        ) : (
-                          customer.phone || t("customers.list.noContact")
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className={CUSTOMER_EYEBROW}>
-                        {t("customers.list.openOrders")}
-                      </dt>
-                      <dd className="font-bold tabular-nums text-[var(--ink,#101310)]">
-                        {openOrders}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className={CUSTOMER_EYEBROW}>
-                        {t("customers.list.lastService")}
-                      </dt>
-                      <dd className="break-words text-[var(--ink,#101310)]">
-                        {formatDateLocalized(
-                          lastServiceDate,
-                          locale,
-                          undefined,
-                          t("customers.list.neverServiced"),
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line,#dedcd1)] pt-3">
-                    {showDeleted ? (
-                      <form action={restoreCustomerAction}>
-                        <input type="hidden" name="id" value={customer.id} />
-                        <button type="submit" className={CUSTOMER_INK_BUTTON}>
-                          <Icon name="check" className="h-4 w-4 shrink-0" />
-                          {t("customers.list.restore")}
-                        </button>
-                      </form>
-                    ) : (
-                      <>
+                      {office && (
                         <Link
-                          href={`/kunder/${customer.id}`}
+                          href={`/kunder/${customer.id}/rediger`}
                           prefetch={false}
-                          className={CUSTOMER_SIGNAL_BUTTON}
+                          className={buttonClassName({
+                            variant: "secondary",
+                            size: "sm",
+                          })}
                         >
-                          {t("customers.list.viewDetails")}
-                          <Icon
-                            name="arrowRight"
-                            className="h-3.5 w-3.5 shrink-0"
-                          />
+                          <Icon name="edit" className="h-4 w-4 shrink-0" />
+                          {t("customers.list.edit")}
                         </Link>
-                        {office && (
-                          <Link
-                            href={`/kunder/${customer.id}/rediger`}
-                            prefetch={false}
-                            className={CUSTOMER_INK_BUTTON}
+                      )}
+                      {user.role === "ADMIN" && (
+                        <ConfirmSubmitForm
+                          action={deleteCustomerAction}
+                          confirmMessage={t(
+                            "customers.list.deleteConfirm",
+                            { name: customer.name },
+                          )}
+                          confirmLabel={t("delete")}
+                          danger
+                          className="inline-flex"
+                        >
+                          <input
+                            type="hidden"
+                            name="id"
+                            value={customer.id}
+                          />
+                          <button
+                            type="submit"
+                            className={buttonClassName({
+                              variant: "danger-outline",
+                              size: "sm",
+                            })}
                           >
-                            <Icon name="edit" className="h-4 w-4 shrink-0" />
-                            {t("customers.list.edit")}
-                          </Link>
-                        )}
-                        {user.role === "ADMIN" && (
-                          <ConfirmSubmitForm
-                            action={deleteCustomerAction}
-                            confirmMessage={t(
-                              "customers.list.deleteConfirm",
-                              { name: customer.name },
-                            )}
-                            confirmLabel={t("delete")}
-                            danger
-                            className="inline-flex"
-                          >
-                            <input
-                              type="hidden"
-                              name="id"
-                              value={customer.id}
+                            <Icon
+                              name="trash"
+                              className="h-4 w-4 shrink-0"
                             />
-                            <button
-                              type="submit"
-                              className={CUSTOMER_RISK_BUTTON}
-                            >
-                              <Icon
-                                name="trash"
-                                className="h-4 w-4 shrink-0"
-                              />
-                              {t("customers.list.delete")}
-                            </button>
-                          </ConfirmSubmitForm>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
-
-        {totalPages > 1 && (
-          <div className={`pt-1 ${LEGACY_SURFACE}`}>
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              hrefFor={linkFor}
-              labels={paginationLabels(t)}
-              summary={t("customers.list.pagination", { page, totalPages })}
-            />
-          </div>
+                            {t("customers.list.delete")}
+                          </button>
+                        </ConfirmSubmitForm>
+                      )}
+                    </>
+                  )}
+                </div>
+              </Card>
+            );
+          })
         )}
       </div>
-    </div>
+
+      {totalPages > 1 && (
+        <div className={`pt-1 ${LEGACY_SURFACE}`}>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            hrefFor={linkFor}
+            labels={paginationLabels(t)}
+            summary={t("customers.list.pagination", { page, totalPages })}
+          />
+        </div>
+      )}
+    </PageShell>
   );
 }

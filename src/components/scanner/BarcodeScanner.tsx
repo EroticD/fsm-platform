@@ -358,7 +358,7 @@ export default function BarcodeScanner({
       <ScannerNotice kind={scannerNoticeKind(state)}>{notice}</ScannerNotice>
 
       <div
-        className={`relative overflow-hidden rounded-2xl border-2 border-[#2a3328] bg-black ${
+        className={`relative overflow-hidden rounded-2xl border-2 border-[var(--field-line)] bg-black ${
           cameraActive ? "block" : "hidden"
         }`}
       >
@@ -418,11 +418,11 @@ export default function BarcodeScanner({
             value={manual}
             onChange={(event) => setManual(event.target.value)}
             placeholder={t("scanner.manualPlaceholder")}
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#2a3328] bg-field px-3 text-sm font-bold text-paper outline-none transition placeholder:text-paper/45 focus:border-signal"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--field-line)] bg-field px-3 text-sm font-bold text-paper outline-none transition placeholder:text-paper/45 focus:border-signal"
           />
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white/10 px-4 text-sm font-bold text-paper transition hover:bg-white/15"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-surface/10 px-4 text-sm font-bold text-paper transition hover:bg-surface/15"
           >
             <Icon name="search" className="h-4 w-4" />
             {t("scanner.manualSubmit")}

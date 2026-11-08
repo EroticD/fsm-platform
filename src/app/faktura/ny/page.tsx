@@ -4,6 +4,8 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import { buttonClassName } from "@/components/ui/Button";
 import ErrorBanner from "@/components/ErrorBanner";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
@@ -70,58 +72,56 @@ export default async function NewInvoicePage({
   const dueDate = toDateOnly(addDaysUtc(todayUtc(), settings.invoiceDueDays));
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <PageHeader
-          title={t("invoicing.new.title")}
-          subtitle={t("invoicing.new.subtitle")}
-          icon={<Icon name="plus" className="h-5 w-5" />}
-          actions={
-            <Link href="/faktura" className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold">
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("invoicing.new.back")}
-            </Link>
-          }
-        />
-        {params.error ? <ErrorBanner message={t("invoicing.errors.generic")} /> : null}
-        <InvoiceForm
-          action={createInvoiceAction}
-          submitLabel={t("invoicing.new.submit")}
-          cancelHref="/faktura"
-          defaults={{
-            customerId: "",
-            contactId: "",
-            workOrderId: "",
-            reportId: "",
-            quoteId: "",
-            departmentId: user.departmentId ?? "",
-            issueDate,
-            dueDate,
-            vatRate: settings.vatRate.toFixed(2),
-            notes: "",
-            lines: [],
-          }}
-          options={{
-            customers,
-            contacts: [],
-            workOrders,
-            reports: reports.map((report) => ({
-              id: report.id,
-              name: report.name,
-              reportNumber: report.reportNumber,
-              workOrderTitle: report.workOrder.title,
-            })),
-            quotes: quotes.map((quote) => ({
-              id: quote.id,
-              title: quote.title,
-              quoteNumber: quote.quoteNumber,
-              customerName: quote.customer?.name ?? quote.customerName ?? "",
-            })),
-            departments,
-            isAdmin: user.role === "ADMIN",
-          }}
-        />
-      </div>
-    </div>
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("invoicing.new.title")}
+        subtitle={t("invoicing.new.subtitle")}
+        icon={<Icon name="plus" className="h-5 w-5" />}
+        actions={
+          <Link href="/faktura" className={buttonClassName({ variant: "secondary" })}>
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("invoicing.new.back")}
+          </Link>
+        }
+      />
+      {params.error ? <ErrorBanner message={t("invoicing.errors.generic")} /> : null}
+      <InvoiceForm
+        action={createInvoiceAction}
+        submitLabel={t("invoicing.new.submit")}
+        cancelHref="/faktura"
+        defaults={{
+          customerId: "",
+          contactId: "",
+          workOrderId: "",
+          reportId: "",
+          quoteId: "",
+          departmentId: user.departmentId ?? "",
+          issueDate,
+          dueDate,
+          vatRate: settings.vatRate.toFixed(2),
+          notes: "",
+          lines: [],
+        }}
+        options={{
+          customers,
+          contacts: [],
+          workOrders,
+          reports: reports.map((report) => ({
+            id: report.id,
+            name: report.name,
+            reportNumber: report.reportNumber,
+            workOrderTitle: report.workOrder.title,
+          })),
+          quotes: quotes.map((quote) => ({
+            id: quote.id,
+            title: quote.title,
+            quoteNumber: quote.quoteNumber,
+            customerName: quote.customer?.name ?? quote.customerName ?? "",
+          })),
+          departments,
+          isAdmin: user.role === "ADMIN",
+        }}
+      />
+    </PageShell>
   );
 }

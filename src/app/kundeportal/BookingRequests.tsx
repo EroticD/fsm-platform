@@ -33,13 +33,13 @@ const ERROR_KEYS: Record<string, string> = {
 };
 
 const STATUS_CLASSES: Record<PortalBooking["displayStatus"], string> = {
-  pending: "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]",
+  pending: "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
   confirmed:
     "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  completed: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
+  completed: "border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
   cancelled:
-    "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12]",
-  expired: "border-[var(--line,#dedcd1)] bg-[#efede6] text-[var(--muted,#62685f)]",
+    "border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  expired: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
 };
 
 function EventList({ booking }: { booking: PortalBooking }) {
@@ -268,13 +268,13 @@ function BookingRequestCard({
       {changeError && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
+          className="rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(ERROR_KEYS[changeError.reason] ?? "portal.booking.errors.generic")}
         </p>
       )}
       {cancelState.status === "success" && (
-        <p role="status" className="text-xs font-bold text-[#24502f]">
+        <p role="status" className="text-xs font-bold text-[var(--success-text,#283509)]">
           {t(
             cancelState.visitInProgress
               ? "portal.bookingRequests.cancelInProgressSuccess"
@@ -283,7 +283,7 @@ function BookingRequestCard({
         </p>
       )}
       {rescheduleState.status === "success" && (
-        <p role="status" className="text-xs font-bold text-[#24502f]">
+        <p role="status" className="text-xs font-bold text-[var(--success-text,#283509)]">
           {t("portal.bookingRequests.rescheduleSuccess")}
         </p>
       )}
@@ -293,7 +293,7 @@ function BookingRequestCard({
         (canCancel || canReschedule) && (
           <div className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
             {isConfirmed && inProgress && (
-              <p className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-3 py-2 text-xs font-bold text-[#6b4a05]">
+              <p className="rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-3 py-2 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
                 {t("portal.bookingRequests.inProgressNotice")}
               </p>
             )}
@@ -332,7 +332,7 @@ function BookingRequestCard({
                   <button
                     type="button"
                     onClick={() => setConfirmCancel(true)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--risk,#f04427)] bg-transparent px-4 text-sm font-bold text-[#a92a12] transition hover:bg-[#fae8e0]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--risk,#f04427)] bg-transparent px-4 text-sm font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[var(--risk-surface,#fdf4f2)]"
                   >
                     {t(
                       isConfirmed
@@ -345,7 +345,7 @@ function BookingRequestCard({
             ) : (
               <form
                 action={cancelAction}
-                className="space-y-2 rounded-xl border border-[#e7b7a4] bg-[#fae8e0] p-3"
+                className="space-y-2 rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] p-3"
               >
                 <input type="hidden" name="bookingId" value={booking.id} />
                 <p className="text-sm font-bold leading-6 text-[#8f2d0c]">
@@ -401,7 +401,7 @@ function BookingRequestCard({
                     {rescheduleHeld && (
                       <p
                         role="status"
-                        className="rounded-lg border border-[#c7d98e] bg-[#f3fbd1] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]"
+                        className="rounded-lg border border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]"
                       >
                         {t("portal.bookingWizard.selectedSlot", {
                           technician:
@@ -468,7 +468,7 @@ function BookingRequestCard({
                 {rescheduleLeadInvalid && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
+                    className="rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
                   >
                     {t("portal.bookingRequests.leadTimeError", {
                       hours: minLeadHours,
@@ -478,7 +478,7 @@ function BookingRequestCard({
                 {rescheduleWindowInvalid && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
+                    className="rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
                   >
                     {t("portal.booking.windowError")}
                   </p>

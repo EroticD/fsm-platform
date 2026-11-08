@@ -32,7 +32,7 @@ const CHIP =
 const INK_SMALL =
   "inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
 const DANGER_SMALL =
-  "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
+  "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
 
 export default async function TemplatesTab({
   templates,
@@ -172,7 +172,7 @@ export default async function TemplatesTab({
                       {t("settings.templateBuilder.requiresUnits")}
                     </span>
                     {usage > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[#e2cf9b] bg-[#fbf1d2] px-2 py-0.5 text-xs font-bold text-[#6b4a05]">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-2 py-0.5 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
                         <Icon name="alert" className="h-3 w-3 shrink-0" />
                         {t("settings.templates.inUse", { count: usage })}
                       </span>

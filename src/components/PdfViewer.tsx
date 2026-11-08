@@ -46,7 +46,7 @@ export function PdfViewerErrorPanel({
       className="flex min-h-0 flex-1 items-center justify-center p-4"
     >
       <div className="w-full max-w-lg rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-5 text-center shadow-[0_18px_50px_-38px_rgba(16,19,16,0.6)]">
-        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]">
+        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]">
           <Icon name="alert" className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-bold text-[var(--ink,#101310)]">
@@ -232,13 +232,13 @@ export default function PdfViewer({
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-1.5 ${className}`}>
-      <p className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-1.5 text-[11px] text-[var(--muted,#62685f)]">
+      <p className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-1.5 text-2xs text-[var(--muted,#62685f)]">
         {t("orders.pdfViewer.previewHint")}
       </p>
       <iframe
         src={state.url}
         title={t("orders.pdfViewer.iframeTitle", { title })}
-        className="h-full w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white shadow-[0_10px_30px_-24px_rgba(16,19,16,0.5)]"
+        className="h-full w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-surface shadow-[0_10px_30px_-24px_rgba(16,19,16,0.5)]"
       />
     </div>
   );

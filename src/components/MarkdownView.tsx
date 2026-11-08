@@ -72,7 +72,7 @@ const CALLOUT_STYLES: Record<string, { box: string; title: string }> = {
 
 /** Tekststørrelse på rotnoden; underoverskrifter og kode skalerer relativt. */
 const SIZES: Record<"xs" | "sm" | "base" | "md", string> = {
-  xs: "text-[11px] leading-snug",
+  xs: "text-2xs leading-snug",
   sm: "text-xs",
   base: "text-sm",
   md: "text-base",

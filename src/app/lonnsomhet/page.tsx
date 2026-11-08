@@ -6,25 +6,19 @@ import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser, isOffice } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import Icon from "@/components/icons";
 import EmptyState from "@/components/EmptyState";
-import { controlClassName } from "@/components/ui/controlStyles";
+import ErrorBanner from "@/components/ErrorBanner";
+import Card from "@/components/ui/Card";
+import { Field, Input, Select } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
 import {
   getProfitability,
   type ProfitabilityData,
 } from "@/server/bi";
 import type { BiFirstTimeFixOutcome } from "@/lib/bi";
 import { formatDateLocalized } from "@/lib/dates";
-
-const FIELD = controlClassName("min-h-11 text-sm font-medium");
-const SIGNAL_BUTTON =
-  "signal-button whitespace-nowrap text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
-const INK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
-const LABEL =
-  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
-const CARD = "office-card p-4 sm:p-5";
-const MUTED = "text-[var(--muted,#62685f)]";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -101,11 +95,11 @@ function UtilisationBar({
     <div
       role="img"
       aria-label={label}
-      className="h-2 w-full overflow-hidden rounded-full bg-[var(--line,#dedcd1)]"
+      className="h-2 w-full overflow-hidden rounded-full bg-line"
     >
       <div
         aria-hidden="true"
-        className="h-full rounded-full bg-[var(--ink,#101310)]"
+        className="h-full rounded-full bg-ink"
         style={{ width: `${width}%` }}
       />
     </div>
@@ -141,96 +135,93 @@ function BreakdownTable({
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   return (
-    <section className={`${CARD} min-w-0`}>
+    <Card as="section" className="min-w-0 p-4 sm:p-5">
       <div className="mb-3">
-        <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-          {title}
-        </h2>
-        <p className={`mt-0.5 text-sm ${MUTED}`}>{description}</p>
+        <h2 className="type-title-3 text-ink">{title}</h2>
+        <p className="mt-0.5 text-sm text-muted">{description}</p>
       </div>
       {rows.length === 0 ? (
-        <p className={`py-6 text-center text-sm italic ${MUTED}`}>
-          {t("bi.empty.period")}
-        </p>
+        <EmptyState
+          variant="plain"
+          icon={<Icon name="chart" className="h-6 w-6" />}
+          title={t("bi.empty.period")}
+        />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+        <div
+          className="overflow-x-auto"
+          role="region"
+          aria-label={title}
+          tabIndex={0}
+        >
+          <table className="office-table min-w-[720px]">
             <thead>
-              <tr className="border-b border-[var(--line,#dedcd1)] text-left text-xs uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
-                <th scope="col" className="py-2 pr-3 font-bold">
+              <tr>
+                <th scope="col">
                   {t(kind === "technician" ? "bi.table.technician" : "bi.table.customer")}
                 </th>
-                <th scope="col" className="px-2 py-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.orders")}
                 </th>
-                <th scope="col" className="px-2 py-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.work")}
                 </th>
-                <th scope="col" className="px-2 py-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.travel")}
                 </th>
-                <th scope="col" className="px-2 py-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.total")}
                 </th>
                 {kind === "technician" ? (
                   <>
-                    <th scope="col" className="px-2 py-2 text-right font-bold">
+                    <th scope="col" className="text-right">
                       {t("bi.table.available")}
                     </th>
-                    <th scope="col" className="px-2 py-2 font-bold">
-                      {t("bi.table.utilisation")}
-                    </th>
+                    <th scope="col">{t("bi.table.utilisation")}</th>
                   </>
                 ) : null}
-                <th scope="col" className="px-2 py-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.firstTimeFix")}
                 </th>
-                <th scope="col" className="py-2 pl-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.estimatedRevenue")}
                 </th>
-                <th scope="col" className="py-2 pl-2 text-right font-bold">
+                <th scope="col" className="text-right">
                   {t("bi.table.actualRevenue")}
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={`${kind}-${row.id}`}
-                  className="border-b border-[var(--line,#dedcd1)] last:border-0"
-                >
-                  <th
-                    scope="row"
-                    className="max-w-[220px] py-2.5 pr-3 text-left font-semibold text-[var(--ink,#101310)]"
-                  >
+                <tr key={`${kind}-${row.id}`}>
+                  <td className="max-w-[220px] font-semibold text-ink">
                     <span className="block truncate">{row.name}</span>
                     {kind === "technician" ? (
-                      <span className={`block text-xs font-normal ${MUTED}`}>
+                      <span className="block text-xs font-normal text-muted">
                         {t("bi.table.completedOf", {
                           completed: row.completed,
                           total: row.orders,
                         })}
                       </span>
                     ) : null}
-                  </th>
-                  <td className="px-2 py-2.5 text-right tabular-nums">
+                  </td>
+                  <td className="text-right tabular-nums">
                     {count(row.orders, locale)}
                   </td>
-                  <td className="px-2 py-2.5 text-right tabular-nums">
+                  <td className="text-right tabular-nums">
                     {hours(row.workMinutes, locale)}
                   </td>
-                  <td className="px-2 py-2.5 text-right tabular-nums">
+                  <td className="text-right tabular-nums">
                     {hours(row.travelMinutes, locale)}
                   </td>
-                  <td className="px-2 py-2.5 text-right font-bold tabular-nums">
+                  <td className="text-right font-bold tabular-nums">
                     {hours(row.totalMinutes, locale)}
                   </td>
                   {kind === "technician" ? (
                     <>
-                      <td className="px-2 py-2.5 text-right tabular-nums">
+                      <td className="text-right tabular-nums">
                         {hours(row.availableMinutes ?? 0, locale)}
                       </td>
-                      <td className="w-32 px-2 py-2.5">
+                      <td className="w-32">
                         <UtilisationBar
                           value={row.utilizationPercent ?? null}
                           label={t("bi.chart.utilisationAria", {
@@ -238,19 +229,19 @@ function BreakdownTable({
                             percent: percent(row.utilizationPercent ?? null, locale),
                           })}
                         />
-                        <span className="mt-1 block text-right text-xs font-bold tabular-nums text-[var(--ink,#101310)]">
+                        <span className="mt-1 block text-right text-xs font-bold tabular-nums text-ink">
                           {percent(row.utilizationPercent ?? null, locale)}
                         </span>
                       </td>
                     </>
                   ) : null}
-                  <td className="px-2 py-2.5 text-right tabular-nums">
+                  <td className="text-right tabular-nums">
                     {percent(row.firstTimeFixRate, locale)}
                   </td>
-                  <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
+                  <td className="text-right font-bold tabular-nums text-ink">
                     {money(row.estimatedRevenueOre, locale)}
                   </td>
-                  <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
+                  <td className="text-right font-bold tabular-nums text-ink">
                     {money(row.actualRevenueOre, locale)}
                   </td>
                 </tr>
@@ -259,7 +250,7 @@ function BreakdownTable({
           </table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -288,25 +279,22 @@ export default async function ProfitabilityPage({
 
   if (!result.ok) {
     return (
-      <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-6xl space-y-4">
-          <PageHeader
-            title={t("bi.title")}
-            subtitle={t("bi.subtitle")}
-            icon={<Icon name="chart" className="h-5 w-5" />}
-          />
-          <div
-            role="alert"
-            className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
-          >
-            {result.reason === "too_large"
+      <PageShell>
+        <PageHeader
+          title={t("bi.title")}
+          subtitle={t("bi.subtitle")}
+          icon={<Icon name="chart" className="h-5 w-5" />}
+        />
+        <ErrorBanner
+          message={
+            result.reason === "too_large"
               ? t("bi.errors.tooLarge")
               : result.reason === "forbidden"
                 ? t("bi.errors.forbidden")
-                : t("bi.errors.invalid")}
-          </div>
-        </div>
-      </div>
+                : t("bi.errors.invalid")
+          }
+        />
+      </PageShell>
     );
   }
 
@@ -390,393 +378,357 @@ export default async function ProfitabilityPage({
   );
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-4">
-        <PageHeader
-          title={t("bi.title")}
-          subtitle={t("bi.subtitle")}
-          icon={<Icon name="chart" className="h-5 w-5" />}
-          actions={
-            <>
-              <span
-                className={`hidden rounded-full border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] sm:inline-flex`}
-              >
-                {summarySubtitle}
-              </span>
-              <Link href={exportHref(data)} className={SIGNAL_BUTTON}>
-                <Icon name="arrowRight" className="h-4 w-4" />
-                {t("bi.export")}
-              </Link>
-            </>
-          }
-        />
+    <PageShell>
+      <PageHeader
+        title={t("bi.title")}
+        subtitle={t("bi.subtitle")}
+        icon={<Icon name="chart" className="h-5 w-5" />}
+        actions={
+          <>
+            <span className="hidden rounded-full border border-line bg-surface px-3 py-2 text-xs font-bold text-ink sm:inline-flex">
+              {summarySubtitle}
+            </span>
+            <Link
+              href={exportHref(data)}
+              className={buttonClassName({ variant: "primary", size: "sm" })}
+            >
+              <Icon name="arrowRight" className="h-4 w-4" />
+              {t("bi.export")}
+            </Link>
+          </>
+        }
+      />
 
-        {/* FILTER */}
-        <section className={CARD} aria-labelledby="bi-filter-title">
-          <h2 id="bi-filter-title" className="sr-only">
-            {t("bi.filters.title")}
-          </h2>
-          <form
-            action="/lonnsomhet"
-            method="get"
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6"
-          >
-            <label className="min-w-0">
-              <span className={LABEL}>{t("bi.filters.from")}</span>
-              <input
-                type="date"
-                name="fra"
-                defaultValue={data.filters.from}
-                className={FIELD}
-              />
-            </label>
-            <label className="min-w-0">
-              <span className={LABEL}>{t("bi.filters.to")}</span>
-              <input
-                type="date"
-                name="til"
-                defaultValue={data.filters.to}
-                className={FIELD}
-              />
-            </label>
-            <label className="min-w-0">
-              <span className={LABEL}>{t("bi.filters.department")}</span>
-              <select
-                name="avdeling"
-                defaultValue={data.filters.departmentId ?? ""}
-                className={FIELD}
-              >
-                <option value="">{t("bi.filters.allDepartments")}</option>
-                {data.options.departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-0">
-              <span className={LABEL}>{t("bi.filters.customer")}</span>
-              <select
-                name="kunde"
-                defaultValue={data.filters.customerId ?? ""}
-                className={FIELD}
-              >
-                <option value="">{t("bi.filters.allCustomers")}</option>
-                {data.options.customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-0">
-              <span className={LABEL}>{t("bi.filters.technician")}</span>
-              <select
-                name="tekniker"
-                defaultValue={data.filters.technicianId ?? ""}
-                className={FIELD}
-              >
-                <option value="">{t("bi.filters.allTechnicians")}</option>
-                {data.options.technicians.map((technician) => (
-                  <option key={technician.id} value={technician.id}>
-                    {technician.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-end gap-2">
-              <button type="submit" className={`${SIGNAL_BUTTON} flex-1`}>
-                {t("bi.filters.apply")}
-              </button>
-              <Link href="/lonnsomhet" className={INK_BUTTON}>
-                {t("bi.filters.reset")}
-              </Link>
-            </div>
-          </form>
-        </section>
-
-        {/* ESTIMAT-MERKING */}
-        <section
-          aria-labelledby="bi-estimate-title"
-          className="rounded-xl border border-[#d8c79a] bg-[#fbf3d8] p-4 text-sm text-[#5b4a13]"
+      {/* FILTER */}
+      <Card as="section" className="p-4 sm:p-5" aria-labelledby="bi-filter-title">
+        <h2 id="bi-filter-title" className="sr-only">
+          {t("bi.filters.title")}
+        </h2>
+        <form
+          action="/lonnsomhet"
+          method="get"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6"
         >
-          <div className="flex items-start gap-3">
-            <Icon name="alert" className="mt-0.5 h-5 w-5 shrink-0" />
-            <div className="min-w-0">
-              <h2 id="bi-estimate-title" className="font-extrabold">
-                {data.revenue.actualAvailable
-                  ? t("bi.actual.availableTitle")
-                  : t("bi.estimate.title")}
-              </h2>
-              <p className="mt-0.5 leading-6">
-                {data.revenue.actualAvailable
-                  ? t("bi.actual.availableDescription", {
-                      invoices: data.revenue.actualInvoiceCount,
-                    })
-                  : t("bi.actual.unavailableDescription")}
-              </p>
-              <p className="mt-1 text-xs font-semibold">
-                {t("bi.estimate.basis", {
-                  basis: t(`bi.basis.${data.revenue.basis}`),
-                  coverage: percent(data.revenue.coveragePercent, locale),
-                })}
-                {data.revenue.costBasis === "missing"
-                  ? ` ${t("bi.estimate.costMissing")}`
-                  : ` ${t("bi.estimate.costConfigured", {
-                      rate: money(data.revenue.costRateOrePerHour, locale),
-                    })}`}
-              </p>
-            </div>
+          <Field id="bi-from" label={t("bi.filters.from")} className="min-w-0">
+            <Input id="bi-from" type="date" name="fra" defaultValue={data.filters.from} />
+          </Field>
+          <Field id="bi-to" label={t("bi.filters.to")} className="min-w-0">
+            <Input id="bi-to" type="date" name="til" defaultValue={data.filters.to} />
+          </Field>
+          <Field id="bi-department" label={t("bi.filters.department")} className="min-w-0">
+            <Select
+              id="bi-department"
+              name="avdeling"
+              defaultValue={data.filters.departmentId ?? ""}
+            >
+              <option value="">{t("bi.filters.allDepartments")}</option>
+              {data.options.departments.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id="bi-customer" label={t("bi.filters.customer")} className="min-w-0">
+            <Select
+              id="bi-customer"
+              name="kunde"
+              defaultValue={data.filters.customerId ?? ""}
+            >
+              <option value="">{t("bi.filters.allCustomers")}</option>
+              {data.options.customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id="bi-technician" label={t("bi.filters.technician")} className="min-w-0">
+            <Select
+              id="bi-technician"
+              name="tekniker"
+              defaultValue={data.filters.technicianId ?? ""}
+            >
+              <option value="">{t("bi.filters.allTechnicians")}</option>
+              {data.options.technicians.map((technician) => (
+                <option key={technician.id} value={technician.id}>
+                  {technician.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex items-end gap-2">
+            <button
+              type="submit"
+              className={`${buttonClassName({ variant: "primary" })} flex-1`}
+            >
+              {t("bi.filters.apply")}
+            </button>
+            <Link
+              href="/lonnsomhet"
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              {t("bi.filters.reset")}
+            </Link>
           </div>
-        </section>
+        </form>
+      </Card>
 
-        {/* KPI-er */}
-        <section
-          data-bi-kpis
-          aria-label={t("bi.kpis.title")}
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {kpis.map((kpi, index) => (
-            <div
-              key={kpi.label}
-              className="office-card relative overflow-hidden p-4"
-            >
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 top-0 h-1 ${
-                  index === 0
-                    ? "bg-[var(--signal,#d8ff3e)]"
-                    : index === 7
-                      ? "bg-[var(--risk,#f04427)]"
-                      : "bg-[var(--ink,#101310)]"
-                }`}
-              />
-              <p className="text-xs font-bold uppercase leading-4 tracking-[0.08em] text-[var(--muted,#62685f)]">
-                {kpi.label}
-              </p>
-              <p className="mt-2 text-2xl font-extrabold tabular-nums text-[var(--ink,#101310)] sm:text-3xl">
-                {kpi.value}
-              </p>
-              <p className={`mt-1 text-xs font-medium ${MUTED}`}>{kpi.sub}</p>
-            </div>
-          ))}
-        </section>
-
-        {/* ENKEL CSS-GRAF */}
-        <section className={CARD} aria-labelledby="bi-chart-title">
-          <div className="mb-4">
-            <h2
-              id="bi-chart-title"
-              className="text-base font-extrabold text-[var(--ink,#101310)]"
-            >
-              {t("bi.chart.title")}
+      {/* ESTIMAT-MERKING */}
+      <section
+        aria-labelledby="bi-estimate-title"
+        className="rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] p-4 text-sm text-[var(--warning-text,#7a4f0c)]"
+      >
+        <div className="flex items-start gap-3">
+          <Icon name="alert" className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="min-w-0">
+            <h2 id="bi-estimate-title" className="font-extrabold">
+              {data.revenue.actualAvailable
+                ? t("bi.actual.availableTitle")
+                : t("bi.estimate.title")}
             </h2>
-            <p className={`mt-0.5 text-sm ${MUTED}`}>
-              {t("bi.chart.description", {
-                basis: t(`bi.capacityBasis.${data.capacity.basis}`),
+            <p className="mt-0.5 leading-6">
+              {data.revenue.actualAvailable
+                ? t("bi.actual.availableDescription", {
+                    invoices: data.revenue.actualInvoiceCount,
+                  })
+                : t("bi.actual.unavailableDescription")}
+            </p>
+            <p className="mt-1 text-xs font-semibold">
+              {t("bi.estimate.basis", {
+                basis: t(`bi.basis.${data.revenue.basis}`),
+                coverage: percent(data.revenue.coveragePercent, locale),
               })}
+              {data.revenue.costBasis === "missing"
+                ? ` ${t("bi.estimate.costMissing")}`
+                : ` ${t("bi.estimate.costConfigured", {
+                    rate: money(data.revenue.costRateOrePerHour, locale),
+                  })}`}
             </p>
           </div>
-          {data.perTechnician.length === 0 ? (
-            <p className={`py-6 text-center text-sm italic ${MUTED}`}>
-              {t("bi.empty.period")}
+        </div>
+      </section>
+
+      {/* KPI-er */}
+      <section
+        data-bi-kpis
+        aria-label={t("bi.kpis.title")}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {kpis.map((kpi, index) => (
+          <Card key={kpi.label} className="relative overflow-hidden p-4">
+            <span
+              aria-hidden="true"
+              className={`absolute inset-x-0 top-0 h-1 ${
+                index === 0
+                  ? "bg-signal"
+                  : index === 7
+                    ? "bg-[var(--risk,#f04427)]"
+                    : "bg-ink"
+              }`}
+            />
+            <p className="type-eyebrow text-muted">{kpi.label}</p>
+            <p className="mt-2 text-2xl font-extrabold tabular-nums text-ink sm:text-3xl">
+              {kpi.value}
             </p>
-          ) : (
-            <ul className="space-y-3">
-              {data.perTechnician.map((technician) => {
-                const width = Math.round(
-                  (technician.totalMinutes / maxTechnicianMinutes) * 100,
-                );
-                return (
-                  <li key={technician.id} className="min-w-0">
-                    <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="min-w-0 truncate font-semibold text-[var(--ink,#101310)]">
-                        {technician.name}
-                      </span>
-                      <span className="shrink-0 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
-                        {t("bi.chart.hoursOf", {
-                          hours: hours(technician.totalMinutes, locale),
-                          utilisation: percent(
-                            technician.utilizationPercent,
-                            locale,
-                          ),
-                        })}
-                      </span>
-                    </div>
-                    <div
-                      role="img"
-                      aria-label={t("bi.chart.hoursAria", {
-                        name: technician.name,
+            <p className="mt-1 text-xs font-medium text-muted">{kpi.sub}</p>
+          </Card>
+        ))}
+      </section>
+
+      {/* ENKEL CSS-GRAF */}
+      <Card as="section" className="p-4 sm:p-5" aria-labelledby="bi-chart-title">
+        <div className="mb-4">
+          <h2 id="bi-chart-title" className="type-title-3 text-ink">
+            {t("bi.chart.title")}
+          </h2>
+          <p className="mt-0.5 text-sm text-muted">
+            {t("bi.chart.description", {
+              basis: t(`bi.capacityBasis.${data.capacity.basis}`),
+            })}
+          </p>
+        </div>
+        {data.perTechnician.length === 0 ? (
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="chart" className="h-6 w-6" />}
+            title={t("bi.empty.period")}
+          />
+        ) : (
+          <ul className="space-y-3">
+            {data.perTechnician.map((technician) => {
+              const width = Math.round(
+                (technician.totalMinutes / maxTechnicianMinutes) * 100,
+              );
+              return (
+                <li key={technician.id} className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-semibold text-ink">
+                      {technician.name}
+                    </span>
+                    <span className="shrink-0 text-xs font-bold tabular-nums text-muted">
+                      {t("bi.chart.hoursOf", {
                         hours: hours(technician.totalMinutes, locale),
                         utilisation: percent(
                           technician.utilizationPercent,
                           locale,
                         ),
                       })}
-                      className="mt-1 h-4 w-full overflow-hidden rounded-md bg-[var(--paper,#f2efe6)]"
-                    >
-                      <div
-                        aria-hidden="true"
-                        className="h-full rounded-md bg-[var(--ink,#101310)]"
-                        style={{ width: `${Math.max(width, 2)}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className={`mt-3 text-xs ${MUTED}`}>
-            {t("bi.chart.note", {
-              work: hours(data.time.workMinutes, locale),
-              travel: hours(data.time.travelMinutes, locale),
+                    </span>
+                  </div>
+                  <div
+                    role="img"
+                    aria-label={t("bi.chart.hoursAria", {
+                      name: technician.name,
+                      hours: hours(technician.totalMinutes, locale),
+                      utilisation: percent(
+                        technician.utilizationPercent,
+                        locale,
+                      ),
+                    })}
+                    className="mt-1 h-4 w-full overflow-hidden rounded-md bg-paper"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="h-full rounded-md bg-ink"
+                      style={{ width: `${Math.max(width, 2)}%` }}
+                    />
+                  </div>
+                </li>
+              );
             })}
-          </p>
-        </section>
-
-        {data.orders.total === 0 ? (
-          <EmptyState
-            icon={<Icon name="chart" className="h-6 w-6" />}
-            title={t("bi.empty.title")}
-            description={t("bi.empty.description")}
-          />
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <BreakdownTable
-                title={t("bi.tables.technicians")}
-                description={t("bi.tables.techniciansDescription")}
-                rows={data.perTechnician.map((row) => ({
-                  id: row.id,
-                  name: row.name,
-                  orders: row.orders,
-                  completed: row.completed,
-                  workMinutes: row.workMinutes,
-                  travelMinutes: row.travelMinutes,
-                  totalMinutes: row.totalMinutes,
-                  firstTimeFixRate: row.firstTimeFixRate,
-                  estimatedRevenueOre: row.estimatedRevenueOre,
-                  actualRevenueOre: row.actualRevenueOre,
-                  utilizationPercent: row.utilizationPercent,
-                  availableMinutes: row.availableMinutes,
-                }))}
-                kind="technician"
-                locale={locale}
-                t={t}
-              />
-              <BreakdownTable
-                title={t("bi.tables.customers")}
-                description={t("bi.tables.customersDescription")}
-                rows={data.perCustomer.map((row) => ({
-                  id: row.id ?? "none",
-                  name: row.name,
-                  orders: row.orders,
-                  completed: row.completed,
-                  workMinutes: row.workMinutes,
-                  travelMinutes: row.travelMinutes,
-                  totalMinutes: row.totalMinutes,
-                  firstTimeFixRate: row.firstTimeFixRate,
-                  estimatedRevenueOre: row.estimatedRevenueOre,
-                  actualRevenueOre: row.actualRevenueOre,
-                }))}
-                kind="customer"
-                locale={locale}
-                t={t}
-              />
-            </div>
-
-            <section className={`${CARD} min-w-0`} aria-labelledby="bi-orders-title">
-              <div className="mb-3">
-                <h2
-                  id="bi-orders-title"
-                  className="text-base font-extrabold text-[var(--ink,#101310)]"
-                >
-                  {t("bi.tables.orders")}
-                </h2>
-                <p className={`mt-0.5 text-sm ${MUTED}`}>
-                  {t("bi.tables.ordersDescription", {
-                    count: data.perOrder.length,
-                  })}
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[960px] border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--line,#dedcd1)] text-left text-xs uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
-                      <th scope="col" className="py-2 pr-3 font-bold">
-                        {t("bi.table.order")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("bi.table.customer")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("bi.table.status")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("bi.table.technician")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 text-right font-bold">
-                        {t("bi.table.total")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("bi.table.firstTimeFix")}
-                      </th>
-                      <th scope="col" className="py-2 pl-2 text-right font-bold">
-                        {t("bi.table.estimatedRevenue")}
-                      </th>
-                      <th scope="col" className="py-2 pl-2 text-right font-bold">
-                        {t("bi.table.actualRevenue")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.perOrder.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-b border-[var(--line,#dedcd1)] last:border-0"
-                      >
-                        <th
-                          scope="row"
-                          className="max-w-[260px] py-2.5 pr-3 text-left font-semibold text-[var(--ink,#101310)]"
-                        >
-                          <span className="block truncate">{order.title}</span>
-                          <span className={`block text-xs font-normal ${MUTED}`}>
-                            {order.reference}
-                            {order.scheduledFor
-                              ? ` · ${formatDateLocalized(order.scheduledFor, locale) ?? order.scheduledFor}`
-                              : ""}
-                          </span>
-                        </th>
-                        <td className="max-w-[180px] truncate px-2 py-2.5">
-                          {order.customerName}
-                        </td>
-                        <td className="px-2 py-2.5">
-                          {statusLabel(order.status, t)}
-                        </td>
-                        <td className="max-w-[160px] truncate px-2 py-2.5">
-                          {order.technicians || "–"}
-                        </td>
-                        <td className="px-2 py-2.5 text-right tabular-nums">
-                          {hours(order.totalMinutes, locale)}
-                        </td>
-                        <td className="px-2 py-2.5">
-                          {firstTimeFixLabel(order.firstTimeFix, t)}
-                        </td>
-                        <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
-                          {money(order.estimatedRevenueOre, locale)}
-                        </td>
-                        <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
-                          {money(order.actualRevenueOre, locale)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </>
+          </ul>
         )}
-      </div>
-    </div>
+        <p className="mt-3 text-xs text-muted">
+          {t("bi.chart.note", {
+            work: hours(data.time.workMinutes, locale),
+            travel: hours(data.time.travelMinutes, locale),
+          })}
+        </p>
+      </Card>
+
+      {data.orders.total === 0 ? (
+        <EmptyState
+          icon={<Icon name="chart" className="h-6 w-6" />}
+          title={t("bi.empty.title")}
+          description={t("bi.empty.description")}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <BreakdownTable
+              title={t("bi.tables.technicians")}
+              description={t("bi.tables.techniciansDescription")}
+              rows={data.perTechnician.map((row) => ({
+                id: row.id,
+                name: row.name,
+                orders: row.orders,
+                completed: row.completed,
+                workMinutes: row.workMinutes,
+                travelMinutes: row.travelMinutes,
+                totalMinutes: row.totalMinutes,
+                firstTimeFixRate: row.firstTimeFixRate,
+                estimatedRevenueOre: row.estimatedRevenueOre,
+                actualRevenueOre: row.actualRevenueOre,
+                utilizationPercent: row.utilizationPercent,
+                availableMinutes: row.availableMinutes,
+              }))}
+              kind="technician"
+              locale={locale}
+              t={t}
+            />
+            <BreakdownTable
+              title={t("bi.tables.customers")}
+              description={t("bi.tables.customersDescription")}
+              rows={data.perCustomer.map((row) => ({
+                id: row.id ?? "none",
+                name: row.name,
+                orders: row.orders,
+                completed: row.completed,
+                workMinutes: row.workMinutes,
+                travelMinutes: row.travelMinutes,
+                totalMinutes: row.totalMinutes,
+                firstTimeFixRate: row.firstTimeFixRate,
+                estimatedRevenueOre: row.estimatedRevenueOre,
+                actualRevenueOre: row.actualRevenueOre,
+              }))}
+              kind="customer"
+              locale={locale}
+              t={t}
+            />
+          </div>
+
+          <Card
+            as="section"
+            className="min-w-0 p-4 sm:p-5"
+            aria-labelledby="bi-orders-title"
+          >
+            <div className="mb-3">
+              <h2 id="bi-orders-title" className="type-title-3 text-ink">
+                {t("bi.tables.orders")}
+              </h2>
+              <p className="mt-0.5 text-sm text-muted">
+                {t("bi.tables.ordersDescription", {
+                  count: data.perOrder.length,
+                })}
+              </p>
+            </div>
+            <div
+              className="overflow-x-auto"
+              role="region"
+              aria-label={t("bi.tables.orders")}
+              tabIndex={0}
+            >
+              <table className="office-table min-w-[960px]">
+                <thead>
+                  <tr>
+                    <th scope="col">{t("bi.table.order")}</th>
+                    <th scope="col">{t("bi.table.customer")}</th>
+                    <th scope="col">{t("bi.table.status")}</th>
+                    <th scope="col">{t("bi.table.technician")}</th>
+                    <th scope="col" className="text-right">{t("bi.table.total")}</th>
+                    <th scope="col">{t("bi.table.firstTimeFix")}</th>
+                    <th scope="col" className="text-right">{t("bi.table.estimatedRevenue")}</th>
+                    <th scope="col" className="text-right">{t("bi.table.actualRevenue")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.perOrder.map((order) => (
+                    <tr key={order.id}>
+                      <td className="max-w-[260px] font-semibold text-ink">
+                        <span className="block truncate">{order.title}</span>
+                        <span className="block text-xs font-normal text-muted">
+                          {order.reference}
+                          {order.scheduledFor
+                            ? ` · ${formatDateLocalized(order.scheduledFor, locale) ?? order.scheduledFor}`
+                            : ""}
+                        </span>
+                      </td>
+                      <td className="max-w-[180px] truncate">
+                        {order.customerName}
+                      </td>
+                      <td>{statusLabel(order.status, t)}</td>
+                      <td className="max-w-[160px] truncate">
+                        {order.technicians || "–"}
+                      </td>
+                      <td className="text-right tabular-nums">
+                        {hours(order.totalMinutes, locale)}
+                      </td>
+                      <td>{firstTimeFixLabel(order.firstTimeFix, t)}</td>
+                      <td className="text-right font-bold tabular-nums text-ink">
+                        {money(order.estimatedRevenueOre, locale)}
+                      </td>
+                      <td className="text-right font-bold tabular-nums text-ink">
+                        {money(order.actualRevenueOre, locale)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+    </PageShell>
   );
 }

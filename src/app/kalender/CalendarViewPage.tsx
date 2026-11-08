@@ -196,7 +196,7 @@ export default async function CalendarViewPage({
       <div
         className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs sm:px-4 ${
           truncated
-            ? "border-[#e4c98f] bg-[#fdf5e4] text-[#7a4f0c]"
+            ? "border-[#e4c98f] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]"
             : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
         }`}
         role="note"

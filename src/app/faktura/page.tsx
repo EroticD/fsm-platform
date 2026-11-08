@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
+import StatusBadge from "@/components/StatusBadge";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import ErrorBanner from "@/components/ErrorBanner";
 import SubmitButton from "@/components/SubmitButton";
@@ -22,15 +26,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const PAGE_SIZE = 25;
-
-const TONE: Record<string, string> = {
-  DRAFT: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
-  SENT: "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  PARTIALLY_PAID: "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]",
-  PAID: "border-[#b6d7a6] bg-[#edf8e8] text-[#255d17]",
-  OVERDUE: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
-  CREDITED: "border-[#c9c0ac] bg-[#efeee8] text-[#4a473e]",
-};
 
 export default async function InvoicesPage({
   searchParams,
@@ -104,46 +99,55 @@ export default async function InvoicesPage({
   const exportHref = `/api/faktura/eksport${exportQuery.size ? `?${exportQuery.toString()}` : ""}`;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <PageHeader
-          title={t("invoicing.list.title")}
-          subtitle={t("invoicing.list.subtitle")}
-          icon={<Icon name="file" className="h-5 w-5" />}
-          actions={
-            <>
-              {canManage ? (
-                <Link href={exportHref} className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold">
-                  <Icon name="file" className="h-4 w-4" />
-                  {t("invoicing.list.export")}
-                </Link>
-              ) : null}
-              {canManage ? (
-                <Link href="/faktura/ny" className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]">
-                  <Icon name="plus" className="h-4 w-4" />
-                  {t("invoicing.list.new")}
-                </Link>
-              ) : null}
-              {user.role === "ADMIN" ? (
-                <Link href="/faktura/innstillinger" className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 text-xs font-bold">
-                  <Icon name="settings" className="h-4 w-4" />
-                  {t("invoicing.list.settings")}
-                </Link>
-              ) : null}
-            </>
-          }
-        />
+    <PageShell>
+      <PageHeader
+        title={t("invoicing.list.title")}
+        subtitle={t("invoicing.list.subtitle")}
+        icon={<Icon name="file" className="h-5 w-5" />}
+        actions={
+          <>
+            {canManage ? (
+              <Link
+                href={exportHref}
+                className={buttonClassName({ variant: "secondary" })}
+              >
+                <Icon name="file" className="h-4 w-4" />
+                {t("invoicing.list.export")}
+              </Link>
+            ) : null}
+            {canManage ? (
+              <Link
+                href="/faktura/ny"
+                className={buttonClassName({ variant: "primary" })}
+              >
+                <Icon name="plus" className="h-4 w-4" />
+                {t("invoicing.list.new")}
+              </Link>
+            ) : null}
+            {user.role === "ADMIN" ? (
+              <Link
+                href="/faktura/innstillinger"
+                className={buttonClassName({ variant: "secondary" })}
+              >
+                <Icon name="settings" className="h-4 w-4" />
+                {t("invoicing.list.settings")}
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
-        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
-        {params.overdueSweep ? (
-          <p className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 py-3 text-sm font-bold">
-            {t("invoicing.list.overdueSweep", { count: Number(params.overdueSweep) || 0 })}
-          </p>
-        ) : null}
+      {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      {params.overdueSweep ? (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
+          {t("invoicing.list.overdueSweep", { count: Number(params.overdueSweep) || 0 })}
+        </p>
+      ) : null}
 
-        <form method="get" className="office-card flex flex-wrap items-end gap-2 p-3 sm:p-4">
+      <Card className="p-3 sm:p-4">
+        <form method="get" className="flex flex-wrap items-end gap-2">
           <label className="min-w-56 flex-1">
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
+            <span className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]">
               {t("invoicing.list.search")}
             </span>
             <input
@@ -154,78 +158,98 @@ export default async function InvoicesPage({
             />
           </label>
           <label>
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
+            <span className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]">
               {t("invoicing.list.status")}
             </span>
-            <select name="status" defaultValue={status ?? ""} className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm">
+            <select
+              name="status"
+              defaultValue={status ?? ""}
+              className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm"
+            >
               <option value="">{t("invoicing.list.allStatuses")}</option>
               {INVOICE_STATUSES.map((value) => (
                 <option key={value} value={value}>{statusLabel(value)}</option>
               ))}
             </select>
           </label>
-          <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+          <label className="type-ui flex min-h-11 items-center gap-2 text-[var(--ink,#101310)]">
             <input type="checkbox" name="forfalt" value="1" defaultChecked={overdue} className="h-5 w-5" />
             {t("invoicing.list.overdue")}
           </label>
-          <button type="submit" className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]">
+          <button
+            type="submit"
+            className={buttonClassName({ variant: "secondary" })}
+          >
             <Icon name="search" className="h-4 w-4" />
             {t("search")}
           </button>
           {status || overdue || query ? (
-            <Link href="/faktura" className="inline-flex min-h-11 items-center px-2 text-xs font-bold underline">{t("reset")}</Link>
+            <Link
+              href="/faktura"
+              className={buttonClassName({ variant: "ghost" })}
+            >
+              {t("reset")}
+            </Link>
           ) : null}
         </form>
+      </Card>
 
-        {user.role === "ADMIN" ? (
-          <form action={markOverdueAction} className="flex justify-end">
-            <SubmitButton className="inline-flex min-h-10 items-center rounded-[10px] border border-[var(--line,#dedcd1)] px-3 text-xs font-bold" pendingLabel={t("invoicing.list.sweeping")}>
-              {t("invoicing.list.sweep")}
-            </SubmitButton>
-          </form>
-        ) : null}
+      {user.role === "ADMIN" ? (
+        <form action={markOverdueAction} className="flex justify-end">
+          <SubmitButton
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+            pendingLabel={t("invoicing.list.sweeping")}
+          >
+            {t("invoicing.list.sweep")}
+          </SubmitButton>
+        </form>
+      ) : null}
 
-        {invoices.length === 0 ? (
-          <EmptyState title={t("invoicing.list.emptyTitle")} description={t("invoicing.list.emptyDescription")} />
-        ) : (
-          <div className="space-y-2">
-            {invoices.map((invoice) => (
-              <article key={invoice.id} className="office-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/faktura/${invoice.id}`} className="text-sm font-black underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4">
-                      {invoice.invoiceNumber ?? t("invoicing.list.draftNumber")}
-                    </Link>
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase ${TONE[invoice.status] ?? TONE.DRAFT}`}>
-                      {statusLabel(invoice.status)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
-                    {invoice.customer.name}
-                    {" · "}
-                    {invoice.issueDate ? formatDateLocalized(invoice.issueDate, locale) : t("invoicing.list.noDate")}
-                    {invoice.dueDate ? ` · ${t("invoicing.list.due", { date: formatDateLocalized(invoice.dueDate, locale) })}` : ""}
-                    {invoice.lines[0]?.description ? ` · ${invoice.lines[0].description}` : ""}
-                  </p>
+      {invoices.length === 0 ? (
+        <EmptyState title={t("invoicing.list.emptyTitle")} description={t("invoicing.list.emptyDescription")} />
+      ) : (
+        <div className="space-y-2">
+          {invoices.map((invoice) => (
+            <Card
+              as="article"
+              key={invoice.id}
+              className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={`/faktura/${invoice.id}`} className="type-ui underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4">
+                    {invoice.invoiceNumber ?? t("invoicing.list.draftNumber")}
+                  </Link>
+                  <StatusBadge
+                    status={invoice.status}
+                    label={statusLabel(invoice.status)}
+                  />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-black">{formatAmount(invoice.total, invoice.currency)}</p>
-                  <p className="text-xs text-[var(--muted,#62685f)]">
-                    {t("invoicing.list.outstanding", { amount: formatAmount(invoice.outstanding, invoice.currency) })}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+                <p className="type-meta mt-0.5 text-[var(--muted,#62685f)]">
+                  {invoice.customer.name}
+                  {" · "}
+                  {invoice.issueDate ? formatDateLocalized(invoice.issueDate, locale) : t("invoicing.list.noDate")}
+                  {invoice.dueDate ? ` · ${t("invoicing.list.due", { date: formatDateLocalized(invoice.dueDate, locale) })}` : ""}
+                  {invoice.lines[0]?.description ? ` · ${invoice.lines[0].description}` : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="type-ui">{formatAmount(invoice.total, invoice.currency)}</p>
+                <p className="type-meta text-[var(--muted,#62685f)]">
+                  {t("invoicing.list.outstanding", { amount: formatAmount(invoice.outstanding, invoice.currency) })}
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hrefFor={(target) => hrefWith({ side: target > 1 ? String(target) : null })}
-          labels={paginationLabels(t)}
-        />
-      </div>
-    </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(target) => hrefWith({ side: target > 1 ? String(target) : null })}
+        labels={paginationLabels(t)}
+      />
+    </PageShell>
   );
 }

@@ -53,8 +53,8 @@ async function loginCookieHeader(origin, email, password) {
     await page.goto(new URL("/logg-inn", origin).toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.getByLabel("E-post", { exact: true }).fill(email);
-    await page.getByLabel("Passord", { exact: true }).fill(password);
+    await page.getByLabel("E-post").fill(email);
+    await page.getByLabel("Passord").fill(password);
     await page.getByRole("button", { name: "Logg inn" }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/logg-inn"), {
       timeout: 20_000,

@@ -9,14 +9,14 @@ import { formatDateTimeLocalized } from "@/lib/dates";
 import { formatQuantity } from "@/lib/inventory";
 import { getInventoryLocation } from "@/server/inventory";
 import { updateInventoryLocationAction } from "../../actions";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
-const SIGNAL_BUTTON =
-  "signal-button inline-flex min-h-11 items-center justify-center px-4 text-sm";
+import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { Field, Input } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
+import Icon from "@/components/icons";
 
 function param(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -58,128 +58,160 @@ export default async function InventoryLocationPage({
   const returnTo = `/lager/lokasjoner/${location.id}`;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <header className={CARD}>
-          <Link href="/lager" className="text-xs font-bold underline underline-offset-4">
+    <PageShell>
+      <PageHeader
+        eyebrow={t(`inventory.locationType.${location.type.toLowerCase()}`)}
+        title={location.name}
+        icon={<Icon name="map" className="h-5 w-5" />}
+        actions={
+          <Link
+            href="/lager"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
             {t("inventory.back")}
           </Link>
-          <p className={`${LABEL} mt-2`}>{t(`inventory.locationType.${location.type.toLowerCase()}`)}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{location.name}</h1>
-        </header>
+        }
+      />
 
-        {meldt && (
-          <div className="rounded-lg border border-[#a9c96a] bg-[#eef7d6] px-4 py-3 text-sm font-bold text-[#283509]">
-            {t("inventory.feedback.saved")}
+      {meldt && (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
+          {t("inventory.feedback.saved")}
+        </p>
+      )}
+      <ErrorBanner message={feil ? t("inventory.feedback.error") : undefined} />
+
+      <Card as="section" className="p-4 sm:p-5">
+        <h2 className="type-eyebrow text-ink">{t("inventory.stock.levels")}</h2>
+        {levels.length === 0 ? (
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="folder" className="h-6 w-6" />}
+            title={t("inventory.stock.noLevels")}
+          />
+        ) : (
+          <div
+            className="mt-3 overflow-x-auto"
+            role="region"
+            aria-label={t("inventory.stock.levels")}
+            tabIndex={0}
+          >
+            <table className="office-table min-w-[34rem]">
+              <thead>
+                <tr>
+                  <th scope="col">{t("inventory.item.sku")}</th>
+                  <th scope="col">{t("inventory.item.name")}</th>
+                  <th scope="col" className="text-right">
+                    {t("inventory.item.onHand")}
+                  </th>
+                  <th scope="col" className="text-right">
+                    {t("inventory.item.reserved")}
+                  </th>
+                  <th scope="col" className="text-right">
+                    {t("inventory.item.available")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {levels.map((level) => (
+                  <tr key={level.itemId}>
+                    <td className="font-mono text-xs">{level.sku}</td>
+                    <td>
+                      <Link className="font-bold hover:underline" href={`/lager/varer/${level.itemId}`}>
+                        {level.name}
+                      </Link>
+                      {level.low && (
+                        <span className="ml-2 rounded-full border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] px-2 py-0.5 text-2xs font-bold text-[var(--warning-text,#7a4f0c)]">
+                          {t("inventory.item.low")}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right tabular-nums">{formatQuantity(level.quantity)}</td>
+                    <td className="text-right tabular-nums">{formatQuantity(level.reserved)}</td>
+                    <td className="text-right font-bold tabular-nums">{formatQuantity(level.available)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-        {feil && (
-          <div className="rounded-lg border border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
-            {t("inventory.feedback.error")}
+      </Card>
+
+      <Card as="section" className="p-4 sm:p-5">
+        <h2 className="type-eyebrow text-ink">
+          {t("inventory.movements.title")}
+        </h2>
+        {movements.length === 0 ? (
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="clock" className="h-6 w-6" />}
+            title={t("inventory.movements.empty")}
+          />
+        ) : (
+          <div
+            className="mt-3 overflow-x-auto"
+            role="region"
+            aria-label={t("inventory.movements.title")}
+            tabIndex={0}
+          >
+            <table className="office-table min-w-[34rem]">
+              <thead>
+                <tr>
+                  <th scope="col">{t("inventory.movements.at")}</th>
+                  <th scope="col">{t("inventory.movements.type")}</th>
+                  <th scope="col">{t("inventory.item.name")}</th>
+                  <th scope="col" className="text-right">
+                    {t("inventory.movements.quantity")}
+                  </th>
+                  <th scope="col">{t("inventory.movements.reason")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movements.map((movement) => (
+                  <tr key={movement.id}>
+                    <td className="text-xs">{formatDateTimeLocalized(movement.createdAt, locale)}</td>
+                    <td className="font-bold">{movement.type}</td>
+                    <td>{movement.itemName}</td>
+                    <td className="text-right tabular-nums">{formatQuantity(movement.quantity)}</td>
+                    <td className="text-xs">{movement.reason || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+      </Card>
 
-        <section className={CARD}>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-            {t("inventory.stock.levels")}
+      {canManage && (
+        <Card as="section" className="p-4 sm:p-5">
+          <h2 className="type-eyebrow text-ink">
+            {t("inventory.locations.edit")}
           </h2>
-          {levels.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--muted,#62685f)]">
-              {t("inventory.stock.noLevels")}
-            </p>
-          ) : (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted,#62685f)]">
-                    <th className="px-2 py-2">{t("inventory.item.sku")}</th>
-                    <th className="px-2 py-2">{t("inventory.item.name")}</th>
-                    <th className="px-2 py-2 text-right">{t("inventory.item.onHand")}</th>
-                    <th className="px-2 py-2 text-right">{t("inventory.item.reserved")}</th>
-                    <th className="px-2 py-2 text-right">{t("inventory.item.available")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {levels.map((level) => (
-                    <tr key={level.itemId} className="border-t border-[var(--line,#dedcd1)]">
-                      <td className="px-2 py-2 font-mono text-xs">{level.sku}</td>
-                      <td className="px-2 py-2">
-                        <Link className="font-bold hover:underline" href={`/lager/varer/${level.itemId}`}>
-                          {level.name}
-                        </Link>
-                        {level.low && (
-                          <span className="ml-2 rounded-full border border-[#e4c98f] bg-[#fdf5e4] px-2 py-0.5 text-2xs font-bold text-[#6b4808]">
-                            {t("inventory.item.low")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{formatQuantity(level.quantity)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{formatQuantity(level.reserved)}</td>
-                      <td className="px-2 py-2 text-right font-bold tabular-nums">{formatQuantity(level.available)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className={CARD}>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-            {t("inventory.movements.title")}
-          </h2>
-          {movements.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--muted,#62685f)]">
-              {t("inventory.movements.empty")}
-            </p>
-          ) : (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted,#62685f)]">
-                    <th className="px-2 py-2">{t("inventory.movements.at")}</th>
-                    <th className="px-2 py-2">{t("inventory.movements.type")}</th>
-                    <th className="px-2 py-2">{t("inventory.item.name")}</th>
-                    <th className="px-2 py-2 text-right">{t("inventory.movements.quantity")}</th>
-                    <th className="px-2 py-2">{t("inventory.movements.reason")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movements.map((movement) => (
-                    <tr key={movement.id} className="border-t border-[var(--line,#dedcd1)]">
-                      <td className="px-2 py-2 text-xs">{formatDateTimeLocalized(movement.createdAt, locale)}</td>
-                      <td className="px-2 py-2 font-bold">{movement.type}</td>
-                      <td className="px-2 py-2">{movement.itemName}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{formatQuantity(movement.quantity)}</td>
-                      <td className="px-2 py-2 text-xs">{movement.reason || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        {canManage && (
-          <section className={CARD}>
-            <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-              {t("inventory.locations.edit")}
-            </h2>
-            <form action={updateInventoryLocationAction} className="mt-3 grid gap-2 sm:grid-cols-2">
-              <input type="hidden" name="id" value={location.id} />
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input className={CONTROL} name="name" defaultValue={location.name} required />
-              <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
-                <input type="checkbox" name="isActive" value="true" defaultChecked={location.isActive} />
-                {t("inventory.locations.active")}
-              </label>
-              <button className={`${SIGNAL_BUTTON} sm:col-span-2`} type="submit">
-                {t("inventory.item.save")}
-              </button>
-            </form>
-          </section>
-        )}
-      </div>
-    </div>
+          <form action={updateInventoryLocationAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="id" value={location.id} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <Field id="location-name" label={t("inventory.locations.name")} required>
+              <Input id="location-name" name="name" defaultValue={location.name} required />
+            </Field>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+              <input
+                type="checkbox"
+                name="isActive"
+                value="true"
+                defaultChecked={location.isActive}
+                className="h-5 w-5 rounded border-line"
+              />
+              {t("inventory.locations.active")}
+            </label>
+            <button
+              className={`${buttonClassName({ variant: "primary" })} sm:col-span-2`}
+              type="submit"
+            >
+              {t("inventory.item.save")}
+            </button>
+          </form>
+        </Card>
+      )}
+    </PageShell>
   );
 }

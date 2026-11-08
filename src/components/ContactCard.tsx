@@ -17,7 +17,7 @@ const LINK =
 const INK_BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)] [--focus-ring:var(--ink,#101310)]";
 const RISK_BUTTON =
-  "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#e7b5ae] bg-[#fdf4f2] px-2 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7] [--focus-ring:var(--risk-text,#b42318)]";
+  "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#e7b5ae] bg-[#fdf4f2] px-2 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[var(--risk-surface,#fdf4f2)] [--focus-ring:var(--risk-text,#b42318)]";
 
 export default function ContactCard({
   contact,

@@ -176,7 +176,7 @@ export default function PushSettingsTab() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(error)}
         </p>
@@ -313,7 +313,7 @@ export default function PushSettingsTab() {
           </button>
         </div>
         {testResult && (
-          <p className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+          <p className="rounded-xl border border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
             {!testResult.configured
               ? t("push.settings.testNotConfigured")
               : testResult.queued === 0
@@ -347,7 +347,7 @@ export default function PushSettingsTab() {
           </button>
         </div>
         {cleanupResult !== null && (
-          <p className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+          <p className="rounded-xl border border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
             {t("push.settings.cleanupResult", { count: cleanupResult })}
           </p>
         )}

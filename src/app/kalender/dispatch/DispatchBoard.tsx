@@ -306,12 +306,12 @@ export default function DispatchBoard({
               {workOrderStatusLabel !== visitStatusLabel ? (
                 <span
                   title={t("calendar.dispatch.workOrderStatus")}
-                  className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]"
+                  className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]"
                 >
                   {workOrderStatusLabel}
                 </span>
               ) : null}
-              <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--ink,#101310)]">
+              <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-[var(--ink,#101310)]">
                 {visitStatusLabel}
               </span>
             </div>
@@ -363,7 +363,7 @@ export default function DispatchBoard({
                 aria-label={t("calendar.dispatch.removeTechnicianAria", {
                   name: tech.name,
                 })}
-                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-1 text-[11px] font-bold text-[var(--ink,#101310)] transition hover:border-[var(--risk-text,#b42318)] hover:text-[var(--risk-text,#b42318)] disabled:opacity-50"
+                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-1 text-2xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--risk-text,#b42318)] hover:text-[var(--risk-text,#b42318)] disabled:opacity-50"
               >
                 <Icon name="close" className="h-3 w-3" />
                 {t("calendar.dispatch.removeTechnician", { name: tech.name })}
@@ -374,7 +374,7 @@ export default function DispatchBoard({
 
         {visit.candidates.length > 0 && (
           <div className="mt-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
-            <p className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+            <p className="flex items-center justify-between gap-2 text-2xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
               <span>{t("calendar.dispatch.bestMatch")}</span>
               {visit.candidates[0] && (
                 <span className="tabular-nums text-[var(--ink,#101310)]">
@@ -388,7 +388,7 @@ export default function DispatchBoard({
               {visit.candidates.slice(0, 3).map((candidate) => (
                 <li
                   key={candidate.id}
-                  className={`flex min-w-0 items-center justify-between gap-2 rounded-md px-1.5 py-1 text-[11px] ${
+                  className={`flex min-w-0 items-center justify-between gap-2 rounded-md px-1.5 py-1 text-2xs ${
                     candidate.eligible
                       ? "font-bold text-[var(--ink,#101310)]"
                       : "text-[var(--muted,#62685f)]"
@@ -409,7 +409,7 @@ export default function DispatchBoard({
               ))}
             </ul>
             {visit.candidates[0]?.eligible ? (
-              <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-medium tabular-nums text-[var(--muted,#62685f)]">
+              <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-2xs font-medium tabular-nums text-[var(--muted,#62685f)]">
                 <span>
                   {t("calendar.dispatch.scoreSkills")}{" "}
                   {visit.candidates[0].breakdown.skills}
@@ -463,7 +463,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
             >
               <option value="" disabled>
                 {t("calendar.dispatch.selectTechnician")}
@@ -520,7 +520,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
             >
               <option value="" disabled>
                 {visitStatusLabel}
@@ -618,14 +618,14 @@ export default function DispatchBoard({
             {items.length}
           </span>
           {dragOverLane === laneId && dragScore !== null ? (
-            <span className="shrink-0 rounded-full bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-[10px] font-black tabular-nums text-[var(--ink,#101310)]">
+            <span className="shrink-0 rounded-full bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-2xs font-black tabular-nums text-[var(--ink,#101310)]">
               {t("calendar.dispatch.candidateScore", { score: dragScore })}
             </span>
           ) : null}
         </div>
 
         {!technician && (
-          <p className="mb-2 flex items-start gap-1.5 px-1 text-[11px] font-medium leading-snug text-[#7a4f0c]">
+          <p className="mb-2 flex items-start gap-1.5 px-1 text-2xs font-medium leading-snug text-[var(--warning-text,#7a4f0c)]">
             <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {t("calendar.dispatch.unassignDropHint")}
           </p>
@@ -682,7 +682,7 @@ export default function DispatchBoard({
                 type="button"
                 disabled={autoPending}
                 onClick={() => void runAutoAssign(true)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-white px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-surface px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:opacity-50"
               >
                 {t("calendar.dispatch.dryRun")}
               </button>
@@ -720,7 +720,7 @@ export default function DispatchBoard({
                       })}
                 </p>
                 {autoPlan.assignments.length > 0 ? (
-                  <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--muted,#62685f)]">
+                  <ul className="mt-1 space-y-0.5 text-2xs text-[var(--muted,#62685f)]">
                     {autoPlan.assignments.slice(0, 10).map((plan) => (
                       <li key={plan.visitId} className="truncate">
                         {plan.workOrderTitle} → {plan.technicianName} (
@@ -729,12 +729,12 @@ export default function DispatchBoard({
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-1 text-[11px] italic text-[var(--muted,#62685f)]">
+                  <p className="mt-1 text-2xs italic text-[var(--muted,#62685f)]">
                     {t("calendar.dispatch.autoAssignNone")}
                   </p>
                 )}
                 {autoPlan.skipped.length > 0 ? (
-                  <p className="mt-1 text-[11px] font-medium text-[#7a4f0c]">
+                  <p className="mt-1 text-2xs font-medium text-[var(--warning-text,#7a4f0c)]">
                     {t("calendar.dispatch.autoAssignSkipped", {
                       count: autoPlan.skipped.length,
                     })}
@@ -774,7 +774,7 @@ export default function DispatchBoard({
                 />
                 {day.label}
               </h2>
-              <p className="mt-0.5 text-[11px] font-medium text-[var(--muted,#62685f)]">
+              <p className="mt-0.5 text-2xs font-medium text-[var(--muted,#62685f)]">
                 {t("calendar.dispatch.daySyncHint")}
               </p>
             </div>
