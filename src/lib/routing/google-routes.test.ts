@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createGoogleRoutesProvider,
+  GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE,
+  resolveGoogleRoutesConfig,
+} from "./google-routes";
 import { createHaversineProvider } from "./haversine";
 import { resolveRoutingProvider } from "./osrm";
-import {
-  createTrafficProvider,
-  resolveTrafficConfig,
-  TRAFFIC_RATE_LIMIT_PER_MINUTE,
-} from "./traffic";
 import type { RoutingProvider, TravelEstimate } from "./types";
 
 const oslo = { latitude: 59.91, longitude: 10.75 };
@@ -35,29 +35,21 @@ function jsonResponse(body: unknown, status = 200) {
   } as Response;
 }
 
-describe("trafikkleverandør", () => {
+function googleBody(duration = "900s", distanceMeters = 12_000) {
+  return {
+    routes: [{ duration, distanceMeters }],
+  };
+}
+
+describe("Google Routes-trafikk", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("leser trafikkbevisst varighet og avstand fra TomTom", async () => {
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({
-        routes: [
-          {
-            summary: {
-              lengthInMeters: 12_000,
-              travelTimeInSeconds: 900,
-              noTrafficTravelTimeInSeconds: 600,
-              trafficDelayInSeconds: 300,
-            },
-          },
-        ],
-      }),
-    );
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+  it("leser trafikkbevisst varighet og avstand fra Google Routes", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(googleBody()));
+    const provider = createGoogleRoutesProvider({
       apiKey: "hemmelig-nokkel",
       fallback: fallbackProvider(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -68,56 +60,37 @@ describe("trafikkleverandør", () => {
     expect(estimate).toEqual({
       distanceKm: 12,
       durationMinutes: 15,
-      provider: "tomtom",
+      provider: "google",
       traffic: true,
     });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ];
-    expect(url).toContain("/routing/1/calculateRoute/");
-    expect(url).toContain("traffic=true");
+    expect(url).toBe("https://routes.googleapis.com/directions/v2:computeRoutes");
+    expect(init.method).toBe("POST");
     // Nøkkelen sendes som header, ikke i URL-en.
     expect(url).not.toContain("hemmelig-nokkel");
-    expect((init.headers as Record<string, string>)["TomTom-Api-Key"]).toBe(
-      "hemmelig-nokkel",
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Goog-Api-Key"]).toBe("hemmelig-nokkel");
+    expect(headers["X-Goog-FieldMask"]).toBe(
+      "routes.duration,routes.distanceMeters",
     );
+    const body = JSON.parse(String(init.body)) as {
+      travelMode: string;
+      routingPreference: string;
+      origin: { location: { latLng: { latitude: number } } };
+      destination: { location: { latLng: { longitude: number } } };
+    };
+    expect(body.travelMode).toBe("DRIVE");
+    expect(body.routingPreference).toBe("TRAFFIC_AWARE_OPTIMAL");
+    expect(body.origin.location.latLng.latitude).toBe(oslo.latitude);
+    expect(body.destination.location.latLng.longitude).toBe(bergen.longitude);
   });
 
-  it("leser HERE-svaret", async () => {
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({
-        routes: [
-          {
-            sections: [
-              { summary: { length: 5_000, duration: 600, baseDuration: 480 } },
-            ],
-          },
-        ],
-      }),
-    );
-    const provider = createTrafficProvider({
-      provider: "here",
-      apiKey: "here-key",
-      fallback: fallbackProvider(),
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-    });
-
-    const estimate = await provider.route(oslo, bergen);
-
-    expect(estimate.provider).toBe("here");
-    expect(estimate.traffic).toBe(true);
-    expect(estimate.durationMinutes).toBe(10);
-    expect(estimate.distanceKm).toBe(5);
-    const [url] = fetchImpl.mock.calls[0] as unknown as [string];
-    expect(url).toContain("departureTime=now");
-    expect(url).toContain("apikey=here-key");
-  });
-
-  it("faller tilbake til OSRM når trafikkleverandøren feiler", async () => {
+  it("faller tilbake til OSRM når Google feiler", async () => {
     const fallback = fallbackProvider();
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+    const provider = createGoogleRoutesProvider({
       apiKey: "key",
       fallback,
       fetchImpl: (async () =>
@@ -142,8 +115,7 @@ describe("trafikkleverandør", () => {
           });
         }),
     );
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+    const provider = createGoogleRoutesProvider({
       apiKey: "key",
       fallback,
       timeoutMs: 1_000,
@@ -160,14 +132,9 @@ describe("trafikkleverandør", () => {
 
   it("bruker reserven når rate-limit er nådd", async () => {
     let now = 1_000_000;
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({
-        routes: [{ summary: { lengthInMeters: 1_000, travelTimeInSeconds: 60 } }],
-      }),
-    );
+    const fetchImpl = vi.fn(async () => jsonResponse(googleBody("60s", 1_000)));
     const fallback = fallbackProvider();
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+    const provider = createGoogleRoutesProvider({
       apiKey: "key",
       fallback,
       maxRequestsPerMinute: 1,
@@ -175,20 +142,15 @@ describe("trafikkleverandør", () => {
       now: () => now,
     });
 
-    expect((await provider.route(oslo, bergen)).provider).toBe("tomtom");
+    expect((await provider.route(oslo, bergen)).provider).toBe("google");
     now += 1_000;
     expect((await provider.route(oslo, trondheim)).provider).toBe("osrm");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it("cacher trafikksvaret per koordinatnøkkel", async () => {
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({
-        routes: [{ summary: { lengthInMeters: 1_000, travelTimeInSeconds: 60 } }],
-      }),
-    );
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+    const fetchImpl = vi.fn(async () => jsonResponse(googleBody("60s", 1_000)));
+    const provider = createGoogleRoutesProvider({
       apiKey: "key",
       fallback: fallbackProvider(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -203,8 +165,7 @@ describe("trafikkleverandør", () => {
 
   it("lar matrisen gå til OSRM/haversine", async () => {
     const fallback = fallbackProvider();
-    const provider = createTrafficProvider({
-      provider: "here",
+    const provider = createGoogleRoutesProvider({
       apiKey: "key",
       fallback,
       fetchImpl: vi.fn() as unknown as typeof fetch,
@@ -218,8 +179,7 @@ describe("trafikkleverandør", () => {
   it("logger eller returnerer aldri API-nøkkelen ved feil", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const provider = createTrafficProvider({
-      provider: "tomtom",
+    const provider = createGoogleRoutesProvider({
       apiKey: "super-hemmelig",
       fallback: createHaversineProvider(),
       fetchImpl: (async () => {
@@ -236,26 +196,37 @@ describe("trafikkleverandør", () => {
   });
 });
 
-describe("trafikkonfigurasjon", () => {
-  it("ignorerer trafikkleverandør uten nøkkel", () => {
-    expect(
-      resolveTrafficConfig({ ROUTING_PROVIDER: "tomtom" }),
-    ).toBeNull();
-    expect(
-      resolveRoutingProvider({ ROUTING_PROVIDER: "here" }).name,
-    ).toBe("haversine");
+describe("Google Routes-konfigurasjon", () => {
+  it("ignorerer Google uten nøkkel", () => {
+    expect(resolveGoogleRoutesConfig({})).toBeNull();
+    expect(resolveRoutingProvider({}).name).toBe("haversine");
   });
 
-  it("bruker OSRM som reserve når trafikk er konfigurert", () => {
+  it("bruker OSRM som reserve når Google er konfigurert", () => {
     const provider = resolveRoutingProvider({
-      ROUTING_PROVIDER: "tomtom",
-      TOMTOM_API_KEY: "key",
+      GOOGLE_ROUTES_API_KEY: "key",
       OSRM_BASE_URL: "https://osrm.test",
-      TRAFFIC_RATE_LIMIT_PER_MINUTE: String(
-        TRAFFIC_RATE_LIMIT_PER_MINUTE,
+      GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE: String(
+        GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE,
       ),
     });
-    expect(provider.name).toBe("tomtom");
+    expect(provider.name).toBe("google");
+  });
+
+  it("slår av alle eksterne kall med ROUTING_PROVIDER=haversine", () => {
+    expect(
+      resolveGoogleRoutesConfig({
+        ROUTING_PROVIDER: "haversine",
+        GOOGLE_ROUTES_API_KEY: "key",
+      }),
+    ).toBeNull();
+    expect(
+      resolveRoutingProvider({
+        ROUTING_PROVIDER: "haversine",
+        GOOGLE_ROUTES_API_KEY: "key",
+        OSRM_BASE_URL: "https://osrm.test",
+      }).name,
+    ).toBe("haversine");
   });
 
   it("bruker fortsatt OSRM når bare OSRM er konfigurert", () => {

@@ -3,15 +3,12 @@ import type { Coordinates } from "@/lib/geo";
 /**
  * Leverandørene rutinglaget kan svare med.
  *
- * `tomtom` og `here` er trafikkbevisste: reisetiden er hentet med
- * sanntidstrafikk. `osrm` er en vanlig ruteserver uten trafikk, og
- * `haversine` er den lokale reserveberegningen (luftlinje × veifaktor).
+ * `osrm` er en vanlig ruteserver basert på OpenStreetMap uten sanntidstrafikk.
+ * `google` er Google Routes API (Google Maps Platform), som kan svare med
+ * trafikkbevisst varighet når `GOOGLE_ROUTES_API_KEY` er satt. `haversine` er
+ * den lokale reserveberegningen (luftlinje × veifaktor).
  */
-export type RoutingProviderName =
-  | "osrm"
-  | "haversine"
-  | "tomtom"
-  | "here";
+export type RoutingProviderName = "osrm" | "haversine" | "google";
 
 /** Reisetid og avstand mellom to punkter. */
 export type TravelEstimate = {

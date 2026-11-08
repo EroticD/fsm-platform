@@ -68,10 +68,9 @@ export const ROUTE_ERROR_CODES = {
 
 export type RouteSkippedReason =
   | "missing_coordinates"
-  | "outside_time_window"
   | "limit"
   | "missing_skills"
-  | "working_hours"
+  | "overtime_limit"
   | "absence"
   | "ineligible";
 
@@ -88,12 +87,18 @@ export type RoutePlanStop = {
   plannedEndsAt: Date;
   /** Beregnet ankomst til stedet. */
   arrivalAt: Date;
-  /** Foreslått ny start (respekterer tidsvinduet). */
+  /** Foreslått ny start (respekterer tidsvinduet når det er mulig). */
   startsAt: Date;
   endsAt: Date;
   waitMinutes: number;
   travelMinutes: number;
   distanceKm: number;
+  /** Tjenestetid etter arbeidstidens slutt. */
+  overtimeMinutes: number;
+  /** True når visitten planlegges utenfor kundens tidsvindu. */
+  outsideTimeWindow: boolean;
+  /** True når visitten planlegges utenfor montørens arbeidstid. */
+  outsideWorkingHours: boolean;
   point: Coordinates;
 };
 
@@ -113,9 +118,12 @@ export type TechnicianRoutePlan = {
   totalDistanceKm: number;
   totalTravelMinutes: number;
   totalWaitingMinutes: number;
+  /** Sum tjenestetid som faller etter montørens arbeidstid. */
+  totalOvertimeMinutes: number;
   /** Kjøretid/avstand for den opprinnelige rekkefølgen. */
   baselineTravelMinutes: number;
   baselineDistanceKm: number;
+  baselineOvertimeMinutes: number;
   savedTravelMinutes: number;
   savedDistanceKm: number;
   /** False når planen allerede var i den beste rekkefølgen. */
@@ -130,12 +138,43 @@ export type TechnicianRoutePlan = {
 export type RoutePlanOverview = {
   date: string;
   plans: TechnicianRoutePlan[];
+  /** Samlet overtid for alle montører på dagen. */
+  totalOvertimeMinutes: number;
+};
+
+export type RouteOvertimeConfig = {
+  allowOvertime: boolean;
+  maxOvertimeMinutes: number;
 };
 
 export type RoutePlanOptions = {
   routing?: RoutingProvider;
   now?: Date;
+  overtime?: RouteOvertimeConfig;
 };
+
+function truthyFlag(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return fallback;
+  return !["0", "false", "no", "off", "nei", "av"].includes(normalized);
+}
+
+/**
+ * Leser overtidskonfigurasjonen fra servermiljøet.
+ * `ROUTE_ALLOW_OVERTIME` er sann som standard. `ROUTE_MAX_OVERTIME_MINUTES=0`
+ * betyr ingen grense; en positiv verdi er et tak for total overtid per rute.
+ */
+export function resolveRouteOvertimeConfig(
+  env: Record<string, string | undefined> = process.env,
+): RouteOvertimeConfig {
+  const parsed = Number.parseInt(env.ROUTE_MAX_OVERTIME_MINUTES ?? "", 10);
+  return {
+    allowOvertime: truthyFlag(env.ROUTE_ALLOW_OVERTIME, true),
+    maxOvertimeMinutes:
+      Number.isFinite(parsed) && parsed > 0 ? parsed : 0,
+  };
+}
 
 type RouteVisitRow = Prisma.VisitGetPayload<{
   select: typeof routeVisitSelect;
@@ -340,6 +379,10 @@ export async function planTechnicianRoute(input: {
   /** Montørens gyldige kompetanse. Utelatt betyr «ikke kontroller». */
   technicianSkillIds?: readonly string[];
   absences?: Array<{ startsAt: Date; endsAt: Date }>;
+  /** Standard true. False gjør at arbeid etter arbeidstid ikke planlegges. */
+  allowOvertime?: boolean;
+  /** 0 betyr ingen grense; positiv verdi er tak for total overtid. */
+  maxOvertimeMinutes?: number;
 }): Promise<TechnicianRoutePlan> {
   const now = input.now ?? new Date();
   const skipped: RouteSkippedVisit[] = [];
@@ -391,8 +434,10 @@ export async function planTechnicianRoute(input: {
       totalDistanceKm: 0,
       totalTravelMinutes: 0,
       totalWaitingMinutes: 0,
+      totalOvertimeMinutes: 0,
       baselineTravelMinutes: 0,
       baselineDistanceKm: 0,
+      baselineOvertimeMinutes: 0,
       savedTravelMinutes: 0,
       savedDistanceKm: 0,
       orderChanged: false,
@@ -445,6 +490,8 @@ export async function planTechnicianRoute(input: {
     indexById,
     workingHours: input.workingHours ?? null,
     technicianSkillIds: input.technicianSkillIds,
+    allowOvertime: input.allowOvertime ?? true,
+    maxOvertimeMinutes: input.maxOvertimeMinutes ?? 0,
   });
 
   const byId = new Map(planned.map((visit) => [visit.id, visit]));
@@ -470,6 +517,9 @@ export async function planTechnicianRoute(input: {
       waitMinutes: stop.waitMinutes,
       travelMinutes: stop.travelMinutes,
       distanceKm: stop.distanceKm,
+      overtimeMinutes: stop.overtimeMinutes,
+      outsideTimeWindow: stop.outsideTimeWindow,
+      outsideWorkingHours: stop.outsideWorkingHours,
       point,
     });
   }
@@ -477,12 +527,6 @@ export async function planTechnicianRoute(input: {
   for (const row of result.unassigned) {
     const visit = byId.get(row.id);
     if (visit) addSkipped(visit, row.reason as RouteSkippedReason);
-  }
-  const orderedIds = new Set(stops.map((stop) => stop.visitId));
-  for (const visit of planned) {
-    if (!orderedIds.has(visit.id)) {
-      addSkipped(visit, "outside_time_window");
-    }
   }
 
   const finishAt = stops.at(-1)?.endsAt ?? null;
@@ -496,8 +540,10 @@ export async function planTechnicianRoute(input: {
     totalDistanceKm: result.totalDistanceKm,
     totalTravelMinutes: result.totalTravelMinutes,
     totalWaitingMinutes: result.totalWaitingMinutes,
+    totalOvertimeMinutes: result.totalOvertimeMinutes,
     baselineTravelMinutes: result.baselineTravelMinutes,
     baselineDistanceKm: result.baselineDistanceKm,
+    baselineOvertimeMinutes: result.baselineOvertimeMinutes,
     savedTravelMinutes: result.savedTravelMinutes,
     savedDistanceKm: result.savedDistanceKm,
     orderChanged: result.changed,
@@ -740,20 +786,6 @@ function workingHoursFor(
   };
 }
 
-function extendWorkingEnd(
-  window: { start: Date; end: Date } | null,
-  visits: RouteVisitRow[],
-  dayEnd: Date,
-): { start: Date; end: Date } | null {
-  if (!window || visits.length === 0) return window;
-  const latest = Math.max(...visits.map((visit) => visit.endsAt.getTime()));
-  if (latest <= window.end.getTime()) return window;
-  return {
-    start: window.start,
-    end: new Date(Math.min(latest, dayEnd.getTime())),
-  };
-}
-
 /**
  * Dagens (eller valgt dags) rute per montør. Siden kan åpnes av kontoret;
  * visninger krever `workorders.view`, mens «Bruk rekkefølge» krever
@@ -792,6 +824,7 @@ export async function getRoutePlan(
 
   const routing = options.routing ?? getRoutingProvider();
   const now = options.now ?? new Date();
+  const overtime = options.overtime ?? resolveRouteOvertimeConfig();
   const isToday = input.date === dateOnlyInOslo(now);
 
   const plans: TechnicianRoutePlan[] = [];
@@ -812,10 +845,12 @@ export async function getRoutePlan(
     const startAt = new Date(
       Math.max(earliest, isToday ? now.getTime() : 0),
     );
-    const workingHours = extendWorkingEnd(
-      workingHoursFor(input.date, technician, businessHours),
-      visits,
-      loaded.data.dayEnd,
+    // Arbeidstiden er montørens faktiske ramme. Visiter som ikke rekker den,
+    // planlegges med overtid i stedet for å utvides i det stille.
+    const workingHours = workingHoursFor(
+      input.date,
+      technician,
+      businessHours,
     );
     const technicianSkillIds = (technician.skills ?? [])
       .filter(
@@ -835,11 +870,20 @@ export async function getRoutePlan(
         workingHours,
         technicianSkillIds,
         absences: technician.absences ?? [],
+        allowOvertime: overtime.allowOvertime,
+        maxOvertimeMinutes: overtime.maxOvertimeMinutes,
       }),
     );
   }
 
-  return ok({ date: input.date, plans });
+  return ok({
+    date: input.date,
+    plans,
+    totalOvertimeMinutes: plans.reduce(
+      (sum, plan) => sum + plan.totalOvertimeMinutes,
+      0,
+    ),
+  });
 }
 
 export type ApplyRouteOrderInput = {
@@ -863,6 +907,9 @@ type MoveCandidate = {
   visit: RouteVisitRow;
   startsAt: Date;
   endsAt: Date;
+  overtimeMinutes: number;
+  outsideTimeWindow: boolean;
+  outsideWorkingHours: boolean;
 };
 
 /**
@@ -922,7 +969,13 @@ export async function applyRouteOrder(
   const plannedTimes = new Map(
     technicianPlan.stops.map((stop) => [
       stop.visitId,
-      { startsAt: stop.startsAt, endsAt: stop.endsAt },
+      {
+        startsAt: stop.startsAt,
+        endsAt: stop.endsAt,
+        overtimeMinutes: stop.overtimeMinutes,
+        outsideTimeWindow: stop.outsideTimeWindow,
+        outsideWorkingHours: stop.outsideWorkingHours,
+      },
     ]),
   );
 
@@ -968,7 +1021,14 @@ export async function applyRouteOrder(
       ) {
         return fail("conflict", { code: ROUTE_ERROR_CODES.conflict });
       }
-      moves.push({ visit, startsAt: target.startsAt, endsAt: target.endsAt });
+      moves.push({
+        visit,
+        startsAt: target.startsAt,
+        endsAt: target.endsAt,
+        overtimeMinutes: target.overtimeMinutes,
+        outsideTimeWindow: target.outsideTimeWindow,
+        outsideWorkingHours: target.outsideWorkingHours,
+      });
     }
 
     // Alle montører som berøres av flyttingen må være ledige i det nye
@@ -1090,6 +1150,10 @@ export async function applyRouteOrder(
           savedTravelMinutes: technicianPlan.savedTravelMinutes,
           savedDistanceKm: technicianPlan.savedDistanceKm,
           orderChanged: technicianPlan.orderChanged,
+          overtimeMinutes: move.overtimeMinutes,
+          outsideTimeWindow: move.outsideTimeWindow,
+          outsideWorkingHours: move.outsideWorkingHours,
+          totalOvertimeMinutes: technicianPlan.totalOvertimeMinutes,
         },
       });
       applied += 1;

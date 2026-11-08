@@ -42,6 +42,7 @@ const office = {
 
 const plan = {
   date: "2026-11-03",
+  totalOvertimeMinutes: 25,
   plans: [
     {
       technicianId: "tech-1",
@@ -55,8 +56,10 @@ const plan = {
       totalDistanceKm: 10,
       totalTravelMinutes: 20,
       totalWaitingMinutes: 5,
+      totalOvertimeMinutes: 25,
       baselineTravelMinutes: 35,
       baselineDistanceKm: 17.5,
+      baselineOvertimeMinutes: 0,
       savedTravelMinutes: 15,
       savedDistanceKm: 7.5,
       orderChanged: true,
@@ -139,6 +142,8 @@ describe("ruteoptimalisering-API", () => {
     expect(body.dryRun).toBe(true);
     expect(body.applied).toBe(0);
     expect(body.plans[0].savedTravelMinutes).toBe(15);
+    expect(body.plans[0].totalOvertimeMinutes).toBe(25);
+    expect(body.totalOvertimeMinutes).toBe(25);
     expect(mocks.getRoutePlan).toHaveBeenCalledWith(office, {
       date: "2026-11-03",
       technicianId: "tech-1",

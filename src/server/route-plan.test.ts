@@ -25,6 +25,7 @@ import {
   applyRouteOrder,
   getRoutePlan,
   planTechnicianRoute,
+  resolveRouteOvertimeConfig,
   ROUTE_ERROR_CODES,
 } from "./route-plan";
 
@@ -119,6 +120,30 @@ beforeEach(() => {
   mocks.prisma.businessHours.findMany.mockResolvedValue([]);
   mocks.audit.mockResolvedValue(undefined);
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+});
+
+describe("overtidskonfigurasjon", () => {
+  it("planlegger overtid som standard og har ingen grense", () => {
+    expect(resolveRouteOvertimeConfig({})).toEqual({
+      allowOvertime: true,
+      maxOvertimeMinutes: 0,
+    });
+  });
+
+  it("leser avslag og hard grense fra miljøet", () => {
+    expect(
+      resolveRouteOvertimeConfig({
+        ROUTE_ALLOW_OVERTIME: "false",
+        ROUTE_MAX_OVERTIME_MINUTES: "45",
+      }),
+    ).toEqual({ allowOvertime: false, maxOvertimeMinutes: 45 });
+    expect(
+      resolveRouteOvertimeConfig({
+        ROUTE_ALLOW_OVERTIME: "true",
+        ROUTE_MAX_OVERTIME_MINUTES: "-10",
+      }),
+    ).toEqual({ allowOvertime: true, maxOvertimeMinutes: 0 });
+  });
 });
 
 describe("planTechnicianRoute", () => {
@@ -271,7 +296,7 @@ describe("planTechnicianRoute", () => {
     ]);
   });
 
-  it("respekterer arbeidstid og rapporterer årsak", async () => {
+  it("planlegger visitt etter arbeidstid med overtid i stedet for å hoppe over", async () => {
     const result = await planTechnicianRoute({
       technician,
       visits: [
@@ -298,10 +323,50 @@ describe("planTechnicianRoute", () => {
       },
     });
 
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["a", "sen"]);
+    expect(result.skipped).toEqual([]);
+    const late = result.stops.find((stop) => stop.visitId === "sen");
+    expect(late).toMatchObject({
+      outsideWorkingHours: true,
+      outsideTimeWindow: false,
+      overtimeMinutes: 60,
+    });
+    expect(result.totalOvertimeMinutes).toBe(60);
+  });
+
+  it("rapporterer overtime_limit når ruten overskrider en hard grense", async () => {
+    const result = await planTechnicianRoute({
+      technician,
+      visits: [
+        visitRow({
+          id: "a",
+          startsAt: "2026-11-03T09:00:00.000Z",
+          endsAt: "2026-11-03T10:00:00.000Z",
+        }),
+        visitRow({
+          id: "sen",
+          startsAt: "2026-11-03T15:30:00.000Z",
+          endsAt: "2026-11-03T17:00:00.000Z",
+        }),
+      ],
+      routing: provider([
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+      workingHours: {
+        start: new Date("2026-11-03T08:00:00.000Z"),
+        end: new Date("2026-11-03T16:00:00.000Z"),
+      },
+      maxOvertimeMinutes: 15,
+    });
+
     expect(result.stops.map((stop) => stop.visitId)).toEqual(["a"]);
     expect(result.skipped).toEqual([
-      expect.objectContaining({ visitId: "sen", reason: "working_hours" }),
+      expect.objectContaining({ visitId: "sen", reason: "overtime_limit" }),
     ]);
+    expect(result.totalOvertimeMinutes).toBe(0);
   });
 
   it("merker en allerede ordnet dag uten endring", async () => {
@@ -555,6 +620,10 @@ describe("ruteplan-tjeneste", () => {
           savedTravelMinutes: expect.any(Number),
           savedDistanceKm: expect.any(Number),
           orderChanged: expect.any(Boolean),
+          overtimeMinutes: expect.any(Number),
+          outsideTimeWindow: expect.any(Boolean),
+          outsideWorkingHours: expect.any(Boolean),
+          totalOvertimeMinutes: expect.any(Number),
         }),
       }),
     );

@@ -1,6 +1,6 @@
 # Ruting, trafikk og ruteoptimalisering
 
-Dette dokumentet beskriver ruteleverandørene, trafikk-ETA, flerpunkts­optimaliseringen
+Dette dokumentet beskriver ruteleverandørene, trafikk-ETA, overtidsplanlegging
 og grensene i `src/lib/routing/**` og `src/server/route-plan.ts`.
 
 ## Lagene
@@ -8,84 +8,142 @@ og grensene i `src/lib/routing/**` og `src/server/route-plan.ts`.
 | Lag | Ansvar | Kilde |
 | --- | --- | --- |
 | `route-plan.ts` | Laster visiter, kompetanse, arbeidstid og avvik, og bygger én plan per montør | Prisma |
-| `route-optimizer.ts` | Ren optimalisering med tidsvinduer, kompetanse, prioritet og arbeidstid | Ingen I/O |
-| `osrm.ts` | OSRM `/route` og `/table` med cache og reserve | `OSRM_BASE_URL` |
-| `traffic.ts` | Trafikkbevisst enkeltstrekning via TomTom eller HERE | `TOMTOM_API_KEY` / `HERE_API_KEY` |
+| `route-optimizer.ts` | Ren optimalisering med tidsvinduer, kompetanse, prioritet, arbeidstid og overtid | Ingen I/O |
+| `osrm.ts` | Ruting og flerpunktsmatrise via OSRM med cache og reserve | `OSRM_BASE_URL` |
+| `google-routes.ts` | Trafikkbevisst enkeltstrekning via Google Routes API | `GOOGLE_ROUTES_API_KEY` |
 | `haversine.ts` | Lokal reserve: luftlinje × 1,35 / gjennomsnittsfart | Ingen I/O |
+
+Grunnlaget for ruting er **OpenStreetMap via OSRM**. OSRM er en vanlig
+ruteserver og har **ingen sanntidstrafikk**. Trafikkbevisst ETA er en valgfri
+tilleggskilde: **Google Routes API** (Google Maps Platform).
 
 Rekkefølgen er alltid:
 
-1. Trafikkleverandør for enkeltstrekninger, når den er konfigurert.
+1. Google Routes for enkeltstrekninger, når `GOOGLE_ROUTES_API_KEY` er satt.
 2. OSRM for ruter og matriser.
 3. Haversine når ingen ekstern leverandør svarer.
 
-Reserven er deterministisk. En feil, timeout, tom respons eller manglende
-API-nøkkel gir aldri en feilet ruteplan – den gir OSRM, deretter haversine.
+Reserven er deterministisk. En feil, timeout, tom respons, manglende nøkkel
+eller nådd kvote gir aldri en feilet ruteplan – den gir OSRM, deretter
+haversine.
 
 ## Miljøvariabler
 
 ```dotenv
-# Vanlig OSRM-kompatibel ruteserver. Brukes til /table i optimaliseringen.
+# OSRM-kompatibel ruteserver basert på OpenStreetMap. Brukes til ruter og
+# /table i optimaliseringen. Uten OSRM_BASE_URL gjøres ingen nettverkskall.
 ROUTING_PROVIDER=osrm
 OSRM_BASE_URL=https://osrm.example.com
 ROUTING_TIMEOUT_MS=60000
 
-# Valgfri trafikkleverandør for ETA. Setter du denne, brukes den til
-# enkeltstrekninger; matrisen går fortsatt til OSRM.
-TRAFFIC_PROVIDER=tomtom          # tomtom | here
-TOMTOM_API_KEY=...
-HERE_API_KEY=...
-TRAFFIC_TIMEOUT_MS=8000
-TRAFFIC_CACHE_TTL_MS=60000
-TRAFFIC_RATE_LIMIT_PER_MINUTE=60
+# Valgfri trafikkbevisst ETA fra Google Routes API. Uten nøkkel brukes
+# OSRM/haversine, som ikke har sanntidstrafikk.
+GOOGLE_ROUTES_API_KEY=...
+GOOGLE_ROUTES_TIMEOUT_MS=8000
+GOOGLE_ROUTES_CACHE_TTL_MS=60000
+GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE=60
 
 # Valgfritt, for proxy eller testmiljø:
-# TOMTOM_BASE_URL=https://api.tomtom.com
-# HERE_BASE_URL=https://router.hereapi.com
+# GOOGLE_ROUTES_BASE_URL=https://routes.googleapis.com
+
+# Overtid i ruteplanen.
+ROUTE_ALLOW_OVERTIME=true
+ROUTE_MAX_OVERTIME_MINUTES=0
 
 # Farten den lokale reserven bruker.
 TRACKING_AVERAGE_SPEED_KMH=50
 ```
 
-`ROUTING_PROVIDER=tomtom` eller `ROUTING_PROVIDER=here` virker også som
-kortform for `TRAFFIC_PROVIDER`. En trafikkleverandør uten nøkkel ignoreres
-bevisst, slik at en glemt hemmelighet gir OSRM/haversine i stedet for
-gjentatte feilede kall.
+`ROUTING_PROVIDER` kan være `osrm` eller `haversine`. `haversine` slår bevisst
+av alle eksterne rute- og trafikkall, også når en Google-nøkkel finnes.
+Ukjente verdier ignoreres og gir haversine.
 
-### TomTom
+### Google Routes API
 
-- Endepunkt: `GET /routing/1/calculateRoute/{lon},{lat}:{lon},{lat}/json`.
-- Appen sender `traffic=true`, `travelMode=car`, `routeType=fastest` og
-  `computeTravelTimeFor=all`.
-- Nøkkelen sendes i headeren `TomTom-Api-Key`, ikke i URL-en, slik at den
-  ikke havner i proxy-logger.
-- `travelTimeInSeconds` er trafikkbevisst varighet; `lengthInMeters` er
-  avstand. `trafficDelayInSeconds` brukes ikke i beregningen, men er grunnen
-  til at `traffic: true` settes på svaret.
+- Endepunkt: `POST /directions/v2:computeRoutes` på
+  `https://routes.googleapis.com`.
+- Appen sender `travelMode=DRIVE`,
+  `routingPreference=TRAFFIC_AWARE_OPTIMAL`, `computeAlternativeRoutes=false`
+  og `units=METRIC`. Avreisetid utelates, slik at Google bruker «nå» og
+  trafikken på det tidspunktet.
+- Feltene som faktisk leses er `routes.duration` og
+  `routes.distanceMeters`. `duration` er **trafikkbevisst varighet**;
+  `distanceMeters` er **kjørt avstand**. `staticDuration` hentes ikke.
+- Vellykkede svar merkes med `provider: "google"` og `traffic: true`.
+- API-nøkkelen sendes i headeren `X-Goog-Api-Key`, ikke i URL-en, og logges
+  eller returneres aldri. Feilmeldinger inneholder bare HTTP-status.
+- Google brukes bare for én strekning (`route`). Flerpunktsmatrisen går
+  fortsatt til OSRM fordi Google-matriser har egne kvoter og priser, og fordi
+  hele ruten da får ett konsistent reisegrunnlag.
 
-### HERE
+### OSRM og OpenStreetMap
 
-- Endepunkt: `GET /v8/routes` med `departureTime=now`, `return=summary`.
-- `duration` er trafikkbevisst varighet i sekunder; `length` er avstand i
-  meter. `baseDuration` er uten trafikk.
-- Nøkkelen sendes som `apikey` i query. Den logges aldri av appen.
+- `GET /route/v1/driving/{lon},{lat};{lon},{lat}` for enkeltstrekninger.
+- `GET /table/v1/driving/...` for reisematrisen i optimaliseringen.
+- OSRM svarer med `distance` (meter) og `duration` (sekunder) uten
+  trafikkbevissthet. Det er derfor ETA uten Google-nøkkel er et
+  rute-/hastighetsanslag, ikke sanntid.
 
-### Kostnader og kvoter
+### Cache, kvoter og kostnader
 
-Trafikkleverandører tar betalt per ruteberegning. Appen begrenser derfor
-bruken:
+Både OSRM-adapteren og Google-adapteren har per-prosess cache og
+tidsavbrudd. Google har i tillegg et lokalt tak:
 
-- **Cache:** vellykkede svar caches i `TRAFFIC_CACHE_TTL_MS` (standard 60 s)
-  per avrundet koordinatnøkkel. Cachen er per prosess/instans, ikke delt.
-- **Rate limit:** maks `TRAFFIC_RATE_LIMIT_PER_MINUTE` kall per minutt per
-  prosess (standard 60). Over grensen brukes OSRM/haversine uten å kalle
-  trafikkleverandøren. Sett `0` for å slå trafikk helt av uten å fjerne
-  nøkkelen.
-- **Ingen matrisekall:** TomTom/HERE brukes bare for én strekning. OSRMs
-  `/table` brukes for flerpunktsoptimalisering. Det holder kostnaden nede og
-  gir ett konsistent reisegrunnlag i hele ruten.
-- **Tidsavbrudd:** `TRAFFIC_TIMEOUT_MS` (standard 8 000 ms, tillatt
+- **Cache:** vellykkede Google-svar caches i `GOOGLE_ROUTES_CACHE_TTL_MS`
+  (standard 60 s) per avrundet koordinatnøkkel. Cachen er per
+  prosess/instans, ikke delt mellom instanser.
+- **Rate limit:** maks `GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE` kall per minutt
+  per prosess (standard 60). Over grensen brukes OSRM/haversine uten å kalle
+  Google. Sett `0` for å slå av Google uten å fjerne nøkkelen.
+- **Ingen matrisekall:** Google brukes bare for én strekning. OSRMs `/table`
+  brukes for flerpunktsoptimalisering.
+- **Tidsavbrudd:** `GOOGLE_ROUTES_TIMEOUT_MS` (standard 8 000 ms, tillatt
   1 000–30 000). Et tidsavbrudd faller tilbake til OSRM/haversine.
+- **Kostnader:** Google Maps Platform fakturerer per ruteberegning, og
+  trafikkbevisst ruting kan ha høyere SKU enn enkel ruting. Sjekk gjeldende
+  priser og kvoter i Google Cloud-prosjektet. OSRM er gratis programvare, men
+  krever egen server og drift. Cache, rate limit og fravær av matrisekall er
+  de viktigste kostnadsbegrensningene.
+
+## Overtid og tidsvinduer
+
+En visitt skal **alltid planlegges** selv om den ikke rekker kundens
+tidsvindu eller montørens arbeidstid. Den blir ikke lenger ufordelt av disse
+årsakene. I stedet får stoppet:
+
+- `startsAt`/`endsAt`: faktisk planlagt start og slutt.
+- `outsideTimeWindow`: true når jobben starter etter visittens seneste
+  starttid (`endsAt - tjenestetid`).
+- `outsideWorkingHours`: true når jobben varer forbi arbeidstidens slutt.
+- `overtimeMinutes`: antall tjenesteminutter som faller etter arbeidstidens
+  slutt. En visitt som starter etter arbeidstid teller bare selve
+  tjenestetiden, ikke reise- eller ventetid før. Kunderelatert
+  `outsideTimeWindow` innenfor arbeidstiden gir flagg, men ikke overtid.
+
+Ruten summerer `totalOvertimeMinutes`, og både API og rutesiden viser totalen
+og per-stopp-overtid.
+
+### Konfigurasjon
+
+| Variabel | Standard | Betydning |
+| --- | --- | --- |
+| `ROUTE_ALLOW_OVERTIME` | `true` | `false` gjør at arbeid etter arbeidstid ikke planlegges. Visitten rapporteres da som `overtime_limit`. |
+| `ROUTE_MAX_OVERTIME_MINUTES` | `0` | `0` = ingen grense. En positiv verdi er et tak for **total** overtid per rute. Visitten som ville overskride taket rapporteres som `overtime_limit`. |
+
+Standardoppsettet planlegger altså all overtid. En hard grense er bevisst
+opt-in, slik at en travel dag ikke plutselig mister visiter.
+
+### Hva som fortsatt kan bli ufordelt
+
+Bare genuint umulige visiter blir ufordelte:
+
+- `missing_coordinates`: mangler koordinater fra oppdrag, site eller kunde.
+- `missing_skills`: montøren mangler et obligatorisk kompetansekrav.
+- `absence`: visitten kolliderer med registrert ferie/sykdom.
+- `overtime_limit`: ruten ville bryte `ROUTE_ALLOW_OVERTIME=false` eller en
+  positiv `ROUTE_MAX_OVERTIME_MINUTES`.
+- `ineligible`: mangler matriserad eller annen teknisk forutsetning.
+- `limit`: flere enn 50 lokaliserte visiter for montøren.
 
 ## Flerpunktsoptimalisering
 
@@ -94,21 +152,22 @@ tidsvinduer og eventuelt:
 
 - `technicianSkillIds`: montørens gyldige kompetanse. Visiter med obligatoriske
   kompetansekrav som mangler, rapporteres som `missing_skills`.
-- `workingHours`: dagens arbeidstid. En visitt som ikke blir ferdig innen
-  slutten, rapporteres som `working_hours`.
+- `workingHours`: dagens arbeidstid. Visiter som ikke rekker slutten,
+  planlegges med overtid.
+- `allowOvertime` og `maxOvertimeMinutes`: samme policy som miljøvariablene.
 - `priority` (0–3) per visitt. Ruteplanen utleder den fra SLA: brudd = 3,
   under 1 time igjen = 2, under 4 timer = 1, ellers 0. Prioriteten trekker en
   visitt fram i nærmeste-nabo-valget og bryter lik reisetid.
 
 Algoritmen er:
 
-1. Filtrer bort visiter uten koordinater, manglende kompetanse og kjent fravær.
-2. **Nearest neighbour** med deterministisk tie-break: reisetid, prioritet,
-   visitt-id.
-3. **2-opt** som bare godtar ruter som fortsatt er gjennomførbare innenfor
-   tidsvinduer og arbeidstid. Maks 200 iterasjoner.
+1. Filtrer bort visiter uten koordinater og manglende kompetanse.
+2. **Nearest neighbour** med deterministisk tie-break: gjennomførbare visiter
+   før visiter som krever overtid, deretter reisetid, prioritet og visitt-id.
+3. **2-opt** som godtar kortere kjøring bare når antall ufordelte og total
+   overtid ikke øker. Maks 200 iterasjoner.
 4. Beregn «før»-bildet fra den opprinnelige rekkefølgen og returner spart
-   kjøretid/avstand, endret rekkefølge og årsak per ufordelt visitt.
+   kjøretid/avstand, endret rekkefølge, overtid og årsak per ufordelt visitt.
 
 Grenser:
 
@@ -118,20 +177,27 @@ Grenser:
 - Tidsvinduet er dagens blokk pluss `ROUTE_WINDOW_TOLERANCE_MINUTES` (120 min).
   Toleransen gjør at reisetid kan endre rekkefølgen, men aldri flytte en jobb
   vilkårlig langt.
-- Matrisen bruker OSRM uten trafikk. Trafikk-ETA gjelder enkeltstrekninger og
-  sporing, ikke hvert matriseelement.
+- Matrisen bruker OSRM uten trafikk. Google-trafikk gjelder enkeltstrekninger
+  og sporing, ikke hvert matriseelement.
+- «Bruk rekkefølge» avviser fortsatt en flytting som ender etter midnatt, fordi
+  visitten må ligge innenfor valgt dag. Ekstrem overtid må i så fall fordeles
+  manuelt over to dager.
 
 ## Tjeneste og API
 
 `getRoutePlan(actor, { date, technicianId?, visitIds? })` returnerer per
 montør:
 
-- `stops` med ankomst, start, slutt, ventetid, kjøretid og avstand
-- `skipped` med årsak (`missing_coordinates`, `outside_time_window`, `limit`,
-  `missing_skills`, `working_hours`, `absence`, `ineligible`)
+- `stops` med ankomst, planlagt start/slutt, ventetid, kjøretid, avstand,
+  `overtimeMinutes`, `outsideTimeWindow` og `outsideWorkingHours`
+- `skipped` med årsak (`missing_coordinates`, `limit`, `missing_skills`,
+  `overtime_limit`, `absence`, `ineligible`)
+- `totalOvertimeMinutes`, `baselineOvertimeMinutes`
 - `baselineTravelMinutes`, `baselineDistanceKm`
 - `savedTravelMinutes`, `savedDistanceKm`, `orderChanged`
 - `provider` og `fallbackUsed`
+
+Toppnivået i svaret har også `totalOvertimeMinutes` for hele dagen.
 
 `POST /api/ruteoptimalisering` er intern, øktbasert og krever modulen
 `calendar`. Rettighetene er `workorders.update`, `workorders.assign` eller
@@ -149,21 +215,26 @@ curl -sS -X POST https://fsm.example.com/api/ruteoptimalisering \
 
 - avviser hele endringen ved overlapp, fravær, låst oppdrag eller endret plan,
 - flytter visittene i én transaksjon,
-- skriver en revisjonsrad per flyttet visitt med før/etter-tid, leverandør og
-  spart kjøretid/avstand,
+- skriver en revisjonsrad per flyttet visitt med før/etter-tid, leverandør,
+  spart kjøretid/avstand og **overtid** (`overtimeMinutes`,
+  `outsideTimeWindow`, `outsideWorkingHours`, `totalOvertimeMinutes`),
 - oppdaterer oppdragets samlede tidsrom.
 
-Optimaliseringen flytter aldri noe av seg selv. UI-et viser før/etter og
-krever et eget trykk på «Bruk rekkefølge».
+Optimaliseringen flytter aldri noe av seg selv. UI-et viser før/etter,
+overtid og krever et eget trykk på «Bruk rekkefølge».
 
 ## Feilsøking
 
-- **«Beregning: Lokal estimering»** betyr at verken trafikkleverandøren eller
-  OSRM svarte. Sjekk `OSRM_BASE_URL`, nøkkel og `ROUTING_TIMEOUT_MS`.
+- **«Beregning: Lokal estimering»** betyr at verken Google eller OSRM svarte.
+  Sjekk `OSRM_BASE_URL`, `GOOGLE_ROUTES_API_KEY` og tidsavbruddene.
+- **Ingen trafikk:** uten `GOOGLE_ROUTES_API_KEY` er ETA alltid OSRM eller
+  haversine. OpenStreetMap har ikke sanntidstrafikk. Sjekk også at
+  `ROUTE_ALLOW_OVERTIME`/`ROUTING_PROVIDER=haversine` ikke slår av eksterne
+  kall, og at `GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE` ikke er `0`.
 - **Alle visiter havner i `missing_skills`** betyr at montøren ikke har
   gyldig kompetanse registrert, eller at `technicianSkillIds` er tom.
-- **`working_hours`** betyr at visitten ikke blir ferdig før arbeidsdagens
-  slutt. Utvid arbeidstiden/avdelingens åpningstider eller flytt visitten.
-- **Trafikk virker ikke:** sjekk at `TRAFFIC_PROVIDER` (eller
-  `ROUTING_PROVIDER`) er `tomtom`/`here`, at riktig nøkkel er satt, og at
-  `TRAFFIC_RATE_LIMIT_PER_MINUTE` ikke er `0`.
+- **`overtime_limit`** betyr at ruten ville bryte en konfigurert hard grense,
+  ikke at visitten er umulig. Øk `ROUTE_MAX_OVERTIME_MINUTES` eller slå på
+  `ROUTE_ALLOW_OVERTIME`.
+- **Overtid vises, men ingenting flyttes** er forventet: ruten er et forslag
+  til kontoret godkjenner den med «Bruk rekkefølge».

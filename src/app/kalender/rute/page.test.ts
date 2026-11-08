@@ -78,6 +78,9 @@ function stop(overrides: Record<string, unknown> = {}) {
     waitMinutes: 10,
     travelMinutes: 20,
     distanceKm: 12,
+    overtimeMinutes: 30,
+    outsideTimeWindow: false,
+    outsideWorkingHours: true,
     point: { latitude: 62.47, longitude: 6.15 },
     ...overrides,
   };
@@ -109,8 +112,10 @@ beforeEach(() => {
           totalDistanceKm: 12,
           totalTravelMinutes: 20,
           totalWaitingMinutes: 10,
+          totalOvertimeMinutes: 30,
           baselineTravelMinutes: 35,
           baselineDistanceKm: 20,
+          baselineOvertimeMinutes: 0,
           savedTravelMinutes: 15,
           savedDistanceKm: 8,
           orderChanged: true,
@@ -132,6 +137,9 @@ describe("ruteplan-side", () => {
 
     expect(html).toContain("Ola Montør");
     expect(html).toContain("calendar.route.totalDrive");
+    expect(html).toContain("calendar.route.totalOvertime");
+    expect(html).toContain("calendar.route.overtimeNotice");
+    expect(html).toContain("calendar.route.outsideWorkingHours");
     expect(html).toContain("calendar.route.applyOrder");
     expect(html).toContain("dispatch.routeOptimizer.optimize");
     expect(html).toContain("calendar.route.skippedMissingCoordinates");

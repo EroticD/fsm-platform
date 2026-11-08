@@ -1,4 +1,12 @@
 export {
+  createGoogleRoutesProvider,
+  GOOGLE_ROUTES_CACHE_TTL_MS,
+  GOOGLE_ROUTES_RATE_LIMIT_PER_MINUTE,
+  GOOGLE_ROUTES_TIMEOUT_MS,
+  resolveGoogleRoutesConfig,
+  type ResolvedGoogleRoutesConfig,
+} from "./google-routes";
+export {
   createHaversineProvider,
   estimateFromHaversine,
   HAVERSINE_AVG_SPEED_KMH,
@@ -17,14 +25,6 @@ export {
   type RouteStop,
   type RouteWindow,
 } from "./route-optimizer";
-export {
-  createTrafficProvider,
-  resolveTrafficConfig,
-  TRAFFIC_CACHE_TTL_MS,
-  TRAFFIC_RATE_LIMIT_PER_MINUTE,
-  TRAFFIC_TIMEOUT_MS,
-  type TrafficProviderName,
-} from "./traffic";
 export {
   RoutingTimeoutError,
   type RoutingProvider,
