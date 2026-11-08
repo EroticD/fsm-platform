@@ -25,6 +25,12 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { chromium } from "playwright";
 import sharp from "sharp";
+import {
+  ensureBillingFixtures,
+  ensureExpenseFixtures,
+  ensureInventoryFixtures,
+  resolveFixtures,
+} from "./lib/screenshot-fixtures.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(SCRIPT_DIR, "..");
@@ -328,91 +334,6 @@ function resolveDatabaseUrl() {
   return { connectionString: parsed.toString(), schema };
 }
 
-async function resolveFixtures(prisma) {
-  const workOrders = await prisma.workOrder.findMany({
-    where: {
-      title: {
-        in: [
-          "Service – automatiske dører",
-          "Feilsøking – portåpner",
-          "Service – kjøleanlegg",
-        ],
-      },
-    },
-    select: { id: true, title: true },
-  });
-  const workOrderByTitle = new Map(
-    workOrders.map((workOrder) => [workOrder.title, workOrder.id]),
-  );
-
-  const customer = await prisma.customer.findFirst({
-    where: { name: "Nordvik Testindustri AS" },
-    select: { id: true, name: true },
-  });
-  const product = await prisma.product.findFirst({
-    where: { model: "Portautomatikk PA-400" },
-    select: { id: true, model: true },
-  });
-  const folder = await prisma.documentFolder.findFirst({
-    where: { name: "Driftshåndbøker" },
-    select: { id: true, name: true },
-  });
-  const document = await prisma.document.findFirst({
-    where: { title: { startsWith: "Bruksanvisning" } },
-    select: { id: true, title: true },
-  });
-  const template = await prisma.template.findFirst({
-    where: { title: "Service av porter" },
-    select: { id: true, title: true },
-  });
-
-  const technicianOrderId = workOrderByTitle.get("Service – automatiske dører");
-  const detailOrderId = workOrderByTitle.get("Feilsøking – portåpner");
-  const reportedOrderId = workOrderByTitle.get("Service – kjøleanlegg");
-
-  const report = reportedOrderId
-    ? await prisma.report.findFirst({
-        where: { workOrderId: reportedOrderId },
-        select: { id: true, workOrderId: true },
-        orderBy: { createdAt: "asc" },
-      })
-    : null;
-
-  const missing = [];
-  if (!technicianOrderId) missing.push("oppdraget «Service – automatiske dører»");
-  if (!detailOrderId) missing.push("oppdraget «Feilsøking – portåpner»");
-  if (!reportedOrderId) missing.push("oppdraget «Service – kjøleanlegg»");
-  if (!customer) missing.push("kunden «Nordvik Testindustri AS»");
-  if (!product) missing.push("enheten «Portautomatikk PA-400»");
-  if (!folder) missing.push("mappen «Driftshåndbøker»");
-  if (!document) missing.push("dokumentet «Bruksanvisning …»");
-  if (!template) missing.push("malen «Service av porter»");
-  if (!report) missing.push("rapporten for «Service – kjøleanlegg»");
-  if (missing.length > 0) {
-    throw new Error(
-      `E2E-seeden mangler forventede rader: ${missing.join(", ")}. ` +
-        "Kjør `npm run seed:e2e` mot databasen først.",
-    );
-  }
-
-  return {
-    technicianOrderId,
-    detailOrderId,
-    reportedOrderId,
-    reportId: report.id,
-    customerId: customer.id,
-    customerName: customer.name,
-    productId: product.id,
-    productName: product.model,
-    folderId: folder.id,
-    folderName: folder.name,
-    documentId: document.id,
-    documentTitle: document.title,
-    templateId: template.id,
-    templateTitle: template.title,
-  };
-}
-
 function buildRoutes(fixtures) {
   const {
     technicianOrderId,
@@ -443,12 +364,18 @@ function buildRoutes(fixtures) {
     ["maler", "Sjekklister / Maler"],
     ["tags", "Tags"],
     ["auditlog", "Aktivitetslogg"],
+    ["bevis", "Bevis"],
     ["statistikk", "Statistikk"],
     ["sla", "SLA og åpningstider"],
     ["dispatch", "Dispatch"],
     ["sms", "SMS"],
+    ["email", "E-post"],
+    ["push", "Pushvarsler"],
     ["sikkerhet", "Sikkerhet"],
     ["api", "API-nøkler"],
+    ["sso", "SSO og SCIM"],
+    ["kundeoverforing", "Kundeoverføring"],
+    ["moduler", "Moduler"],
   ];
 
   return [
@@ -804,6 +731,91 @@ function buildRoutes(fixtures) {
       expectTexts: ["Kundeomtaler"],
     },
     {
+      slug: "tilbud",
+      route: "/tilbud",
+      role: "admin",
+      title: "Tilbud",
+      heading: "Tilbud",
+      expectTexts: ["Tilbud"],
+    },
+    {
+      slug: "tilbud-ny",
+      route: "/tilbud/ny",
+      role: "admin",
+      title: "Nytt tilbud",
+      heading: "Nytt tilbud",
+    },
+    {
+      slug: "faktura",
+      route: "/faktura",
+      role: "admin",
+      title: "Fakturaer",
+      heading: "Fakturaer",
+      expectTexts: ["Fakturaer"],
+    },
+    {
+      slug: "faktura-ny",
+      route: "/faktura/ny",
+      role: "admin",
+      title: "Ny faktura",
+      heading: "Ny faktura",
+    },
+    {
+      slug: "faktura-innstillinger",
+      route: "/faktura/innstillinger",
+      role: "admin",
+      title: "Fakturering og tilbud – innstillinger",
+      heading: "Fakturering og tilbud",
+    },
+    {
+      slug: "lager",
+      route: "/lager",
+      role: "admin",
+      title: "Lager",
+      heading: "Lager",
+      expectTexts: ["Lager"],
+    },
+    {
+      slug: "lager-innkjop",
+      route: "/lager/innkjop",
+      role: "admin",
+      title: "Innkjøp",
+      heading: "Innkjøp",
+      expectTexts: ["Innkjøpsordrer"],
+    },
+    {
+      slug: "lager-innkjop-leverandorer",
+      route: "/lager/innkjop/leverandorer",
+      role: "admin",
+      title: "Leverandører",
+      heading: "Leverandører",
+      expectTexts: ["Leverandører"],
+    },
+    {
+      slug: "utlegg",
+      route: "/utlegg",
+      role: "admin",
+      title: "Utlegg",
+      heading: "Utlegg",
+      expectTexts: ["Utlegg"],
+    },
+    {
+      slug: "utlegg-kontor",
+      route: "/utlegg/kontor",
+      role: "admin",
+      title: "Utlegg og lønn",
+      heading: "Utlegg og lønn",
+      expectTexts: ["Utlegg til godkjenning"],
+    },
+    {
+      slug: "lonnsomhet",
+      route: "/lonnsomhet",
+      role: "admin",
+      title: "Lønnsomhet",
+      heading: "Lønnsomhet",
+      expectTexts: ["oppdrag"],
+    },
+    {
       slug: "rapport-visning",
       route: reportPath,
       role: "admin",
@@ -1075,6 +1087,123 @@ const SKIPPED_ROUTES = [
       "E2E-seeden lager ingen revisjoner, så viseren ville bare vist " +
       "feil-/ikke-funnet-tilstanden. Revisjonslisten og PDF-flyten dekkes av " +
       "integrasjonstestene.",
+  },
+  {
+    route: "/utlegg/kontor/eksport",
+    role: "admin",
+    reason:
+      "Ruten er en CSV-nedlasting (route handler), ikke en side. Den kan ikke " +
+      "fanges som skjermbilde; nedlastings- og låseflyten dekkes av " +
+      "integrasjonstestene. Selve godkjenningsflaten er fanget på " +
+      "/utlegg/kontor.",
+  },
+  {
+    route: "/faktura/[id]",
+    role: "admin",
+    reason:
+      "Fakturadetaljen krever en bestemt faktura. Listene /faktura og " +
+      "/faktura/ny er fanget, og betalingsflaten på detaljsiden er fanget som " +
+      "manuelt fokusbilde (screenshots/manual/faktura-betaling.jpg).",
+  },
+  {
+    route: "/faktura/[id]/rediger",
+    role: "admin",
+    reason:
+      "Redigering av en fakturakladd krever en bestemt kladd. " +
+      "Opprettelsessiden /faktura/ny er fanget; lagrings- og " +
+      "nummerflyten dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/faktura/[id]/skriv",
+    role: "admin",
+    reason:
+      "Utskriftsvisningen krever en bestemt faktura og er en PDF-/ " +
+      "printflate. Fakturalisten og betalingsflaten er fanget.",
+  },
+  {
+    route: "/kundeportal/faktura",
+    role: "customer",
+    reason:
+      "Kundeportalens fakturaliste krever at kunden har fakturaer. " +
+      "Portalens øvrige sider er fanget; fakturaflyten dekkes av " +
+      "integrasjonstestene.",
+  },
+  {
+    route: "/kundeportal/faktura/[id]",
+    role: "customer",
+    reason:
+      "Kundeportalens fakturadetalj krever en bestemt faktura og " +
+      "betalingsleverandør. Flyten dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/kunder/[id]/personvern",
+    role: "admin",
+    reason:
+      "Personvernsiden viser en destruktiv slettingsforhåndsvisning for én " +
+      "bestemt kunde. Kundeoversikten er fanget; sletteflyten dekkes av " +
+      "integrasjonstestene.",
+  },
+  {
+    route: "/lager/innkjop/[id]",
+    role: "admin",
+    reason:
+      "Innkjøpsdetaljen krever en bestemt ordre. Liste- og " +
+      "leverandørsidene er fanget; bestillings- og varemottaksflyten dekkes " +
+      "av integrasjonstestene.",
+  },
+  {
+    route: "/lager/lokasjoner/[id]",
+    role: "admin",
+    reason:
+      "Lokasjonsdetaljen krever en bestemt lagerlokasjon med bevegelser. " +
+      "Lageroversikten /lager er fanget; bevegelsesflyten dekkes av " +
+      "integrasjonstestene.",
+  },
+  {
+    route: "/lager/oppdrag/[id]",
+    role: "admin",
+    reason:
+      "Reservedelssiden for ett oppdrag krever et bestemt oppdrag med " +
+      "reservasjoner. Lageroversikten er fanget; reservasjonsflyten dekkes av " +
+      "integrasjonstestene.",
+  },
+  {
+    route: "/lager/varer/[id]",
+    role: "admin",
+    reason:
+      "Varedetaljen krever en bestemt vare med beholdning og bevegelser. " +
+      "Lageroversikten /lager er fanget; justerings- og reservasjonsflyten " +
+      "dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/tilbud/[id]",
+    role: "admin",
+    reason:
+      "Tilbudsdetaljen krever et bestemt tilbud. Tilbudslisten /tilbud og " +
+      "opprettelsessiden /tilbud/ny er fanget; detalj- og " +
+      "konverteringsflyten dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/tilbud/[id]/rediger",
+    role: "admin",
+    reason:
+      "Redigering av et tilbud krever et bestemt utkast. " +
+      "Opprettelsessiden /tilbud/ny er fanget; lagringsflyten dekkes av " +
+      "integrasjonstestene.",
+  },
+  {
+    route: "/tilbud/[id]/skriv",
+    role: "admin",
+    reason:
+      "Tilbudets utskriftsvisning krever et bestemt tilbud og er en " +
+      "PDF-/printflate. Tilbudslisten er fanget.",
+  },
+  {
+    route: "/tilbud/godkjenn/[token]",
+    role: "public",
+    reason:
+      "Portalgodkjenning av tilbud krever et gyldig, kortlivet engangstoken. " +
+      "Token- og godkjenningsflyten dekkes av integrasjonstestene.",
   },
 ];
 
@@ -1391,7 +1520,19 @@ async function main() {
   });
 
   await waitForReady();
-  const fixtures = await resolveFixtures(prisma);
+  const baseFixtures = await resolveFixtures(prisma);
+  const [billingFixtures, inventoryFixtures, expenseFixtures] =
+    await Promise.all([
+      ensureBillingFixtures(prisma, baseFixtures),
+      ensureInventoryFixtures(prisma, baseFixtures),
+      ensureExpenseFixtures(prisma, baseFixtures),
+    ]);
+  const fixtures = {
+    ...baseFixtures,
+    ...billingFixtures,
+    ...inventoryFixtures,
+    ...expenseFixtures,
+  };
   const routes = buildRoutes(fixtures);
 
   const duplicates = routes
@@ -1594,6 +1735,13 @@ async function main() {
       documentId: fixtures.documentId,
       folderId: fixtures.folderId,
       templateId: fixtures.templateId,
+      quoteId: fixtures.quoteId,
+      invoiceId: fixtures.invoiceId,
+      inventoryItemId: fixtures.inventoryItemId,
+      supplierId: fixtures.supplierId,
+      purchaseOrderId: fixtures.purchaseOrderId,
+      mileageTripId: fixtures.mileageTripId,
+      expenseId: fixtures.expenseId,
     },
     viewports: {
       desktop: { width: DESKTOP.width, height: DESKTOP.height },

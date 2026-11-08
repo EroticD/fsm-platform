@@ -263,7 +263,10 @@ export default async function RoutePage({
                   {technicianPlan.technicianName}
                 </h2>
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
+              <dl
+                data-route-overtime
+                className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5"
+              >
                 <div>
                   <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalDrive")}
@@ -540,7 +543,11 @@ export default async function RoutePage({
                   </table>
                 </div>
 
-                <form action={saveManualOrderAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                <form
+                  action={saveManualOrderAction}
+                  data-manual-route-form
+                  className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3"
+                >
                   <input type="hidden" name="dato" value={date} />
                   <input type="hidden" name="tekniker" value={technicianPlan.technicianId} />
                   <div>

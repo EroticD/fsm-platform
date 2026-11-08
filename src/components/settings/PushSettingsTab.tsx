@@ -172,7 +172,7 @@ export default function PushSettingsTab() {
   }
 
   return (
-    <div className="space-y-5">
+    <div data-push-settings className="space-y-5">
       {error && (
         <p
           role="alert"

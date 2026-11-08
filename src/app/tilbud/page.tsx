@@ -161,7 +161,7 @@ export default async function QuotesPage({
         {quotes.length === 0 ? (
           <EmptyState title={t("quotes.list.emptyTitle")} description={t("quotes.list.emptyDescription")} />
         ) : (
-          <div className="space-y-2">
+          <div data-quotes-list className="space-y-2">
             {quotes.map((quote) => (
               <article
                 key={quote.id}

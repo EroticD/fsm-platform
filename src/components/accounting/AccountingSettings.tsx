@@ -26,7 +26,10 @@ export default async function AccountingSettings() {
   const t = await getTranslations("common");
 
   return (
-    <section className="office-card space-y-4 p-4 sm:p-5">
+    <section
+      data-accounting-settings
+      className="office-card space-y-4 p-4 sm:p-5"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-extrabold">{t("invoicing.accounting.settingsTitle")}</h2>

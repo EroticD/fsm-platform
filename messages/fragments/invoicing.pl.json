@@ -163,6 +163,7 @@
       "createLink": "Utwórz link do płatności",
       "recreateLink": "Utwórz nowy link do płatności",
       "linkCreated": "Link do płatności został utworzony. Możesz go udostępnić klientowi.",
+      "notConfigured": "Dostawca płatności nie jest skonfigurowany.",
       "disabled": "Dostawca płatności nie jest skonfigurowany.",
       "unsupportedCurrency": "W tej wersji dostawca płatności obsługuje tylko NOK.",
       "providerError": "Dostawca płatności odpowiedział nieoczekiwanie. Spróbuj ponownie.",
