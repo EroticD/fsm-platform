@@ -3,18 +3,27 @@
 Dette kapitlet er for deg som jobber på kontoret: du tar imot henvendelser,
 oppretter og planlegger oppdrag, fordeler montører, følger opp rapporter og
 holder kunde-, utstyrs- og avtaledata oppdatert. Det gjelder FSM-plattformen
-0.8.9 (04.11.2026).
+0.8.11 (08.11.2026).
 
 Oppdrag og serviceavtaler tilhører en avdeling: du ser normalt bare egen
 avdeling, mens administrator ser alt. Kunder, utstyr og dokumenter er felles,
-men hver handling krever riktig rettighet. Plattformen fakturerer ikke og fører
-ikke timer eller materialer. Prislister er referansedata; faktureringen skjer
-utenfor plattformen.
+men hver handling krever riktig rettighet. Arbeidstid, kjøring og materialer
+registreres på oppdraget. Tilbud, fakturering, betaling, lager, utlegg og
+lønnsomhet er valgfrie moduler som må være slått på; uten dem er prislister
+referansedata og faktureringen skjer utenfor plattformen.
 
 ## Dashbordet
 
 Dashbordet ligger på `/` og har tittelen **Planlegging**. Øverst står dato,
 ukenummer, antall oppdrag og **Sanntid**.
+
+![Figur: Dashbordet med kø, unntak og feltstatus](../../screenshots/pages/desktop/dashbord.jpg)
+
+*Figur: Dashbordet er kontorets utgangspunkt for dagen.*
+
+Legg merke til at **Unntak som krever handling** står over selve køen. Det er
+der du først ser om noe er forfalt, dobbeltbooket eller mangler montør. Køen
+under viser forfalt, i dag og ikke tildelt i prioritert rekkefølge.
 
 ### Liste og tavle
 
@@ -113,6 +122,14 @@ Oppdragslisten ligger på `/oppdrag` med fanene **Aktive**, **Nye**, **Ikke
 startet**, **Påbegynt**, **I dag**, **Forfalte**, **Ikke tildelt**,
 **Fullførte** og **Kansellerte**.
 
+![Figur: Oppdragslisten med status, dato og montør](../../screenshots/pages/desktop/oppdrag.jpg)
+
+*Figur: Oppdragslisten er arbeidskøen på tvers av kunder og datoer.*
+
+Bruk fanene til å snevre inn før du søker. **Ikke tildelt** og **Forfalte** er
+de to viktigste inngangene for daglig oppfølging; resten er historikk og
+oppslag.
+
 ### Opprette
 
 1. Trykk **Nytt oppdrag** (`/oppdrag/ny`). Avdelingen er låst til din egen;
@@ -150,11 +167,34 @@ Du kan tildele flere montører; **Fjern** tar en av. Tildelingen gjelder hele
 oppdraget. Kontoret planlegger bare datoene; hver dato blir én arbeidsdag i
 feltportalen.
 
+![Figur: Oppdragsdetaljen med status, dager og sjekklister](../../screenshots/pages/desktop/oppdrag-detalj.jpg)
+
+*Figur: Oppdragsdetaljen samler status, kontakt, dager og rapporter.*
+
+Bruk **Dager og tid** når du skal kontrollere faktisk tid, og **Sjekklister og
+rapporter** når du skal se rapportstatus. Knappene for tildeling og status
+ligger øverst, ikke inne i dagslisten.
+
 På oppdragssiden viser **Dager og tid** én rad per arbeidsdag med status,
 **På vei**, **På stedet**, **Ferdig** og **Kjøring avsluttet**, og tid for
 arbeid, kjøring til, kjøring fra og totalt. Øverst står total tid for oppdraget
 med fordeling. Har oppdraget ingen arbeidsdager, viser flaten datoperioden og
 **Endre datoer**.
+
+Hver arbeidsdag har et **rekkefølgenummer** (1, 2, 3, 4 …). Nummeret lagres på
+visitten uten å flytte tidspunktene. Ruteplanleggeren bruker nummeret ved neste
+visning og flytter tidene når du godkjenner rekkefølgen der. Tomt felt eller 0
+betyr automatisk rekkefølge. Så snart minst én visitt for montøren og dagen har
+et manuelt nummer, sorterer planleggeren etter nummeret og hopper over
+nærmeste-nabo/2-opt.
+
+![Figur: Dager og tid med rekkefølgenummer per arbeidsdag](../../screenshots/manual/oppdrag-rekkefolge.jpg)
+
+*Figur: Rekkefølgenummeret på hver arbeidsdag styrer ruten uten å endre tiden.*
+
+Se på nummerfeltet til høyre i hver dagsrad. Det er ikke en flytting av dagen;
+det er en bestilling til ruteplanleggeren. Bruk det når kunden krever en
+bestemt rekkefølge, for eksempel først hovedanlegg og deretter port.
 
 Kontoret oppretter ikke, flytter eller sletter enkeltdager her. Endre
 datoperioden på oppdraget, så avstemmes dagene automatisk. En dag som er
@@ -427,15 +467,30 @@ og les **Kapasitet**, **Belastning** og **Utnyttelse**.
 
 **Rute** (`/kalender/rute`) foreslår kjøreorden for én dag, per montør. Velg
 **Dato** og eventuelt **Montør**, og trykk **Vis rute**. Siden viser kart,
-stoppnummer, **Ankomst**, **Planlagt**, **Kjøring**, **Venting** og total
-**Kjøretid**, **Avstand** og **Ventetid** per montør.
+stoppnummer, **Ankomst**, **Planlagt**, **Kjøring**, **Venting**, **Overtid** og
+total **Kjøretid**, **Avstand** og **Ventetid** per montør.
 
-Ruten starter ved montørens tidligste lokaliserte visitt. Visiter uten
-koordinater, eller som ikke får plass innenfor tidsvinduet, listes under
-**Visiter som ikke er med i ruten** og flyttes ikke. Beregningen bruker en
-ekstern ruteleverandør når den er konfigurert; ellers luftlinje × 1,35 og
-gjennomsnittsfart. Se **Beregning** i ruten for å se hvilken metode som ble
-brukt.
+Ruten starter ved montørens tidligste lokaliserte visitt. Beregningen bruker
+**OpenStreetMap via OSRM** for ruter og reisematrise. Er `GOOGLE_ROUTES_API_KEY`
+satt, brukes **Google Routes API** som trafikkbevisst tillegg for enkeltstrekninger;
+uten den er ETA et rute- og hastighetsanslag, ikke sanntidstrafikk. Svarer ingen
+leverandør, brukes lokal beregning: luftlinje × 1,35 og gjennomsnittsfart. Se
+**Beregning** i ruten for å se hvilken metode som faktisk ble brukt.
+
+**Overtid:** En visitt blir ikke lenger ufordelt bare fordi den ikke rekker
+tidsvinduet eller arbeidstiden. Den planlegges med overtid, og stoppet merkes med
+`outsideTimeWindow`, `outsideWorkingHours` og `overtimeMinutes`. Ruten summerer
+**Total overtid**. `ROUTE_ALLOW_OVERTIME=false` slår av planlegging etter
+arbeidstid, og `ROUTE_MAX_OVERTIME_MINUTES` setter et valgfritt tak. Bare
+genuint umulige visiter blir ufordelte: manglende koordinater, manglende
+kompetanse, ferie/sykdom, overtidsgrense eller mer enn 50 lokaliserte visiter.
+
+**Manuell rekkefølge:** Hvert stopp har et nummerfelt. Skriv 1, 2, 3, 4 … og
+trykk **Manuell rekkefølge**. Nummereringen normaliseres til 1..n, lagres på
+visitten og flytter tidspunktene med samme tjenestelag som **Bruk rekkefølge**.
+Tomt felt eller 0 betyr automatisk rekkefølge. Så lenge minst én visitt for
+montøren og dagen har et manuelt nummer, sorteres ruten etter nummeret og
+nærmeste-nabo/2-opt hoppes over.
 
 **Bruk rekkefølge** flytter visittene til de foreslåtte tidspunktene i én
 transaksjon. Handlingen krever `workorders.assign`, revisjonslogges per visitt
@@ -443,12 +498,29 @@ og avbrytes helt ved overlapp med en fast visitt eller registrert ferie/sykdom.
 Fullførte og kansellerte visiter flyttes aldri. Hvis planen er endret siden den
 ble vist, får du beskjed om å laste siden på nytt.
 
+![Figur: Ruteplanleggeren med nummerfelt per stopp](../../screenshots/manual/rute-manuell-rekkefolge.jpg)
+
+*Figur: Manuell rekkefølge settes med 1/2/3/4 i ruteplanleggeren.*
+
+Se på nummerfeltet ved hvert stopp og på summen nederst. Rekkefølgen er et
+forslag helt til du trykker **Manuell rekkefølge** eller **Bruk rekkefølge**.
+Nummereringen endrer ikke datoen; den endrer rekkefølgen innenfor dagen.
+
+![Figur: Overtid vises per stopp og i rutesammendraget](../../screenshots/manual/rute-overtid.jpg)
+
+*Figur: Overtid per stopp og total overtid for dagen.*
+
+Legg merke til at overtid er merket per stopp, ikke skjult i totalen. Et stopp
+kan ligge utenfor kundens tidsvindu uten å gi overtid dersom det fortsatt er
+innenfor arbeidstiden. Sjekk **Total overtid** før du godkjenner ruten, særlig
+når `ROUTE_MAX_OVERTIME_MINUTES` er satt.
+
 **Fordelingsregler** og **Territorier** settes opp under **Innstillinger →
 Dispatch**. Der velger du **Modus**, justerer **Vektene** for **Kompetanse**,
 **Avstand**, **Reisetid**, **Ledig tid**, **SLA** og **Belastning**, og legger
 inn territorier med **Postnummerprefikser**, **Kommunekoder** og **Radius (km)**.
 **Kapasitetsplaner** vises i kapasitetsvisningen, men redigeres ikke i
-**Innstillinger** i 0.8.9. Det samme gjelder kompetanse, fravær og arbeidstid:
+**Innstillinger** i 0.8.11. Det samme gjelder kompetanse, fravær og arbeidstid:
 de brukes av dispatch og booking, men har ikke eget skjema i **Innstillinger**.
 
 ## Avtaler, SLA og prislister
@@ -503,8 +575,9 @@ løsning.
 
 ### Prislister
 
-**Prislister** er referansedata for visning. Systemet fakturerer ikke og beregner
-ikke beløp.
+**Prislister** er referansedata for visning og for timepris i lønnsomhet. Uten
+`invoicing` fakturerer ikke systemet og beregner ikke fakturabeløp; med modulen
+på brukes prislisten som grunnlag når du oppretter en faktura.
 
 ### Gjentagende oppdrag
 
@@ -551,6 +624,174 @@ Har kunden en allerede bekreftet avtale, kan **Be om ny tid** bruke en kort
 reservasjon mens skjemaet fylles ut. Den reservasjonen gjelder bare ombooking
 av den bekreftede avtalen, aldri nye bestillinger.
 
+## Lager, reservedeler og innkjøp
+
+Lagermodulen (`inventory`) krever at utstyrsmodulen er på. Den brukes av både
+kontor og montør, men kontoret eier vareregister, leverandører og innkjøp.
+
+| Side | Bruk |
+| --- | --- |
+| `/lager` | Vareliste, lokasjoner, kjøpsforslag og ny vare/lokasjon |
+| `/lager/varer/<id>` | Beholdning per lokasjon, bevegelser, reservasjoner og justering |
+| `/lager/lokasjoner/<id>` | Beholdning og bevegelser for ett lager eller én montørbil |
+| `/lager/oppdrag/<id>` | Reservedeler for ett oppdrag, med reservasjon, frigjøring og forbruk |
+| `/lager/innkjop` | Innkjøpsordrer, filter og utkast fra kjøpsforslag |
+| `/lager/innkjop/<id>` | Ordrelinjer, bestilling, avbestilling og varemottak |
+| `/lager/innkjop/leverandorer` | Leverandørliste og ny leverandør |
+
+En **lokasjon** er et lager (`WAREHOUSE`) eller en montørbil (`VAN`), med valgfri
+avdeling og ansvarlig bruker. En **vare** har SKU, navn, enhet, bestillingspunkt
+og aktiv-flagg. Beholdningen ligger per vare og lokasjon. Bevegelsene er `IN`,
+`OUT`, `ADJUST`, `RESERVE`, `RELEASE` og `CONSUME`.
+
+### Reserve deler på et oppdrag
+
+1. Åpne oppdraget og gå til reservedelssiden (`/lager/oppdrag/<id>`).
+2. Velg vare og lokasjon, og skriv antall.
+3. Trykk **Reserver**. Reservasjonen reduserer tilgjengelig beholdning, men
+   flytter ikke varen fysisk.
+4. Ved behov, trykk **Frigjør** for å slippe reservasjonen uten å trekke lager.
+5. Når delen er brukt, trykk **Forbruk**. Da trekkes mengden fra fysisk
+   beholdning.
+
+Forbruk gjøres bevisst fra reservedelssiden, ikke automatisk når visitten settes
+til **Fullført**. Det gir ingen skjulte sideeffekter i feltflyten, men krever at
+kontoret eller montøren faktisk registrerer forbruket.
+
+### Leverandører og innkjøpsordrer
+
+1. Opprett leverandøren under **Lager → Innkjøp → Leverandører** med navn,
+   organisasjonsnummer, e-post, telefon og eventuell avdeling. Leverandør uten
+   avdeling er felles for installasjonen.
+2. Trykk **Ny innkjøpsordre** på `/lager/innkjop`, eller bygg et utkast fra
+   kjøpsforslagene på `/lager`. Forslaget er
+   `bestillingspunkt − (på lager − aktive reservasjoner)`.
+3. Velg leverandør, mottakslokasjon og forventet levering. Legg inn linjer med
+   vare, bestilt mengde og enhetskost.
+4. Trykk **Bestill**. Ordren får et nummer på formen `PO-ÅÅÅÅ-NNNNN`.
+5. Ved mottak, åpne ordren og registrer mottatt mengde. Delvis mottak er
+   støttet; resten står åpent.
+6. Når alt er mottatt, er ordren **Mottatt**. Overmottak og negative mengder
+   avvises.
+
+| Status | Betyr | Kan gå til |
+| --- | --- | --- |
+| **Utkast** | Kan redigeres fritt | Bestilt, avbestilt |
+| **Bestilt** | Ingen varer mottatt | Delvis mottatt, mottatt, avbestilt |
+| **Delvis mottatt** | Noe er på lager | Mottatt |
+| **Mottatt** | Alt er mottatt | – |
+| **Avbestilt** | Avbestilt før mottak | – |
+
+Bare utkast kan endre linjer, leverandør, lokasjon og notat. Avbestilling er
+bare mulig før første vare er mottatt. Varemottak øker beholdningen og skriver
+en `IN`-bevegelse i samme transaksjon som linje- og ordrestatus. Ordren låses
+med `SELECT ... FOR UPDATE`, slik at to samtidige mottak ikke kan overmotta.
+Hver mutasjon revisjonslogges.
+
+Enhetskost settes til 0 til den redigeres manuelt; totalsummen er derfor 0 til
+kostnad er fylt inn. Kjøpsforslaget er en beregnet lesevisning og bestiller
+ingenting automatisk. Leverandørfaktura, fakturakontroll, ordreutsending til
+leverandør, retur/kreditnota og serie-/lotsporing er ikke en del av v1.
+
+![Figur: Innkjøpsordre med leverandør, linjer og varemottak](../../screenshots/manual/lager-innkjop.jpg)
+
+*Figur: Innkjøpsordren viser status, linjer og hva som gjenstår å motta.*
+
+Se på statusen og mottatt mengde per linje. **Delvis mottatt** betyr at noe
+allerede er på lager og at resten fortsatt kan mottas. Knappen for mottak gjelder
+bare gjenstående mengde; systemet avviser overmottak.
+
+**Rettigheter:** Se lager med `equipment.view`, administrer varer, lokasjoner,
+leverandører og innkjøp med `equipment.manage`, og reserver/frigjør/forbruk med
+`workorders.update` eller `equipment.manage`. Avdelingssperren følger
+lokasjonen; administrator ser alle avdelinger.
+
+## Kjøreturer, utlegg og lønnsgrunnlag
+
+Utleggsmodulen (`fieldExpenses`) lar montøren registrere kjøreturer og utlegg, og
+kontoret godkjenne og eksportere grunnlaget for lønn.
+
+- **Montøren** registrerer i `/utlegg`: dato, fra/til, kilometer, sats, kategori,
+  brutto beløp, MVA og kvittering.
+- **Kontoret** godkjenner i `/utlegg/kontor`, med forhåndsvisning og eksport per
+  periode.
+- **Eksporten** lastes ned fra `/utlegg/kontor/eksport?start=…&end=…`.
+
+Kjøregodtgjørelse er `km × sats`, avrundet til øre på serveren. MVA er
+`brutto × sats / (100 + sats)`. Standard er 3,50 kr/km og 25 % MVA når skjemaet
+ikke oppgir annet. Satsene lagres per rad, slik at historiske eksporter ikke
+endres av senere satsendringer. Klienten kan ikke sende et ferdig beløp som
+avviker.
+
+1. Åpne **Utlegg → Kontor**.
+2. Velg periode og eventuell avdeling.
+3. Les gjennom kjøreturer og utlegg. Godkjenn med **Godkjenn**, eller avvis med
+   **Avvis** og en begrunnelse.
+4. Trykk **Eksporter lønn** for perioden. Filen er låst og merket med
+   eksporttidspunkt.
+5. Last ned CSV-en og importer den i lønnssystemet.
+
+Kjøretur og utlegg starter som **Venter** (eller **Utkast** når klienten ber om
+det). Bare godkjente rader eksporteres; avviste og uavklarte rader er alltid
+utelatt. Avvisning krever begrunnelse. Avdelingssperren gjør at kontor A ikke kan
+godkjenne rader i kontor B. Eksporten er idempotent per avdeling og periode:
+samme periode gir nøyaktig samme CSV og kontrollsum, og overlappende perioder
+avvises.
+
+CSV-en er UTF-8 med BOM, semikolon og `\r\n`, klar for norsk Excel. Første rad
+er:
+
+```text
+type;bruker;dato;referanse;beskrivelse;mengde;enhet;belop;mva
+```
+
+`type` er `WORK`, `TRAVEL`, `MILEAGE` eller `EXPENSE`. Tid og reisetid hentes fra
+visittens tidsstempler; modulen lager ingen egen timeføring. Det finnes ingen
+integrasjon mot en ekstern lønnsleverandør – CSV-kontrakten er grensesnittet.
+
+![Figur: Godkjenning av kjøreturer og utlegg](../../screenshots/manual/utlegg-godkjenning.jpg)
+
+*Figur: Kontoret godkjenner eller avviser rader før lønns-CSV-en låses.*
+
+Legg merke til at godkjenning og eksport er to steg. En godkjent rad er ikke
+eksportert før perioden er låst, og en eksportert rad kan ikke endres. Kontroller
+kvittering og MVA før du godkjenner, ikke etterpå.
+
+## Lønnsomhet
+
+**Lønnsomhet** (`/lonnsomhet`) gir kontor og administrator ett samlet bilde av
+oppdrag, tid, first-time-fix, **estimert** og **faktisk** inntekt per avdeling,
+kunde og montør. Modulen er `bi` og krever `reports.view`; montører og
+kundeportalbrukere får `403`.
+
+1. Velg **Fra** og **Til**, eventuelt **Avdeling**, **Kunde** og **Montør**.
+2. Les **Estimert inntekt**, **Faktisk inntekt**, **First-time-fix**,
+   **Utnyttelse** og **Resultat**.
+3. Trykk **Eksporter CSV** for samme filter og samme avdelingsomfang.
+
+**Estimert inntekt** er timepris fra avtalens prisliste × arbeidstid. Reisetid
+inngår ikke. **Faktisk inntekt** hentes fra fakturaer når `invoicing` er på:
+netto fakturert beløp uten MVA, med kreditnotaer trukket fra, og kladder
+utelatt. Fakturaen må være knyttet til et oppdrag i utvalget og utstedt i
+perioden. Perioden for estimat og oppdrag følger oppdragets planlagte dato, mens
+faktisk inntekt følger fakturadato. Et oppdrag som planlegges i én måned og
+faktureres i neste, får derfor estimat i første og faktisk inntekt i andre.
+
+**Resultat** beregnes bare når alle oppdrag i utvalget har timepris og
+`BI_INTERNAL_COST_RATE_NOK` er satt. Uten satsen vises «ikke beregnet». Faktisk
+omsetning påvirker ikke resultatberegningen; den er fortsatt basert på estimatet.
+Maks 5 000 oppdrag, 5 000 fakturaer og 366 dager per rapport. CSV-eksporten er
+deterministisk og revisjonslogges med filter, radantall og sjekksum.
+
+![Figur: Lønnsomhet med estimert og faktisk inntekt](../../screenshots/manual/lonnsomhet-kpi.jpg)
+
+*Figur: KPI-ene viser estimat og faktisk omsetning side om side.*
+
+Se etter merknaden om faktisk inntekt er tilgjengelig. Er `invoicing` av, eller
+finnes det ingen ikke-kladde fakturaer i utvalget, viser rapporten estimatet
+alene og forklarer hvorfor. Tallene er ikke en garanti for lønnsomhet: kostnaden
+er en global intern sats, ikke lønn, bil, deler og utlegg per oppdrag.
+
 ## Rapporter
 
 Rapportlisten ligger på `/rapporter` og viser **Servicerapporter** – utfylte
@@ -591,7 +832,7 @@ dato.
 > PDF-en igjen. Driftsloggen viser `report_pdf_images_missing` med antall, uten
 > filnavn eller personopplysninger.
 
-> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.9, også når
+> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.8.11, også når
 > grensesnittet er engelsk. Det er samme språkbegrensning som i rapport-PDF-en.
 
 ### Status og låsing
@@ -817,5 +1058,9 @@ administratordelen (del 3).
 | SMS sendes ikke | Mangler samtykke, telefon, kvote eller tørrkjøring | Registrer samtykke, kontroller nummer/innstillinger |
 | Avtalen lager ingen oppdrag | Pauset/utløpt, fremtidig start eller jobben kjører ikke | Aktiver, kontroller startdato og jobb |
 | SLA vises ikke | Ingen aktiv avtale med aktiv policy | Aktiver avtalen og knytt policy til den |
-| Prislisten fakturerer ikke | Referansedata | Fakturer utenfor plattformen |
+| Prislisten fakturerer ikke | Referansedata, eller `invoicing` er av | Slå på fakturering og opprett faktura i **Faktura** |
+| Betalingsknappen vises ikke | Leverandør eller webhook-hemmelighet mangler | Kontroller `PAYMENTS_PROVIDER` og nøklene |
+| Regnskapssynken står som feilet | Feil nøkkel, konto eller MVA | Les feilkoden og synkroniser på nytt |
+| Lagerbeholdningen stemmer ikke | Reservasjon er ikke forbrukt, eller manuell justering mangler | Kontroller reservasjoner og bevegelser på varen |
+| Utlegg kan ikke eksporteres | Perioden overlapper en låst eksport, eller raden er ikke godkjent | Velg ny periode og godkjenn raden |
 | Vedlegg vises ikke i portalen | Oppdragsvedlegg er interne | Legg filen på kundekortet → **Mer** → **Vedlegg** |
