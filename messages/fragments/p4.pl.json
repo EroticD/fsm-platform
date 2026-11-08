@@ -221,13 +221,69 @@
     "notifications": {
       "types": {
         "SLA_AT_RISK": "SLA zagrożone",
-        "SLA_BREACHED": "SLA naruszone"
+        "SLA_BREACHED": "SLA naruszone",
+        "INVOICE_PAID": "Faktura opłacona"
       }
     },
     "notificationSettings": {
       "labels": {
         "SLA_AT_RISK": "SLA zagrożone",
-        "SLA_BREACHED": "SLA naruszone"
+        "SLA_BREACHED": "SLA naruszone",
+        "INVOICE_PAID": "Faktura została opłacona"
+      }
+    }
+  },
+  "push": {
+    "settings": {
+      "title": "Powiadomienia push",
+      "description": "Wysyłaj powiadomienia do aplikacji mobilnej przez FCM (Android) i APNs (iOS).",
+      "noSecrets": "Klucze i tokeny nigdy nie są tu wyświetlane.",
+      "loading": "Ładowanie statusu …",
+      "providersTitle": "Dostawcy",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Skonfigurowano",
+      "notConfigured": "Nie skonfigurowano",
+      "project": "Projekt: {project}",
+      "environment": "Środowisko: {environment}",
+      "sandbox": "sandbox",
+      "production": "produkcja",
+      "devicesTitle": "Urządzenia",
+      "devicesActive": "{active} aktywnych z {total}",
+      "devicesStale": "{count} nieaktualnych (starszych niż {days} dni)",
+      "queueTitle": "Kolejka wysyłki",
+      "queuePending": "{count} oczekuje",
+      "queueDeadLetter": "{count} porzuconych",
+      "sentTitle": "Ostatnie 24 godziny",
+      "queueSent": "{count} wysłanych",
+      "lastSent": "Ostatnio wysłano: {time}",
+      "neverSent": "Nie wysłano jeszcze żadnego push.",
+      "testTitle": "Wyślij testowe powiadomienie",
+      "testDescription": "Trafia do Twoich własnych zarejestrowanych urządzeń.",
+      "sendTest": "Wyślij test",
+      "sending": "Wysyłanie …",
+      "testSent": "Wysłano {sent} z {queued} wiadomości.",
+      "testNoDevices": "Nie znaleziono aktywnych urządzeń dla Twojego konta.",
+      "testNotConfigured": "Push nie jest skonfigurowany. Najpierw dodaj konfigurację FCM lub APNs.",
+      "cleanupTitle": "Usuń nieaktualne urządzenia",
+      "cleanupDescription": "Usuwa wyłączone urządzenia i urządzenia niewidziane od {days} dni.",
+      "cleanup": "Wyczyść urządzenia",
+      "cleaning": "Czyszczenie …",
+      "cleanupResult": "Usunięto {count} urządzeń.",
+      "error": "Nie udało się wykonać operacji. Spróbuj ponownie.",
+      "errorForbidden": "Tylko administrator może zarządzać powiadomieniami push.",
+      "errorRateLimited": "Zbyt wiele prób. Spróbuj ponownie za chwilę.",
+      "errorUnauthenticated": "Nie jesteś zalogowany.",
+      "loadError": "Nie udało się pobrać statusu push."
+    },
+    "test": {
+      "title": "Powiadomienie testowe",
+      "body": "Powiadomienia push są skonfigurowane dla tej instalacji."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Faktura opłacona",
+        "body": "Faktura {invoiceNumber} została opłacona."
       }
     }
   }

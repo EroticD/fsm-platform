@@ -736,5 +736,59 @@
       "duplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
       "missingField": "Fyll ut navn, e-post og velg en kontaktperson."
     }
+  },
+  "push": {
+    "settings": {
+      "title": "Pushvarsler",
+      "description": "Send varsler til mobilappen via FCM (Android) og APNs (iOS).",
+      "noSecrets": "Nøkler og tokens vises aldri her.",
+      "loading": "Laster status …",
+      "providersTitle": "Leverandører",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Konfigurert",
+      "notConfigured": "Ikke konfigurert",
+      "project": "Prosjekt: {project}",
+      "environment": "Miljø: {environment}",
+      "sandbox": "sandbox",
+      "production": "produksjon",
+      "devicesTitle": "Enheter",
+      "devicesActive": "{active} aktive av {total}",
+      "devicesStale": "{count} foreldet (eldre enn {days} dager)",
+      "queueTitle": "Utboks",
+      "queuePending": "{count} venter",
+      "queueDeadLetter": "{count} gitt opp",
+      "sentTitle": "Siste 24 timer",
+      "queueSent": "{count} sendt",
+      "lastSent": "Sist sendt: {time}",
+      "neverSent": "Ingen push er sendt ennå.",
+      "testTitle": "Send testvarsel",
+      "testDescription": "Sendes til dine egne registrerte enheter.",
+      "sendTest": "Send test",
+      "sending": "Sender …",
+      "testSent": "{sent} av {queued} meldinger sendt.",
+      "testNoDevices": "Fant ingen aktive enheter for kontoen din.",
+      "testNotConfigured": "Push er ikke konfigurert. Legg inn FCM- eller APNs-oppsett først.",
+      "cleanupTitle": "Rydd foreldede enheter",
+      "cleanupDescription": "Sletter deaktiverte enheter og enheter som ikke har vært sett på {days} dager.",
+      "cleanup": "Rydd enheter",
+      "cleaning": "Rydder …",
+      "cleanupResult": "{count} enheter slettet.",
+      "error": "Kunne ikke utføre handlingen. Prøv igjen.",
+      "errorForbidden": "Bare administrator kan administrere pushvarsler.",
+      "errorRateLimited": "For mange forsøk. Prøv igjen om litt.",
+      "errorUnauthenticated": "Du er ikke innlogget.",
+      "loadError": "Kunne ikke hente pushstatus."
+    },
+    "test": {
+      "title": "Testvarsel",
+      "body": "Pushvarsler er konfigurert for denne installasjonen."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Faktura betalt",
+        "body": "Faktura {invoiceNumber} er betalt."
+      }
+    }
   }
 }

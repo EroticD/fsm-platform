@@ -25,6 +25,7 @@ import {
   processEmailOutbox,
   requeueStaleEmailMessages,
 } from "@/server/email-outbox";
+import { startPushWorker } from "@/server/push";
 import { moduleEnabled } from "@/server/modules";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -118,6 +119,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmLocationPingCleanupStarted?: boolean;
   __fsmSmsWorkerStarted?: boolean;
   __fsmEmailOutboxWorkerStarted?: boolean;
+  __fsmPushWorkerStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -853,6 +855,11 @@ export async function startJobWorker(): Promise<void> {
   // EmailMessage-utboksen. Request-stien legger bare raden i køen.
   startEmailOutboxWorker();
 
+  // Pushvarsler går via den vedvarende PushMessage-utboksen. Workeren respekterer
+  // modulvaktene per varseltype, så en avslått booking- eller fakturamodul
+  // stopper også push for den typen.
+  startPushWorker();
+
   // Planlegg og send påminnelser fra den vedvarende jobbkøen. SMTP- eller
   // leverandørfeil påvirker derfor aldri request-stien, og hver utsendelse
   // har en egen rad i ReminderDispatch med retry og historikk.
@@ -891,4 +898,7 @@ export function resetJobWorkerForTests(): void {
   // SMS-workeren har eget startflagg; nullstilles her slik at tester som
   // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.
   scope.__fsmSmsWorkerStarted = false;
+  // Push-workeren har eget startflagg; nullstilles her for tester som vil
+  // starte den på nytt etter resetJobWorkerForTests.
+  scope.__fsmPushWorkerStarted = false;
 }

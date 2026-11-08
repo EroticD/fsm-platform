@@ -21,6 +21,7 @@ import {
 import { resolvePortalAccess } from "./portal-access";
 import { quoteScopeFor } from "./quotes";
 import { assertModule } from "./modules";
+import { notifyUser } from "./notifications";
 import {
   enqueueInvoiceSentEmail,
   enqueuePaymentReceivedEmail,
@@ -786,6 +787,47 @@ export type PaymentInput = {
   providerReference?: unknown;
 };
 
+/**
+ * Varsler kontoret i fakturaens avdeling når fakturaen blir fullt betalt.
+ * Dedupe-nøkkelen gjør gjentatte betalingsforsøk idempotente. Selve
+ * push-utsendelsen skjer i den vedvarende utboksen.
+ */
+async function notifyInvoicePaid(invoiceId: string): Promise<void> {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      departmentId: true,
+    },
+  });
+  if (!invoice?.departmentId) return;
+
+  const recipients = await prisma.user.findMany({
+    where: {
+      departmentId: invoice.departmentId,
+      role: { in: ["ADMIN", "OFFICE"] },
+      isActive: true,
+    },
+    select: { id: true },
+    take: 100,
+  });
+
+  const invoiceNumber = invoice.invoiceNumber ?? invoice.id.slice(-8);
+  for (const recipient of recipients) {
+    await notifyUser({
+      userId: recipient.id,
+      type: "INVOICE_PAID",
+      titleKey: "push.notifications.invoicePaid.title",
+      bodyKey: "push.notifications.invoicePaid.body",
+      params: { invoiceNumber },
+      href: `/faktura/${invoice.id}`,
+      sourceLabel: `Faktura ${invoiceNumber}`,
+      dedupeKey: `invoice-paid:${invoice.id}:${recipient.id}`,
+    }).catch(() => undefined);
+  }
+}
+
 /** Registrerer en manuell betaling. Delbetaling er normalen, ikke unntaket. */
 export async function registerPayment(
   actor: ServiceActor,
@@ -939,6 +981,8 @@ export async function registerPayment(
       }
     }
 
+      // Pushvarsel er best effort: betalingen er allerede registrert.
+      await notifyInvoicePaid(cleanId).catch(() => undefined);
     return result;
   } catch (error) {
     if (isUniqueViolation(error) && idempotencyKey) {

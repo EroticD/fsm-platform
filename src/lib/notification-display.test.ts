@@ -20,6 +20,7 @@ describe("notificationTypePresentation", () => {
       "SLA_BREACHED",
       "WARRANTY",
       "MESSAGE",
+      "INVOICE_PAID",
     ];
 
     for (const type of types) {
