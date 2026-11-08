@@ -39,6 +39,8 @@
     "visits:backfill:daily": "tsx scripts/backfill-daily-visits.ts",
     "sla:cleanup": "tsx scripts/cancel-uncontracted-sla.ts",
     "manual:build": "node scripts/build-manual.mjs",
+    "manual:verify": "node scripts/verify-manual-screenshots.mjs",
+    "manual:all": "npm run manual:verify && npm run manual:build",
     "i18n:unused": "node scripts/i18n-unused.mjs",
     "test:coverage": "vitest run --coverage",
     "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
