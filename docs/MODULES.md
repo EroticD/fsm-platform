@@ -39,7 +39,7 @@ Kjernen kan ikke slås av:
 | Offline felt | `offline` | – | Offline-kladder, utbokskø, sesjonsvakt og service worker |
 | Tilbud | `quotes` | – | Levert v1: `/tilbud`, portalgodkjenning, konvertering |
 | Fakturering | `invoicing` | – | Levert v1: `/faktura`, betaling/kreditnota, CSV |
-| Lager | `inventory` | – | Levert v1: `/lager`, reservasjon/forbruk |
+| Lager | `inventory` | – | Levert v1: `/lager`, reservasjon/forbruk, leverandør og innkjøpsordre |
 | Kjøring/utlegg | `fieldExpenses` | – | Levert v1: `/utlegg`, godkjenning, lønn-CSV |
 | Lønnsomhet | `bi` | – | Levert v1: `/lonnsomhet`, estimert inntekt og CSV |
 
@@ -54,11 +54,9 @@ booking ──▶ portal
         └─▶ calendar ◀── tracking
 transfer ──▶ equipment
          └─▶ documents
-quotes ──▶ contracts
-invoicing ──▶ quotes
-inventory ──▶ equipment
-fieldExpenses ──▶ calendar
-bi ──▶ reports
+# P2-modulene har ingen modulavhengigheter i katalogen; de kan slås av og på
+# uavhengig av hverandre. Funksjonell integrasjon (faktura fra oppdrag, BI fra
+# fakturaer) håndteres i tjenestelaget, ikke som en hard modulavhengighet.
 ```
 
 Reglene håndheves i begge retninger:
@@ -146,7 +144,11 @@ integrasjonstester og kan kalles fra en fremtidig CLI.
 - `/sok/analyse` viser aggregert søkestatistikk (populære søk og nulltreff),
   ikke entitetsdata fra avslåtte moduler.
 - P2-modulene (`quotes`, `invoicing`, `inventory`, `fieldExpenses`, `bi`) er
-  slås på i rammeverket, men har ingen leverte sider eller handlinger ennå.
+  leverte v1-moduler med egne sider, handlinger og tester. De har bevisst ingen
+  harde modulavhengigheter; faktura fra oppdrag og BI fra fakturaer slås
+  funksjonelt på når begge modulene er aktive.
+- Kundeoverføring bruker HMAC eller Ed25519. Ed25519 er én felles
+  deploy-identitet, ikke per-bruker ikke-fornektelse.
 
 ## Tester
 
