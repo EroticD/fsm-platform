@@ -100,6 +100,10 @@ aldri i hakens form.
 | `--field` | `#0b0e0b` | Feltsidens bakgrunn | 16,9:1 mot paper |
 | `--field-card` | `#151a14` | Feltkort og hero | 15,4:1 mot paper |
 | `--surface` | `#fffdf8` | Kontorkort, ark, popup | 5,6:1 for muted |
+| `--field-line` | `#2a3328` | Kant på feltflater | Erstattet rå `#2a3328` |
+| `--risk-surface` | `#fdf4f2` | Feil-/risikoflate | Brukes av `ErrorBanner` |
+| `--success-surface` | `#eef7d6` | Fullført/flate | Tekst `--success-text` |
+| `--warning-surface` | `#fdf5e4` | Venter/flate | Tekst `--warning-text` |
 
 **Kontrast:** brødtekst ≥ 4,5:1, titler ≥ 3:1, betydningsbærende ikon ≥ 3:1,
 fokusring ≥ 3:1. Hvitt på `--risk` er 3,8:1 og bare tillatt ved ≥ 24 px eller
@@ -147,6 +151,12 @@ ring); ren `#fff` som kortflate; tenant-farger på feltflater; rå hex uten toke
 | `eyebrow-field` | 12/16 | 800 | +0,20em, uppercase | «NESTE», «FORFALT» |
 | `micro` | 12/16 | 600 | +0,02em | **Gulv.** Aldri under 12 px |
 
+Rolleen er også tilgjengelige som CSS-klasser i `globals.css`:
+`.type-display`, `.type-title-1`, `.type-title-2`, `.type-title-3`,
+`.type-body`, `.type-ui`, `.type-meta`, `.type-eyebrow`, `.type-micro` og
+`.type-tabular`. Nye flater skal bruke klassene i stedet for å sette
+`text-*`/`font-*` per side.
+
 - **Line height** 1,5 body, 1,25–1,3 titler, 1,2 knapper.
 - **Maks linjelengde:** prosa 68 tegn, korttekst 52, rail 38, tabellcelle 32 før
   trunkering med `title`/`aria-label`.
@@ -171,6 +181,12 @@ ring); ren `#fff` som kortflate; tenant-farger på feltflater; rå hex uten toke
 | Felt CTA primær | 64 px høy, full bredde |
 | Felt sekundær | 56 px høy |
 | Kontorknapp | 44 px høy, 10 px radius |
+
+**Kontorramme:** alle kontorsider bruker `PageShell` fra
+`src/components/PageShell.tsx`, som gir `.office-app office-page` med
+maksbredde 90 rem, responsiv luft (12/24/32 px) og 16 px vertikal rytme.
+`PageShell size="narrow"` brukes for skjemaer og detaljsider. Sider skal ikke
+duplisere `office-app min-h-screen p-3 sm:p-6 lg:p-8`.
 
 **Kontor ≥ 1024 px:** maks 1440 px, 32 px margin, 12 kolonner. Grid
 `minmax(0, 1fr) 21rem`, gap 24 px; rail 336 px med «Neste handling», fremdrift
@@ -237,8 +253,11 @@ fokus, så tastaturet ikke dekkes.
 
 | Komponent | Anatomi | Regler |
 | --- | --- | --- |
-| **Knapp** | 44/56/64 px, 10–12 px radius, ikon 16–20 px | `signal-button` primær, `ink-button` sekundær, outline tertiary, rød bare i bekreftelse |
-| **Statuspill** | 6 px prikk + tekst, 9999 px, 12/16 `700` | Tekst alltid med; aldri farge alene |
+| **Knapp** | 44/56/64 px, 10–12 px radius, ikon 16–20 px | `Button`/`buttonClassName`: `primary` (signal), `secondary` (ink outline), `ghost`, `danger`, `danger-outline`. Rød solid bare i bekreftelse |
+| **Sidehode** | `PageHeader`: eyebrow, tittel, undertittel, ikon, handlinger | `type-title-1`, bryter tittel i stedet for å trunkere, én primærhandling |
+| **Skjemafelt** | `Field` + `Input`/`Select`/`Textarea`, label 12/16 `700`, hjelp 13/18, feil 13/18 `700` | `required` gir synlig markør og `aria-required`; ingen lokale LABEL/CONTROL-konstanter |
+| **Tomtilstand** | `EmptyState` med ikon, tittel, beskrivelse, handling | `variant="card"` stående, `variant="plain"` inne i et kort – aldri kort i kort |
+| **Statuspill** | 6 px prikk + tekst, 9999 px, 12/16 `700` | Tekst alltid med; aldri farge alene. `StatusBadge` eier arbeidsflyt-, faktura- og tilbudsstatusene |
 | **Unntakskort** | Eyebrow, stort tall, undertekst, markør | 4 i bredden, 2 på mobil. Forfalt = ink flate med rød markør, i dag = signal, resten `--surface`. Hele kortet er lenke |
 | **KPI-kort** | Label, tall, undertekst | 3 i bredden, 24 px tall, ingen aksent |
 | **Kørad** | Dato/klokke, tittel, kunde, status, tekniker, chevron | ≥ 64 px. Forfalt: `#fdf4f2` bakgrunn, 2 px rød venstrekant. Hele raden er treffflate |
@@ -278,8 +297,8 @@ Tavlekolonne, kartpin og popup er målbilde; øvrige rader finnes helt eller del
 1. **Token-first.** Bruk tokens i `globals.css` (`--ink`, `--signal`,
    `--field-card`, `--surface`, `rounded-card`, `shadow-card`).
 2. **Rå hex er forbudt** med mindre verdien mangler i tokenlaget og legges til
-   i samme PR. Kjente avvik: `#2a3328` (feltkant → `--field-line`) og
-   datadrevne taggfarger (via `readableTextColor`).
+   i samme PR. Feltkanten bruker `--field-line`; datadrevne taggfarger går via
+   `readableTextColor`.
 3. **Ingen Tailwind-palettfarger** (`gray-*`, `blue-*`, `amber-*`). Semantiske
    farger (`info`, `success`, `warning`, `danger`) er forbeholdt tilstander
    utenfor feltpaletten.
@@ -293,10 +312,15 @@ npx playwright test e2e/a11y.spec.ts
 npm run screenshots:all && npm run screenshots:verify   # alle sider, 1440×900 + 390×844
 ```
 
-6. **Manuell sjekk:** 320/390/820/821/1440 uten overflow, én primærhandling,
+6. **Primitivførst:** nye sider bruker `PageShell`, `PageHeader`, `Card`,
+   `Button`/`buttonClassName`, `Field`, `EmptyState`, `ErrorBanner` og
+   `StatusBadge` før lokale varianter vurderes. Bruk `.office-table` for
+   tabelldata og `.type-*` for typografi. Minste tekststørrelse er 12 px
+   (`text-2xs`), og sidecontaineren skal ikke duplisere `min-h-screen`.
+7. **Manuell sjekk:** 320/390/820/821/1440 uten overflow, én primærhandling,
    kontrast på muted, fokusring på mørkt, redusert bevegelse, ingen oppdiktet
    tid eller dato.
-7. **Endringslogg** med dato, begrunnelse og valgt bort.
+8. **Endringslogg** med dato, begrunnelse og valgt bort.
 
 | # | Dato | Beslutning | Begrunnelse |
 | --- | --- | --- | --- |
@@ -309,3 +333,4 @@ npm run screenshots:all && npm run screenshots:verify   # alle sider, 1440×900 
 | D7 | 2026-10-29 | Kart uten kart-SDK | Ingen API-nøkkel; listen er sannhetskilden |
 | D8 | 2026-10-29 | Open Sans + system-mono | Én fontnedlasting; koder trenger ikke webfont |
 | D9 | 2026-10-30 | Dataærlighet foran visuell fylde | Manglende tid/dato/avstand vises som «ikke satt». `09:00`-fallback fjernes |
+| D10 | 2026-11-08 | Primitivførst på alle sider | `PageShell`, `PageHeader`, `Card`, `Button`, `Field`, `EmptyState` og `StatusBadge` samler designet; 12 px tekstgulv og `--field-line` håndheves |

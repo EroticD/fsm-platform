@@ -182,8 +182,8 @@ async function login(browser, credentials) {
       timeout: 30_000,
     });
 
-    await page.getByLabel("E-post", { exact: true }).fill(credentials.email);
-    await page.getByLabel("Passord", { exact: true }).fill(credentials.password);
+    await page.getByLabel("E-post").fill(credentials.email);
+    await page.getByLabel("Passord").fill(credentials.password);
 
     await Promise.all([
       page.waitForURL((url) => !url.pathname.startsWith("/logg-inn"), {
@@ -218,7 +218,7 @@ async function login(browser, credentials) {
 function buildShots(fixtures) {
   return [
     {
-      file: "rute-manuell-rekkefølge.jpg",
+      file: "rute-manuell-rekkefolge.jpg",
       route: "/kalender/rute",
       selector: "[data-manual-route-form]",
       role: "admin",
@@ -238,7 +238,7 @@ function buildShots(fixtures) {
         "planen faktisk har overtid.",
     },
     {
-      file: "oppdrag-rekkefølge.jpg",
+      file: "oppdrag-rekkefolge.jpg",
       route: `/oppdrag/${fixtures.detailOrderId}`,
       selector: "[data-workorder-route-sequence]",
       role: "admin",

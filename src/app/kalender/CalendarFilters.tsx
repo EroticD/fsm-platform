@@ -10,7 +10,7 @@ import {
 type TechnicianOption = { id: string; name: string | null };
 
 const FIELD =
-  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
 
 /** Filtre for kalendervisningene. Skjemaet er vanlig GET-navigasjon, slik at
  * filtrene ligger i URL-en og kan bokmerkes, deles og overleve refresh uten
@@ -123,7 +123,7 @@ export default async function CalendarFilters({
           </button>
           <Link
             href={calendarViewHref(visParam, { date })}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-white px-4 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-4 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
           >
             {t("calendar.filters.reset")}
           </Link>

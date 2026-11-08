@@ -21,7 +21,7 @@ export default function UploadDocumentForm({
 }) {
   const t = useTranslations("common");
   const fieldClass =
-    "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+    "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
   const labelClass =
     "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
   const [uploading, setUploading] = useState(false);

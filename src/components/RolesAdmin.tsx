@@ -152,7 +152,7 @@ export default async function RolesAdmin({
                               {t(permission.descriptionKey)}
                             </span>
                             {permission.key === "reports.viewAllDepartments" && (
-                              <span className="mt-0.5 block rounded bg-[#fbf1d2] px-1.5 py-0.5 text-xs font-semibold text-[#6b4a05]">
+                              <span className="mt-0.5 block rounded bg-[var(--warning-surface,#fdf5e4)] px-1.5 py-0.5 text-xs font-semibold text-[var(--warning-text,#7a4f0c)]">
                                 {t("settings.roles.requiresPermission", {
                                   permission: reportsViewLabel,
                                 })}
@@ -183,7 +183,7 @@ export default async function RolesAdmin({
 
       <div className="lg:col-span-2 space-y-4">
         {error && ROLE_ERROR_CODES.has(error) && (
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t(`settings.roles.errors.${error}`)}
           </div>
@@ -278,7 +278,7 @@ export default async function RolesAdmin({
                       <button
                         type="submit"
                         disabled={role.users > 0}
-                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1"
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1"
                         title={
                           role.users > 0
                             ? t("settings.roles.deleteBlocked")
@@ -325,7 +325,7 @@ export default async function RolesAdmin({
                   </div>
 
                   {locked ? (
-                    <div className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] p-3 text-xs text-[#6b4a05]">
+                    <div className="rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-3 text-xs text-[var(--warning-text,#7a4f0c)]">
                       {role.key === "ADMIN"
                         ? t("settings.roles.adminLocked")
                         : t("settings.roles.customerLocked")}
@@ -364,7 +364,7 @@ export default async function RolesAdmin({
                                     {t(permission.descriptionKey)}
                                   </span>
                                   {permission.key === "reports.viewAllDepartments" && (
-                                    <span className="mt-0.5 block rounded bg-[#fbf1d2] px-1.5 py-0.5 text-xs font-semibold text-[#6b4a05]">
+                                    <span className="mt-0.5 block rounded bg-[var(--warning-surface,#fdf5e4)] px-1.5 py-0.5 text-xs font-semibold text-[var(--warning-text,#7a4f0c)]">
                                       {t("settings.roles.requiresPermission", {
                                         permission: reportsViewLabel,
                                       })}

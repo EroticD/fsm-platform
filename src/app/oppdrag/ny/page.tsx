@@ -7,10 +7,17 @@ import ErrorBanner from "@/components/ErrorBanner";
 import IsoDateInput from "@/components/IsoDateInput";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SubmitButton from "@/components/SubmitButton";
 import TagSelector from "@/components/TagSelector";
+import SectionCard from "@/components/SectionCard";
+import { brandInset } from "@/components/ui/brandStyles";
+import { buttonClassName } from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import { controlClassName } from "@/components/ui/controlStyles";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -23,15 +30,6 @@ import {
 import { createWorkOrder } from "./actions";
 import { getCustomerSiteOptions } from "@/server/customer-sites";
 import { todayInOslo } from "@/lib/dates";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const LABEL =
-  "mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
-const HINT = "mt-1 text-xs leading-5 text-[var(--muted,#62685f)]";
-const SECTION_TITLE =
-  "flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
-const INK_LINK =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
 
 /**
  * Fjerner ledende symbol-ikoner fra oversettelser som ennå har emoji i
@@ -137,439 +135,389 @@ export default async function AdminCreateWorkOrderPage({
         : undefined;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto min-w-0 max-w-2xl space-y-4">
-        <PageHeader
-          title={withoutLeadingSymbol(t("orders.new.title"))}
-          subtitle={t("orders.new.subtitle")}
-          icon={<Icon name="plus" className="h-5 w-5" />}
-          actions={
-            <Link href="/kalender" className={INK_LINK}>
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {withoutLeadingSymbol(t("orders.new.backToCalendar"))}
-            </Link>
-          }
+    <PageShell size="narrow">
+      <PageHeader
+        title={withoutLeadingSymbol(t("orders.new.title"))}
+        subtitle={t("orders.new.subtitle")}
+        icon={<Icon name="plus" className="h-5 w-5" />}
+        actions={
+          <Link href="/kalender" className={buttonClassName({ variant: "secondary" })}>
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {withoutLeadingSymbol(t("orders.new.backToCalendar"))}
+          </Link>
+        }
+      />
+
+      <ErrorBanner message={errorMessage} />
+
+      <form
+        id="office-create-work-order"
+        action={createWorkOrder}
+        className="space-y-4"
+      >
+        <FormValuePersistence
+          formId="office-create-work-order"
+          storageKey="fsm:office-create-work-order"
+          restore={Boolean(error)}
         />
 
-        <ErrorBanner message={errorMessage} />
+        {/* INNHOLD */}
+        <SectionCard title={t("orders.formSections.content")}>
 
-        <form
-          id="office-create-work-order"
-          action={createWorkOrder}
-          className="space-y-4"
-        >
-          <FormValuePersistence
-            formId="office-create-work-order"
-            storageKey="fsm:office-create-work-order"
-            restore={Boolean(error)}
-          />
-
-          {/* INNHOLD */}
-          <section className={CARD} aria-labelledby="office-new-content">
-            <h2 id="office-new-content" className={SECTION_TITLE}>
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+          <div className="mt-3 space-y-3">
+            <Field
+              id="office-new-title"
+              label={t("orders.new.titleLabel")}
+              required
+            >
+              <Input
+                id="office-new-title"
+                type="text"
+                name="title"
+                placeholder={t("orders.new.titlePlaceholder")}
+                required
               />
-              {t("orders.formSections.content")}
-            </h2>
+            </Field>
 
-            <div className="mt-3 space-y-3">
-              <div>
-                <label htmlFor="office-new-title" className={LABEL}>
-                  {t("orders.new.titleLabel")}{" "}
-                  <span className="text-[var(--risk-text,#b42318)]">*</span>
-                </label>
-                <input
-                  id="office-new-title"
-                  type="text"
-                  name="title"
-                  placeholder={t("orders.new.titlePlaceholder")}
+            <Field
+              id="office-new-order-number"
+              label={t("orders.new.orderNumber")}
+            >
+              <Input
+                id="office-new-order-number"
+                type="text"
+                name="orderNumber"
+                placeholder={t("orders.new.orderNumberPlaceholder")}
+                maxLength={200}
+              />
+            </Field>
+
+            <Field
+              id="office-new-description"
+              label={t("orders.new.description")}
+            >
+              <MarkdownEditor
+                id="office-new-description"
+                name="description"
+                rows={3}
+                placeholder={t("orders.new.descriptionPlaceholder")}
+              />
+            </Field>
+          </div>
+        </SectionCard>
+
+        {/* KUNDE OG STED */}
+        <SectionCard title={t("orders.formSections.customerPlace")}>
+
+          <div className="mt-3 space-y-3">
+            <Field
+              id="office-new-department"
+              label={t("orders.new.department")}
+              hint={t("orders.new.departmentHint")}
+            >
+              {isAdmin ? (
+                <Select
+                  id="office-new-department"
+                  name="departmentId"
+                  defaultValue={ownDepartmentId ?? ""}
                   required
-                  className={controlClassName("min-h-11")}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="office-new-order-number" className={LABEL}>
-                  {t("orders.new.orderNumber")}
-                </label>
-                <input
-                  id="office-new-order-number"
-                  type="text"
-                  name="orderNumber"
-                  placeholder={t("orders.new.orderNumberPlaceholder")}
-                  maxLength={200}
-                  className={controlClassName("min-h-11")}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="office-new-description" className={LABEL}>
-                  {t("orders.new.description")}
-                </label>
-                <MarkdownEditor
-                  id="office-new-description"
-                  name="description"
-                  rows={3}
-                  placeholder={t("orders.new.descriptionPlaceholder")}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* KUNDE OG STED */}
-          <section className={CARD} aria-labelledby="office-new-customer">
-            <h2 id="office-new-customer" className={SECTION_TITLE}>
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
-              />
-              {t("orders.formSections.customerPlace")}
-            </h2>
-
-            <div className="mt-3 space-y-3">
-              <div>
-                <label htmlFor="office-new-department" className={LABEL}>
-                  {t("orders.new.department")}
-                </label>
-                {isAdmin ? (
-                  <select
-                    id="office-new-department"
-                    name="departmentId"
-                    aria-describedby="office-new-department-hint"
-                    defaultValue={ownDepartmentId ?? ""}
-                    required
-                    className={controlClassName("min-h-11")}
-                  >
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.isDefault
-                          ? t("orders.new.departmentDefault", { name: department.name })
-                          : department.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex min-h-11 w-full items-center rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-sm font-bold text-[var(--ink,#101310)]">
-                    {user.department?.name || departments.find((d) => d.id === ownDepartmentId)?.name || t("orders.new.noDepartment")}
-                  </div>
-                )}
-                <p id="office-new-department-hint" className={HINT}>
-                  {t("orders.new.departmentHint")}
-                </p>
-              </div>
-
-              <CustomerSelect
-                customers={customerOptions}
-                selectedCustomer={selectedCustomer}
-                contacts={selectedCustomerContacts}
-                optional={true}
-                persistenceKey="fsm:office-create-work-order"
-                restoreSelection={Boolean(error)}
-                siteSelector={{
-                  initialCustomerId: selectedCustomer?.id ?? null,
-                  initialSites: sites,
-                  id: "office-new-site",
-                  label: t("orders.new.siteLabel"),
-                  noSiteLabel: t("orders.new.noSite"),
-                  hint: t("orders.new.siteHint"),
-                }}
-              />
-
-              <div
-                className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
-                aria-describedby="office-new-location-hint"
-              >
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="sm:col-span-3">
-                    <label htmlFor="office-new-address" className={LABEL}>
-                      {t("orders.new.addressLabel")}
-                    </label>
-                    <input
-                      id="office-new-address"
-                      name="address"
-                      maxLength={200}
-                      className={controlClassName("min-h-11")}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="office-new-postal-code" className={LABEL}>
-                      {t("orders.new.postalCodeLabel")}
-                    </label>
-                    <input
-                      id="office-new-postal-code"
-                      name="postalCode"
-                      maxLength={20}
-                      className={controlClassName("min-h-11")}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="office-new-city" className={LABEL}>
-                      {t("orders.new.cityLabel")}
-                    </label>
-                    <input
-                      id="office-new-city"
-                      name="city"
-                      maxLength={100}
-                      className={controlClassName("min-h-11")}
-                    />
-                  </div>
+                >
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.isDefault
+                        ? t("orders.new.departmentDefault", { name: department.name })
+                        : department.name}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <div className={`${brandInset} flex min-h-11 w-full items-center px-3 py-2 text-sm font-bold text-[var(--ink,#101310)]`}>
+                  {user.department?.name || departments.find((d) => d.id === ownDepartmentId)?.name || t("orders.new.noDepartment")}
                 </div>
-                <p id="office-new-location-hint" className={HINT}>
-                  {t("orders.new.locationHint")}
-                </p>
+              )}
+            </Field>
+
+            <CustomerSelect
+              customers={customerOptions}
+              selectedCustomer={selectedCustomer}
+              contacts={selectedCustomerContacts}
+              optional={true}
+              persistenceKey="fsm:office-create-work-order"
+              restoreSelection={Boolean(error)}
+              siteSelector={{
+                initialCustomerId: selectedCustomer?.id ?? null,
+                initialSites: sites,
+                id: "office-new-site",
+                label: t("orders.new.siteLabel"),
+                noSiteLabel: t("orders.new.noSite"),
+                hint: t("orders.new.siteHint"),
+              }}
+            />
+
+            <div className={`${brandInset} p-3`}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field
+                  id="office-new-address"
+                  label={t("orders.new.addressLabel")}
+                  className="sm:col-span-3"
+                >
+                  <Input
+                    id="office-new-address"
+                    name="address"
+                    maxLength={200}
+                  />
+                </Field>
+                <Field
+                  id="office-new-postal-code"
+                  label={t("orders.new.postalCodeLabel")}
+                >
+                  <Input
+                    id="office-new-postal-code"
+                    name="postalCode"
+                    maxLength={20}
+                  />
+                </Field>
+                <Field
+                  id="office-new-city"
+                  label={t("orders.new.cityLabel")}
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    id="office-new-city"
+                    name="city"
+                    maxLength={100}
+                  />
+                </Field>
+              </div>
+              <p className="type-meta mt-2 text-[var(--muted,#62685f)]">
+                {t("orders.new.locationHint")}
+              </p>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* TID */}
+        <SectionCard title={t("orders.formSections.time")}>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field
+              id="office-new-scheduled-for"
+              label={t("orders.new.executionDate")}
+              required
+            >
+              <IsoDateInput
+                id="office-new-scheduled-for"
+                name="scheduledFor"
+                defaultValue={todayInOslo()}
+                required
+                className={controlClassName("min-h-11")}
+              />
+            </Field>
+            <Field
+              id="office-new-scheduled-to"
+              label={t("orders.new.endDate")}
+              hint={t("orders.new.endDateHint")}
+              error={dateError}
+            >
+              <IsoDateInput
+                id="office-new-scheduled-to"
+                name="scheduledTo"
+                aria-describedby={
+                  dateError
+                    ? "office-new-scheduled-to-hint office-new-scheduled-to-error"
+                    : "office-new-scheduled-to-hint"
+                }
+                aria-invalid={dateError ? true : undefined}
+                className={controlClassName("min-h-11")}
+              />
+            </Field>
+          </div>
+          <p className={`${brandInset} mt-3 px-3 py-2 text-xs font-medium leading-5 text-[var(--muted,#62685f)]`}>
+            {t("orders.new.workdayHint")}
+          </p>
+        </SectionCard>
+
+        {/* RESSURSER */}
+        <SectionCard title={t("orders.formSections.resources")}>
+
+          <div className="mt-3 space-y-4">
+            <div role="group" aria-labelledby="office-new-technicians">
+              <p
+                id="office-new-technicians"
+                className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
+              >
+                {t("orders.new.assignTechnicians")}
+              </p>
+              <div className={`max-h-48 space-y-1 overflow-y-auto ${brandInset} p-2`}>
+                {technicians.map((tech) => (
+                  <label
+                    key={tech.id}
+                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-2 py-1.5 transition hover:bg-[var(--surface,#fffdf8)]"
+                  >
+                    <input
+                      type="checkbox"
+                      name="technicianIds"
+                      value={tech.id}
+                      className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                    />
+                    <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
+                      {tech.name}
+                      {tech.department ? ` (${tech.department.name})` : ""}
+                    </span>
+                  </label>
+                ))}
               </div>
             </div>
-          </section>
 
-          {/* TID */}
-          <section className={CARD} aria-labelledby="office-new-time">
-            <h2 id="office-new-time" className={SECTION_TITLE}>
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
-              />
-              {t("orders.formSections.time")}
-            </h2>
-
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="office-new-scheduled-for" className={LABEL}>
-                  {t("orders.new.executionDate")}{" "}
-                  <span className="text-[var(--risk-text,#b42318)]">*</span>
-                </label>
-                <IsoDateInput
-                  id="office-new-scheduled-for"
-                  name="scheduledFor"
-                  defaultValue={todayInOslo()}
-                  required
-                  className={controlClassName("min-h-11")}
-                />
+            <div
+              role="group"
+              aria-labelledby="office-new-skills-title"
+              aria-describedby="office-new-skills-hint"
+            >
+              <p
+                id="office-new-skills-title"
+                className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
+              >
+                {t("orders.skills.title")}
+              </p>
+              <p id="office-new-skills-hint" className="type-meta mt-1 text-[var(--muted,#62685f)]">
+                {t("orders.skills.hint")}
+              </p>
+              <div className={`mt-2 max-h-64 space-y-1 overflow-y-auto ${brandInset} p-2`}>
+                {skills.length === 0 ? (
+                  <p className="p-2 text-sm text-[var(--muted,#62685f)]">
+                    {t("orders.skills.empty")}
+                  </p>
+                ) : (
+                  skills.map((skill) => (
+                    <div
+                      key={skill.id}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] px-2 py-1.5 hover:bg-[var(--surface,#fffdf8)]"
+                    >
+                      <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          name="skillIds"
+                          value={skill.id}
+                          className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                        />
+                        <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
+                          {skill.label}
+                          {skill.category ? ` · ${skill.category}` : ""}
+                        </span>
+                      </label>
+                      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-[var(--muted,#62685f)]">
+                        <input
+                          type="checkbox"
+                          name="mandatorySkillIds"
+                          value={skill.id}
+                          className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                        />
+                        {t("orders.skills.mandatory")}
+                      </label>
+                    </div>
+                  ))
+                )}
               </div>
-              <div>
-                <label htmlFor="office-new-scheduled-to" className={LABEL}>
-                  {t("orders.new.endDate")}
-                </label>
-                <IsoDateInput
-                  id="office-new-scheduled-to"
-                  name="scheduledTo"
-                  aria-describedby={
-                    dateError
-                      ? "office-new-scheduled-to-hint office-new-scheduled-to-error"
-                      : "office-new-scheduled-to-hint"
-                  }
-                  aria-invalid={dateError ? true : undefined}
-                  className={controlClassName("min-h-11")}
-                />
-                <p id="office-new-scheduled-to-hint" className={HINT}>
-                  {t("orders.new.endDateHint")}
-                </p>
-                {dateError && (
-                  <p
-                    id="office-new-scheduled-to-error"
-                    role="alert"
-                    className="mt-1 text-xs font-bold text-[var(--risk-text,#b42318)]"
-                  >
-                    {dateError}
+            </div>
+
+            <div
+              role="group"
+              aria-labelledby="office-new-templates-title"
+              aria-describedby="office-new-templates-hint"
+            >
+              <p
+                id="office-new-templates-title"
+                className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
+              >
+                {t("orders.new.templates")}
+              </p>
+              <p id="office-new-templates-hint" className="type-meta mt-1 text-[var(--muted,#62685f)]">
+                {t("orders.new.templatesHint")}
+              </p>
+              <div className={`mt-2 max-h-72 min-w-0 space-y-3 overflow-y-auto ${brandInset} p-3`}>
+                {templates.length === 0 && (
+                  <p className="p-2 text-sm text-[var(--muted,#62685f)]">
+                    {t("orders.new.noTemplates")}
                   </p>
                 )}
-              </div>
-            </div>
-            <p className="mt-3 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-medium leading-5 text-[#5e6356]">
-              {t("orders.new.workdayHint")}
-            </p>
-          </section>
 
-          {/* RESSURSER */}
-          <section className={CARD} aria-labelledby="office-new-resources">
-            <h2 id="office-new-resources" className={SECTION_TITLE}>
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
-              />
-              {t("orders.formSections.resources")}
-            </h2>
-
-            <div className="mt-3 space-y-4">
-              <div role="group" aria-labelledby="office-new-technicians">
-                <p
-                  id="office-new-technicians"
-                  className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
-                >
-                  {t("orders.new.assignTechnicians")}
-                </p>
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
-                  {technicians.map((tech) => (
-                    <label
-                      key={tech.id}
-                      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-2 py-1.5 transition hover:bg-[var(--surface,#fffdf8)]"
-                    >
-                      <input
-                        type="checkbox"
-                        name="technicianIds"
-                        value={tech.id}
-                        className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
-                      />
-                      <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
-                        {tech.name}
-                        {tech.department ? ` (${tech.department.name})` : ""}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                role="group"
-                aria-labelledby="office-new-skills-title"
-                aria-describedby="office-new-skills-hint"
-              >
-                <p
-                  id="office-new-skills-title"
-                  className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
-                >
-                  {t("orders.skills.title")}
-                </p>
-                <p id="office-new-skills-hint" className={HINT}>
-                  {t("orders.skills.hint")}
-                </p>
-                <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
-                  {skills.length === 0 ? (
-                    <p className="p-2 text-sm text-[var(--muted,#62685f)]">
-                      {t("orders.skills.empty")}
+                {serviceTemplates.length > 0 && (
+                  <div className="min-w-0 space-y-1">
+                    <p className="flex items-center gap-1.5 px-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
+                      <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
+                      {t("orders.templateGroups.service")}
                     </p>
-                  ) : (
-                    skills.map((skill) => (
-                      <div
-                        key={skill.id}
-                        className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] px-2 py-1.5 hover:bg-[var(--surface,#fffdf8)]"
+                    {serviceTemplates.map((template) => (
+                      <label
+                        key={template.id}
+                        className="flex min-h-11 min-w-0 cursor-pointer flex-wrap items-center gap-2 rounded-[10px] p-2 transition hover:bg-[var(--surface,#fffdf8)]"
                       >
-                        <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="skillIds"
-                            value={skill.id}
-                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
-                          />
-                          <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
-                            {skill.label}
-                            {skill.category ? ` · ${skill.category}` : ""}
-                          </span>
-                        </label>
-                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-[var(--muted,#62685f)]">
-                          <input
-                            type="checkbox"
-                            name="mandatorySkillIds"
-                            value={skill.id}
-                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
-                          />
-                          {t("orders.skills.mandatory")}
-                        </label>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                        <input
+                          type="checkbox"
+                          name="templateIds"
+                          value={template.id}
+                          className="h-4 w-4 shrink-0 rounded border-[var(--line,#dedcd1)] accent-[var(--ink,#101310)]"
+                        />
+                        <span className="min-w-0 break-words text-sm font-bold text-[var(--ink,#101310)]">
+                          {template.title}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
 
-              <div
-                role="group"
-                aria-labelledby="office-new-templates-title"
-                aria-describedby="office-new-templates-hint"
-              >
-                <p
-                  id="office-new-templates-title"
-                  className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
-                >
-                  {t("orders.new.templates")}
-                </p>
-                <p id="office-new-templates-hint" className={HINT}>
-                  {t("orders.new.templatesHint")}
-                </p>
-                <div className="mt-2 max-h-72 min-w-0 space-y-3 overflow-y-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
-                  {templates.length === 0 && (
-                    <p className="p-2 text-sm text-[var(--muted,#62685f)]">
-                      {t("orders.new.noTemplates")}
+                {hmsTemplates.length > 0 && (
+                  <div className="min-w-0 space-y-1 border-t border-[var(--line,#dedcd1)] pt-2">
+                    <p className="flex items-center gap-1.5 px-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
+                      <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
+                      {t("orders.templateGroups.hms")}
                     </p>
-                  )}
-
-                  {serviceTemplates.length > 0 && (
-                    <div className="min-w-0 space-y-1">
-                      <p className="flex items-center gap-1.5 px-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
-                        <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
-                        {t("orders.templateGroups.service")}
-                      </p>
-                      {serviceTemplates.map((template) => (
-                        <label
-                          key={template.id}
-                          className="flex min-h-11 min-w-0 cursor-pointer flex-wrap items-center gap-2 rounded-[10px] p-2 transition hover:bg-[var(--surface,#fffdf8)]"
-                        >
-                          <input
-                            type="checkbox"
-                            name="templateIds"
-                            value={template.id}
-                            className="h-4 w-4 shrink-0 rounded border-[var(--line,#dedcd1)] accent-[var(--ink,#101310)]"
-                          />
-                          <span className="min-w-0 break-words text-sm font-bold text-[var(--ink,#101310)]">
-                            {template.title}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {hmsTemplates.length > 0 && (
-                    <div className="min-w-0 space-y-1 border-t border-[var(--line,#dedcd1)] pt-2">
-                      <p className="flex items-center gap-1.5 px-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
-                        <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
-                        {t("orders.templateGroups.hms")}
-                      </p>
-                      {hmsTemplates.map((template) => (
-                        <label
-                          key={template.id}
-                          className="flex min-h-11 min-w-0 cursor-pointer flex-wrap items-center gap-2 rounded-[10px] p-2 transition hover:bg-[var(--surface,#fffdf8)]"
-                        >
-                          <input
-                            type="checkbox"
-                            name="templateIds"
-                            value={template.id}
-                            className="h-4 w-4 shrink-0 rounded border-[var(--line,#dedcd1)] accent-[var(--ink,#101310)]"
-                          />
-                          <span className="min-w-0 break-words text-sm font-bold text-[var(--ink,#101310)]">
-                            {template.title}
-                          </span>
-                          <span className="max-w-full break-words rounded-full border border-[var(--ink,#101310)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-black uppercase text-[var(--ink,#101310)]">
-                            {template.hmsType
-                              ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
-                              : t("orders.templateGroups.hmsBadge")}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div aria-describedby="office-new-tags-hint">
-                <p className="mb-1 text-sm font-bold text-[var(--ink,#101310)]">
-                  {t("orders.new.tags")}
-                </p>
-                <TagSelector allTags={tags} />
-                <p id="office-new-tags-hint" className={HINT}>
-                  {t("orders.new.tagsHint")}
-                </p>
+                    {hmsTemplates.map((template) => (
+                      <label
+                        key={template.id}
+                        className="flex min-h-11 min-w-0 cursor-pointer flex-wrap items-center gap-2 rounded-[10px] p-2 transition hover:bg-[var(--surface,#fffdf8)]"
+                      >
+                        <input
+                          type="checkbox"
+                          name="templateIds"
+                          value={template.id}
+                          className="h-4 w-4 shrink-0 rounded border-[var(--line,#dedcd1)] accent-[var(--ink,#101310)]"
+                        />
+                        <span className="min-w-0 break-words text-sm font-bold text-[var(--ink,#101310)]">
+                          {template.title}
+                        </span>
+                        <span className="max-w-full break-words rounded-full border border-[var(--ink,#101310)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-black uppercase text-[var(--ink,#101310)]">
+                          {template.hmsType
+                            ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
+                            : t("orders.templateGroups.hmsBadge")}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          </section>
 
-          <SubmitButton
-            pendingLabel={t("orders.new.submitting")}
-            className="signal-button w-full"
-          >
-            {t("orders.new.submit")}
-          </SubmitButton>
-        </form>
-      </div>
-    </div>
+            <div aria-describedby="office-new-tags-hint">
+              <p className="type-eyebrow mb-1 text-[var(--ink,#101310)]">
+                {t("orders.new.tags")}
+              </p>
+              <TagSelector allTags={tags} />
+              <p id="office-new-tags-hint" className="type-meta mt-1 text-[var(--muted,#62685f)]">
+                {t("orders.new.tagsHint")}
+              </p>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SubmitButton
+          pendingLabel={t("orders.new.submitting")}
+          className={`${buttonClassName({ variant: "primary" })} w-full`}
+        >
+          {t("orders.new.submit")}
+        </SubmitButton>
+      </form>
+    </PageShell>
   );
 }

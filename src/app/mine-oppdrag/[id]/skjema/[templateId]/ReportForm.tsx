@@ -94,7 +94,7 @@ function SubmitButton({
       aria-describedby={describedBy}
       className={`w-full transition disabled:opacity-80! disabled:cursor-not-allowed ${
         offline
-          ? "flex min-h-14 items-center justify-center gap-2 rounded-xl bg-white/10 py-4 font-black text-paper/80 shadow-none"
+          ? "flex min-h-14 items-center justify-center gap-2 rounded-xl bg-surface/10 py-4 font-black text-paper/80 shadow-none"
           : "field-cta shadow-[0_16px_36px_rgba(217,255,67,0.18)]"
       }`}
     >
@@ -1054,11 +1054,11 @@ export default function ReportForm({
                 className={`min-h-14 rounded-xl border p-2.5 transition sm:p-3 ${
                   active
                     ? "border-signal bg-signal text-ink shadow-sm"
-                    : "border-[#2a3328] bg-field text-paper hover:border-signal/60 hover:bg-white/[0.08]"
+                    : "border-[var(--field-line)] bg-field text-paper hover:border-signal/60 hover:bg-surface/[0.08]"
                 }`}
               >
                 <span
-                  className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                  className={`flex items-center gap-1 text-2xs font-black uppercase tracking-[0.14em] ${
                     active ? "text-ink/60" : "text-paper/55"
                   }`}
                 >
@@ -1067,13 +1067,13 @@ export default function ReportForm({
                     number: step.number,
                   })}
                 </span>
-                <span className="mt-1 block text-[11px] font-black leading-tight sm:text-sm">
+                <span className="mt-1 block text-2xs font-black leading-tight sm:text-sm">
                   {step.label}
                 </span>
                 <span
                   title={step.countLabel}
                   aria-label={step.countLabel}
-                  className={`mt-1 block text-[11px] font-black ${
+                  className={`mt-1 block text-2xs font-black ${
                     active ? "text-ink/75" : "text-signal"
                   }`}
                 >
@@ -1084,10 +1084,10 @@ export default function ReportForm({
           })}
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#2a3328] pt-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--field-line)] pt-2">
           <div className="min-w-0 flex-1">
             <p
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-paper/70"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs font-bold text-paper/70"
               aria-live="polite"
             >
               <span className="inline-flex items-center gap-1.5">
@@ -1138,7 +1138,7 @@ export default function ReportForm({
                   answered: checkpointProgress.answered,
                   total: checkpointProgress.total,
                 })}
-                className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"
+                className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface/10"
               >
                 <div
                   className="h-full rounded-full bg-signal transition-[width]"
@@ -1156,7 +1156,7 @@ export default function ReportForm({
           <button
             type="button"
             onClick={() => void saveDraftNow()}
-            className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+            className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-surface/10"
           >
             <Icon name="sync" className="h-3.5 w-3.5" />
             {t("orders.reportForm.saveDraftNow")}
@@ -1195,11 +1195,11 @@ export default function ReportForm({
       <div key={formVersion}>
       {visibility.showOverallResult && (
         <div className={`p-4 rounded-2xl border-2 shadow-[0_18px_40px_rgba(0,0,0,0.16)] ${overallStatusClass}`}>
-          <p className="text-[10px] font-black uppercase tracking-wider opacity-70 mb-1">{t("orders.reportForm.overallResult")}</p>
+          <p className="text-2xs font-black uppercase tracking-wider opacity-70 mb-1">{t("orders.reportForm.overallResult")}</p>
           <p className="font-black">
             {overallStatusLabel}
           </p>
-          <p className="text-[11px] opacity-70 mt-1">{t("orders.reportForm.overallHint")}</p>
+          <p className="text-2xs opacity-70 mt-1">{t("orders.reportForm.overallHint")}</p>
         </div>
       )}
 
@@ -1212,7 +1212,7 @@ export default function ReportForm({
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
               <h2 className="text-lg font-black text-paper">{t("orders.reportForm.unitsTitle")}</h2>
-              <p className="text-[11px] text-paper/70">{t("orders.reportForm.unitsHint")}</p>
+              <p className="text-2xs text-paper/70">{t("orders.reportForm.unitsHint")}</p>
             </div>
             <button
               type="button"
@@ -1225,7 +1225,7 @@ export default function ReportForm({
         ) : (
           <div>
             <h2 className="text-lg font-black text-paper">{t("orders.reportForm.checkpoints")}</h2>
-            <p className="text-[11px] text-paper/70">{t("orders.reportForm.reportNoUnitsHint")}</p>
+            <p className="text-2xs text-paper/70">{t("orders.reportForm.reportNoUnitsHint")}</p>
           </div>
         )}
 
@@ -1272,7 +1272,7 @@ export default function ReportForm({
                   <button
                     type="button"
                     onClick={() => setUnitToRemove(unit.key)}
-                    className="inline-flex min-h-12 items-center text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
+                    className="inline-flex min-h-12 items-center text-2xs font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
                   >
                     {t("orders.reportForm.removeUnit")}
                   </button>
@@ -1283,7 +1283,7 @@ export default function ReportForm({
             {/* Enhetsvalg og metadata ligger øverst i hver sjekkliste, slik
                 at montøren vet hvilken enhet som kontrolleres før resultatet. */}
             {requiresUnits && (
-              <details open className="group rounded-xl border border-line bg-white/40">
+              <details open className="group rounded-xl border border-line bg-surface/40">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
                   <span className="flex items-center gap-2">
                     <Icon name="wrench" className="h-4 w-4" />
@@ -1315,7 +1315,7 @@ export default function ReportForm({
                         className={`min-h-12 w-full rounded-xl border-2 p-2.5 text-base font-bold text-ink outline-none focus:border-success sm:text-sm ${
                           duplicateProductUnitKey === unit.key
                             ? "border-red-600 bg-red-50"
-                            : "border-line bg-white"
+                            : "border-line bg-surface"
                         }`}
                       >
                         <option value="">{t("orders.reportForm.newUnit")}</option>
@@ -1329,7 +1329,7 @@ export default function ReportForm({
                       </select>
                       <p
                         id={`${formId}-${unit.key}-product-hint`}
-                        className="mt-1.5 text-[11px] font-medium text-gray-600"
+                        className="mt-1.5 text-2xs font-medium text-gray-600"
                       >
                         {t("orders.reportForm.unitUniqueHint")}
                       </p>
@@ -1363,7 +1363,7 @@ export default function ReportForm({
                           if (details) details.open = true;
                         }}
                         placeholder={t("orders.reportForm.labelPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-surface outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1374,7 +1374,7 @@ export default function ReportForm({
                         value={unit.serialNumber}
                         onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
                         placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-surface outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1385,16 +1385,16 @@ export default function ReportForm({
                         value={unit.location}
                         onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
                         placeholder={t("orders.reportForm.locationPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-surface outline-none focus:border-success"
                       />
                     </div>
                   </div>
 
                   {unit.productId ? (
-                    <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
+                    <p className="text-2xs font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
                   ) : (
                     unit.label.trim() !== "" && (
-                      <p className="text-[11px] font-bold text-success">{t("orders.reportForm.newUnitSaved")}</p>
+                      <p className="text-2xs font-bold text-success">{t("orders.reportForm.newUnitSaved")}</p>
                     )
                   )}
                 </div>
@@ -1412,7 +1412,7 @@ export default function ReportForm({
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
-                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-surface ${
                       unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-line hover:bg-success/10"
                     }`}
                   >
@@ -1428,7 +1428,7 @@ export default function ReportForm({
                   </label>
 
                   <label
-                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-surface ${
                       unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-line hover:bg-risk/10"
                     }`}
                   >
@@ -1557,7 +1557,7 @@ export default function ReportForm({
       >
         <div>
           <h2 className="text-lg font-black text-ink">{t("orders.reportForm.signatures")}</h2>
-          <p className="text-[11px] text-muted">
+          <p className="text-2xs text-muted">
             {t("orders.reportForm.signaturesHint")}
           </p>
         </div>
@@ -1590,7 +1590,7 @@ export default function ReportForm({
 
       {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd.
           CSS-en skjuler den mens et felt har fokus, se globals.css. */}
-      <div className="report-sticky-submit sticky bottom-0 z-20 -mx-4 border-t border-[#2a3328] bg-field/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className="report-sticky-submit sticky bottom-0 z-20 -mx-4 border-t border-[var(--field-line)] bg-field/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         {!online && (
           <p
             id="report-offline-notice"
@@ -1623,7 +1623,7 @@ export default function ReportForm({
         onConfirm={confirmSubmit}
       >
         {showCompleteWorkOrderOption && (
-          <label className="flex items-start gap-3 rounded-xl border-2 border-line bg-white/50 p-3 text-sm text-ink">
+          <label className="flex items-start gap-3 rounded-xl border-2 border-line bg-surface/50 p-3 text-sm text-ink">
             <input
               type="checkbox"
               checked={completeWorkOrder}

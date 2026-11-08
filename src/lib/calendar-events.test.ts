@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calendarEditingOptions,
+  isShortTimedEvent,
   toCalendarEvent,
   toVisitCalendarEvent,
 } from "@/lib/calendar-events";
@@ -274,6 +275,46 @@ describe("toVisitCalendarEvent", () => {
         workOrder,
       }),
     ).toBeNull();
+  });
+});
+
+describe("isShortTimedEvent", () => {
+  const start = new Date("2026-11-09T09:00:00.000Z");
+
+  it("markerer hendelser under 30 minutter som korte", () => {
+    expect(
+      isShortTimedEvent(start, new Date("2026-11-09T09:29:00.000Z")),
+    ).toBe(true);
+  });
+
+  it("markerer ikke en hendelse på nøyaktig 30 minutter som kort", () => {
+    expect(
+      isShortTimedEvent(start, new Date("2026-11-09T09:30:00.000Z")),
+    ).toBe(false);
+    expect(
+      isShortTimedEvent(start, new Date("2026-11-09T10:00:00.000Z")),
+    ).toBe(false);
+  });
+
+  it("godtar ISO-strenger fra FullCalendar", () => {
+    expect(
+      isShortTimedEvent(
+        "2026-11-09T09:00:00.000Z",
+        "2026-11-09T09:15:00.000Z",
+      ),
+    ).toBe(true);
+  });
+
+  it("avviser manglende, ugyldige og motsatte tidsrom", () => {
+    expect(isShortTimedEvent(null, start)).toBe(false);
+    expect(isShortTimedEvent(start, undefined)).toBe(false);
+    expect(
+      isShortTimedEvent("ikke-en-dato", "2026-11-09T09:15:00.000Z"),
+    ).toBe(false);
+    expect(
+      isShortTimedEvent(start, new Date("2026-11-09T08:45:00.000Z")),
+    ).toBe(false);
+    expect(isShortTimedEvent(start, start)).toBe(false);
   });
 });
 

@@ -89,7 +89,7 @@ const INK_BUTTON =
 const QUIET_BUTTON =
   "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] disabled:cursor-not-allowed disabled:opacity-50";
 const FIELD =
-  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
 const EYEBROW =
   "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
 const MUTED = "text-[var(--muted,#62685f)]";
@@ -212,7 +212,7 @@ function FolderMenu({
         }}
         aria-label={t("documents.folders.menu", { name: folder.name })}
         title={t("documents.folders.menu", { name: folder.name })}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-surface text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
       >
         <Icon name="more" className="h-4 w-4" />
       </button>
@@ -254,7 +254,7 @@ function FolderMenu({
                     setError(null);
                     setMode("delete");
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fbe9e7]"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[var(--risk-surface,#fdf4f2)]"
                 >
                   <Icon name="trash" className="h-4 w-4 shrink-0" />
                   {t("documents.folders.delete")}
@@ -744,7 +744,7 @@ export default function DocumentBrowser({
   return (
     <>
       {showDeleted && (
-        <div className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+        <div className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
           {t("documents.browser.deletedTitle")}
         </div>
       )}
@@ -822,7 +822,7 @@ export default function DocumentBrowser({
                   className={`cursor-pointer rounded-[6px] px-3 py-1.5 text-xs font-bold transition ${
                     scope === "folder"
                       ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-sm"
-                      : "text-[var(--ink,#101310)] hover:bg-white"
+                      : "text-[var(--ink,#101310)] hover:bg-surface"
                   }`}
                 >
                   <input
@@ -842,7 +842,7 @@ export default function DocumentBrowser({
                   className={`cursor-pointer rounded-[6px] px-3 py-1.5 text-xs font-bold transition ${
                     scope === "library"
                       ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-sm"
-                      : "text-[var(--ink,#101310)] hover:bg-white"
+                      : "text-[var(--ink,#101310)] hover:bg-surface"
                   }`}
                 >
                   <input
@@ -890,7 +890,7 @@ export default function DocumentBrowser({
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition ${
                       active
                         ? "border-transparent"
-                        : "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                        : "border-[var(--line,#dedcd1)] bg-surface text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
                     }`}
                     style={
                       active
@@ -1162,7 +1162,7 @@ export default function DocumentBrowser({
                         t("documents.browser.root"),
                     })}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-white px-2 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-surface px-2 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
                     <Icon name="clock" className="h-3 w-3 shrink-0" />
                     {detailDocument.versions.length > 0
                       ? t("documents.browser.versionsCount", {
@@ -1230,7 +1230,7 @@ export default function DocumentBrowser({
                 {detailDocument.versions.map((version) => (
                   <div
                     key={version.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-xs"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 py-2 text-xs"
                   >
                     <div className="min-w-0">
                       <p className="flex items-center gap-1.5 truncate font-bold text-[var(--ink,#101310)]">
@@ -1376,7 +1376,7 @@ export default function DocumentBrowser({
             </div>
           ) : (
             <div className={`${CARD} overflow-hidden`}>
-              <div className="hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)] md:flex">
+              <div className="hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-2xs font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)] md:flex">
                 {canSelect && <span className="w-4 shrink-0" />}
                 <span className="min-w-0 flex-1">
                   {t("documents.browser.tableDocument")}
@@ -1526,7 +1526,7 @@ export default function DocumentBrowser({
                               <input type="hidden" name="id" value={doc.id} />
                               <button
                                 type="submit"
-                                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[#e7b5ae] hover:bg-[#fbe9e7]"
+                                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[#e7b5ae] hover:bg-[var(--risk-surface,#fdf4f2)]"
                               >
                                 <Icon name="trash" className="h-3.5 w-3.5 shrink-0" />
                                 {t("documents.browser.delete")}
@@ -1589,7 +1589,7 @@ export default function DocumentBrowser({
                       value={bulkMoveTarget}
                       onChange={(event) => setBulkMoveTarget(event.target.value)}
                       aria-label={t("documents.bulkActions.moveTo")}
-                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-surface px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
                     >
                       <option value="" disabled>
                         {t("documents.bulkActions.moveDestination")}
@@ -1621,7 +1621,7 @@ export default function DocumentBrowser({
                       defaultValue=""
                       required
                       aria-label={t("documents.bulkActions.tagPlaceholder")}
-                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-surface px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
                     >
                       <option value="" disabled>
                         {t("documents.bulkActions.tagPlaceholder")}
@@ -1647,7 +1647,7 @@ export default function DocumentBrowser({
                     type="button"
                     onClick={() => setConfirmBulkDelete(true)}
                     disabled={bulkBusy}
-                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[#e7b5ae] bg-transparent px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fbe9e7] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[#e7b5ae] bg-transparent px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[var(--risk-surface,#fdf4f2)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Icon name="trash" className="h-3.5 w-3.5 shrink-0" />
                     {t("documents.bulkActions.delete")}

@@ -7,19 +7,21 @@ import type { ReactNode } from "react";
 export default function PageHeader({
   title,
   subtitle,
+  eyebrow,
   icon,
   actions,
   className = "",
 }: {
   title: string;
   subtitle?: ReactNode;
+  eyebrow?: ReactNode;
   icon?: ReactNode;
   actions?: ReactNode;
   className?: string;
 }) {
   return (
     <header
-      className={`office-card relative overflow-hidden rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-5 py-5 shadow-[0_1px_2px_rgba(20,17,11,0.05)] [--focus-ring:var(--ink,#101310)] sm:px-6 ${className}`}
+      className={`office-card relative overflow-hidden rounded-card px-5 py-5 [--focus-ring:var(--ink,#101310)] sm:px-6 ${className}`}
     >
       <span
         aria-hidden="true"
@@ -36,13 +38,18 @@ export default function PageHeader({
             </span>
           )}
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)] sm:text-3xl">
+            {eyebrow && (
+              <p className="type-eyebrow text-[var(--muted,#62685f)]">
+                {eyebrow}
+              </p>
+            )}
+            <h1 className="type-title-1 break-words text-[var(--ink,#101310)]">
               {title}
             </h1>
             {subtitle && (
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted,#62685f)]">
+              <div className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted,#62685f)]">
                 {subtitle}
-              </p>
+              </div>
             )}
           </div>
         </div>

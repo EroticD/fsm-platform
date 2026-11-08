@@ -142,12 +142,12 @@ export default async function PortalBookingsPage({
           </div>
 
           {params.feil && (
-            <p className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[#a92a12]">
+            <p className="rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]">
               {t("portal.expansion.sites.error")}
             </p>
           )}
           {params.lagret && (
-            <p className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-sm font-bold text-[#24502f]">
+            <p className="rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-sm font-bold text-[var(--success-text,#283509)]">
               {t("portal.expansion.sites.saved")}
             </p>
           )}

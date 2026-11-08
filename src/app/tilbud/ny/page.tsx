@@ -4,6 +4,8 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import { buttonClassName } from "@/components/ui/Button";
 import ErrorBanner from "@/components/ErrorBanner";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
@@ -57,51 +59,49 @@ export default async function NewQuotePage({
   const errorMessage = params.error ? t("quotes.errors.generic") : null;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <PageHeader
-          title={t("quotes.new.title")}
-          subtitle={t("quotes.new.subtitle")}
-          icon={<Icon name="plus" className="h-5 w-5" />}
-          actions={
-            <Link
-              href="/tilbud"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold"
-            >
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("quotes.new.back")}
-            </Link>
-          }
-        />
-        {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
-        <QuoteForm
-          action={createQuoteAction}
-          submitLabel={t("quotes.new.submit")}
-          cancelHref="/tilbud"
-          defaults={{
-            title: "",
-            customerId: "",
-            contactId: "",
-            workOrderId: "",
-            contractId: "",
-            productId: "",
-            departmentId: user.departmentId ?? "",
-            validUntil,
-            vatRate: settings.vatRate.toFixed(2),
-            notes: "",
-            lines: [],
-          }}
-          options={{
-            customers,
-            contacts: [],
-            workOrders,
-            contracts,
-            products,
-            departments,
-            isAdmin: user.role === "ADMIN",
-          }}
-        />
-      </div>
-    </div>
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("quotes.new.title")}
+        subtitle={t("quotes.new.subtitle")}
+        icon={<Icon name="plus" className="h-5 w-5" />}
+        actions={
+          <Link
+            href="/tilbud"
+            className={buttonClassName({ variant: "secondary" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("quotes.new.back")}
+          </Link>
+        }
+      />
+      {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      <QuoteForm
+        action={createQuoteAction}
+        submitLabel={t("quotes.new.submit")}
+        cancelHref="/tilbud"
+        defaults={{
+          title: "",
+          customerId: "",
+          contactId: "",
+          workOrderId: "",
+          contractId: "",
+          productId: "",
+          departmentId: user.departmentId ?? "",
+          validUntil,
+          vatRate: settings.vatRate.toFixed(2),
+          notes: "",
+          lines: [],
+        }}
+        options={{
+          customers,
+          contacts: [],
+          workOrders,
+          contracts,
+          products,
+          departments,
+          isAdmin: user.role === "ADMIN",
+        }}
+      />
+    </PageShell>
   );
 }

@@ -171,7 +171,7 @@ export default async function TechnicianFillFormPage({
               </Link>
               <Link
                 href={returnTo}
-                className="inline-flex min-h-11 items-center bg-white border-2 border-line text-ink px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-white/50 transition shadow-sm"
+                className="inline-flex min-h-11 items-center bg-surface border-2 border-line text-ink px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-surface/50 transition shadow-sm"
               >
                 {t("orders.fieldFormPage.backToWorkOrder")}
               </Link>

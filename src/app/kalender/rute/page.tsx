@@ -7,6 +7,14 @@ import CalendarShell from "@/app/kalender/CalendarShell";
 import IsoDateInput from "@/components/IsoDateInput";
 import WorkOrderMap from "@/components/WorkOrderMap";
 import Icon from "@/components/icons";
+import ErrorBanner from "@/components/ErrorBanner";
+import Button, { buttonClassName } from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import { brandInset } from "@/components/ui/brandStyles";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { formatDateLocalized, formatDateTimeLocalized, todayInOslo } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -131,67 +139,63 @@ export default async function RoutePage({
       canCreate={canCreate}
       newWorkOrderHref="/oppdrag/ny"
     >
-      <form
-        action="/kalender/rute"
-        method="get"
-        className="office-card grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4"
-        aria-label={t("calendar.route.filters")}
-      >
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-          {t("calendar.route.date")}
-          <IsoDateInput
-            name="dato"
-            defaultValue={date}
-            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-          {t("calendar.route.technician")}
-          <select
-            name="tekniker"
-            defaultValue={technicianId}
-            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+      <Card>
+        <form
+          action="/kalender/rute"
+          method="get"
+          className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4"
+          aria-label={t("calendar.route.filters")}
+        >
+          <Field
+            id="route-date"
+            label={t("calendar.route.date")}
+            className="min-w-0"
           >
-            <option value="">{t("calendar.route.allTechnicians")}</option>
-            {technicians.map((technician) => (
-              <option key={technician.id} value={technician.id}>
-                {technician.name ?? t("calendar.filters.unnamedTechnician")}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-end gap-2 lg:col-span-2">
-          <button
-            type="submit"
-            className="signal-button min-h-10 text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]"
-          >
-            <Icon name="search" className="h-4 w-4" />
-            {t("calendar.route.show")}
-          </button>
-          <button
-            type="submit"
-            formAction={optimizeRouteAction}
-            className="min-h-10 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
-          >
-            <Icon name="route" className="mr-1 inline h-4 w-4" />
-            {t("dispatch.routeOptimizer.optimize")}
-          </button>
-          <Link
-            href="/kalender/dispatch"
-            className="min-h-10 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
-          >
-            {t("calendar.route.backToDispatch")}
-          </Link>
-        </div>
-      </form>
+            <IsoDateInput
+              id="route-date"
+              name="dato"
+              defaultValue={date}
+              className={controlClassName("min-w-0")}
+            />
+          </Field>
+          <Field label={t("calendar.route.technician")} className="min-w-0">
+            <Select name="tekniker" defaultValue={technicianId}>
+              <option value="">{t("calendar.route.allTechnicians")}</option>
+              {technicians.map((technician) => (
+                <option key={technician.id} value={technician.id}>
+                  {technician.name ?? t("calendar.filters.unnamedTechnician")}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex flex-wrap items-end gap-2 lg:col-span-2">
+            <Button type="submit" size="sm">
+              <Icon name="search" className="h-4 w-4" />
+              {t("calendar.route.show")}
+            </Button>
+            <Button
+              type="submit"
+              variant="secondary"
+              size="sm"
+              formAction={optimizeRouteAction}
+            >
+              <Icon name="route" className="h-4 w-4" />
+              {t("dispatch.routeOptimizer.optimize")}
+            </Button>
+            <Link
+              href="/kalender/dispatch"
+              className={buttonClassName({ variant: "secondary", size: "sm" })}
+            >
+              {t("calendar.route.backToDispatch")}
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
-        >
-          {t(ERROR_KEYS[error] ?? "calendar.route.errors.unknown")}
-        </div>
+        <ErrorBanner
+          message={t(ERROR_KEYS[error] ?? "calendar.route.errors.unknown")}
+        />
       )}
 
       {applied !== undefined && (
@@ -206,24 +210,22 @@ export default async function RoutePage({
       {manualSaved === "1" && (
         <div
           role="status"
-          className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-4 text-sm font-bold text-[#283509]"
+          className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] p-4 text-sm font-bold text-[var(--success-text,#283509)]"
         >
           {t("calendar.route.manualOrderSaved")}
         </div>
       )}
 
       {!plan.ok && planFailureKey && (
-        <div className="office-card p-6 text-sm font-bold text-[var(--risk-text,#b42318)]">
-          {t(planFailureKey)}
-        </div>
+        <ErrorBanner message={t(planFailureKey)} />
       )}
 
       {planData && planData.plans.length === 0 && (
-        <div className="office-card p-8 text-center">
+        <Card className="p-8 text-center">
           <p className="text-sm font-medium text-[var(--muted,#62685f)]">
             {t("calendar.route.empty")}
           </p>
-        </div>
+        </Card>
       )}
 
       {planData?.plans.map((technicianPlan) => {
@@ -246,19 +248,20 @@ export default async function RoutePage({
         }));
 
         return (
-          <section
+          <Card
+            as="section"
             key={technicianPlan.technicianId}
             aria-labelledby={`route-${technicianPlan.technicianId}`}
-            className="office-card space-y-4 p-4 sm:p-5"
+            className="space-y-4 p-4 sm:p-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
+                <p className="type-eyebrow text-[var(--muted,#62685f)]">
                   {t("calendar.route.eyebrow")}
                 </p>
                 <h2
                   id={`route-${technicianPlan.technicianId}`}
-                  className="text-lg font-black tracking-tight text-[var(--ink,#101310)]"
+                  className="type-title-3 text-[var(--ink,#101310)]"
                 >
                   {technicianPlan.technicianName}
                 </h2>
@@ -268,7 +271,7 @@ export default async function RoutePage({
                 className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5"
               >
                 <div>
-                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalDrive")}
                   </dt>
                   <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -278,7 +281,7 @@ export default async function RoutePage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalDistance")}
                   </dt>
                   <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -288,7 +291,7 @@ export default async function RoutePage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalWaiting")}
                   </dt>
                   <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -298,7 +301,7 @@ export default async function RoutePage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalOvertime")}
                   </dt>
                   <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -308,7 +311,7 @@ export default async function RoutePage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                  <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                     {t("calendar.route.provider")}
                   </dt>
                   <dd className="font-black text-[var(--ink,#101310)]">
@@ -322,13 +325,13 @@ export default async function RoutePage({
             </div>
 
             {showOptimisation && (
-              <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
-                <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+              <div className={`${brandInset} p-3`}>
+                <h3 className="type-eyebrow text-[var(--muted,#62685f)]">
                   {t("dispatch.routeOptimizer.previewTitle")}
                 </h3>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.beforeTravel")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -338,7 +341,7 @@ export default async function RoutePage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.afterTravel")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -348,7 +351,7 @@ export default async function RoutePage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.beforeDistance")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -360,7 +363,7 @@ export default async function RoutePage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.afterDistance")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -370,7 +373,7 @@ export default async function RoutePage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.savedTravel")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -380,7 +383,7 @@ export default async function RoutePage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <dt className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("dispatch.routeOptimizer.savedDistance")}
                     </dt>
                     <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
@@ -404,13 +407,13 @@ export default async function RoutePage({
             )}
 
             {technicianPlan.fallbackUsed && (
-              <p className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs font-medium text-[var(--muted,#62685f)]">
+              <p className={`${brandInset} p-3 text-xs font-medium text-[var(--muted,#62685f)]`}>
                 {t("calendar.route.fallback")}
               </p>
             )}
 
             {technicianPlan.totalOvertimeMinutes > 0 && (
-              <p className="rounded-lg border border-[#e7c98a] bg-[#fff8e6] p-3 text-xs font-bold text-[var(--ink,#101310)]">
+              <p className="rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] p-3 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
                 {t("calendar.route.overtimeNotice", {
                   minutes: technicianPlan.totalOvertimeMinutes,
                 })}
@@ -551,7 +554,7 @@ export default async function RoutePage({
                   <input type="hidden" name="dato" value={date} />
                   <input type="hidden" name="tekniker" value={technicianPlan.technicianId} />
                   <div>
-                    <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    <h3 className="type-eyebrow text-[var(--muted,#62685f)]">
                       {t("calendar.route.manualOrder")}
                     </h3>
                     <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted,#62685f)]">
@@ -562,7 +565,7 @@ export default async function RoutePage({
                     {technicianPlan.stops.map((stop) => (
                       <label
                         key={stop.visitId}
-                        className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-2 text-xs"
+                        className={`${brandInset} flex min-w-0 items-center gap-2 px-2.5 py-2 text-xs`}
                       >
                         <span className="w-6 shrink-0 text-center font-black tabular-nums text-[var(--muted,#62685f)]">
                           {stop.sequence}
@@ -570,25 +573,24 @@ export default async function RoutePage({
                         <span className="min-w-0 flex-1 truncate font-bold text-[var(--ink,#101310)]">
                           {stop.workOrderTitle}
                         </span>
-                        <input
-                          type="number"
-                          name={`sequence-${stop.visitId}`}
-                          min={1}
-                          max={9999}
-                          defaultValue={stop.manualSequence ?? stop.sequence}
-                          aria-label={`${t("calendar.route.manualOrderSequence")}: ${stop.workOrderTitle}`}
-                          className="h-9 w-16 shrink-0 rounded-md border border-[var(--line,#dedcd1)] bg-white px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#101310)]"
-                        />
+                        <span className="w-16 shrink-0">
+                          <Input
+                            type="number"
+                            name={`sequence-${stop.visitId}`}
+                            min={1}
+                            max={9999}
+                            defaultValue={stop.manualSequence ?? stop.sequence}
+                            aria-label={`${t("calendar.route.manualOrderSequence")}: ${stop.workOrderTitle}`}
+                            className="h-9 py-0 text-center text-sm font-bold tabular-nums"
+                          />
+                        </span>
                       </label>
                     ))}
                   </div>
-                  <button
-                    type="submit"
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
-                  >
+                  <Button type="submit" variant="secondary" size="sm">
                     <Icon name="check" className="h-4 w-4" />
                     {t("calendar.route.manualOrder")}
-                  </button>
+                  </Button>
                 </form>
 
                 <form action={applyRouteOrderAction} className="flex flex-wrap items-center gap-3 border-t border-[var(--line,#dedcd1)] pt-3">
@@ -602,13 +604,10 @@ export default async function RoutePage({
                       value={stop.visitId}
                     />
                   ))}
-                  <button
-                    type="submit"
-                    className="signal-button min-h-10 text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]"
-                  >
+                  <Button type="submit" size="sm">
                     <Icon name="check" className="h-4 w-4" />
                     {t("calendar.route.applyOrder")}
-                  </button>
+                  </Button>
                   <p className="max-w-xl text-xs leading-5 text-[var(--muted,#62685f)]">
                     {t("calendar.route.applyHint")}
                   </p>
@@ -617,8 +616,8 @@ export default async function RoutePage({
             )}
 
             {technicianPlan.skipped.length > 0 && (
-              <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
-                <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+              <div className={`${brandInset} p-3`}>
+                <h3 className="type-eyebrow text-[var(--muted,#62685f)]">
                   {t("calendar.route.skippedTitle")}
                 </h3>
                 <ul className="mt-2 space-y-1 text-xs text-[var(--muted,#62685f)]">
@@ -636,7 +635,7 @@ export default async function RoutePage({
                 </ul>
               </div>
             )}
-          </section>
+          </Card>
         );
       })}
     </CalendarShell>

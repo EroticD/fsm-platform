@@ -33,7 +33,7 @@ navigasjons-/innstillingspunktene er på plass.
 | `/faktura/[id]` | invoicing | detalj, sending, betaling, kreditnota |
 | `/faktura/[id]/rediger` | invoicing | rediger kladd |
 | `/faktura/[id]/skriv` | invoicing | utskriftsvennlig faktura |
-| `/faktura/innstillinger` | invoicing | MVA, forfall, gyldighet og nummerserier (administrator) |
+| `/faktura/innstillinger` | invoicing | MVA, forfall, gyldighet, nummerserier og regnskapssynk (administrator) |
 | `/api/faktura/eksport` | invoicing | CSV for regnskap |
 | `/api/cron/billing` | quotes + invoicing | planlagt utløp av tilbud og forfallsoppdatering (`CRON_SECRET`) |
 | `/kundeportal/faktura` | portal + invoicing | kundens sendte fakturaer |
@@ -55,11 +55,12 @@ lesetilgang, en kunde som spør etter en annen kundes tilbud, og en avslått
 `quotes`-modul gir alle 404. Utskriften eksponerer ikke tokenlenken eller
 andre interne id-er.
 
-**PDF er nettleserens print-til-PDF.** Det er ingen server-generert PDF, ingen
-ny PDF-avhengighet og ingen e-postutsending. Brukeren velger «Skriv ut» og
-deretter «Lagre som PDF» i nettleseren. Kvaliteten og sideskift styres dermed av
-nettleserens skrivemotor, ikke av en egen PDF-mal. Det er en bevisst v1-
-begrensning, ikke en fullverdig PDF-tjeneste.
+**PDF er nettleserens print-til-PDF.** Det er ingen server-generert PDF og ingen
+ny PDF-avhengighet; dette er den gjenværende PDF-begrensningen for tilbud.
+E-post sendes derimot automatisk via den vedvarende `EmailMessage`-utboksen.
+Brukeren velger «Skriv ut» og deretter «Lagre som PDF» i nettleseren. Kvaliteten
+og sideskift styres dermed av nettleserens skrivemotor, ikke av en egen PDF-mal.
+Det er en bevisst v1-begrensning, ikke en fullverdig PDF-tjeneste.
 
 ## Datamodell
 
@@ -81,7 +82,8 @@ serveren i `src/lib/billing.ts`; klienten sender bare rå linjer.
 
 - `createQuote`, `updateQuote` – bare kladd kan redigeres.
 - `sendQuote`, `reissueQuoteToken` – oppretter/fornyer et kortlivet
-  engangstoken. Bare SHA-256-hashen lagres.
+  engangstoken. Bare SHA-256-hashen lagres. `sendQuote` legger også
+  tilbuds-e-posten med absolutt godkjenningslenke i `EmailMessage`-utboksen.
 - `acceptQuoteByToken`, `rejectQuoteByToken` – offentlig flyt uten innlogging.
 - `createQuoteVersion`, `cloneQuote` – revisjonshistorikk og kopi.
 - `expireQuotes` – markerer utløpte sendte tilbud, idempotent.
@@ -93,8 +95,8 @@ serveren i `src/lib/billing.ts`; klienten sender bare rå linjer.
 
 - `createInvoice` – manuelt, fra godkjent tilbud, fra fullført oppdrag eller
   rapport. Rapport/oppdrag må være `COMPLETED`.
-- `sendInvoice` – tildeler unikt fakturanummer fra `BillingSettings` og fryser
-  linjene.
+- `sendInvoice` – tildeler unikt fakturanummer fra `BillingSettings`, fryser
+  linjene og legger faktura-e-posten i `EmailMessage`-utboksen etter commit.
 - `registerPayment` – manuell betaling, delbetaling, idempotensnøkkel.
 - `registerCreditNote` – kreditnota inkl. MVA, aldri over utestående.
 - `markOverdueInvoices` – idempotent sweep.
@@ -115,12 +117,17 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
 - **Regnskapssynk er manuell.** Fiken, Tripletex og PowerOffice Go kan
   motta kunde, faktura og betaling. CSV markerer bare eksport. Det finnes
   ingen automatisk bakgrunnssynk eller toveis synk. Se `docs/ACCOUNTING.md`.
-- **Ingen e-postutsending av tilbud/faktura.** Godkjenningslenken vises i
-  grensesnittet og må deles manuelt.
+- **E-post sendes automatisk via den vedvarende utboksen.** `sendQuote` og
+  `sendInvoice` legger meldingen i `EmailMessage` etter at statusen er
+  committet, og jobbworkeren sender den. Godkjenningslenken er absolutt i
+  e-posten. Restansen er print-til-PDF for tilbud (ingen server-generert PDF)
+  og ingen prisbok/god-better-best. Se `docs/EMAIL.md`.
 - **Utskrift/PDF er print-til-PDF i nettleseren.** Det finnes ingen
   server-generert PDF for tilbud, ingen lagret PDF-fil og ingen egen PDF-mal.
   Nettsiden er optimalisert for A4-utskrift, men sideskift og fonter følger
   nettleseren.
+- **Ingen prisbok eller god-betre-best.** `PriceList` er referansedata for
+  avtalerater, ikke en salgbar prisbok med pakker og marginer.
 - **Fakturanummerering kan få hull** ved samtidige sendinger fordi nummeret
   allokeres før den betingede oppdateringen. Unikhetsindeksen er skarp; hull er
   dokumentert og påvirker ikke entydigheten.

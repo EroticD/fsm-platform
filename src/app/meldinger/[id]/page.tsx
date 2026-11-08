@@ -107,14 +107,14 @@ export default async function MessageThreadPage({
       />
 
       {success && (
-        <p className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+        <p className="rounded-xl border border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
           {t(success)}
         </p>
       )}
       {failure && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(failure)}
         </p>
@@ -178,8 +178,8 @@ export default async function MessageThreadPage({
           <span
             className={`rounded-full border px-2.5 py-1 text-xs font-black ${
               consent
-                ? "border-[#b9c99a] bg-[#eef7d6] text-[#283509]"
-                : "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]"
+                ? "border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
+                : "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
             }`}
           >
             {consent ? t("sms.consent.optedIn") : t("sms.consent.unknown")}
@@ -255,7 +255,7 @@ export default async function MessageThreadPage({
                         : "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
                     }`}
                   >
-                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide opacity-70">
+                    <div className="mb-1 flex flex-wrap items-center gap-2 text-2xs font-bold uppercase tracking-wide opacity-70">
                       <span>
                         {inbound
                           ? t("sms.thread.inbound")

@@ -38,7 +38,16 @@
   --canvas: #f4f5f2;
   --field: #0b0e0b;
   --field-card: #151a14;
+  --field-line: #2a3328;
   --surface: #fffdf8;
+
+  /* Semantiske statusflater fra DESIGN.md. De er egne tokens fordi de skal
+     kunne brukes både som bakgrunn og tekst uten rå hex i komponentene. */
+  --risk-surface: #fdf4f2;
+  --success-surface: #eef7d6;
+  --success-text: #283509;
+  --warning-surface: #fdf5e4;
+  --warning-text: #7a4f0c;
 
   /* Open Sans lastes med next/font og eksponeres på <html>. Mono holdes som
      systemets egen stack, slik at serienumre og koder ikke krever en ekstra
@@ -103,13 +112,22 @@
   --color-ink: var(--ink);
   --color-paper: var(--paper);
   --color-signal: var(--signal);
+  /* `text-risk` har alltid vært risikotekst (5,7:1 på papir). Behold
+     betydningen, og bruk `alarm` når selve alarmflaten skal males. */
   --color-risk: var(--risk-text);
   --color-risk-text: var(--risk-text);
+  --color-alarm: var(--risk);
+  --color-risk-surface: var(--risk-surface);
+  --color-success-surface: var(--success-surface);
+  --color-success-text: var(--success-text);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-text: var(--warning-text);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-canvas: var(--canvas);
   --color-field: var(--field);
   --color-field-card: var(--field-card);
+  --color-field-line: var(--field-line);
   /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
   --text-2xs: 0.75rem;
   --text-2xs--line-height: 1rem;
@@ -120,10 +138,8 @@
   --color-info-surface: #eff6ff;
   --color-info-border: #bfdbfe;
   --color-success: #166534;
-  --color-success-surface: #f0fdf4;
   --color-success-border: #bbf7d0;
   --color-warning: #b45309;
-  --color-warning-surface: #fffbeb;
   --color-warning-border: #fde68a;
   --color-danger: #b91c1c;
   --color-danger-surface: #fef2f2;
@@ -135,6 +151,121 @@ body {
   color: var(--foreground);
   font-family: var(--font-open-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
+}
+
+/* -------------------------------------------------------------------------
+ * Typografi
+ *
+ * Rollene matcher tabellen i docs/DESIGN.md. Klassenavnene er bevisst
+ * semantiske, slik at sidene ikke velger størrelse og vekt hver for seg.
+ * Ingen rolle går under 12 px – det er gulvet for brukervendt tekst.
+ * ---------------------------------------------------------------------- */
+.type-display {
+  font-size: 2.5rem;
+  line-height: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.type-title-1 {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.type-title-2 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.type-title-3 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+}
+
+.type-body {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+}
+
+.type-ui {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+
+.type-meta {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+}
+
+.type-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.type-micro {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+}
+
+.type-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 640px) {
+  .type-display {
+    font-size: 3.5rem;
+    line-height: 3.75rem;
+  }
+
+  .type-title-1 {
+    font-size: 2rem;
+    line-height: 2.375rem;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * Kontorrammen
+ *
+ * Én felles sideflate: samme maksbredde, luft og vertikale rytme på alle
+ * kontorsider. Sidene eier ikke lenger sin egen p-3/sm:p-6/lg:p-8-wrapper.
+ * ---------------------------------------------------------------------- */
+.office-page {
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding: 0.75rem;
+}
+
+.office-page > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.office-page-narrow {
+  max-width: 48rem;
+}
+
+@media (min-width: 640px) {
+  .office-page {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .office-page {
+    padding: 2rem;
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -280,7 +411,7 @@ body {
 .field-hero,
 .field-card {
   background-color: var(--field-card);
-  border: 1px solid #2a3328;
+  border: 1px solid var(--field-line);
   border-radius: 16px;
   color: var(--paper);
 }
@@ -323,7 +454,7 @@ body {
 }
 
 .field-shell-controls > button {
-  border-color: #2a3328;
+  border-color: var(--field-line);
   background-color: transparent;
 }
 

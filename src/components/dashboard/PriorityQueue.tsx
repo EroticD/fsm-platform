@@ -44,7 +44,7 @@ const QUEUE_LABEL_KEYS: Record<QueueKey, string> = {
 
 const QUEUE_LABEL_TONE: Record<QueueKey, string> = {
   overdue: "text-[var(--risk-text,#b42318)]",
-  today: "text-[#3f4a1a]",
+  today: "text-[var(--success-text,#283509)]",
   unassigned: "text-[#7a5a12]",
 };
 
@@ -181,7 +181,7 @@ export default function PriorityQueue({
                       ) || t("dashboard.orderList.noDate")}
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.08em] ${QUEUE_LABEL_TONE[queueKey]}`}
+                      className={`inline-flex items-center gap-1 text-2xs font-black uppercase tracking-[0.08em] ${QUEUE_LABEL_TONE[queueKey]}`}
                     >
                       <span
                         className={`h-1.5 w-1.5 rounded-full ${

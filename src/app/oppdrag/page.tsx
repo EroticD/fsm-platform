@@ -9,6 +9,11 @@ import prisma from "@/lib/prisma";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import CustomerToast from "@/components/customer/CustomerToast";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
+import StatusBadge from "@/components/StatusBadge";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon, { type IconName } from "@/components/icons";
 import OrderViewTabs from "./ViewTabs";
@@ -29,35 +34,6 @@ import {
 } from "@/lib/search-filters";
 import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import { searchWorkOrderIds } from "@/lib/search-sql";
-
-// Command Center-verdier. Fallbackene matcher office-card/signal-button/
-// ink-button-tokenene, slik at flaten står riktig også før de er lastet.
-const CARD = "office-card";
-const INK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
-const SIGNAL_BUTTON =
-  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
-const EYEBROW =
-  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const MUTED = "text-[var(--muted,#62685f)]";
-
-const STATUS_LABEL_KEYS: Record<string, string> = {
-  OPEN: "statusOpen",
-  PENDING: "statusPending",
-  PLANNED: "statusPlanned",
-  IN_PROGRESS: "statusInProgress",
-  WAITING: "statusWaiting",
-  COMPLETED: "statusCompleted",
-  CANCELLED: "statusCancelled",
-};
-
-const STATUS_TONE: Record<string, string> = {
-  IN_PROGRESS:
-    "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
-  COMPLETED: "border-[#a9c96a] bg-[#eef7d6] text-[#283509]",
-  CANCELLED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
-  WAITING: "border-[#e4c98f] bg-[#fdf5e4] text-[#7a4f0c]",
-};
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -413,27 +389,6 @@ export default async function WorkOrdersPage({
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
 
-  const statusLabels: Record<string, string> = {
-    OPEN: t(STATUS_LABEL_KEYS.OPEN),
-    PENDING: t(STATUS_LABEL_KEYS.PENDING),
-    PLANNED: t(STATUS_LABEL_KEYS.PLANNED),
-    IN_PROGRESS: t(STATUS_LABEL_KEYS.IN_PROGRESS),
-    WAITING: t(STATUS_LABEL_KEYS.WAITING),
-    COMPLETED: t(STATUS_LABEL_KEYS.COMPLETED),
-    CANCELLED: t(STATUS_LABEL_KEYS.CANCELLED),
-  };
-
-  const statusPill = (status: string) => (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold ${
-        STATUS_TONE[status] ?? "border-[var(--line,#d8d3c5)] bg-white"
-      }`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-      {statusLabels[status] ?? status}
-    </span>
-  );
-
   const tagChips = (
     tags: { id: string; name: string; color: string | null }[],
   ) =>
@@ -452,385 +407,397 @@ export default async function WorkOrdersPage({
     ));
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        {/* HEADER */}
-        <header className="flex flex-col gap-3 border-b border-[var(--line,#d8d3c5)] pb-3 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <p className={EYEBROW}>{t("metadata.routes.oppdrag")}</p>
-            <h1 className="mt-0.5 flex items-baseline gap-2 text-3xl font-black tracking-tight md:text-4xl">
-              <span className="truncate">{t(activeView.labelKey)}</span>
-              <span className="text-sm font-bold tabular-nums text-[#5e6356]">
-                {t("orders.list.total", { count: total })}
-              </span>
-            </h1>
-            <p className={`mt-1 max-w-2xl text-sm ${MUTED}`}>
-              {t(activeView.descriptionKey)}
-            </p>
-          </div>
-          <div className="flex w-full flex-wrap gap-2 md:w-auto">
+    <PageShell>
+      <PageHeader
+        eyebrow={t("metadata.routes.oppdrag")}
+        title={t(activeView.labelKey)}
+        subtitle={
+          <>
+            {t(activeView.descriptionKey)}
+            <span className="type-meta type-tabular ml-1 inline-block">
+              {t("orders.list.total", { count: total })}
+            </span>
+          </>
+        }
+        actions={
+          <>
             {user.role === "ADMIN" && (
               <Link
                 href="/oppdrag/slettede"
-                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk,#b42318)] md:flex-none"
+                className={`${buttonClassName({ variant: "danger-outline", size: "sm" })} flex-1 md:flex-none`}
               >
                 {t("orders.detail.deletedOrders")}
               </Link>
             )}
-            <Link href="/" className={`${INK_BUTTON} flex-1 md:flex-none`}>
+            <Link
+              href="/"
+              className={`${buttonClassName({ variant: "secondary", size: "sm" })} flex-1 md:flex-none`}
+            >
               {t("orders.list.backToDashboard")}
             </Link>
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className={`${SIGNAL_BUTTON} flex-1 md:flex-none`}
+                className={`${buttonClassName({ variant: "primary", size: "sm" })} flex-1 md:flex-none`}
               >
                 {t("orders.list.newWorkOrder")}
               </Link>
             )}
-          </div>
-        </header>
+          </>
+        }
+      />
 
-        {feedbackKey ? (
-          <CustomerToast message={t(feedbackKey)} tone="success" />
-        ) : null}
-        <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
+      {feedbackKey ? (
+        <CustomerToast message={t(feedbackKey)} tone="success" />
+      ) : null}
+      <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
 
-        {/* FILTRE */}
-        <section className={`${CARD} space-y-3 p-3 sm:p-4`}>
-          <OrderViewTabs
-            ariaLabel={t("orders.list.viewsLabel")}
-            activeKey={view}
-            tabs={availableViews.map((v) => ({
-              key: v.key,
-              label: t(v.labelKey),
-              icon: v.icon,
-              count: viewCounts[v.key],
-              href: linkFor(v.key),
-            }))}
-          />
+      {/* FILTRE */}
+      <Card as="section" className="space-y-3 p-3 sm:p-4">
+        <OrderViewTabs
+          ariaLabel={t("orders.list.viewsLabel")}
+          activeKey={view}
+          tabs={availableViews.map((v) => ({
+            key: v.key,
+            label: t(v.labelKey),
+            icon: v.icon,
+            count: viewCounts[v.key],
+            href: linkFor(v.key),
+          }))}
+        />
 
-          <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
-            <input type="hidden" name="vis" value={view} />
-            {tagFilter ? <input type="hidden" name="tag" value={tagFilter} /> : null}
-            {isSortKey(rawSort) ? (
-              <input type="hidden" name="sort" value={rawSort} />
-            ) : null}
-            <input
-              type="search"
-              name="q"
-              aria-label={t("orders.list.search")}
-              defaultValue={search}
-              placeholder={t("orders.list.searchPlaceholder")}
-              className="min-w-[14rem] flex-1 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#131711)] outline-none transition placeholder:text-[#7b8071] focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
-            />
-            <button
-              type="submit"
-              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--ink,#131711)] px-4 py-2 text-xs font-bold text-[var(--paper,#fbfaf4)] transition hover:opacity-85"
-            >
-              {t("orders.list.search")}
-            </button>
-            {search || tagFilter ? (
-              <Link
-                href={resetLinkFor()}
-                prefetch={false}
-                className={INK_BUTTON}
-              >
-                {t("orders.list.reset")}
-              </Link>
-            ) : null}
-          </form>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className={EYEBROW}>{t("orders.list.sortLabel")}</span>
-            {SORT_OPTIONS.map((option) => {
-              const active = sort === option.key;
-              return (
-                <Link
-                  key={option.key}
-                  href={sortLinkFor(option.key)}
-                  prefetch={false}
-                  aria-current={active ? "true" : undefined}
-                  className={`rounded-full border px-3 py-1.5 font-bold transition ${
-                    active
-                      ? "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]"
-                      : "border-[var(--line,#d8d3c5)] bg-white text-[var(--ink,#131711)] hover:border-[var(--ink,#131711)]"
-                  }`}
-                >
-                  {t(option.labelKey)}
-                </Link>
-              );
-            })}
-          </div>
-
-          {tagFilter ? (
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="rounded-full border border-[#dfc98b] bg-[#fdf5e4] px-3 py-1.5 text-xs font-bold text-[#6b4808]">
-                {t("orders.list.filterTag", { tag: tagFilter })}
-              </span>
-              <Link
-                href={linkFor(view, false)}
-                prefetch={false}
-                className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
-              >
-                {t("orders.list.clearTag")}
-              </Link>
-            </div>
+        <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
+          <input type="hidden" name="vis" value={view} />
+          {tagFilter ? <input type="hidden" name="tag" value={tagFilter} /> : null}
+          {isSortKey(rawSort) ? (
+            <input type="hidden" name="sort" value={rawSort} />
           ) : null}
-        </section>
+          <input
+            type="search"
+            name="q"
+            aria-label={t("orders.list.search")}
+            defaultValue={search}
+            placeholder={t("orders.list.searchPlaceholder")}
+            className="min-w-[14rem] flex-1 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm font-medium text-[var(--ink,#101310)] outline-none transition placeholder:text-[#6b6559] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+          />
+          <button
+            type="submit"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            {t("orders.list.search")}
+          </button>
+          {search || tagFilter ? (
+            <Link
+              href={resetLinkFor()}
+              prefetch={false}
+              className={buttonClassName({ variant: "ghost", size: "sm" })}
+            >
+              {t("orders.list.reset")}
+            </Link>
+          ) : null}
+        </form>
 
-        {/* LISTE */}
-        {orders.length === 0 ? (
-          <div className={`${CARD} p-6`}>
-            <EmptyState
-              icon={<Icon name="check" className="h-8 w-8" />}
-              title={t("orders.list.emptyTitle")}
-              description={
-                search
-                  ? t("orders.list.emptySearch", { query: search })
-                  : tagFilter
-                    ? t("orders.list.emptyTag", { tag: tagFilter })
-                    : t("orders.list.emptyHint")
-              }
-              action={
-                search || tagFilter ? (
-                  <Link href={resetLinkFor()} prefetch={false} className={SIGNAL_BUTTON}>
-                    {t("orders.list.reset")}
-                  </Link>
-                ) : undefined
-              }
-            />
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="type-eyebrow text-[var(--muted,#62685f)]">
+            {t("orders.list.sortLabel")}
+          </span>
+          {SORT_OPTIONS.map((option) => {
+            const active = sort === option.key;
+            return (
+              <Link
+                key={option.key}
+                href={sortLinkFor(option.key)}
+                prefetch={false}
+                aria-current={active ? "true" : undefined}
+                className={`type-ui rounded-full border px-3 py-1.5 transition ${
+                  active
+                    ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                    : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                }`}
+              >
+                {t(option.labelKey)}
+              </Link>
+            );
+          })}
+        </div>
+
+        {tagFilter ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="type-ui rounded-full border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] px-3 py-1.5 text-[var(--warning-text,#7a4f0c)]">
+              {t("orders.list.filterTag", { tag: tagFilter })}
+            </span>
+            <Link
+              href={linkFor(view, false)}
+              prefetch={false}
+              className="type-ui text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+            >
+              {t("orders.list.clearTag")}
+            </Link>
           </div>
-        ) : (
-          <>
-            {/* Desktop: tett tabell inne i ett office-kort. */}
-            <section className={`${CARD} hidden overflow-hidden md:block`}>
-              <div className="overflow-x-auto">
-                <table className="office-table">
-                  <thead>
-                    <tr className="bg-[var(--ink,#101310)]">
-                      {[
-                        t("orders.list.table.date"),
-                        t("orders.list.table.order"),
-                        t("orders.list.table.status"),
-                        t("orders.list.table.technician"),
-                        t("orders.list.table.tags"),
-                        t("orders.list.table.action"),
-                      ].map((label, index) => (
-                        <th
-                          key={label}
-                          scope="col"
-                          style={{
-                            color: "var(--paper, #f2efe6)",
-                            borderBottomColor: "var(--signal, #d8ff3e)",
-                            borderBottomWidth: "2px",
-                            fontSize: "0.75rem",
-                            textAlign: index === 5 ? "right" : "left",
-                          }}
-                          className="whitespace-nowrap"
-                        >
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((wo) => {
-                      const address = wo.site
-                        ? formatAddress(wo.site)
-                        : formatAddress(wo.customer);
-                      const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
-                      const overdue =
-                        scheduledEnd !== null &&
-                        scheduledEnd < dates.startOfToday &&
-                        !closedStatuses().includes(wo.status);
-                      return (
-                        <tr
-                          key={wo.id}
-                          className="border-b border-[var(--line,#d8d3c5)] transition last:border-0 hover:bg-[#f4f7e8]"
-                        >
-                          <td className="whitespace-nowrap px-3 py-2 align-top">
-                            <span className="block text-xs font-bold tabular-nums">
-                              {formatDateRangeLocalized(
-                                wo.scheduledFor,
-                                wo.scheduledTo,
-                                locale,
-                              ) || t("orders.list.noDate")}
-                            </span>
-                            {overdue ? (
-                              <span className="mt-0.5 block text-xs font-bold text-[var(--risk-text,#b42318)]">
-                                {t("orders.list.overdue")}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="max-w-[22rem] px-3 py-2 align-top">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <Link
-                                href={`/oppdrag/${wo.id}`}
-                                prefetch={false}
-                                className="line-clamp-2 font-bold leading-5 text-[var(--ink,#131711)] hover:underline"
-                              >
-                                {wo.title}
-                              </Link>
-                              <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
-                                {t("orders.list.reference")} {wo.reference}
-                              </span>
-                              {wo.orderNumber ? (
-                                <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
-                                  {t("orders.list.orderNumber")} {wo.orderNumber}
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="mt-0.5 truncate text-xs text-[#5e6356]">
-                              {wo.customer?.name || t("orders.list.noCustomer")}
-                              {wo.site ? ` · ${wo.site.name}` : ""}
-                              {address ? ` · ${address}` : ""}
-                            </p>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 align-top">
-                            {statusPill(wo.status)}
-                          </td>
-                          <td className="max-w-[15rem] px-3 py-2 align-top text-xs">
-                            {wo.technicians.length > 0 ? (
-                              <span className="block truncate font-bold">
-                                {wo.technicians
-                                  .map((tech) => tech.name)
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </span>
-                            ) : canAssign ? (
-                              <form
-                                action={quickAssignTechnician}
-                                className="flex min-w-0 flex-wrap items-center gap-1"
-                              >
-                                <input
-                                  type="hidden"
-                                  name="workOrderId"
-                                  value={wo.id}
-                                />
-                                <input
-                                  type="hidden"
-                                  name="returnTo"
-                                  value={listReturnTo}
-                                />
-                                <span className="w-full font-bold text-[var(--risk-text,#b42318)]">
-                                  {t("orders.list.unassigned")}
-                                </span>
-                                <select
-                                  name="technicianId"
-                                  required
-                                  defaultValue=""
-                                  aria-label={t("orders.list.chooseTechnician")}
-                                  className="min-h-9 min-w-0 max-w-full flex-1 rounded-md border border-[var(--line,#d8d3c5)] bg-white px-1.5 text-xs text-[var(--ink,#101310)]"
-                                >
-                                  <option value="" disabled>
-                                    {t("orders.list.chooseTechnician")}
-                                  </option>
-                                  {staff.map((member) => (
-                                    <option key={member.id} value={member.id}>
-                                      {member.name || member.id}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="submit"
-                                  className="min-h-9 rounded-md bg-[var(--ink,#101310)] px-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:bg-[#2a3027]"
-                                >
-                                  {t("orders.list.assign")}
-                                </button>
-                              </form>
-                            ) : (
-                              <span className="font-bold text-[var(--risk-text,#b42318)]">
-                                {t("orders.list.unassigned")}
-                              </span>
-                            )}
-                          </td>
-                          <td className="max-w-[12rem] px-3 py-2 align-top">
-                            <div className="flex flex-wrap gap-1">
-                              {wo.tags.length > 0 ? (
-                                tagChips(wo.tags)
-                              ) : (
-                                <span className="text-xs text-[#8a8f80]">—</span>
-                              )}
-                            </div>
-                            <span className="mt-0.5 block text-xs font-bold text-[#5e6356]">
-                              {t("orders.list.checklists", {
-                                done: wo.reports.length,
-                                total: wo.templates.length,
-                              })}
-                            </span>
-                          </td>
-                          <td
-                            className="whitespace-nowrap"
-                            style={{ textAlign: "right" }}
-                          >
-                            <Link
-                              href={`/oppdrag/${wo.id}`}
-                              prefetch={false}
-                              className="inline-flex items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
-                            >
-                              {t("orders.list.openOrder")}
-                              <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+        ) : null}
+      </Card>
 
-            {/* Mobil: kompakte rader i stedet for tabell. */}
-            <section className={`${CARD} overflow-hidden md:hidden`}>
-              <div className="divide-y divide-[var(--line,#d8d3c5)]">
-                {orders.map((wo) => {
-                  const address = wo.site
-                    ? formatAddress(wo.site)
-                    : formatAddress(wo.customer);
-                  const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
-                  const overdue =
-                    scheduledEnd !== null &&
-                    scheduledEnd < dates.startOfToday &&
-                    !closedStatuses().includes(wo.status);
-                  return (
-                    <div key={wo.id}>
-                      <Link
-                        href={`/oppdrag/${wo.id}`}
-                        prefetch={false}
-                        className="block px-3 py-2.5 transition hover:bg-[#f4f7e8]"
+      {/* LISTE */}
+      {orders.length === 0 ? (
+        <Card className="p-6">
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="check" className="h-8 w-8" />}
+            title={t("orders.list.emptyTitle")}
+            description={
+              search
+                ? t("orders.list.emptySearch", { query: search })
+                : tagFilter
+                  ? t("orders.list.emptyTag", { tag: tagFilter })
+                  : t("orders.list.emptyHint")
+            }
+            action={
+              search || tagFilter ? (
+                <Link
+                  href={resetLinkFor()}
+                  prefetch={false}
+                  className={buttonClassName({ variant: "primary", size: "sm" })}
+                >
+                  {t("orders.list.reset")}
+                </Link>
+              ) : undefined
+            }
+          />
+        </Card>
+      ) : (
+        <>
+          {/* Desktop: tett tabell inne i ett office-kort. */}
+          <Card as="section" className="hidden overflow-hidden md:block">
+            <div
+              className="overflow-x-auto"
+              role="region"
+              aria-label={t(activeView.labelKey)}
+              tabIndex={0}
+            >
+              <table className="office-table">
+                <thead>
+                  <tr>
+                    {[
+                      t("orders.list.table.date"),
+                      t("orders.list.table.order"),
+                      t("orders.list.table.status"),
+                      t("orders.list.table.technician"),
+                      t("orders.list.table.tags"),
+                      t("orders.list.table.action"),
+                    ].map((label, index) => (
+                      <th
+                        key={label}
+                        scope="col"
+                        style={{ textAlign: index === 5 ? "right" : "left" }}
+                        className="whitespace-nowrap"
                       >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p
-                            className={`text-xs font-bold tabular-nums ${
-                              overdue ? "text-[var(--risk-text,#b42318)]" : MUTED
-                            }`}
-                          >
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((wo) => {
+                    const address = wo.site
+                      ? formatAddress(wo.site)
+                      : formatAddress(wo.customer);
+                    const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
+                    const overdue =
+                      scheduledEnd !== null &&
+                      scheduledEnd < dates.startOfToday &&
+                      !closedStatuses().includes(wo.status);
+                    return (
+                      <tr key={wo.id} className="transition">
+                        <td className="whitespace-nowrap px-3 py-2 align-top">
+                          <span className="block text-xs font-bold tabular-nums">
                             {formatDateRangeLocalized(
                               wo.scheduledFor,
                               wo.scheduledTo,
                               locale,
                             ) || t("orders.list.noDate")}
-                            {overdue ? ` · ${t("orders.list.overdue")}` : ""}
-                          </p>
-                          <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-5">
-                            {wo.title}
-                          </p>
-                          <p className="truncate text-xs text-[#5e6356]">
+                          </span>
+                          {overdue ? (
+                            <span className="mt-0.5 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                              {t("orders.list.overdue")}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="max-w-[22rem] px-3 py-2 align-top">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Link
+                              href={`/oppdrag/${wo.id}`}
+                              prefetch={false}
+                              className="line-clamp-2 font-bold leading-5 text-[var(--ink,#101310)] hover:underline"
+                            >
+                              {wo.title}
+                            </Link>
+                            <span className="type-micro whitespace-nowrap rounded border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-[var(--muted,#62685f)]">
+                              {t("orders.list.reference")} {wo.reference}
+                            </span>
+                            {wo.orderNumber ? (
+                              <span className="type-micro whitespace-nowrap rounded border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-[var(--muted,#62685f)]">
+                                {t("orders.list.orderNumber")} {wo.orderNumber}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="type-micro mt-0.5 truncate text-[var(--muted,#62685f)]">
                             {wo.customer?.name || t("orders.list.noCustomer")}
                             {wo.site ? ` · ${wo.site.name}` : ""}
                             {address ? ` · ${address}` : ""}
                           </p>
-                        </div>
-                        {statusPill(wo.status)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 align-top">
+                          <StatusBadge status={wo.status} />
+                        </td>
+                        <td className="max-w-[15rem] px-3 py-2 align-top text-xs">
+                          {wo.technicians.length > 0 ? (
+                            <span className="block truncate font-bold">
+                              {wo.technicians
+                                .map((tech) => tech.name)
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          ) : canAssign ? (
+                            <form
+                              action={quickAssignTechnician}
+                              className="flex min-w-0 flex-wrap items-center gap-1"
+                            >
+                              <input
+                                type="hidden"
+                                name="workOrderId"
+                                value={wo.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="returnTo"
+                                value={listReturnTo}
+                              />
+                              <span className="w-full font-bold text-[var(--risk-text,#b42318)]">
+                                {t("orders.list.unassigned")}
+                              </span>
+                              <select
+                                name="technicianId"
+                                required
+                                defaultValue=""
+                                aria-label={t("orders.list.chooseTechnician")}
+                                className="min-h-9 min-w-0 max-w-full flex-1 rounded-md border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 text-xs text-[var(--ink,#101310)]"
+                              >
+                                <option value="" disabled>
+                                  {t("orders.list.chooseTechnician")}
+                                </option>
+                                {staff.map((member) => (
+                                  <option key={member.id} value={member.id}>
+                                    {member.name || member.id}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="submit"
+                                className={buttonClassName({
+                                  variant: "secondary",
+                                  size: "sm",
+                                })}
+                              >
+                                {t("orders.list.assign")}
+                              </button>
+                            </form>
+                          ) : (
+                            <span className="font-bold text-[var(--risk-text,#b42318)]">
+                              {t("orders.list.unassigned")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="max-w-[12rem] px-3 py-2 align-top">
+                          <div className="flex flex-wrap gap-1">
+                            {wo.tags.length > 0 ? (
+                              tagChips(wo.tags)
+                            ) : (
+                              <span className="text-xs text-[var(--muted,#62685f)] opacity-60">—</span>
+                            )}
+                          </div>
+                          <span className="type-micro mt-0.5 block text-[var(--muted,#62685f)]">
+                            {t("orders.list.checklists", {
+                              done: wo.reports.length,
+                              total: wo.templates.length,
+                            })}
+                          </span>
+                        </td>
+                        <td
+                          className="whitespace-nowrap"
+                          style={{ textAlign: "right" }}
+                        >
+                          <Link
+                            href={`/oppdrag/${wo.id}`}
+                            prefetch={false}
+                            className={buttonClassName({
+                              variant: "secondary",
+                              size: "sm",
+                            })}
+                          >
+                            {t("orders.list.openOrder")}
+                            <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Mobil: kompakte rader i stedet for tabell. */}
+          <Card as="section" className="overflow-hidden md:hidden">
+            <div className="divide-y divide-[var(--line,#dedcd1)]">
+              {orders.map((wo) => {
+                const address = wo.site
+                  ? formatAddress(wo.site)
+                  : formatAddress(wo.customer);
+                const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
+                const overdue =
+                  scheduledEnd !== null &&
+                  scheduledEnd < dates.startOfToday &&
+                  !closedStatuses().includes(wo.status);
+                return (
+                  <div key={wo.id}>
+                    <Link
+                      href={`/oppdrag/${wo.id}`}
+                      prefetch={false}
+                      className="block px-3 py-2.5 transition hover:bg-[var(--paper,#f2efe6)]/60"
+                    >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p
+                          className={`text-xs font-bold tabular-nums ${
+                            overdue
+                              ? "text-[var(--risk-text,#b42318)]"
+                              : "text-[var(--muted,#62685f)]"
+                          }`}
+                        >
+                          {formatDateRangeLocalized(
+                            wo.scheduledFor,
+                            wo.scheduledTo,
+                            locale,
+                          ) || t("orders.list.noDate")}
+                          {overdue ? ` · ${t("orders.list.overdue")}` : ""}
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-5">
+                          {wo.title}
+                        </p>
+                        <p className="truncate text-xs text-[var(--muted,#62685f)]">
+                          {wo.customer?.name || t("orders.list.noCustomer")}
+                          {wo.site ? ` · ${wo.site.name}` : ""}
+                          {address ? ` · ${address}` : ""}
+                        </p>
                       </div>
+                      <StatusBadge status={wo.status} />
+                    </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold">
                         <span
                           className={
                             wo.technicians.length === 0
                               ? "text-[var(--risk-text,#b42318)]"
-                              : "text-[#3d4237]"
+                              : "text-[var(--ink,#101310)]"
                           }
                         >
                           {wo.technicians.length === 0
@@ -840,7 +807,7 @@ export default async function WorkOrdersPage({
                                 .filter(Boolean)
                                 .join(", ")}
                         </span>
-                        <span className="text-[#5e6356]">
+                        <span className="text-[var(--muted,#62685f)]">
                           {t("orders.list.checklists", {
                             done: wo.reports.length,
                             total: wo.templates.length,
@@ -852,7 +819,7 @@ export default async function WorkOrdersPage({
                           {tagChips(wo.tags)}
                         </div>
                       ) : null}
-                      <span className="mt-1 block text-right text-xs font-bold text-[var(--ink,#131711)]">
+                      <span className="mt-1 block text-right text-xs font-bold text-[var(--ink,#101310)]">
                         {t("orders.list.openOrder")}
                         <Icon name="arrowRight" className="ml-1 inline-block h-3.5 w-3.5 align-[-0.125em]" />
                       </span>
@@ -869,7 +836,7 @@ export default async function WorkOrdersPage({
                             required
                             defaultValue=""
                             aria-label={t("orders.list.chooseTechnician")}
-                            className="min-h-10 min-w-0 flex-1 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)]"
+                            className="min-h-10 min-w-0 flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 text-xs font-medium text-[var(--ink,#101310)]"
                           >
                             <option value="" disabled>
                               {t("orders.list.chooseTechnician")}
@@ -882,7 +849,10 @@ export default async function WorkOrdersPage({
                           </select>
                           <button
                             type="submit"
-                            className="min-h-10 rounded-lg bg-[var(--ink,#101310)] px-3 text-xs font-bold text-[var(--paper,#f2efe6)]"
+                            className={buttonClassName({
+                              variant: "secondary",
+                              size: "sm",
+                            })}
                           >
                             {t("orders.list.assign")}
                           </button>
@@ -892,24 +862,23 @@ export default async function WorkOrdersPage({
                   );
                 })}
               </div>
-            </section>
-          </>
-        )}
+          </Card>
+        </>
+      )}
 
-        {/* SIDEBLADDRING */}
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hrefFor={(targetPage) => {
-            const base = linkFor(view);
-            if (targetPage <= 1) return base;
-            return `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
-          }}
-          labels={paginationLabels(t)}
-          summary={t("orders.list.page", { page, pages: totalPages })}
-          className="pt-2"
-        />
-      </div>
-    </div>
+      {/* SIDEBLADDRING */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(targetPage) => {
+          const base = linkFor(view);
+          if (targetPage <= 1) return base;
+          return `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
+        }}
+        labels={paginationLabels(t)}
+        summary={t("orders.list.page", { page, pages: totalPages })}
+        className="pt-2"
+      />
+    </PageShell>
   );
 }

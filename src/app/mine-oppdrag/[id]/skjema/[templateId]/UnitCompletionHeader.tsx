@@ -214,12 +214,12 @@ export default function UnitCompletionHeader({
             name={ready ? "check" : "arrowRight"}
             className="h-4 w-4 shrink-0"
           />
-          <span className="text-[11px] font-black tabular-nums">
+          <span className="text-2xs font-black tabular-nums">
             {ready ? t("orders.reportForm.swipeReleaseShort") : `${progress} %`}
           </span>
         </div>
 
-        <div className="relative flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-white/75 px-3">
+        <div className="relative flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface/75 px-3">
           <h3 className="min-w-0 font-black text-ink">
             {t("orders.reportForm.unitTitle", { number: unitNumber })}
           </h3>
@@ -227,7 +227,7 @@ export default function UnitCompletionHeader({
             type="button"
             onClick={onRemove}
             style={{ minHeight: 48 }}
-            className="inline-flex min-h-12 shrink-0 items-center rounded-lg border border-risk/30 bg-risk/10 px-3 py-1.5 text-[11px] font-bold text-risk transition hover:bg-risk/15"
+            className="inline-flex min-h-12 shrink-0 items-center rounded-lg border border-risk/30 bg-risk/10 px-3 py-1.5 text-2xs font-bold text-risk transition hover:bg-risk/15"
           >
             {t("orders.reportForm.removeUnit")}
           </button>
@@ -237,7 +237,7 @@ export default function UnitCompletionHeader({
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <p
           id={hintId}
-          className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-600"
+          className="flex min-w-0 items-center gap-1.5 text-2xs font-bold text-gray-600"
         >
           <Icon
             name={dragging && ready ? "check" : "arrowRight"}
@@ -264,7 +264,7 @@ export default function UnitCompletionHeader({
               onClick={onComplete}
               aria-describedby={hintId}
               style={{ minHeight: 48 }}
-              className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border-2 border-ink/20 bg-white px-3 text-xs font-black text-ink transition hover:border-ink/40 hover:bg-white/80"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border-2 border-ink/20 bg-surface px-3 text-xs font-black text-ink transition hover:border-ink/40 hover:bg-surface/80"
             >
               <Icon name="check" className="h-4 w-4" />
               {t("orders.reportForm.completeUnit")}
@@ -291,7 +291,7 @@ export default function UnitCompletionHeader({
 
       {undoAvailable && (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-1.5 text-success">
-          <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold">
+          <span className="flex min-w-0 items-center gap-1.5 text-2xs font-bold">
             <Icon name="check" className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0">
               {t("orders.reportForm.undoAnnouncement", {
@@ -303,7 +303,7 @@ export default function UnitCompletionHeader({
             type="button"
             onClick={onUndo}
             style={{ minHeight: 48 }}
-            className="inline-flex min-h-11 items-center rounded-lg border border-success/50 bg-white px-3 text-xs font-black text-success transition hover:bg-success/10"
+            className="inline-flex min-h-11 items-center rounded-lg border border-success/50 bg-surface px-3 text-xs font-black text-success transition hover:bg-success/10"
           >
             {t("orders.reportForm.undoComplete")}
           </button>

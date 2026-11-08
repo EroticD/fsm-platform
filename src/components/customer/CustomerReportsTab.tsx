@@ -188,7 +188,7 @@ export default async function CustomerReportsTab({
                       className={`inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-bold ${
                         report.isLocked
                           ? "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
-                          : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
+                          : "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]"
                       }`}
                       title={lockTitle}
                     >
@@ -199,7 +199,7 @@ export default async function CustomerReportsTab({
                     <span
                       className={`inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-bold ${
                         acknowledgement.acknowledged
-                          ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
+                          ? "border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
                           : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
                       }`}
                       title={
@@ -247,7 +247,7 @@ export default async function CustomerReportsTab({
                         </span>
                       )}
                       {summary.deviationCount > 0 && (
-                        <span className="font-bold text-[#a92a12]">
+                        <span className="font-bold text-[var(--risk-text,#b42318)]">
                           {t("customers.reports.deviations", {
                             count: summary.deviationCount,
                           })}

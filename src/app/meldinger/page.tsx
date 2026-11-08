@@ -116,7 +116,7 @@ export default async function MessagesPage({
       {errorMessage && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(errorMessage)}
         </p>

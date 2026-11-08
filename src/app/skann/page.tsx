@@ -69,7 +69,7 @@ export default async function ScanPage({
           </div>
           <Link
             href="/mine-oppdrag"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper transition hover:bg-white/10"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 text-sm font-bold text-paper transition hover:bg-surface/10"
           >
             <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
             {t("scanner.backToField")}

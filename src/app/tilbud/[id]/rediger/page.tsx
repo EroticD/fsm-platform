@@ -4,6 +4,8 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import { buttonClassName } from "@/components/ui/Button";
 import ErrorBanner from "@/components/ErrorBanner";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
@@ -70,63 +72,61 @@ export default async function EditQuotePage({
   ]);
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <PageHeader
-          title={t("quotes.edit.title")}
-          subtitle={quote.title}
-          icon={<Icon name="edit" className="h-5 w-5" />}
-          actions={
-            <Link
-              href={`/tilbud/${quote.id}`}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold"
-            >
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("quotes.edit.back")}
-            </Link>
-          }
-        />
-        {search.error ? <ErrorBanner message={t("quotes.errors.generic")} /> : null}
-        <QuoteForm
-          action={updateQuoteAction}
-          submitLabel={t("quotes.edit.submit")}
-          cancelHref={`/tilbud/${quote.id}`}
-          defaults={{
-            id: quote.id,
-            title: quote.title,
-            customerId: quote.customerId ?? "",
-            contactId: quote.contactId ?? "",
-            workOrderId: quote.workOrderId ?? "",
-            contractId: quote.contractId ?? "",
-            productId: quote.productId ?? "",
-            departmentId: quote.departmentId,
-            validUntil: quote.validUntil ? toDateOnly(quote.validUntil) : "",
-            vatRate: quote.vatRate.toFixed(2),
-            notes: quote.notes ?? "",
-            lines: quote.lines.map((line) => ({
-              description: line.description,
-              quantity: line.quantity.toFixed(2),
-              unit: line.unit,
-              unitPrice: line.unitPrice.toFixed(2),
-              vatRate: line.vatRate.toFixed(2),
-            })),
-          }}
-          options={{
-            customers,
-            contacts: contacts.map((contact) => ({
-              id: contact.id,
-              name: contact.name,
-              role: contact.role,
-              customerId: contact.customerId,
-            })),
-            workOrders,
-            contracts,
-            products,
-            departments,
-            isAdmin: user.role === "ADMIN",
-          }}
-        />
-      </div>
-    </div>
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("quotes.edit.title")}
+        subtitle={quote.title}
+        icon={<Icon name="edit" className="h-5 w-5" />}
+        actions={
+          <Link
+            href={`/tilbud/${quote.id}`}
+            className={buttonClassName({ variant: "secondary" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("quotes.edit.back")}
+          </Link>
+        }
+      />
+      {search.error ? <ErrorBanner message={t("quotes.errors.generic")} /> : null}
+      <QuoteForm
+        action={updateQuoteAction}
+        submitLabel={t("quotes.edit.submit")}
+        cancelHref={`/tilbud/${quote.id}`}
+        defaults={{
+          id: quote.id,
+          title: quote.title,
+          customerId: quote.customerId ?? "",
+          contactId: quote.contactId ?? "",
+          workOrderId: quote.workOrderId ?? "",
+          contractId: quote.contractId ?? "",
+          productId: quote.productId ?? "",
+          departmentId: quote.departmentId,
+          validUntil: quote.validUntil ? toDateOnly(quote.validUntil) : "",
+          vatRate: quote.vatRate.toFixed(2),
+          notes: quote.notes ?? "",
+          lines: quote.lines.map((line) => ({
+            description: line.description,
+            quantity: line.quantity.toFixed(2),
+            unit: line.unit,
+            unitPrice: line.unitPrice.toFixed(2),
+            vatRate: line.vatRate.toFixed(2),
+          })),
+        }}
+        options={{
+          customers,
+          contacts: contacts.map((contact) => ({
+            id: contact.id,
+            name: contact.name,
+            role: contact.role,
+            customerId: contact.customerId,
+          })),
+          workOrders,
+          contracts,
+          products,
+          departments,
+          isAdmin: user.role === "ADMIN",
+        }}
+      />
+    </PageShell>
   );
 }

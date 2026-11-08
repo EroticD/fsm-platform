@@ -35,7 +35,7 @@ export default function PortalMessageForm({
 
   if (!consent) {
     return (
-      <p className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-3 py-2 text-xs leading-5 text-[#6b4a05]">
+      <p className="rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-3 py-2 text-xs leading-5 text-[var(--warning-text,#7a4f0c)]">
         {t("portal.expansion.messages.consentMissing")}
       </p>
     );
@@ -60,12 +60,12 @@ export default function PortalMessageForm({
         className={controlClassName("min-h-24 w-full resize-y")}
       />
       {state.status === "success" && (
-        <p role="status" className="text-xs font-bold text-[#24502f]">
+        <p role="status" className="text-xs font-bold text-[var(--success-text,#283509)]">
           {t("portal.expansion.messages.sent")}
         </p>
       )}
       {state.status === "error" && (
-        <p role="alert" className="text-xs font-bold text-[#a92a12]">
+        <p role="alert" className="text-xs font-bold text-[var(--risk-text,#b42318)]">
           {t(ERROR_KEYS[state.reason] ?? "portal.expansion.messages.errors.generic")}
         </p>
       )}

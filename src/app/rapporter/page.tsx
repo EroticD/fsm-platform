@@ -17,6 +17,10 @@ import {
 } from "@/lib/report-display";
 import { pageWindow, parsePage } from "@/lib/pagination";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
+import EmptyState from "@/components/EmptyState";
 import Icon, { type IconName } from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import {
@@ -40,28 +44,19 @@ const PAGE_SIZE = REPORTS_PAGE_SIZE;
 /** Et begrenset antall filtervalg – lister skal aldri hente hele tabellen. */
 const FILTER_OPTION_LIMIT = 300;
 
-// Command Center-verdier. Fallbackene matcher office-card/signal-button/
-// ink-button-tokenene, slik at rapportlisten står riktig også før de er lastet.
-const CARD = "office-card";
-const SIGNAL_BUTTON =
-  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
-const INK_BUTTON =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
-const QUIET_BUTTON =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
+// Command Center-verdier for filtrene. Kort og knapper kommer fra de felles
+// komponentene; feltene leser de samme tokenene som resten av kontoret.
 const FIELD =
-  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
-const LABEL =
-  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
-const EYEBROW =
-  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
+  "min-h-10 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+const LABEL = "type-eyebrow mb-1 block text-[var(--muted,#62685f)]";
+const EYEBROW = "type-eyebrow text-[var(--muted,#62685f)]";
 const MUTED = "text-[var(--muted,#62685f)]";
 const FILTER_CHIP =
   "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition";
 const ACTIVE_CHIP =
   "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]";
 const INACTIVE_CHIP =
-  "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]";
+  "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]";
 
 const RANGES = [
   { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "calendar" },
@@ -285,28 +280,33 @@ export default async function ReportsPage({
     `/rapporter/${workOrderId}/revisjoner?rapport=${encodeURIComponent(reportId)}&returnTo=${encodeURIComponent(currentPageHref)}`;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <PageHeader
-          title={t("orders.reportsPage.title")}
-          subtitle={`${t("orders.reportsPage.subtitle")} · ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
-          icon={<Icon name="clipboard" className="h-5 w-5" />}
-          actions={
-            <>
-              <Link href="/" className={INK_BUTTON}>
-                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-                {t("orders.reportsPage.dashboard")}
-              </Link>
-              <Link href="/oppdrag" className={INK_BUTTON}>
-                <Icon name="folder" className="h-4 w-4 shrink-0" />
-                {t("orders.reportsPage.orders")}
-              </Link>
-            </>
-          }
-        />
+    <PageShell>
+      <PageHeader
+        title={t("orders.reportsPage.title")}
+        subtitle={`${t("orders.reportsPage.subtitle")} · ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
+        icon={<Icon name="clipboard" className="h-5 w-5" />}
+        actions={
+          <>
+            <Link
+              href="/"
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("orders.reportsPage.dashboard")}
+            </Link>
+            <Link
+              href="/oppdrag"
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              <Icon name="folder" className="h-4 w-4 shrink-0" />
+              {t("orders.reportsPage.orders")}
+            </Link>
+          </>
+        }
+      />
 
-        {/* TIDSROM, TYPE OG KVITTERING */}
-        <section className={`${CARD} space-y-2.5 p-3 sm:p-4`}>
+      {/* TIDSROM, TYPE OG KVITTERING */}
+      <Card as="section" className="space-y-2.5 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-1.5">
             {RANGES.map((range) => {
               const active = range.key === filters.range;
@@ -320,7 +320,7 @@ export default async function ReportsPage({
                   <Icon name={range.icon} className="h-3.5 w-3.5 shrink-0" />
                   <span>{t(range.labelKey)}</span>
                   <span
-                    className={`rounded-full px-1.5 text-[11px] font-black tabular-nums ${
+                    className={`rounded-full px-1.5 text-xs font-black tabular-nums ${
                       active
                         ? "bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
                         : "border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
@@ -492,57 +492,64 @@ export default async function ReportsPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
-              <button type="submit" className={INK_BUTTON}>
+              <button
+                type="submit"
+                className={buttonClassName({ variant: "secondary" })}
+              >
                 <Icon name="filter" className="h-3.5 w-3.5 shrink-0" />
                 {t("orders.reportsPage.applyFilters")}
               </button>
               {hasActiveFilters && (
-                <Link href={resetHref} className={QUIET_BUTTON}>
+                <Link
+                  href={resetHref}
+                  className={buttonClassName({ variant: "ghost" })}
+                >
                   {t("orders.reportsPage.resetFilters")}
                 </Link>
               )}
             </div>
           </form>
-        </section>
+      </Card>
 
-        {/* LISTE */}
-        {reports.length === 0 ? (
-          <div className={`${CARD} p-8 text-center`}>
-            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]">
-              <Icon name="clipboard" className="h-5 w-5" />
-            </span>
-            <h2 className="mt-3 text-base font-extrabold text-[var(--ink,#101310)]">
-              {hasActiveFilters
+      {/* LISTE */}
+      {reports.length === 0 ? (
+        <Card className="p-8">
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="clipboard" className="h-5 w-5" />}
+            title={
+              hasActiveFilters
                 ? t("orders.reportsPage.emptyFilteredTitle")
                 : t("orders.reportsPage.emptyTitle", {
                     range: rangeLabel(filters.range),
-                  })}
-            </h2>
-            <p className={`mx-auto mt-1 max-w-md text-sm ${MUTED}`}>
-              {hasActiveFilters
+                  })
+            }
+            description={
+              hasActiveFilters
                 ? t("orders.reportsPage.emptyFilteredDescription")
-                : t("orders.reportsPage.emptyDescription")}
-            </p>
-            {(hasActiveFilters || filters.range !== "alle") && (
-              <div className="mt-4 flex justify-center">
+                : t("orders.reportsPage.emptyDescription")
+            }
+            action={
+              hasActiveFilters || filters.range !== "alle" ? (
                 <Link
                   href={
                     hasActiveFilters
                       ? resetHref
                       : listHref({ range: "alle" })
                   }
-                  className={SIGNAL_BUTTON}
+                  className={buttonClassName({ variant: "primary", size: "sm" })}
                 >
                   {hasActiveFilters
                     ? t("orders.reportsPage.resetFilters")
                     : t("orders.reportsPage.all")}
                 </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className={`${CARD} overflow-hidden`}>
-            <div className="hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)] md:flex">
+              ) : undefined
+            }
+          />
+        </Card>
+      ) : (
+        <Card className="overflow-hidden">
+            <div className="type-eyebrow hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-[var(--muted,#62685f)] md:flex">
               <span className="min-w-0 flex-1">
                 {t("orders.reportsPage.tableReport")}
               </span>
@@ -624,7 +631,7 @@ export default async function ReportsPage({
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         {hms && (
-                          <span className="inline-flex items-center gap-1 rounded border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--ink,#101310)]">
+                          <span className="type-micro inline-flex items-center gap-1 rounded border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[var(--ink,#101310)]">
                             <Icon name="shield" className="h-3 w-3 shrink-0" />
                             {t("orders.templateGroups.hmsBadge")}
                           </span>
@@ -730,8 +737,8 @@ export default async function ReportsPage({
                         <span
                           className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                             deviations > 0
-                              ? "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]"
-                              : "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)]"
+                              ? "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
+                              : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)]"
                           }`}
                         >
                           <Icon
@@ -756,7 +763,7 @@ export default async function ReportsPage({
                         className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                           report.isLocked
                             ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
-                            : "border-[#dfc98b] bg-[#fdf5e4] text-[#6b4808]"
+                            : "border-[#dfc98b] bg-[var(--warning-surface,#fdf5e4)] text-[#6b4808]"
                         }`}
                         title={lockTitle}
                       >
@@ -806,11 +813,11 @@ export default async function ReportsPage({
                           <summary
                             aria-label={t("customers.reportList.moreActions")}
                             title={t("customers.reportList.moreActions")}
-                            className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)] [&::-webkit-details-marker]:hidden"
+                            className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)] [&::-webkit-details-marker]:hidden"
                           >
                             <Icon name="more" className="h-4 w-4" />
                           </summary>
-                          <div className={`${CARD} absolute right-0 z-30 mt-1 w-56 space-y-0.5 p-2 shadow-xl`}>
+                          <div className="office-card absolute right-0 z-30 mt-1 w-56 space-y-0.5 p-2 shadow-xl">
                             {report.revision > 0 && (
                               <Link
                                 href={revisionsHref(
@@ -828,7 +835,7 @@ export default async function ReportsPage({
                             {canOpenForm && (
                               <Link
                                 href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
-                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#6b4808] transition hover:bg-[#fdf5e4]"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#6b4808] transition hover:bg-[var(--warning-surface,#fdf5e4)]"
                               >
                                 <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
                                 {t("orders.reportsPage.openForm")}
@@ -851,23 +858,22 @@ export default async function ReportsPage({
                 );
               })}
             </div>
-          </div>
-        )}
+        </Card>
+      )}
 
-        {total > 0 && (
-          <Pagination
-            page={window.page}
-            totalPages={window.totalPages}
-            hrefFor={(targetPage) => listHref({}, targetPage)}
-            labels={paginationLabels(t)}
-            summary={t("orders.reportsPage.showingPage", {
-              page: window.page,
-              totalPages: window.totalPages,
-              total,
-            })}
-          />
-        )}
-      </div>
-    </div>
+      {total > 0 && (
+        <Pagination
+          page={window.page}
+          totalPages={window.totalPages}
+          hrefFor={(targetPage) => listHref({}, targetPage)}
+          labels={paginationLabels(t)}
+          summary={t("orders.reportsPage.showingPage", {
+            page: window.page,
+            totalPages: window.totalPages,
+            total,
+          })}
+        />
+      )}
+    </PageShell>
   );
 }

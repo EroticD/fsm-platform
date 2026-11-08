@@ -223,7 +223,7 @@ export default function WorkOrderAttachments({
                     disabled={busy}
                     aria-label={`${t("orders.attachments.deleteTitle")}: ${attachment.fileName}`}
                     title={t("orders.attachments.deleteTitle")}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7] disabled:opacity-50"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[var(--risk-surface,#fdf4f2)] disabled:opacity-50"
                   >
                     <Icon name="trash" className="h-4 w-4" />
                   </button>

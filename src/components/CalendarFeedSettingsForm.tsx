@@ -56,7 +56,7 @@ export default function CalendarFeedSettingsForm({
                 className="mt-1 min-h-11 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 text-sm font-medium text-[var(--ink,#101310)]"
               />
             </label>
-            <p className="flex items-center gap-1.5 text-xs font-bold text-[#6b4a05]">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
               <Icon name="alert" className="h-3.5 w-3.5 shrink-0" />
               {t("p3.calendarFeed.once")}
             </p>
@@ -99,7 +99,7 @@ export default function CalendarFeedSettingsForm({
                 name="intent"
                 value="revoke"
                 disabled={pending}
-                className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--risk,#f04427)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fae8e0] disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--risk,#f04427)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[var(--risk-surface,#fdf4f2)] disabled:cursor-wait disabled:opacity-60"
               >
                 {t("p3.calendarFeed.revoke")}
               </button>

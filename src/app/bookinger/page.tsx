@@ -33,11 +33,11 @@ const FILTERS: BookingQueueFilter[] = [
 ];
 
 const STATUS_TONE: Record<BookingQueueItem["status"], string> = {
-  PENDING: "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]",
+  PENDING: "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
   CONFIRMED:
     "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  CANCELLED: "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12]",
-  EXPIRED: "border-[var(--line,#dedcd1)] bg-[#efede6] text-[var(--muted,#62685f)]",
+  CANCELLED: "border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  EXPIRED: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
 };
 
 const PLAN_ERROR_KEYS: Record<string, string> = {
@@ -115,7 +115,7 @@ export default async function BookingsPage({
       {params.bookingError && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[#a92a12]"
+          className="rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(planErrorKey(params.bookingError))}
         </p>
@@ -123,7 +123,7 @@ export default async function BookingsPage({
       {params.ok === "confirmed" && (
         <p
           role="status"
-          className="rounded-xl border border-[#b9d58b] bg-[#f3f6e7] px-4 py-3 text-sm font-bold text-[#3f4a1a]"
+          className="rounded-xl border border-[#b9d58b] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]"
         >
           {t("portal.bookingQueue.planSuccess")}
         </p>
@@ -131,7 +131,7 @@ export default async function BookingsPage({
       {params.ok === "already" && (
         <p
           role="status"
-          className="rounded-xl border border-[#b9d58b] bg-[#f3f6e7] px-4 py-3 text-sm font-bold text-[#3f4a1a]"
+          className="rounded-xl border border-[#b9d58b] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]"
         >
           {t("portal.bookingQueue.alreadyConfirmed")}
         </p>
@@ -244,13 +244,13 @@ export default async function BookingsPage({
                   {booking.requestedFrom &&
                     booking.requestedTo &&
                     booking.availableTechnicians.length === 0 && (
-                      <p className="text-xs font-bold text-[#8a3511]">
+                      <p className="text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
                         {t("portal.bookingQueue.noTechnician")}
                       </p>
                     )}
 
                   {booking.technicians.length === 0 ? (
-                    <p className="text-xs font-bold text-[#8a3511]">
+                    <p className="text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
                       {t("portal.bookingQueue.noStaff")}
                     </p>
                   ) : (
@@ -346,7 +346,7 @@ export default async function BookingsPage({
                     <input type="hidden" name="bookingId" value={booking.id} />
                     <button
                       type="submit"
-                      className="inline-flex min-h-11 items-center rounded-full border border-[var(--risk,#f04427)] px-4 text-sm font-bold text-[#a92a12]"
+                      className="inline-flex min-h-11 items-center rounded-full border border-[var(--risk,#f04427)] px-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
                     >
                       {t("portal.bookingQueue.cancel")}
                     </button>
@@ -362,7 +362,7 @@ export default async function BookingsPage({
                   <input type="hidden" name="bookingId" value={booking.id} />
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 items-center rounded-full border border-[var(--risk,#f04427)] px-4 text-sm font-bold text-[#a92a12]"
+                    className="inline-flex min-h-11 items-center rounded-full border border-[var(--risk,#f04427)] px-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
                   >
                     {t("portal.bookingQueue.cancel")}
                   </button>

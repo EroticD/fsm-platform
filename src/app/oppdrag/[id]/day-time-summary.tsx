@@ -33,13 +33,13 @@ export type DaySummaryVisit = {
 
 const VISIT_STATUS_TONES: Record<string, string> = {
   PLANNED:
-    "border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
-  ASSIGNED: "border-[#bcd39a] bg-[#eef7d6] text-[#283509]",
+    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
+  ASSIGNED: "border-[#bcd39a] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
   EN_ROUTE: "border-[#c9c0ac] bg-[#fff4d6] text-[#6b4808]",
   ON_SITE:
-    "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
-  DONE: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
-  CANCELLED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
+    "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
+  DONE: "border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
+  CANCELLED: "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
 };
 
 const TIME_STAMPS = [
@@ -55,9 +55,9 @@ const TIME_STAMPS = [
 function visitStatusBadge(status: VisitStatus, t: Translate): ReactNode {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-2xs font-bold ${
         VISIT_STATUS_TONES[status] ??
-        "border-[var(--line,#d8d3c5)] bg-white"
+        "border-[var(--line,#dedcd1)] bg-surface"
       }`}
     >
       {t(VISIT_STATUS_LABEL_KEYS[status])}
@@ -95,11 +95,11 @@ export function renderDayTimeSummary({
       t("orders.detail.noDate"),
     );
     return (
-      <div className="rounded-xl border border-dashed border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-4">
-        <p className="text-sm font-bold text-[var(--ink,#131711)]">
+      <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4">
+        <p className="text-sm font-bold text-[var(--ink,#101310)]">
           {t("orders.detail.time.empty")}
         </p>
-        <p className="mt-1 text-xs font-medium text-[#5e6356]">
+        <p className="mt-1 text-xs font-medium text-[#62685f]">
           {t("orders.detail.time.emptyHint", { range })}
         </p>
         <a
@@ -119,17 +119,17 @@ export function renderDayTimeSummary({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-[var(--ink,#131711)] bg-[var(--paper,#f2efe6)] p-3 sm:p-4">
+      <div className="rounded-xl border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] p-3 sm:p-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#5e6356]">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#62685f]">
               {t("orders.detail.time.orderTotal")}
             </p>
-            <p className="mt-0.5 text-2xl font-black tabular-nums text-[var(--ink,#131711)]">
+            <p className="mt-0.5 text-2xl font-black tabular-nums text-[var(--ink,#101310)]">
               {formatDurationMinutes(total.totalMinutes, locale)}
             </p>
           </div>
-          <p className="text-xs font-bold text-[#5e6356]">
+          <p className="text-xs font-bold text-[#62685f]">
             {t("orders.detail.time.completedDays", {
               done: total.completedSessions,
               total: total.sessions,
@@ -137,32 +137,32 @@ export function renderDayTimeSummary({
           </p>
         </div>
         <dl className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-          <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-2.5 py-1.5">
-            <dt className="font-bold text-[#5e6356]">
+          <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2.5 py-1.5">
+            <dt className="font-bold text-[#62685f]">
               {t("orders.detail.time.work")}
             </dt>
-            <dd className="font-black tabular-nums text-[var(--ink,#131711)]">
+            <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
               {formatDurationMinutes(total.workMinutes, locale)}
             </dd>
           </div>
-          <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-2.5 py-1.5">
-            <dt className="font-bold text-[#5e6356]">
+          <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2.5 py-1.5">
+            <dt className="font-bold text-[#62685f]">
               {t("orders.detail.time.travelTo")}
             </dt>
-            <dd className="font-black tabular-nums text-[var(--ink,#131711)]">
+            <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
               {formatDurationMinutes(total.travelToMinutes, locale)}
             </dd>
           </div>
-          <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-2.5 py-1.5">
-            <dt className="font-bold text-[#5e6356]">
+          <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2.5 py-1.5">
+            <dt className="font-bold text-[#62685f]">
               {t("orders.detail.time.travelFrom")}
             </dt>
-            <dd className="font-black tabular-nums text-[var(--ink,#131711)]">
+            <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
               {formatDurationMinutes(total.travelFromMinutes, locale)}
             </dd>
           </div>
         </dl>
-        <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-[#5e6356]">
+        <p className="mt-2 flex items-center gap-1 text-2xs font-medium text-[#62685f]">
           <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
           {t("orders.detail.time.totalIncludesTravel")}
         </p>
@@ -170,10 +170,10 @@ export function renderDayTimeSummary({
 
       <div
         data-workorder-route-sequence
-        className="overflow-x-auto rounded-xl border border-[var(--line,#d8d3c5)]"
+        className="overflow-x-auto rounded-xl border border-[var(--line,#dedcd1)]"
       >
         <table className="w-full min-w-[44rem] border-collapse text-left text-xs">
-          <thead className="bg-[var(--ink,#131711)] text-[var(--paper,#f2efe6)]">
+          <thead className="bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]">
             <tr>
               <th scope="col" className="px-3 py-2 font-black">
                 {t("orders.detail.time.day")}
@@ -219,7 +219,7 @@ export function renderDayTimeSummary({
                 >
                   <th
                     scope="row"
-                    className="whitespace-nowrap px-3 py-2 font-black text-[var(--ink,#131711)]"
+                    className="whitespace-nowrap px-3 py-2 font-black text-[var(--ink,#101310)]"
                   >
                     {formatDateLocalized(date, locale, {
                       weekday: "short",
@@ -242,16 +242,16 @@ export function renderDayTimeSummary({
                         max={9999}
                         defaultValue={visit.routeSequence ?? ""}
                         placeholder={t("orders.detail.time.routeSequenceAuto")}
-                        className="h-9 w-16 rounded-md border border-[var(--line,#d8d3c5)] bg-white px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#131711)]"
+                        className="h-9 w-16 rounded-md border border-[var(--line,#dedcd1)] bg-surface px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#101310)]"
                       />
                       <button
                         type="submit"
-                        className="inline-flex h-9 items-center rounded-md border border-[var(--ink,#131711)] px-2 text-[11px] font-bold text-[var(--ink,#131711)] transition hover:bg-[var(--ink,#131711)] hover:text-[var(--paper,#f2efe6)]"
+                        className="inline-flex h-9 items-center rounded-md border border-[var(--ink,#101310)] px-2 text-2xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
                       >
                         {t("orders.detail.time.routeSequenceSave")}
                       </button>
                     </form>
-                    <p className="mt-1 max-w-[10rem] text-[10px] leading-4 text-[#5e6356]">
+                    <p className="mt-1 max-w-[10rem] text-2xs leading-4 text-[#62685f]">
                       {t("orders.detail.time.routeSequenceHint")}
                     </p>
                   </td>
@@ -260,7 +260,7 @@ export function renderDayTimeSummary({
                   </td>
                   <td className="px-3 py-2">
                     {stamps.length === 0 ? (
-                      <span className="text-[#5e6356]">
+                      <span className="text-[#62685f]">
                         {t("orders.detail.time.notStarted")}
                       </span>
                     ) : (
@@ -268,9 +268,9 @@ export function renderDayTimeSummary({
                         {stamps.map((stamp) => (
                           <span
                             key={stamp.field}
-                            className="inline-flex items-center gap-1 rounded-full bg-white px-1.5 py-0.5 font-bold tabular-nums text-[var(--ink,#131711)]"
+                            className="inline-flex items-center gap-1 rounded-full bg-surface px-1.5 py-0.5 font-bold tabular-nums text-[var(--ink,#101310)]"
                           >
-                            <span className="font-medium text-[#5e6356]">
+                            <span className="font-medium text-[#62685f]">
                               {t(stamp.labelKey)}
                             </span>
                             {formatDateLocalized(

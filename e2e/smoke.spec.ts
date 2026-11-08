@@ -11,7 +11,8 @@ test("readiness og innloggingsside", async ({ page, request }) => {
 
   await page.goto("/logg-inn");
   await expect(page.getByRole("heading", { name: "Logg inn" })).toBeVisible();
-  await expect(page.getByLabel("E-post", { exact: true })).toBeVisible();
+  // Påkrevde felt har en synlig stjerne i labelen; ikke bruk exact.
+  await expect(page.getByLabel("E-post")).toBeVisible();
   await expect(page.getByLabel("Passord")).toBeVisible();
   await expect(page.getByRole("button", { name: "Logg inn" })).toBeVisible();
 });

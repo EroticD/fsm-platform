@@ -25,7 +25,7 @@ export type TemplateField = {
 };
 
 const inputClass =
-  "w-full border-2 border-line p-3 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success";
+  "w-full border-2 border-line p-3 rounded-xl text-base sm:text-sm font-bold text-ink bg-surface outline-none focus:border-success";
 
 /** Gjør en lagret svarverdi om til tekst, slik at den kan vises i et felt. */
 function asText(value: unknown): string {
@@ -70,7 +70,7 @@ function StatusInput({
   }, [value, triggers, onNeedsComment]);
 
   return (
-    <fieldset className="bg-white/50 p-4 rounded-xl border-2 border-line space-y-3">
+    <fieldset className="bg-surface/50 p-4 rounded-xl border-2 border-line space-y-3">
       <legend className="flex items-center gap-2 text-sm font-black text-ink">
         <Icon name="flag" className="h-4 w-4 shrink-0" />
         {field.label} {field.required && <span className="text-red-500">*</span>}
@@ -84,7 +84,7 @@ function StatusInput({
             ? negative
               ? "border-red-500 bg-red-50"
               : "border-green-600 bg-green-50"
-            : "border-line bg-white hover:bg-white";
+            : "border-line bg-surface hover:bg-surface";
           return (
             <label
               key={option}
@@ -111,7 +111,7 @@ function StatusInput({
 
       {mustComment ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
-          <label htmlFor={`${commentName}-comment`} className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
+          <label htmlFor={`${commentName}-comment`} className="block text-2xs font-black uppercase tracking-wider text-amber-900 mb-2">
             {t("orders.fieldInput.commentRequired", { value })}
           </label>
           <MarkdownEditor
@@ -169,7 +169,7 @@ export default function FieldInput({
   switch (field.type) {
     case "CHECKBOX":
       return (
-        <label className="flex items-center gap-3 p-4 border-2 border-line rounded-xl cursor-pointer hover:bg-white transition bg-white/50">
+        <label className="flex items-center gap-3 p-4 border-2 border-line rounded-xl cursor-pointer hover:bg-surface transition bg-surface/50">
           <input
             type="checkbox"
             name={name}

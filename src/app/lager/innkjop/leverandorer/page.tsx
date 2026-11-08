@@ -7,14 +7,14 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { listSuppliers } from "@/server/purchasing";
 import { createSupplierAction } from "../actions";
-
-const CARD = "office-card min-w-0 p-4 sm:p-5";
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
-const SIGNAL_BUTTON =
-  "signal-button inline-flex min-h-11 items-center justify-center px-4 text-sm";
+import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { Field, Input } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
+import Icon from "@/components/icons";
 
 function param(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -46,111 +46,123 @@ export default async function SuppliersPage({
   const { suppliers } = result.data;
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <header className={CARD}>
+    <PageShell size="narrow">
+      <PageHeader
+        eyebrow={t("inventory.purchasing.eyebrow")}
+        title={t("inventory.purchasing.suppliers.title")}
+        subtitle={t("inventory.purchasing.suppliers.description")}
+        icon={<Icon name="building" className="h-5 w-5" />}
+        actions={
           <Link
             href="/lager/innkjop"
-            className="text-xs font-bold underline underline-offset-4"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
           >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
             {t("inventory.purchasing.back")}
           </Link>
-          <p className={`${LABEL} mt-3`}>{t("inventory.purchasing.eyebrow")}</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {t("inventory.purchasing.suppliers.title")}
-          </h1>
-          <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
-            {t("inventory.purchasing.suppliers.description")}
-          </p>
-        </header>
+        }
+      />
 
-        {meldt && (
-          <div className="rounded-lg border border-[#a9c96a] bg-[#eef7d6] px-4 py-3 text-sm font-bold text-[#283509]">
-            {t("inventory.purchasing.suppliers.created")}
-          </div>
-        )}
-        {feil && (
-          <div className="rounded-lg border border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
-            {t("inventory.feedback.error")}
-          </div>
-        )}
+      {meldt && (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
+          {t("inventory.purchasing.suppliers.created")}
+        </p>
+      )}
+      <ErrorBanner message={feil ? t("inventory.feedback.error") : undefined} />
 
-        <section className={CARD}>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-            {t("inventory.purchasing.suppliers.title")}
-          </h2>
-          {suppliers.length === 0 ? (
-            <p className="mt-4 rounded-lg border border-dashed border-[var(--line,#dedcd1)] px-4 py-6 text-center text-sm text-[var(--muted,#62685f)]">
-              {t("inventory.purchasing.suppliers.empty")}
-            </p>
-          ) : (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[36rem] text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted,#62685f)]">
-                    <th className="px-2 py-2">{t("inventory.purchasing.suppliers.name")}</th>
-                    <th className="px-2 py-2">{t("inventory.purchasing.suppliers.orgNumber")}</th>
-                    <th className="px-2 py-2">{t("inventory.purchasing.suppliers.email")}</th>
-                    <th className="px-2 py-2">{t("inventory.purchasing.suppliers.phone")}</th>
+      <Card as="section" className="p-4 sm:p-5">
+        <h2 className="type-eyebrow text-ink">
+          {t("inventory.purchasing.suppliers.title")}
+        </h2>
+        {suppliers.length === 0 ? (
+          <EmptyState
+            variant="plain"
+            icon={<Icon name="building" className="h-6 w-6" />}
+            title={t("inventory.purchasing.suppliers.empty")}
+          />
+        ) : (
+          <div
+            className="mt-3 overflow-x-auto"
+            role="region"
+            aria-label={t("inventory.purchasing.suppliers.title")}
+            tabIndex={0}
+          >
+            <table className="office-table min-w-[36rem]">
+              <thead>
+                <tr>
+                  <th scope="col">{t("inventory.purchasing.suppliers.name")}</th>
+                  <th scope="col">{t("inventory.purchasing.suppliers.orgNumber")}</th>
+                  <th scope="col">{t("inventory.purchasing.suppliers.email")}</th>
+                  <th scope="col">{t("inventory.purchasing.suppliers.phone")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suppliers.map((supplier) => (
+                  <tr key={supplier.id}>
+                    <td className="font-bold">{supplier.name}</td>
+                    <td className="font-mono text-xs">
+                      {supplier.orgNumber || "—"}
+                    </td>
+                    <td className="text-xs">{supplier.email || "—"}</td>
+                    <td className="text-xs">{supplier.phone || "—"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {suppliers.map((supplier) => (
-                    <tr key={supplier.id} className="border-t border-[var(--line,#dedcd1)]">
-                      <td className="px-2 py-2 font-bold">{supplier.name}</td>
-                      <td className="px-2 py-2 font-mono text-xs">
-                        {supplier.orgNumber || "—"}
-                      </td>
-                      <td className="px-2 py-2 text-xs">{supplier.email || "—"}</td>
-                      <td className="px-2 py-2 text-xs">{supplier.phone || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
-        {canManage && (
-          <section className={CARD}>
-            <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-              {t("inventory.purchasing.suppliers.create")}
-            </h2>
-            <form action={createSupplierAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-              <input type="hidden" name="returnTo" value="/lager/innkjop/leverandorer" />
-              <input
-                className={CONTROL}
+      {canManage && (
+        <Card as="section" className="p-4 sm:p-5">
+          <h2 className="type-eyebrow text-ink">
+            {t("inventory.purchasing.suppliers.create")}
+          </h2>
+          <form action={createSupplierAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="returnTo" value="/lager/innkjop/leverandorer" />
+            <Field id="supplier-name" label={t("inventory.purchasing.suppliers.name")} required>
+              <Input
+                id="supplier-name"
                 name="name"
                 placeholder={t("inventory.purchasing.suppliers.name")}
                 aria-label={t("inventory.purchasing.suppliers.name")}
                 required
               />
-              <input
-                className={CONTROL}
+            </Field>
+            <Field id="supplier-org" label={t("inventory.purchasing.suppliers.orgNumber")}>
+              <Input
+                id="supplier-org"
                 name="orgNumber"
                 placeholder={t("inventory.purchasing.suppliers.orgNumber")}
                 aria-label={t("inventory.purchasing.suppliers.orgNumber")}
               />
-              <input
-                className={CONTROL}
+            </Field>
+            <Field id="supplier-email" label={t("inventory.purchasing.suppliers.email")}>
+              <Input
+                id="supplier-email"
                 name="email"
                 type="email"
                 placeholder={t("inventory.purchasing.suppliers.email")}
                 aria-label={t("inventory.purchasing.suppliers.email")}
               />
-              <input
-                className={CONTROL}
+            </Field>
+            <Field id="supplier-phone" label={t("inventory.purchasing.suppliers.phone")}>
+              <Input
+                id="supplier-phone"
                 name="phone"
                 placeholder={t("inventory.purchasing.suppliers.phone")}
                 aria-label={t("inventory.purchasing.suppliers.phone")}
               />
-              <button className={`${SIGNAL_BUTTON} sm:col-span-2`} type="submit">
-                {t("inventory.purchasing.suppliers.createButton")}
-              </button>
-            </form>
-          </section>
-        )}
-      </div>
-    </div>
+            </Field>
+            <button
+              className={`${buttonClassName({ variant: "primary" })} sm:col-span-2`}
+              type="submit"
+            >
+              {t("inventory.purchasing.suppliers.createButton")}
+            </button>
+          </form>
+        </Card>
+      )}
+    </PageShell>
   );
 }

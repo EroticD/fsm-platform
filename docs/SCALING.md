@@ -137,8 +137,8 @@ men Compose restart-policyen restarter ikke containeren.
 ## Kapasitet og testing
 
 - Lasttest med to eller flere replikaer er **ikke** kjørt i denne endringen.
-  Det krever et testmiljø med ekte Postgres, Redis og S3/MinIO. Se
-  «Restrisiko» i [`remaining-features.md`](remaining-features.md).
+  Det krever et testmiljø med ekte Postgres, Redis og S3/MinIO. Se restrisiko
+  og gjenstående arbeid i [`docs/BACKLOG.md`](BACKLOG.md).
 - Før produksjon: kjør minst én opplasting, én PDF-generering, én
   kundeoverføring og én samtidig innlogging mot HA-profilen, og mål
   p95-latens og DB-tilkoblinger.

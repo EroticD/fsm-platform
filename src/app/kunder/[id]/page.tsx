@@ -29,18 +29,15 @@ import CustomerTabs from "@/components/customer/CustomerTabs";
 import CustomerOrdersReportsSwitch from "@/components/customer/CustomerOrdersReportsSwitch";
 import CustomerToast from "@/components/customer/CustomerToast";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import Card from "@/components/ui/Card";
+import { buttonClassName } from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import Icon from "@/components/icons";
 import type { IconName } from "@/components/icons";
-import {
-  CUSTOMER_CARD,
-  CUSTOMER_INK_BUTTON,
-  CUSTOMER_RISK_BUTTON,
-  CUSTOMER_SIGNAL_BUTTON,
-  LEGACY_SURFACE,
-} from "@/components/customer/customerStyles";
+import { LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import {
   addContactAction,
   addContractLineAction,
@@ -163,23 +160,21 @@ export default async function CustomerDetailPage({
   if (!result.ok) {
     if (result.reason === "forbidden") redirect("/");
     return (
-      <div className="office-app flex min-h-screen flex-col items-center justify-center p-4 sm:p-6">
-        <div className={`${CUSTOMER_CARD} w-full max-w-lg p-6 ${LEGACY_SURFACE}`}>
-          <EmptyState
-            icon={<Icon name="building" className="h-8 w-8" />}
-            title={t("customers.detail.notFound")}
-            action={
-              <Link href="/kunder" className={CUSTOMER_INK_BUTTON}>
-                <Icon
-                  name="arrowRight"
-                  className="h-4 w-4 rotate-180 shrink-0"
-                />
-                {t("customers.detail.backToArchive")}
-              </Link>
-            }
-          />
-        </div>
-      </div>
+      <PageShell className={LEGACY_SURFACE}>
+        <EmptyState
+          icon={<Icon name="building" className="h-8 w-8" />}
+          title={t("customers.detail.notFound")}
+          action={
+            <Link
+              href="/kunder"
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180 shrink-0" />
+              {t("customers.detail.backToArchive")}
+            </Link>
+          }
+        />
+      </PageShell>
     );
   }
 
@@ -315,7 +310,7 @@ export default async function CustomerDetailPage({
   const saveDelegation = savePortalDelegation.bind(null, customerId);
 
   return (
-    <div className={`office-app min-h-screen p-3 sm:p-6 lg:p-8 ${LEGACY_SURFACE}`}>
+    <PageShell className={LEGACY_SURFACE}>
       <div className="mx-auto max-w-6xl space-y-4">
         <PageHeader
           title={customer.name}
@@ -328,7 +323,7 @@ export default async function CustomerDetailPage({
               {canCreateWorkOrders && (
                 <Link
                   href={`/oppdrag/ny?customerId=${customer.id}`}
-                  className={`${CUSTOMER_SIGNAL_BUTTON} flex-1 sm:flex-none`}
+                  className={`${buttonClassName({ variant: "primary" })} flex-1 sm:flex-none`}
                 >
                   <Icon name="plus" className="h-4 w-4 shrink-0" />
                   {t("customers.detail.newWorkOrder")}
@@ -337,7 +332,7 @@ export default async function CustomerDetailPage({
               {office && (
                 <Link
                   href={`/meldinger?kunde=${customer.id}`}
-                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                  className={`${buttonClassName({ variant: "secondary" })} flex-1 sm:flex-none`}
                 >
                   <Icon name="mail" className="h-4 w-4 shrink-0" />
                   {t("sms.nav")}
@@ -346,7 +341,7 @@ export default async function CustomerDetailPage({
               {office && (
                 <Link
                   href={`/kunder/${customerId}/rediger`}
-                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                  className={`${buttonClassName({ variant: "secondary" })} flex-1 sm:flex-none`}
                 >
                   <Icon name="edit" className="h-4 w-4 shrink-0" />
                   {t("customers.detail.edit")}
@@ -355,7 +350,7 @@ export default async function CustomerDetailPage({
               {isAdmin && (
                 <Link
                   href={`/kunder/${customerId}/personvern`}
-                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                  className={`${buttonClassName({ variant: "secondary" })} flex-1 sm:flex-none`}
                 >
                   <Icon name="shield" className="h-4 w-4 shrink-0" />
                   {t("customers.privacy.link")}
@@ -373,7 +368,7 @@ export default async function CustomerDetailPage({
                 >
                   <button
                     type="submit"
-                    className={`${CUSTOMER_RISK_BUTTON} w-full`}
+                    className={`${buttonClassName({ variant: "danger-outline" })} w-full`}
                   >
                     <Icon name="trash" className="h-4 w-4 shrink-0" />
                     {t("customers.detail.delete")}
@@ -382,7 +377,7 @@ export default async function CustomerDetailPage({
               )}
               <Link
                 href="/kunder"
-                className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                className={`${buttonClassName({ variant: "secondary" })} flex-1 sm:flex-none`}
               >
                 <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
                 {t("customers.detail.backToCustomers")}
@@ -562,9 +557,10 @@ export default async function CustomerDetailPage({
               />
             </div>
             {isAdmin && (
-              <div
+              <Card
+                as="section"
                 id="personvern"
-                className={`scroll-mt-24 rounded-card border border-[#e7b5ae] p-4 ${CUSTOMER_CARD}`}
+                className="scroll-mt-24 border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] p-4"
               >
                 <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
                   <Icon name="shield" className="h-4 w-4" />
@@ -575,16 +571,16 @@ export default async function CustomerDetailPage({
                 </p>
                 <Link
                   href={`/kunder/${customerId}/personvern`}
-                  className={`${CUSTOMER_RISK_BUTTON} mt-3`}
+                  className={`${buttonClassName({ variant: "danger-outline" })} mt-3`}
                 >
                   <Icon name="shield" className="h-4 w-4" />
                   {t("customers.privacy.link")}
                 </Link>
-              </div>
+              </Card>
             )}
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

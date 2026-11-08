@@ -114,7 +114,7 @@ export default function LocationPingToggle({
             : null;
 
   return (
-    <div className="rounded-xl border border-[#2a3328] bg-field/65 px-3 py-2">
+    <div className="rounded-xl border border-[var(--field-line)] bg-field/65 px-3 py-2">
       <button
         type="button"
         aria-pressed={state === "sharing"}

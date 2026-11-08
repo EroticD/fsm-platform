@@ -80,7 +80,7 @@ export default async function SecuritySettings({
         </div>
       )}
       {ok === "disabled" && (
-        <div className="flex items-center gap-2 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-4 py-3 text-sm font-bold text-[#6b4a05]">
+        <div className="flex items-center gap-2 rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-4 py-3 text-sm font-bold text-[var(--warning-text,#7a4f0c)]">
           <Icon name="alert" className="h-4 w-4 shrink-0" />
           {t("settings.security.disabled")}
         </div>
@@ -93,13 +93,13 @@ export default async function SecuritySettings({
       )}
 
       {recoveryCodes && recoveryFile && (
-        <div className="space-y-4 rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-5">
+        <div className="space-y-4 rounded-card border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] p-5">
           <div>
             <h2 className="flex items-center gap-2 font-bold text-[#4a3304]">
               <Icon name="shield" className="h-4 w-4 shrink-0" />
               {t("settings.security.recoveryCodes.title")}
             </h2>
-            <p className="mt-1 text-sm text-[#6b4a05]">
+            <p className="mt-1 text-sm text-[var(--warning-text,#7a4f0c)]">
               {t("settings.security.recoveryCodes.desc")}
             </p>
           </div>
@@ -125,7 +125,7 @@ export default async function SecuritySettings({
               {t("settings.security.recoveryCodes.download")}
             </a>
           </div>
-          <p className="text-xs font-semibold text-[#6b4a05]">
+          <p className="text-xs font-semibold text-[var(--warning-text,#7a4f0c)]">
             {t("settings.security.recoveryCodes.warning")}
           </p>
           <form action={dismissRecoveryCodesAction}>
@@ -142,7 +142,7 @@ export default async function SecuritySettings({
         <div
           id="security-code-error"
           role="alert"
-          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorCode")}
         </div>
@@ -151,7 +151,7 @@ export default async function SecuritySettings({
         <div
           id="security-password-error"
           role="alert"
-          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorPassword")}
         </div>
@@ -160,7 +160,7 @@ export default async function SecuritySettings({
         <div
           id="security-setup-expired-error"
           role="alert"
-          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorSetupExpired")}
         </div>
@@ -180,7 +180,7 @@ export default async function SecuritySettings({
           <span
             className={`rounded-full border px-2 py-1 text-xs font-bold uppercase whitespace-nowrap ${
               isEnabled
-                ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
+                ? "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]"
                 : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
             }`}
           >
@@ -323,7 +323,7 @@ export default async function SecuritySettings({
                 className={controlClassName("min-h-11 text-center text-lg font-bold tracking-[0.4em]")}
               />
             </div>
-            <button type="submit" className="inline-flex min-h-11 w-full items-center justify-center rounded-[10px] border border-[#e7b7a4] bg-[#fae8e0] py-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]">
+            <button type="submit" className="inline-flex min-h-11 w-full items-center justify-center rounded-[10px] border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] py-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]">
               {t("settings.security.disable")}
             </button>
           </form>

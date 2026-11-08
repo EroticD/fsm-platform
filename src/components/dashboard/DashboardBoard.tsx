@@ -50,7 +50,7 @@ const COLUMN_META: Record<
   unassigned: {
     labelKey: "dashboard.kpi.unassigned",
     dotClass: "bg-[#c78b16]",
-    cardClass: "bg-[var(--surface,#fffdf8)] hover:bg-[#fdf5e4]",
+    cardClass: "bg-[var(--surface,#fffdf8)] hover:bg-[var(--warning-surface,#fdf5e4)]",
   },
 };
 
@@ -136,7 +136,7 @@ export default function DashboardBoard({
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span
-                              className={`text-[11px] font-black tabular-nums ${
+                              className={`text-2xs font-black tabular-nums ${
                                 column.key === "overdue"
                                   ? "text-[var(--risk-text,#b42318)]"
                                   : "text-[var(--muted,#62685f)]"
@@ -196,7 +196,7 @@ export default function DashboardBoard({
                   <Link
                     href={hrefs[column.key]}
                     prefetch={false}
-                    className="flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-[var(--ink,#101310)] hover:underline"
+                    className="flex items-center justify-between gap-2 text-2xs font-black uppercase tracking-[0.08em] text-[var(--ink,#101310)] hover:underline"
                   >
                     <span>
                       {t("dashboard.board.viewAll", { count: column.total })}

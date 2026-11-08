@@ -5,20 +5,19 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ErrorBanner from "@/components/ErrorBanner";
+import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/icons";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import SubmitButton from "@/components/SubmitButton";
 import BrandColorField from "@/components/customer/BrandColorField";
 import BrandingLogoUpload from "@/components/BrandingLogoUpload";
-import {
-  CUSTOMER_CARD,
-  CUSTOMER_CONTROL,
-  CUSTOMER_EYEBROW,
-  CUSTOMER_INK_BUTTON,
-  CUSTOMER_LABEL,
-  CUSTOMER_MUTED,
-  CUSTOMER_SIGNAL_BUTTON,
-  LEGACY_SURFACE,
-} from "@/components/customer/customerStyles";
+import Card from "@/components/ui/Card";
+import { brandInset } from "@/components/ui/brandStyles";
+import { buttonClassName } from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import { getCustomerEditOptions } from "@/server/customers";
 import { updateCustomerAction } from "../../actions";
 import { customerErrorMessageKey } from "../../feedback";
@@ -46,22 +45,21 @@ export default async function EditCustomerPage({
   if (!options.ok) {
     if (options.reason === "forbidden") redirect(`/kunder/${customerId}`);
     return (
-      <div className="office-app flex min-h-screen flex-col items-center justify-center p-4 sm:p-6">
-        <div
-          className={`${CUSTOMER_CARD} w-full max-w-lg p-6 text-center ${LEGACY_SURFACE}`}
-        >
-          <h1 className="text-lg font-extrabold text-[var(--ink,#101310)]">
-            {t("customers.detail.notFound")}
-          </h1>
-          <Link
-            href="/kunder"
-            className={`${CUSTOMER_INK_BUTTON} mt-3`}
-          >
-            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-            {t("customers.detail.backToArchive")}
-          </Link>
-        </div>
-      </div>
+      <PageShell size="narrow">
+        <EmptyState
+          icon={<Icon name="alert" className="h-6 w-6" />}
+          title={t("customers.detail.notFound")}
+          action={
+            <Link
+              href="/kunder"
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("customers.detail.backToArchive")}
+            </Link>
+          }
+        />
+      </PageShell>
     );
   }
 
@@ -70,131 +68,94 @@ export default async function EditCustomerPage({
   const errorKey = customerErrorMessageKey(error);
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
+    <PageShell size="narrow">
+      <PageHeader
+        eyebrow={t("metadata.routes.kunder")}
+        title={t("customers.edit.title")}
+        subtitle={t("customers.edit.description", { name: customer.name })}
+        icon={<Icon name="edit" className="h-5 w-5" />}
+        actions={
+          <>
+            <Link
+              href={`/kunder/${customerId}`}
+              className={buttonClassName({ variant: "secondary" })}
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("customers.edit.backToDetails")}
+            </Link>
+            <Link
+              href="/kunder"
+              className={buttonClassName({ variant: "ghost" })}
+            >
+              {t("customers.edit.archive")}
+            </Link>
+          </>
+        }
+      />
 
-        {/* HEADER */}
-        <header
-          className={`${CUSTOMER_CARD} relative overflow-hidden px-5 py-5 sm:px-6`}
-        >
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[var(--signal,#d8ff3e)]"
-          />
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span
-                aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
-              >
-                <Icon name="edit" className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className={CUSTOMER_EYEBROW}>
-                  {t("metadata.routes.kunder")}
-                </p>
-                <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)] sm:text-3xl">
-                  {t("customers.edit.title")}
-                </h1>
-                <p className={`mt-1 text-sm ${CUSTOMER_MUTED}`}>
-                  {t("customers.edit.description", { name: customer.name })}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Link
-                href={`/kunder/${customerId}`}
-                className={CUSTOMER_INK_BUTTON}
-              >
-                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-                {t("customers.edit.backToDetails")}
-              </Link>
-              <Link href="/kunder" className={CUSTOMER_INK_BUTTON}>
-                {t("customers.edit.archive")}
-              </Link>
-            </div>
-          </div>
-        </header>
+      <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
 
-        <form
-          action={updateCustomer}
-          className={`${CUSTOMER_CARD} min-w-0 space-y-5 p-4 [--focus-ring:var(--ink,#101310)] sm:p-5`}
-        >
+      <Card
+        as="section"
+        className="min-w-0 space-y-5 p-4 [--focus-ring:var(--ink,#101310)] sm:p-5"
+      >
+        <form action={updateCustomer} className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Firmanavn */}
-            <div>
-              <label htmlFor="customer-edit-name" className={CUSTOMER_LABEL}>
-                {t("customers.edit.companyName")} *
-              </label>
-              <input
+            <Field
+              id="customer-edit-name"
+              label={t("customers.edit.companyName")}
+              required
+            >
+              <Input
                 id="customer-edit-name"
                 type="text"
                 name="name"
                 defaultValue={customer.name}
                 required
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* Kundenummer */}
-            <div>
-              <label
-                htmlFor="customer-edit-number"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.customerNumber")}
-              </label>
-              <input
+            <Field
+              id="customer-edit-number"
+              label={t("customers.edit.customerNumber")}
+            >
+              <Input
                 id="customer-edit-number"
                 type="text"
                 name="customerNumber"
                 defaultValue={customer.customerNumber || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* Org.nr */}
-            <div>
-              <label
-                htmlFor="customer-edit-org-number"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.orgNumber")}
-              </label>
-              <input
+            <Field
+              id="customer-edit-org-number"
+              label={t("customers.edit.orgNumber")}
+            >
+              <Input
                 id="customer-edit-org-number"
                 type="text"
                 name="orgNumber"
                 defaultValue={customer.orgNumber || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* Merkevarefarge */}
-            <div>
-              <label
-                htmlFor="customer-edit-brand-color"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.brandColor")}
-              </label>
-              <div className="[&_input[type=color]]:h-11 [&_input[type=color]]:w-11 [&_input[type=color]]:cursor-pointer [&_input[type=color]]:rounded-[10px] [&_input[type=color]]:border-[var(--line,#dedcd1)] [&_input[type=color]]:bg-[var(--surface,#fffdf8)] [&_input[type=color]]:p-1 [&_input[type=text]]:min-h-11 [&_input[type=text]]:rounded-xl [&_input[type=text]]:border-[var(--line,#dedcd1)] [&_input[type=text]]:bg-[var(--surface,#fffdf8)] [&_input[type=text]]:text-base [&_input[type=text]]:text-[var(--ink,#101310)]">
-                <BrandColorField
-                  id="customer-edit-brand-color"
-                  label={t("customers.edit.brandColor")}
-                  defaultValue={customer.brandColor}
-                />
-              </div>
-            </div>
+            <Field
+              id="customer-edit-brand-color"
+              label={t("customers.edit.brandColor")}
+            >
+              <BrandColorField
+                id="customer-edit-brand-color"
+                label={t("customers.edit.brandColor")}
+                defaultValue={customer.brandColor}
+              />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Kundeportal-logo */}
-            <div className="md:col-span-2">
-              <p className={CUSTOMER_LABEL}>
-                {t("portal.expansion.branding.customerLogo")}
-              </p>
+          <div>
+            <p className="type-eyebrow text-[var(--ink,#101310)]">
+              {t("portal.expansion.branding.customerLogo")}
+            </p>
+            <div className="mt-1.5">
               <BrandingLogoUpload
                 initialUrl={customer.logoUrl}
                 customerId={customer.id}
@@ -204,100 +165,74 @@ export default async function EditCustomerPage({
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Adresse */}
             <div className="md:col-span-2">
-              <label
-                htmlFor="customer-edit-address"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.address")}
-              </label>
-              <input
+              <Field
                 id="customer-edit-address"
-                type="text"
-                name="address"
-                defaultValue={customer.address || ""}
-                placeholder={t("customers.edit.addressPlaceholder")}
-                className={CUSTOMER_CONTROL}
-              />
+                label={t("customers.edit.address")}
+              >
+                <Input
+                  id="customer-edit-address"
+                  type="text"
+                  name="address"
+                  defaultValue={customer.address || ""}
+                  placeholder={t("customers.edit.addressPlaceholder")}
+                />
+              </Field>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {/* Postnr */}
-            <div>
-              <label
-                htmlFor="customer-edit-postal-code"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.postalCode")}
-              </label>
-              <input
+            <Field
+              id="customer-edit-postal-code"
+              label={t("customers.edit.postalCode")}
+            >
+              <Input
                 id="customer-edit-postal-code"
                 type="text"
                 name="postalCode"
                 defaultValue={customer.postalCode || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* By */}
-            <div>
-              <label htmlFor="customer-edit-city" className={CUSTOMER_LABEL}>
-                {t("customers.edit.city")}
-              </label>
-              <input
+            <Field id="customer-edit-city" label={t("customers.edit.city")}>
+              <Input
                 id="customer-edit-city"
                 type="text"
                 name="city"
                 defaultValue={customer.city || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* Telefon */}
-            <div>
-              <label htmlFor="customer-edit-phone" className={CUSTOMER_LABEL}>
-                {t("customers.edit.phone")}
-              </label>
-              <input
+            <Field id="customer-edit-phone" label={t("customers.edit.phone")}>
+              <Input
                 id="customer-edit-phone"
                 type="tel"
                 name="phone"
                 defaultValue={customer.phone || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
 
-            {/* E-post */}
-            <div>
-              <label htmlFor="customer-edit-email" className={CUSTOMER_LABEL}>
-                {t("customers.edit.email")}
-              </label>
-              <input
+            <Field id="customer-edit-email" label={t("customers.edit.email")}>
+              <Input
                 id="customer-edit-email"
                 type="email"
                 name="email"
                 defaultValue={customer.email || ""}
-                className={CUSTOMER_CONTROL}
               />
-            </div>
+            </Field>
           </div>
 
           {/* Avdeling og ansvarlig montør */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label
-                htmlFor="customer-edit-department"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.department")}
-              </label>
-              <select
+            <Field
+              id="customer-edit-department"
+              label={t("customers.edit.department")}
+              hint={t("customers.edit.departmentHint")}
+            >
+              <Select
                 id="customer-edit-department"
                 name="departmentId"
                 defaultValue={customer.departmentId || ""}
-                className={CUSTOMER_CONTROL}
               >
                 <option value="">{t("customers.edit.noDepartment")}</option>
                 {departments.map((d) => (
@@ -305,23 +240,18 @@ export default async function EditCustomerPage({
                     {d.name}
                   </option>
                 ))}
-              </select>
-              <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
-                {t("customers.edit.departmentHint")}
-              </p>
-            </div>
-            <div>
-              <label
-                htmlFor="customer-edit-technician"
-                className={CUSTOMER_LABEL}
-              >
-                {t("customers.edit.responsibleTechnician")}
-              </label>
-              <select
+              </Select>
+            </Field>
+
+            <Field
+              id="customer-edit-technician"
+              label={t("customers.edit.responsibleTechnician")}
+              hint={t("customers.edit.responsibleHint")}
+            >
+              <Select
                 id="customer-edit-technician"
                 name="responsibleTechnicianId"
                 defaultValue={customer.responsibleTechnicianId || ""}
-                className={CUSTOMER_CONTROL}
               >
                 <option value="">{t("customers.edit.noResponsible")}</option>
                 {technicianOptions.map((technician) => (
@@ -329,43 +259,42 @@ export default async function EditCustomerPage({
                     {technician.name || technician.email}
                   </option>
                 ))}
-              </select>
-              <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
-                {t("customers.edit.responsibleHint")}
-              </p>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          {/* Noter */}
-          <div className={LEGACY_SURFACE}>
-            <label htmlFor="customer-edit-notes" className={CUSTOMER_LABEL}>
-              {t("customers.edit.notes")}
-            </label>
-            <MarkdownEditor
+          <div className={brandInset}>
+            <Field
               id="customer-edit-notes"
-              name="notes"
-              rows={4}
-              defaultValue={customer.notes || ""}
-              placeholder={t("customers.edit.notesPlaceholder")}
-            />
+              label={t("customers.edit.notes")}
+              className="p-3"
+            >
+              <MarkdownEditor
+                id="customer-edit-notes"
+                name="notes"
+                rows={4}
+                defaultValue={customer.notes || ""}
+                placeholder={t("customers.edit.notesPlaceholder")}
+              />
+            </Field>
           </div>
 
           <div className="flex flex-col gap-3 border-t border-[var(--line,#dedcd1)] pt-4 sm:flex-row sm:justify-end">
             <Link
               href={`/kunder/${customerId}`}
-              className={CUSTOMER_INK_BUTTON}
+              className={buttonClassName({ variant: "secondary" })}
             >
               {t("customers.edit.cancel")}
             </Link>
             <SubmitButton
               pendingLabel={t("customers.edit.saving")}
-              className={CUSTOMER_SIGNAL_BUTTON}
+              className={buttonClassName({ variant: "primary" })}
             >
               {t("customers.edit.save")}
             </SubmitButton>
           </div>
         </form>
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

@@ -67,7 +67,7 @@ function SummaryStat({
       href={href}
       className={`flex min-h-16 items-center gap-2.5 rounded-2xl border p-2.5 transition hover:-translate-y-px hover:border-[var(--ink,#101310)] sm:gap-3 sm:p-3 ${
         danger
-          ? "border-[#e7b5ae] bg-[#fdf4f2] hover:bg-[#fbe9e7]"
+          ? "border-[#e7b5ae] bg-[#fdf4f2] hover:bg-[var(--risk-surface,#fdf4f2)]"
           : `${CUSTOMER_CARD}`
       }`}
     >
@@ -516,7 +516,7 @@ export default async function CustomerOverviewTab({
                   <Link
                     key={order.id}
                     href={`/oppdrag/${order.id}`}
-                    className="block rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-2.5 transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7]"
+                    className="block rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-2.5 transition hover:border-[var(--risk-text,#b42318)] hover:bg-[var(--risk-surface,#fdf4f2)]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-bold text-[var(--risk-text,#b42318)]">

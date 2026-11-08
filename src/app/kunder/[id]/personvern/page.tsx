@@ -7,19 +7,17 @@ import {
   getCustomerErasurePreview,
   type ErasureBlocker,
 } from "@/server/customer-erasure";
+import Card from "@/components/ui/Card";
+import { brandInset } from "@/components/ui/brandStyles";
+import { buttonClassName } from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Textarea from "@/components/ui/Textarea";
 import ErrorBanner from "@/components/ErrorBanner";
 import CustomerToast from "@/components/customer/CustomerToast";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
-import {
-  CUSTOMER_CARD,
-  CUSTOMER_CONTROL,
-  CUSTOMER_INK_BUTTON,
-  CUSTOMER_LABEL,
-  CUSTOMER_MUTED,
-  CUSTOMER_RISK_BUTTON,
-  LEGACY_SURFACE,
-} from "@/components/customer/customerStyles";
+import PageShell from "@/components/PageShell";
 import { eraseCustomerDataAction } from "./actions";
 
 const COUNT_KEYS = [
@@ -111,204 +109,203 @@ export default async function CustomerPrivacyPage({
   const eraseAction = eraseCustomerDataAction.bind(null, customerId);
 
   return (
-    <div className={`office-app min-h-screen p-3 sm:p-6 lg:p-8 ${LEGACY_SURFACE}`}>
-      <div className="mx-auto max-w-4xl space-y-4">
-        <PageHeader
-          title={t("customers.privacy.title")}
-          subtitle={t("customers.privacy.subtitle", {
-            name: preview.customerName,
-          })}
-          icon={<Icon name="shield" className="h-5 w-5" />}
-          actions={
+    <PageShell size="narrow">
+      <PageHeader
+        title={t("customers.privacy.title")}
+        subtitle={t("customers.privacy.subtitle", {
+          name: preview.customerName,
+        })}
+        icon={<Icon name="shield" className="h-5 w-5" />}
+        actions={
+          <Link
+            href={`/kunder/${customerId}`}
+            className={buttonClassName({ variant: "secondary" })}
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("customers.privacy.back")}
+          </Link>
+        }
+      />
+
+      {statusMessage && <CustomerToast message={statusMessage} />}
+      <ErrorBanner message={errorMessage ?? undefined} />
+
+      {preview.alreadyAnonymised ? (
+      <Card as="section" className="p-5">
+        <h2 className="type-title-3 flex items-center gap-2 text-[var(--ink,#101310)]">
+          <Icon name="shield" className="h-4 w-4" />
+          {t("customers.privacy.alreadyTitle")}
+        </h2>
+        <p className="type-body mt-2 text-[var(--muted,#62685f)]">
+          {t("customers.privacy.alreadyBody")}
+        </p>
+        {preview.anonymisedAt && (
+          <p className="type-meta mt-2 text-[var(--muted,#62685f)]">
+            {t("customers.privacy.anonymisedAt", {
+              date: formatDateLocalized(preview.anonymisedAt, locale),
+            })}
+          </p>
+        )}
+      </Card>
+      ) : (
+      <Card as="section" className="p-5">
+        <h2 className="type-title-3 text-[var(--ink,#101310)]">
+          {t("customers.privacy.introTitle")}
+        </h2>
+        <p className="type-body mt-2 text-[var(--muted,#62685f)]">
+          {t("customers.privacy.intro")}
+        </p>
+        <p className="type-ui mt-3 rounded-xl border border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] bg-[var(--risk-surface,#fdf4f2)] p-3 text-[var(--risk-text,#b42318)]">
+          {t("customers.privacy.irreversible")}
+        </p>
+      </Card>
+      )}
+
+      <Card as="section" className="p-5">
+      <h2 className="type-title-3 text-[var(--ink,#101310)]">
+        {t("customers.privacy.previewTitle")}
+      </h2>
+      <p className="type-meta mt-1 text-[var(--muted,#62685f)]">
+        {t("customers.privacy.previewHint")}
+      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {COUNT_KEYS.map((key) => (
+          <div key={key} className={`${brandInset} p-3`}>
+            <dt className="type-eyebrow mb-1 text-[var(--muted,#62685f)]">
+              {t(`customers.privacy.counts.${key}`)}
+            </dt>
+            <dd className="type-title-3 tabular-nums text-[var(--ink,#101310)]">
+              {preview.counts[key]}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      </Card>
+
+      <Card as="section" className="p-5">
+      <h2 className="type-title-3 text-[var(--ink,#101310)]">
+        {t("customers.privacy.erasedTitle")}
+      </h2>
+      <ul className="type-ui mt-2 list-disc space-y-1 pl-5 text-[var(--muted,#62685f)]">
+        <li>{t("customers.privacy.erasedCustomer")}</li>
+        <li>{t("customers.privacy.erasedContacts")}</li>
+        <li>{t("customers.privacy.erasedSites")}</li>
+        <li>{t("customers.privacy.erasedPortalUsers")}</li>
+        <li>{t("customers.privacy.erasedOrders")}</li>
+        <li>{t("customers.privacy.erasedReports")}</li>
+        <li>{t("customers.privacy.erasedFiles")}</li>
+      </ul>
+
+      <h2 className="type-title-3 mt-5 text-[var(--ink,#101310)]">
+        {t("customers.privacy.preservedTitle")}
+      </h2>
+      <ul className="type-ui mt-2 list-disc space-y-1 pl-5 text-[var(--muted,#62685f)]">
+        <li>{t("customers.privacy.preservedOrders")}</li>
+        <li>{t("customers.privacy.preservedReports")}</li>
+        <li>{t("customers.privacy.preservedRevisions")}</li>
+        <li>{t("customers.privacy.preservedPdfs")}</li>
+        <li>{t("customers.privacy.preservedAudit")}</li>
+      </ul>
+      </Card>
+
+      <Card as="section" className="p-5">
+      <h2 className="type-title-3 text-[var(--ink,#101310)]">
+        {t("customers.privacy.blockersTitle")}
+      </h2>
+      {hasBlockers ? (
+        <>
+          <p className="type-ui mt-1 text-[var(--muted,#62685f)]">
+            {t("customers.privacy.blockersHint")}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {preview.blockers.map((blocker) => (
+              <li
+                key={`${blocker.kind}:${blocker.entityType}:${blocker.entityId}`}
+                className="rounded-xl border border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm text-[var(--risk-text,#b42318)]"
+              >
+                <p className="font-bold">{blockerText(blocker, t)}</p>
+                {blocker.reason && (
+                  <p className="mt-1 text-xs">
+                    {t("customers.privacy.blockers.reason", {
+                      reason: blocker.reason,
+                    })}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="type-meta mt-3 text-[var(--muted,#62685f)]">
+            {t("customers.privacy.blockers.resolve")}
+          </p>
+        </>
+      ) : (
+        <p className="type-ui mt-2 text-[var(--muted,#62685f)]">
+          {t("customers.privacy.blockers.empty")}
+        </p>
+      )}
+      </Card>
+
+      {canErase && (
+      <Card
+          as="section"
+          className="border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] p-5"
+      >
+        <h2 className="type-title-3 text-[var(--ink,#101310)]">
+          {t("customers.privacy.formTitle")}
+        </h2>
+        <p className="type-meta mt-1 text-[var(--muted,#62685f)]">
+          {t("customers.privacy.formHint")}
+        </p>
+        <form action={eraseAction} className="mt-4 space-y-4">
+          <Field
+            id="reason"
+            label={t("customers.privacy.reason")}
+            required
+          >
+            <Textarea
+              id="reason"
+              name="reason"
+              required
+              minLength={3}
+              maxLength={500}
+              rows={3}
+              placeholder={t("customers.privacy.reasonPlaceholder")}
+            />
+          </Field>
+          <Field
+            id="confirmation"
+            label={t("customers.privacy.confirmation", {
+              name: preview.customerName,
+            })}
+            hint={t("customers.privacy.confirmationHint")}
+            required
+          >
+            <Input
+              id="confirmation"
+              name="confirmation"
+              required
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              className={buttonClassName({ variant: "danger" })}
+            >
+              <Icon name="trash" className="h-4 w-4" />
+              {t("customers.privacy.submit")}
+            </button>
             <Link
               href={`/kunder/${customerId}`}
-              className={CUSTOMER_INK_BUTTON}
+              className={buttonClassName({ variant: "secondary" })}
             >
-              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("customers.privacy.back")}
+              {t("customers.privacy.cancel")}
             </Link>
-          }
-        />
-
-        {statusMessage && <CustomerToast message={statusMessage} />}
-        <ErrorBanner message={errorMessage ?? undefined} />
-
-        {preview.alreadyAnonymised ? (
-          <section className={`${CUSTOMER_CARD} rounded-card border border-[var(--line,#dedcd1)] p-5`}>
-            <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
-              <Icon name="shield" className="h-4 w-4" />
-              {t("customers.privacy.alreadyTitle")}
-            </h2>
-            <p className={`mt-2 text-sm ${CUSTOMER_MUTED}`}>
-              {t("customers.privacy.alreadyBody")}
-            </p>
-            {preview.anonymisedAt && (
-              <p className={`mt-2 text-xs ${CUSTOMER_MUTED}`}>
-                {t("customers.privacy.anonymisedAt", {
-                  date: formatDateLocalized(preview.anonymisedAt, locale),
-                })}
-              </p>
-            )}
-          </section>
-        ) : (
-          <section className={`${CUSTOMER_CARD} rounded-card border border-[var(--line,#dedcd1)] p-5`}>
-            <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-              {t("customers.privacy.introTitle")}
-            </h2>
-            <p className={`mt-2 text-sm ${CUSTOMER_MUTED}`}>
-              {t("customers.privacy.intro")}
-            </p>
-            <p className="mt-3 rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-3 text-sm font-semibold text-[var(--risk-text,#b42318)]">
-              {t("customers.privacy.irreversible")}
-            </p>
-          </section>
-        )}
-
-        <section className={`${CUSTOMER_CARD} rounded-card border border-[var(--line,#dedcd1)] p-5`}>
-          <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-            {t("customers.privacy.previewTitle")}
-          </h2>
-          <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
-            {t("customers.privacy.previewHint")}
-          </p>
-          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {COUNT_KEYS.map((key) => (
-              <div
-                key={key}
-                className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
-              >
-                <dt className={`${CUSTOMER_LABEL} mb-1`}>
-                  {t(`customers.privacy.counts.${key}`)}
-                </dt>
-                <dd className="text-lg font-black tabular-nums text-[var(--ink,#101310)]">
-                  {preview.counts[key]}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <section className={`${CUSTOMER_CARD} rounded-card border border-[var(--line,#dedcd1)] p-5`}>
-          <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-            {t("customers.privacy.erasedTitle")}
-          </h2>
-          <ul className={`mt-2 list-disc space-y-1 pl-5 text-sm ${CUSTOMER_MUTED}`}>
-            <li>{t("customers.privacy.erasedCustomer")}</li>
-            <li>{t("customers.privacy.erasedContacts")}</li>
-            <li>{t("customers.privacy.erasedSites")}</li>
-            <li>{t("customers.privacy.erasedPortalUsers")}</li>
-            <li>{t("customers.privacy.erasedOrders")}</li>
-            <li>{t("customers.privacy.erasedReports")}</li>
-            <li>{t("customers.privacy.erasedFiles")}</li>
-          </ul>
-
-          <h2 className="mt-5 text-base font-extrabold text-[var(--ink,#101310)]">
-            {t("customers.privacy.preservedTitle")}
-          </h2>
-          <ul className={`mt-2 list-disc space-y-1 pl-5 text-sm ${CUSTOMER_MUTED}`}>
-            <li>{t("customers.privacy.preservedOrders")}</li>
-            <li>{t("customers.privacy.preservedReports")}</li>
-            <li>{t("customers.privacy.preservedRevisions")}</li>
-            <li>{t("customers.privacy.preservedPdfs")}</li>
-            <li>{t("customers.privacy.preservedAudit")}</li>
-          </ul>
-        </section>
-
-        <section className={`${CUSTOMER_CARD} rounded-card border border-[var(--line,#dedcd1)] p-5`}>
-          <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-            {t("customers.privacy.blockersTitle")}
-          </h2>
-          {hasBlockers ? (
-            <>
-              <p className={`mt-1 text-sm ${CUSTOMER_MUTED}`}>
-                {t("customers.privacy.blockersHint")}
-              </p>
-              <ul className="mt-3 space-y-2">
-                {preview.blockers.map((blocker) => (
-                  <li
-                    key={`${blocker.kind}:${blocker.entityType}:${blocker.entityId}`}
-                    className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-3 text-sm text-[var(--risk-text,#b42318)]"
-                  >
-                    <p className="font-bold">{blockerText(blocker, t)}</p>
-                    {blocker.reason && (
-                      <p className="mt-1 text-xs">
-                        {t("customers.privacy.blockers.reason", {
-                          reason: blocker.reason,
-                        })}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <p className={`mt-3 text-xs ${CUSTOMER_MUTED}`}>
-                {t("customers.privacy.blockers.resolve")}
-              </p>
-            </>
-          ) : (
-            <p className={`mt-2 text-sm ${CUSTOMER_MUTED}`}>
-              {t("customers.privacy.blockers.empty")}
-            </p>
-          )}
-        </section>
-
-        {canErase && (
-          <section className={`${CUSTOMER_CARD} rounded-card border border-[#e7b5ae] p-5`}>
-            <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
-              {t("customers.privacy.formTitle")}
-            </h2>
-            <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
-              {t("customers.privacy.formHint")}
-            </p>
-            <form action={eraseAction} className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="reason" className={CUSTOMER_LABEL}>
-                  {t("customers.privacy.reason")}
-                </label>
-                <textarea
-                  id="reason"
-                  name="reason"
-                  required
-                  minLength={3}
-                  maxLength={500}
-                  rows={3}
-                  className={CUSTOMER_CONTROL}
-                  placeholder={t("customers.privacy.reasonPlaceholder")}
-                />
-              </div>
-              <div>
-                <label htmlFor="confirmation" className={CUSTOMER_LABEL}>
-                  {t("customers.privacy.confirmation", {
-                    name: preview.customerName,
-                  })}
-                </label>
-                <input
-                  id="confirmation"
-                  name="confirmation"
-                  required
-                  autoComplete="off"
-                  spellCheck={false}
-                  className={CUSTOMER_CONTROL}
-                />
-                <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
-                  {t("customers.privacy.confirmationHint")}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="submit" className={CUSTOMER_RISK_BUTTON}>
-                  <Icon name="trash" className="h-4 w-4" />
-                  {t("customers.privacy.submit")}
-                </button>
-                <Link
-                  href={`/kunder/${customerId}`}
-                  className={CUSTOMER_INK_BUTTON}
-                >
-                  {t("customers.privacy.cancel")}
-                </Link>
-              </div>
-            </form>
-          </section>
-        )}
-      </div>
-    </div>
+          </div>
+        </form>
+      </Card>
+      )}
+    </PageShell>
   );
 }

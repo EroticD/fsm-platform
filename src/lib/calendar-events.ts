@@ -50,6 +50,26 @@ export function calendarEditingOptions(canEdit: boolean) {
   };
 }
 
+/** Korteste tidsstyrte hendelse som fortsatt får plass til status og adresse. */
+const SHORT_EVENT_THRESHOLD_MS = 30 * 60_000;
+
+/**
+ * Tidsstyrte hendelser under 30 minutter er for lave til at hele
+ * innholdsbunken (tid, status, tittel og adresse) er lesbar. Kalenderen skjuler
+ * derfor de sekundære linjene for disse, men beholder tittel og klokkeslett.
+ */
+export function isShortTimedEvent(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+): boolean {
+  if (!start || !end) return false;
+  const startMs = (start instanceof Date ? start : new Date(start)).getTime();
+  const endMs = (end instanceof Date ? end : new Date(end)).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false;
+  if (endMs <= startMs) return false;
+  return endMs - startMs < SHORT_EVENT_THRESHOLD_MS;
+}
+
 type WorkOrderForCalendar = {
   id: string;
   title: string;

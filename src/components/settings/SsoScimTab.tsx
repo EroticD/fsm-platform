@@ -19,7 +19,7 @@ const ERROR_KEYS: Record<string, string> = {
 };
 
 const DANGER_BUTTON =
-  "inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
+  "inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
 
 export type SsoProviderSummary = {
   slug: string;
@@ -80,7 +80,7 @@ export default async function SsoScimTab({
         {configErrors.length > 0 && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-4 py-3 text-xs font-bold text-[#6b4a05]"
+            className="mb-4 rounded-xl border border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] px-4 py-3 text-xs font-bold text-[var(--warning-text,#7a4f0c)]"
           >
             <p className="mb-1 flex items-center gap-1.5">
               <Icon name="alert" className="h-4 w-4 shrink-0" />
@@ -210,7 +210,7 @@ export default async function SsoScimTab({
         {error && (
           <div
             role="alert"
-            className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+            className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
           >
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t(ERROR_KEYS[error] ?? "settings.ssoScim.errors.error")}
@@ -236,9 +236,9 @@ export default async function SsoScimTab({
                   : "active";
               const status = t(`settings.ssoScim.${statusKey}`);
               const statusClass = revoked
-                ? "border-[#e7b7a4] bg-[#fae8e0] text-[var(--risk-text,#b42318)]"
+                ? "border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]"
                 : expired
-                  ? "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
+                  ? "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]"
                   : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]";
 
               return (

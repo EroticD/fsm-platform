@@ -122,7 +122,7 @@ export default function ExceptionCards({
           <Link
             href="/kalender/dispatch"
             prefetch={false}
-            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
+            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
           >
             {t("dashboard.exceptions.openDispatch")}
             <Icon name="arrowRight" className="h-3.5 w-3.5" />
@@ -152,7 +152,7 @@ export default function ExceptionCards({
                   <span className="text-2xl font-black leading-none tabular-nums text-[var(--ink,#101310)]">
                     {value}
                   </span>
-                  <span className="text-right text-[10px] font-medium leading-tight text-[var(--muted,#62685f)]">
+                  <span className="text-right text-2xs font-medium leading-tight text-[var(--muted,#62685f)]">
                     {t(exception.hintKey)}
                   </span>
                 </span>

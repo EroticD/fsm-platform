@@ -135,6 +135,15 @@ describe("dashbordets feltstatus-tjeneste", () => {
     expect(status.rows[0].lastPositionAt).toBeNull();
   });
 
+  it("skjuler posisjon når avdelingen er på men montøren aldri har delt", async () => {
+    mocks.visitFindMany.mockResolvedValue([visitRow({ locationPings: [] })]);
+
+    const status = await loadDashboardFieldStatus(office, { now });
+
+    expect(status.rows[0].status).toBe("EN_ROUTE");
+    expect(status.rows[0].lastPositionAt).toBeNull();
+  });
+
   it("tar bare med kontoransatte som har en visitt i dag", async () => {
     const status = await loadDashboardFieldStatus(office, { now });
 

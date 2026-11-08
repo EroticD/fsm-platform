@@ -80,7 +80,7 @@ async function VisitCard({
           </form>
         )}
         {visit.reviewSubmitted && (
-          <span className="inline-flex min-h-11 items-center text-xs font-bold text-[#24502f]">
+          <span className="inline-flex min-h-11 items-center text-xs font-bold text-[var(--success-text,#283509)]">
             {t("portal.expansion.visits.reviewDone")}
           </span>
         )}
@@ -121,7 +121,7 @@ export default async function PortalVisitsPage({
         {params.error && (
           <p
             role="alert"
-            className="mt-3 rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[#a92a12]"
+            className="mt-3 rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
           >
             {t(ERROR_KEYS[params.error] ?? "portal.expansion.visits.errors.generic")}
           </p>
@@ -129,7 +129,7 @@ export default async function PortalVisitsPage({
         {params.review === "requested" && (
           <p
             role="status"
-            className="mt-3 rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-sm font-bold text-[#24502f]"
+            className="mt-3 rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-sm font-bold text-[var(--success-text,#283509)]"
           >
             {t("portal.expansion.visits.reviewRequested")}
           </p>

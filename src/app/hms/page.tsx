@@ -173,7 +173,7 @@ export default async function HmsPage({
         {errorKey && (
           <div
             role="alert"
-            className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+            className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
           >
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t(errorKey)}

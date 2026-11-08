@@ -71,6 +71,9 @@ describe("dashbordets feltpanel", () => {
     const html = render();
 
     expect(html).toContain("dashboard.field.mapEmpty");
+    expect(html).toContain("dashboard.field.mapEmptyHint");
+    expect(html).toContain("dashboard.field.openMyAssignments");
+    expect(html).toContain('href="/mine-oppdrag"');
     expect(html).toContain("dashboard.field.status.enRoute");
     expect(html).toContain("Service heis");
     expect(html).toContain("Testkunde");
@@ -78,11 +81,16 @@ describe("dashbordets feltpanel", () => {
     expect(mapMock).not.toHaveBeenCalled();
   });
 
-  it("viser at sporing er slått av", () => {
+  it("viser begge forutsetningene når sporing er slått av", () => {
     const html = render({ trackingEnabled: false });
 
     expect(html).toContain("dashboard.field.trackingDisabled");
     expect(html).toContain("dashboard.field.trackingDisabledHint");
+    expect(html).toContain("dashboard.field.trackingDisabledShareHint");
+    expect(html).toContain("dashboard.field.openDepartmentSettings");
+    expect(html).toContain('href="/innstillinger?tab=avdelinger"');
+    expect(html).toContain("dashboard.field.openMyAssignments");
+    expect(html).toContain('href="/mine-oppdrag"');
     expect(html).not.toContain("dashboard.field.mapEmpty");
     expect(mapMock).not.toHaveBeenCalled();
   });

@@ -74,7 +74,7 @@ export default async function SavedSearchesPanel({
                     aria-label={t("components.search.saved.deleteAria", {
                       name: search.name,
                     })}
-                    className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full text-[var(--muted,#62685f)] transition hover:bg-[#fae8e0] hover:text-[var(--risk-text,#b42318)] [&::-webkit-details-marker]:hidden"
+                    className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full text-[var(--muted,#62685f)] transition hover:bg-[var(--risk-surface,#fdf4f2)] hover:text-[var(--risk-text,#b42318)] [&::-webkit-details-marker]:hidden"
                   >
                     <Icon name="close" className="h-3.5 w-3.5" />
                   </summary>

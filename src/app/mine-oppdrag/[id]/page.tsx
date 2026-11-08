@@ -67,14 +67,14 @@ const FIELD_PANEL =
 const PAPER_CARD =
   "field-sheet p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-6";
 const PAPER_INNER =
-  "rounded-xl border border-line bg-white/50 p-3 sm:p-4";
+  "rounded-xl border border-line bg-surface/50 p-3 sm:p-4";
 const LIME_BUTTON =
   "signal-button text-sm shadow-sm";
 const DARK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 px-3 py-2 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-white/10";
+  "inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 py-2 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-surface/10";
 /** Hurtighandlingene skal alltid være minst 44 px høye på touch. */
 const QUICK_ACTION =
-  "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10";
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-surface/10";
 
 /** Montørens lovlige vei gjennom visitten. Kansellering hører til kontoret. */
 const FIELD_VISIT_FLOW: ReadonlyArray<{
@@ -144,14 +144,14 @@ function HeroFact({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-2.5 py-2 ${className}`}
+      className={`flex min-w-0 items-start gap-2 rounded-xl border border-[var(--field-line)] bg-field/65 px-2.5 py-2 ${className}`}
     >
       <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-paper/50">
+        <p className="text-2xs font-black uppercase tracking-[0.12em] text-paper/50">
           {label}
         </p>
-        <p className="mt-0.5 break-words text-[11px] font-bold leading-snug text-paper/90">
+        <p className="mt-0.5 break-words text-2xs font-bold leading-snug text-paper/90">
           {value}
         </p>
       </div>
@@ -198,7 +198,7 @@ function ChecklistProgressRing({
       aria-valuenow={answered}
       aria-valuetext={valueText}
       aria-label={label}
-      className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-white/45 p-3 sm:gap-4 sm:p-4"
+      className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-surface/45 p-3 sm:gap-4 sm:p-4"
     >
       <div className="relative shrink-0" aria-hidden>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -227,7 +227,7 @@ function ChecklistProgressRing({
           <span className="text-lg font-black leading-none text-ink">
             {percent}%
           </span>
-          <span className="mt-0.5 text-[10px] font-bold text-muted">
+          <span className="mt-0.5 text-2xs font-bold text-muted">
             {answered}/{total}
           </span>
         </span>
@@ -746,7 +746,7 @@ export default async function TechnicianWorkOrderPage({
           />
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-signal/25 bg-field px-3 py-1 text-[11px] font-black uppercase tracking-wider text-signal">
+              <span className="inline-flex items-center gap-2 rounded-full border border-signal/25 bg-field px-3 py-1 text-2xs font-black uppercase tracking-wider text-signal">
                 <span className="h-1.5 w-1.5 rounded-full bg-signal" />
                 {statusLabels[workOrder.status]}
               </span>
@@ -769,7 +769,7 @@ export default async function TechnicianWorkOrderPage({
               </p>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface/[0.07] px-3 py-1 text-paper/80">
                 <Icon name="building" className="h-3.5 w-3.5 text-signal" />
                 {workOrder.department.name}
               </span>
@@ -952,7 +952,7 @@ export default async function TechnicianWorkOrderPage({
                       name="status"
                       defaultValue={workOrder.status}
                       aria-label={t("orders.fieldDetail.statusTitle")}
-                      className="border-2 border-[#2a3328] p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-paper outline-none focus:border-signal min-w-[180px] min-h-11"
+                      className="border-2 border-[var(--field-line)] p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-paper outline-none focus:border-signal min-w-[180px] min-h-11"
                     >
                       <option value={workOrder.status} disabled>
                         {statusLabels[workOrder.status]} ({t("orders.fieldDetail.currentStatus")})
@@ -966,7 +966,7 @@ export default async function TechnicianWorkOrderPage({
                     <SubmitButton
                       disabled
                       pendingLabel={t("orders.fieldDetail.updating")}
-                      className="status-submit-disabled min-h-11 bg-white/10 text-paper/70 px-4 py-2.5 rounded-xl text-sm font-bold transition whitespace-nowrap"
+                      className="status-submit-disabled min-h-11 bg-surface/10 text-paper/70 px-4 py-2.5 rounded-xl text-sm font-bold transition whitespace-nowrap"
                     >
                       {t("orders.fieldDetail.update")}
                     </SubmitButton>
@@ -1012,7 +1012,7 @@ export default async function TechnicianWorkOrderPage({
 
             <div>
               <p className="text-xs font-black text-paper/60 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
-              <p className="flex items-center gap-2 font-bold text-paper bg-field p-2.5 border-2 border-[#2a3328] rounded-xl w-full">
+              <p className="flex items-center gap-2 font-bold text-paper bg-field p-2.5 border-2 border-[var(--field-line)] rounded-xl w-full">
                 <Icon name="clock" className="h-4 w-4 shrink-0 text-signal" />
                 {formatDateRangeLocalized(workOrder.scheduledFor, workOrder.scheduledTo, locale) || t("orders.fieldDetail.noDate")}
               </p>
@@ -1067,11 +1067,11 @@ export default async function TechnicianWorkOrderPage({
           {currentVisit && (
             <div className="mt-3 space-y-3">
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                <p className="flex items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-3 py-2 font-medium text-paper/90">
+                <p className="flex items-start gap-2 rounded-xl border border-[var(--field-line)] bg-field/65 px-3 py-2 font-medium text-paper/90">
                   <Icon name="pin" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
                   <span className="min-w-0">{heroAddress}</span>
                 </p>
-                <p className="flex items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-3 py-2 font-medium text-paper/90">
+                <p className="flex items-start gap-2 rounded-xl border border-[var(--field-line)] bg-field/65 px-3 py-2 font-medium text-paper/90">
                   <Icon name="users" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
                   <span className="min-w-0">
                     {currentVisitTechnicians ||
@@ -1081,18 +1081,18 @@ export default async function TechnicianWorkOrderPage({
               </div>
 
               {currentVisit.notes && (
-                <p className="whitespace-pre-wrap rounded-xl border border-[#2a3328] bg-white/5 px-3 py-2 text-sm font-medium text-paper/80">
+                <p className="whitespace-pre-wrap rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 py-2 text-sm font-medium text-paper/80">
                   {currentVisit.notes}
                 </p>
               )}
 
-              <div className="rounded-xl border border-[#2a3328] bg-field/65 p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+              <div className="rounded-xl border border-[var(--field-line)] bg-field/65 p-3">
+                <p className="text-2xs font-black uppercase tracking-[0.14em] text-paper/50">
                   {t("orders.fieldDetail.visits.time.dayTitle")}
                 </p>
                 <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
-                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                  <div className="rounded-lg border border-[var(--field-line)] bg-surface/5 px-2.5 py-1.5">
+                    <dt className="text-2xs font-black uppercase tracking-wide text-paper/50">
                       {t("orders.fieldDetail.visits.time.travelTo")}
                     </dt>
                     <dd className="text-sm font-black tabular-nums text-paper">
@@ -1102,8 +1102,8 @@ export default async function TechnicianWorkOrderPage({
                       )}
                     </dd>
                   </div>
-                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
-                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                  <div className="rounded-lg border border-[var(--field-line)] bg-surface/5 px-2.5 py-1.5">
+                    <dt className="text-2xs font-black uppercase tracking-wide text-paper/50">
                       {t("orders.fieldDetail.visits.time.work")}
                     </dt>
                     <dd className="text-sm font-black tabular-nums text-paper">
@@ -1113,8 +1113,8 @@ export default async function TechnicianWorkOrderPage({
                       )}
                     </dd>
                   </div>
-                  <div className="rounded-lg border border-[#2a3328] bg-white/5 px-2.5 py-1.5">
-                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/50">
+                  <div className="rounded-lg border border-[var(--field-line)] bg-surface/5 px-2.5 py-1.5">
+                    <dt className="text-2xs font-black uppercase tracking-wide text-paper/50">
                       {t("orders.fieldDetail.visits.time.travelFrom")}
                     </dt>
                     <dd className="text-sm font-black tabular-nums text-paper">
@@ -1125,7 +1125,7 @@ export default async function TechnicianWorkOrderPage({
                     </dd>
                   </div>
                   <div className="rounded-lg border border-signal/30 bg-signal/10 px-2.5 py-1.5">
-                    <dt className="text-[10px] font-black uppercase tracking-wide text-paper/60">
+                    <dt className="text-2xs font-black uppercase tracking-wide text-paper/60">
                       {t("orders.fieldDetail.visits.time.total")}
                     </dt>
                     <dd className="text-sm font-black tabular-nums text-signal">
@@ -1143,7 +1143,7 @@ export default async function TechnicianWorkOrderPage({
                   ).map((stamp) => (
                     <span
                       key={stamp.field}
-                      className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold tabular-nums text-paper/90"
+                      className="inline-flex items-center gap-1 rounded-full bg-surface/10 px-2 py-0.5 text-2xs font-bold tabular-nums text-paper/90"
                     >
                       <span className="font-medium text-paper/55">
                         {t(stamp.labelKey)}
@@ -1158,10 +1158,10 @@ export default async function TechnicianWorkOrderPage({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#2a3328] bg-field/65 p-3">
+              <div className="rounded-xl border border-[var(--field-line)] bg-field/65 p-3">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+                    <p className="text-2xs font-black uppercase tracking-[0.14em] text-paper/50">
                       {t("orders.fieldDetail.visits.time.orderTotal")}
                     </p>
                     <p className="text-xl font-black tabular-nums text-signal">
@@ -1175,7 +1175,7 @@ export default async function TechnicianWorkOrderPage({
                     })}
                   </p>
                 </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-2xs">
                   <div>
                     <dt className="font-bold text-paper/50">
                       {t("orders.fieldDetail.visits.time.work")}
@@ -1204,7 +1204,7 @@ export default async function TechnicianWorkOrderPage({
               </div>
 
               <div>
-                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-paper/50">
+                <p className="mb-1.5 text-2xs font-black uppercase tracking-[0.14em] text-paper/50">
                   {t("orders.fieldDetail.visits.time.days")}
                 </p>
                 <ol className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -1221,8 +1221,8 @@ export default async function TechnicianWorkOrderPage({
                         key={visit.id}
                         className={`flex flex-wrap items-center justify-between gap-1.5 rounded-lg border px-2.5 py-2 text-xs ${
                           visit.id === currentVisit.id
-                            ? "border-signal/50 bg-white/10"
-                            : "border-[#2a3328] bg-white/5"
+                            ? "border-signal/50 bg-surface/10"
+                            : "border-[var(--field-line)] bg-surface/5"
                         }`}
                       >
                         <span className="min-w-0 font-bold capitalize text-paper/90">
@@ -1249,7 +1249,7 @@ export default async function TechnicianWorkOrderPage({
                               <input type="hidden" name="visitId" value={visit.id} />
                               <button
                                 type="submit"
-                                className="inline-flex min-h-8 items-center rounded-lg border border-signal/40 px-2 py-0.5 text-[11px] font-bold text-signal transition hover:bg-signal/15"
+                                className="inline-flex min-h-8 items-center rounded-lg border border-signal/40 px-2 py-0.5 text-2xs font-bold text-signal transition hover:bg-signal/15"
                               >
                                 {t("orders.fieldDetail.visits.finishTravelFrom")}
                               </button>
@@ -1397,11 +1397,11 @@ export default async function TechnicianWorkOrderPage({
                       <span className="h-px flex-1 bg-indigo-200" />
                     </div>
                   )}
-                  <div className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-signal/20 border-success/30' : 'bg-white/50 border-line'}`}>
+                  <div className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-signal/20 border-success/30' : 'bg-surface/50 border-line'}`}>
                     <span className={`font-bold text-sm ${report ? 'text-ink' : 'text-ink'} flex items-center gap-2 flex-wrap`}>
                       {template.title}
                       {isHmsTemplate(template) && (
-                        <span className="inline-flex items-center gap-1 bg-white/10 text-paper border border-white/20 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        <span className="inline-flex items-center gap-1 bg-surface/10 text-paper border border-white/20 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
                           <Icon name="flag" className="h-3 w-3" />
                           {template.hmsType
                             ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
@@ -1409,14 +1409,14 @@ export default async function TechnicianWorkOrderPage({
                         </span>
                       )}
                       {canViewReports && report?.reportNumber && (
-                        <span className="bg-white text-ink border border-line text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="bg-surface text-ink border border-line text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.reportNumber", {
                             number: report.reportNumber,
                           })}
                         </span>
                       )}
                       {report?.isLocked && (
-                        <span className="bg-white/5 text-paper text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="bg-surface/5 text-paper text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.locked")}
                         </span>
                       )}
@@ -1480,7 +1480,7 @@ export default async function TechnicianWorkOrderPage({
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.extraChecklist")}
-                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
+                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-surface flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
                   {availableServiceTemplates.length > 0 && (
@@ -1552,7 +1552,7 @@ export default async function TechnicianWorkOrderPage({
               <p className="text-sm text-muted italic">{t("orders.fieldDetail.noComments")}</p>
             ) : (
               workOrder.workComments.map((comment: any) => (
-                <div key={comment.id} className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line space-y-1">
+                <div key={comment.id} className="bg-surface/50 p-3 sm:p-4 rounded-xl border border-line space-y-1">
                   <div className="flex justify-between items-center text-xs text-muted font-bold">
                     <span>{comment.authorName || t("orders.fieldDetail.unknownAuthor")}</span>
                     <span>{formatDateTimeLocalized(comment.createdAt, locale)}</span>
@@ -1576,7 +1576,7 @@ export default async function TechnicianWorkOrderPage({
             ) : (
               <div className="space-y-2">
                 {workOrder.technicians.map((tech: any) => (
-                  <div key={tech.id} className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-line gap-2 min-w-0">
+                  <div key={tech.id} className="flex justify-between items-center bg-surface/50 p-3 rounded-xl border border-line gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="w-2.5 h-2.5 rounded-full bg-success flex-shrink-0"></span>
                       <div className="min-w-0">
@@ -1628,7 +1628,7 @@ export default async function TechnicianWorkOrderPage({
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.addPersonnel")}
-                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
+                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-surface flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectPerson")}</option>
                   {availableUsers.map(u => (
@@ -1669,7 +1669,7 @@ export default async function TechnicianWorkOrderPage({
                       label={t("fieldTools.copyAddress")}
                       copiedLabel={t("fieldTools.copied")}
                       failedLabel={t("fieldTools.copyFailed")}
-                      className="border-line bg-white text-ink hover:bg-white/70"
+                      className="border-line bg-surface text-ink hover:bg-surface/70"
                     />
                   </span>
                 )}
@@ -1683,7 +1683,7 @@ export default async function TechnicianWorkOrderPage({
             </div>
 
             {workOrder.contact ? (
-              <div className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line">
+              <div className="bg-surface/50 p-3 sm:p-4 rounded-xl border border-line">
                 <p className="text-xs font-black text-muted uppercase tracking-wider mb-1">{t("orders.fieldDetail.contactTitle")}</p>
                 <p className="font-black text-ink text-base">{workOrder.contact.name}</p>
                 <div className="mt-2 space-y-1 text-sm">
@@ -1692,7 +1692,7 @@ export default async function TechnicianWorkOrderPage({
                 </div>
               </div>
             ) : workOrder.customer?.contacts && workOrder.customer?.contacts.length > 0 ? (
-              <div className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line">
+              <div className="bg-surface/50 p-3 sm:p-4 rounded-xl border border-line">
                 <p className="text-xs font-black text-muted uppercase tracking-wider mb-3">{t("orders.fieldDetail.customerContacts")}</p>
                 <div className="space-y-3 divide-y divide-line">
                   {workOrder.customer?.contacts.map((c: any) => (
@@ -1707,7 +1707,7 @@ export default async function TechnicianWorkOrderPage({
                 </div>
               </div>
             ) : (
-              <div className="bg-white/50 p-3 rounded-xl border border-line">
+              <div className="bg-surface/50 p-3 rounded-xl border border-line">
                 <p className="text-xs text-muted italic">{t("orders.fieldDetail.noContact")}</p>
               </div>
             )}
@@ -1762,7 +1762,7 @@ export default async function TechnicianWorkOrderPage({
           <Link
             href={`/mine-oppdrag/${workOrderId}`}
             aria-label={t("orders.fieldDetail.dismiss")}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-paper hover:bg-white/10"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-paper hover:bg-surface/10"
           >
             <Icon name="close" className="h-4 w-4" />
           </Link>
@@ -1771,7 +1771,7 @@ export default async function TechnicianWorkOrderPage({
 
       {/* Sticky handlingslinje på mobil, over bunnmenyen. */}
       {stickyAction && (
-        <div className="field-sticky-cta fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-[#2a3328] bg-field/95 p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.28)] backdrop-blur sm:hidden">
+        <div className="field-sticky-cta fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-[var(--field-line)] bg-field/95 p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.28)] backdrop-blur sm:hidden">
           <Link
             href={stickyAction.href}
             className="field-cta w-full justify-between px-5"

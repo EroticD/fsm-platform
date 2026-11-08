@@ -1018,10 +1018,10 @@ was shown, upload and preview again. Import errors block writing, and an
 aborted import rolls back the whole transaction and cleans up temporary files.
 
 **Limits:** the package is limited to 500 MiB and 50 MiB per file, and the
-export runs synchronously. Global documents without a customer or unit owner
-are not included. Signatures, SLA clocks, bookings, notifications, SMS,
-tracking and report drafts are deliberately excluded. See
-`docs/backlog-customer-export-import.md` for the full list.
+export runs as a durable background job with progress. Global documents without
+a customer or unit owner are not included. Signatures, SLA clocks, bookings,
+notifications, SMS, tracking and report drafts are deliberately excluded. See
+`docs/BACKLOG.md` for the full list.
 
 ## Interface with the technician and administrator parts
 

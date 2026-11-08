@@ -342,6 +342,7 @@ SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt
 | --- | --- |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
 | [`docs/MODULES.md`](docs/MODULES.md) | Modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Backlog og gjenstående arbeid – status, prioritering og akseptansekriterier |
 | [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, PITR, Azure-native backup, øvelser og sjekklister |
 | [`docs/STORAGE.md`](docs/STORAGE.md) | Lagringsdrivere, S3/MinIO, nøkler og migrering |
 | [`docs/SCALING.md`](docs/SCALING.md) | HA, replikaer, Redis og kapasitet |

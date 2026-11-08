@@ -107,14 +107,14 @@ export default function DashboardFieldPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-2xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
             {t("dashboard.field.updatedAt", {
               time: timeLabel(updatedAt, locale),
             })}
           </span>
           <Link
             href="/kart"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--ink,#101310)] px-3 py-1 text-[11px] font-black text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--ink,#101310)] px-3 py-1 text-2xs font-black text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
             {t("dashboard.field.openMap")}
             <Icon name="arrowRight" className="h-3.5 w-3.5" />
@@ -140,13 +140,13 @@ export default function DashboardFieldPanel({
                       <FieldStatusBadge status={row.status} t={t} />
                     </div>
                     {row.lastPositionAt ? (
-                      <span className="text-[11px] font-bold tabular-nums text-[var(--muted,#62685f)]">
+                      <span className="text-2xs font-bold tabular-nums text-[var(--muted,#62685f)]">
                         {t("dashboard.field.lastShared", {
                           time: timeLabel(row.lastPositionAt, locale),
                         })}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-medium text-[var(--muted,#62685f)]">
+                      <span className="text-2xs font-medium text-[var(--muted,#62685f)]">
                         {t("dashboard.field.noPosition")}
                       </span>
                     )}
@@ -156,7 +156,7 @@ export default function DashboardFieldPanel({
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted,#62685f)]">
                       <Link
                         href={`/oppdrag/${row.visit.workOrderId}`}
-                        className="min-w-0 truncate font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
+                        className="min-w-0 truncate font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       >
                         {row.visit.title}
                       </Link>
@@ -179,7 +179,7 @@ export default function DashboardFieldPanel({
 
         <div className="min-w-0 p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
+            <h3 className="flex items-center gap-1.5 text-2xs font-black uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
               <Icon name="map" className="h-3.5 w-3.5" />
               {t("dashboard.field.mapTitle")}
             </h3>
@@ -190,29 +190,51 @@ export default function DashboardFieldPanel({
               <p className="text-sm font-bold text-[var(--ink,#101310)]">
                 {t("dashboard.field.trackingDisabled")}
               </p>
-              <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
-                {t("dashboard.field.trackingDisabledHint")}
-              </p>
-              <Link
-                href="/kart"
-                className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
-              >
-                {t("dashboard.field.openMap")}
-                <Icon name="arrowRight" className="h-3.5 w-3.5" />
-              </Link>
+              <ul className="mt-2 space-y-1 text-xs text-[var(--muted,#62685f)]">
+                <li>{t("dashboard.field.trackingDisabledHint")}</li>
+                <li>{t("dashboard.field.trackingDisabledShareHint")}</li>
+              </ul>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link
+                  href="/innstillinger?tab=avdelinger"
+                  className="inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                >
+                  {t("dashboard.field.openDepartmentSettings")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/mine-oppdrag"
+                  className="inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                >
+                  {t("dashboard.field.openMyAssignments")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           ) : !hasMarkers ? (
             <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4">
               <p className="text-sm font-bold text-[var(--ink,#101310)]">
                 {t("dashboard.field.mapEmpty")}
               </p>
-              <Link
-                href="/kart"
-                className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
-              >
-                {t("dashboard.field.openMap")}
-                <Icon name="arrowRight" className="h-3.5 w-3.5" />
-              </Link>
+              <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+                {t("dashboard.field.mapEmptyHint")}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link
+                  href="/mine-oppdrag"
+                  className="inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                >
+                  {t("dashboard.field.openMyAssignments")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/kart"
+                  className="inline-flex min-h-9 items-center gap-1.5 text-xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                >
+                  {t("dashboard.field.openMap")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           ) : (
             <WorkOrderMap
@@ -250,11 +272,11 @@ export default function DashboardFieldPanel({
                           · {statusLabel(marker.status, t)}
                         </span>
                       </p>
-                      <p className="truncate text-[11px] text-[var(--muted,#62685f)]">
+                      <p className="truncate text-2xs text-[var(--muted,#62685f)]">
                         {marker.workOrderTitle}
                         {marker.customerName ? ` · ${marker.customerName}` : ""}
                       </p>
-                      <p className="text-[10px] font-bold tabular-nums text-[var(--muted,#62685f)]">
+                      <p className="text-2xs font-bold tabular-nums text-[var(--muted,#62685f)]">
                         {t("dashboard.field.markerUpdated", {
                           time: timeLabel(marker.updatedAt, locale),
                         })}
@@ -263,13 +285,13 @@ export default function DashboardFieldPanel({
                     <div className="flex shrink-0 items-center gap-2">
                       <Link
                         href={`/oppdrag/${marker.workOrderId}`}
-                        className="text-[11px] font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
+                        className="text-2xs font-black text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       >
                         {t("dashboard.field.openWorkOrder")}
                       </Link>
                       <Link
                         href={`/kart?technician=${encodeURIComponent(marker.userId)}`}
-                        className="text-[11px] font-bold text-[var(--muted,#62685f)] underline underline-offset-4"
+                        className="text-2xs font-bold text-[var(--muted,#62685f)] underline underline-offset-4"
                       >
                         {t("dashboard.field.openMap")}
                       </Link>

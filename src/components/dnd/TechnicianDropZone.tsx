@@ -143,7 +143,7 @@ export default function TechnicianDropZone({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] bg-[color-mix(in_srgb,var(--signal,#d8ff3e)_30%,transparent)] p-2"
         >
-          <span className="rounded-full border-2 border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2.5 py-1 text-center text-[11px] font-black uppercase tracking-[0.04em] text-[var(--ink,#101310)] shadow-sm">
+          <span className="rounded-full border-2 border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2.5 py-1 text-center text-2xs font-black uppercase tracking-[0.04em] text-[var(--ink,#101310)] shadow-sm">
             {dropLabel}
           </span>
         </span>

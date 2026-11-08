@@ -28,12 +28,12 @@ export default async function WorkOrderStatusSettingsTab({
   return (
     <div className="space-y-4">
       {error ? (
-        <p role="alert" className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+        <p role="alert" className="rounded-xl border border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
           {t("settings.workOrderStatus.error")}
         </p>
       ) : null}
       {ok ? (
-        <p role="status" className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+        <p role="status" className="rounded-xl border border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
           {t("settings.workOrderStatus.saved")}
         </p>
       ) : null}
@@ -80,7 +80,7 @@ export default async function WorkOrderStatusSettingsTab({
                 <tr key={row.status} className="border-b border-[var(--line,#dedcd1)] last:border-0">
                   <th scope="row" className="px-2 py-2 text-left font-bold">
                     {t(WORK_ORDER_STATUS_LABEL_KEYS[row.status])}
-                    <code className="ml-1 text-[10px] font-normal text-[var(--muted,#62685f)]">{row.status}</code>
+                    <code className="ml-1 text-2xs font-normal text-[var(--muted,#62685f)]">{row.status}</code>
                   </th>
                   <td className="px-2 py-2">
                     <select

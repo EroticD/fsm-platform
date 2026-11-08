@@ -7,7 +7,13 @@ import { readPendingTwoFactor } from "@/lib/session-token";
 import { verifyRecoveryCodeAction, verifyTwoFactorAction } from "../actions";
 import SubmitButton from "../SubmitButton";
 import Icon from "@/components/icons";
-import { controlClassName } from "@/components/ui/controlStyles";
+import {
+  AuthAlert,
+  AuthHeader,
+  AuthShell,
+} from "@/components/auth/AuthShell";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -60,65 +66,32 @@ export default async function TwoFactorPage({
     : null;
 
   return (
-    <div className="office-app flex min-h-screen items-center justify-center p-4 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:p-6">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
-        />
+    <AuthShell>
+      <AuthHeader
+        icon="shield"
+        title={t("auth.twoFactor.title")}
+        description={t("auth.twoFactor.desc", { companyName })}
+      />
 
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)] shadow-[2px_2px_0_var(--signal,#d8ff3e)]">
-            <Icon name="shield" className="h-5 w-5" />
-            <span
-              aria-hidden="true"
-              className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
-            />
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
-            {t("auth.twoFactor.title")}
-          </h1>
-          <p className="mt-1 text-sm leading-6 text-[var(--muted,#62685f)]">
-            {t("auth.twoFactor.desc", { companyName })}
-          </p>
-        </div>
+      <AuthAlert message={error ?? ""} />
 
-        {error && (
-          <div
-            role="alert"
-            className="mb-4 flex items-start gap-2 rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
-          >
-            <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form action={verifyTwoFactorAction} className="space-y-4">
-          <input type="hidden" name="callbackUrl" value={callbackUrl} />
-          <div>
-            <label
-              htmlFor="code"
-              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-            >
-              {t("auth.twoFactor.codeLabel")}
-            </label>
-            <input
-              id="code"
-              type="text"
-              name="code"
-              required
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              pattern="[0-9]{6}"
-              placeholder="000000"
-              autoFocus
-              className={controlClassName(
-                "min-h-11 text-center text-lg font-bold tracking-[0.4em]",
-              )}
-            />
-          </div>
-          <SubmitButton
+      <form action={verifyTwoFactorAction} className="space-y-4">
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
+        <Field label={t("auth.twoFactor.codeLabel")} required>
+          <Input
+            type="text"
+            name="code"
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            pattern="[0-9]{6}"
+            placeholder="000000"
+            autoFocus
+            className="text-center text-lg font-bold tracking-[0.4em]"
+          />
+        </Field>
+        <SubmitButton
             idleLabel={t("auth.twoFactor.verify")}
             pendingLabel={t("auth.twoFactor.verifying")}
           />
@@ -137,15 +110,12 @@ export default async function TwoFactorPage({
           </summary>
           <form action={verifyRecoveryCodeAction} className="mt-3 space-y-3">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
-            <div>
-              <label
-                htmlFor="recoveryCode"
-                className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-              >
-                {t("auth.twoFactor.recovery.label")}
-              </label>
-              <input
-                id="recoveryCode"
+            <Field
+              label={t("auth.twoFactor.recovery.label")}
+              hint={t("auth.twoFactor.recovery.hint")}
+              required
+            >
+              <Input
                 type="text"
                 name="recoveryCode"
                 required
@@ -154,14 +124,9 @@ export default async function TwoFactorPage({
                 spellCheck={false}
                 maxLength={9}
                 placeholder="XXXX-XXXX"
-                className={controlClassName(
-                  "min-h-11 text-center text-lg font-bold uppercase tracking-[0.2em]",
-                )}
+                className="text-center text-lg font-bold uppercase tracking-[0.2em]"
               />
-              <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
-                {t("auth.twoFactor.recovery.hint")}
-              </p>
-            </div>
+            </Field>
             <SubmitButton
               idleLabel={t("auth.twoFactor.recovery.submit")}
               pendingLabel={t("auth.twoFactor.recovery.submitting")}
@@ -177,7 +142,6 @@ export default async function TwoFactorPage({
             {t("auth.twoFactor.backToLogin")}
           </Link>
         </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

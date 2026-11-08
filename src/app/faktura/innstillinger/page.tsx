@@ -29,7 +29,7 @@ export default async function BillingSettingsPage({
   const settings = await getBillingSettings();
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+    <div className="office-app office-page">
       <div className="mx-auto max-w-2xl space-y-4">
         <PageHeader
           title={t("invoicing.settings.title")}

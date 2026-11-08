@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import EmptyState from "@/components/EmptyState";
+import Card from "@/components/ui/Card";
+import { Field, Input, Select } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { formatDateLocalized } from "@/lib/dates";
@@ -25,13 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
 const PAGE_SIZE = 25;
 
 const STATUS_TONE: Record<string, string> = {
-  DRAFT:
-    "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
-  ACTIVE:
-    "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  PAUSED: "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]",
-  EXPIRED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
-  TERMINATED: "border-[#c9c0ac] bg-[#efeee8] text-[#4a473e]",
+  DRAFT: "border-line bg-paper text-ink",
+  ACTIVE: "border-ink bg-signal text-ink",
+  PAUSED:
+    "border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
+  EXPIRED:
+    "border-[color-mix(in_srgb,var(--risk-text,#b42318)_22%,transparent)] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
+  TERMINATED: "border-line bg-surface text-muted",
 };
 
 export default async function ContractsPage({
@@ -106,193 +110,182 @@ export default async function ContractsPage({
   };
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <PageHeader
-          title={t("contractsPage.title")}
-          subtitle={t("contractsPage.subtitle")}
-          icon={<Icon name="file" className="h-5 w-5" />}
-          actions={
+    <PageShell>
+      <PageHeader
+        title={t("contractsPage.title")}
+        subtitle={t("contractsPage.subtitle")}
+        icon={<Icon name="file" className="h-5 w-5" />}
+        actions={
+          <Link
+            href="/kunder"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="building" className="h-4 w-4" />
+            {t("contractsPage.customers")}
+          </Link>
+        }
+      />
+
+      <Card as="section" className="space-y-3 p-3 sm:p-4">
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          <Field
+            id="contracts-search"
+            label={t("contractsPage.search")}
+            className="min-w-56 flex-1"
+          >
+            <Input
+              id="contracts-search"
+              name="q"
+              defaultValue={query}
+              placeholder={t("contractsPage.searchPlaceholder")}
+            />
+          </Field>
+          <Field id="contracts-status" label={t("contractsPage.filterStatus")}>
+            <Select
+              id="contracts-status"
+              name="status"
+              defaultValue={status ?? ""}
+            >
+              <option value="">{t("contractsPage.allStatuses")}</option>
+              {CONTRACT_STATUS_FILTERS.map((value) => (
+                <option key={value} value={value}>
+                  {statusLabel(value)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+            <input
+              type="checkbox"
+              name="utlop"
+              value="snart"
+              defaultChecked={expiring}
+              className="h-5 w-5 rounded border-line"
+            />
+            {t("contractsPage.expiringSoon")}
+          </label>
+          <button
+            type="submit"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
+          >
+            <Icon name="search" className="h-4 w-4" />
+            {t("search")}
+          </button>
+          {status || expiring || query ? (
             <Link
-              href="/kunder"
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]"
+              href="/avtaler"
+              className={buttonClassName({ variant: "ghost", size: "sm" })}
             >
-              <Icon name="building" className="h-4 w-4" />
-              {t("contractsPage.customers")}
+              {t("reset")}
             </Link>
-          }
+          ) : null}
+        </form>
+      </Card>
+
+      {contracts.length === 0 ? (
+        <EmptyState
+          title={t("contractsPage.emptyTitle")}
+          description={t("contractsPage.emptyDescription")}
         />
-
-        <div className="office-card space-y-3 p-3 sm:p-4">
-          <form method="get" className="flex flex-wrap items-end gap-2">
-            <div className="min-w-56 flex-1">
-              <label
-                htmlFor="contracts-search"
-                className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]"
-              >
-                {t("contractsPage.search")}
-              </label>
-              <input
-                id="contracts-search"
-                name="q"
-                defaultValue={query}
-                placeholder={t("contractsPage.searchPlaceholder")}
-                className="min-h-11 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="contracts-status"
-                className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]"
-              >
-                {t("contractsPage.filterStatus")}
-              </label>
-              <select
-                id="contracts-status"
-                name="status"
-                defaultValue={status ?? ""}
-                className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm"
-              >
-                <option value="">{t("contractsPage.allStatuses")}</option>
-                {CONTRACT_STATUS_FILTERS.map((value) => (
-                  <option key={value} value={value}>
-                    {statusLabel(value)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
-              <input
-                type="checkbox"
-                name="utlop"
-                value="snart"
-                defaultChecked={expiring}
-                className="h-5 w-5"
-              />
-              {t("contractsPage.expiringSoon")}
-            </label>
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]"
+      ) : (
+        <div className="space-y-2">
+          {contracts.map((contract) => (
+            <Card
+              key={contract.id}
+              as="article"
+              className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
             >
-              <Icon name="search" className="h-4 w-4" />
-              {t("search")}
-            </button>
-            {status || expiring || query ? (
-              <Link
-                href="/avtaler"
-                className="inline-flex min-h-11 items-center px-2 text-xs font-bold underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
-              >
-                {t("reset")}
-              </Link>
-            ) : null}
-          </form>
-        </div>
-
-        {contracts.length === 0 ? (
-          <EmptyState
-            title={t("contractsPage.emptyTitle")}
-            description={t("contractsPage.emptyDescription")}
-          />
-        ) : (
-          <div className="space-y-2">
-            {contracts.map((contract) => (
-              <article
-                key={contract.id}
-                className="office-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/kunder/${contract.customer.id}?tab=avtaler`}
-                      className="text-sm font-black underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
-                    >
-                      {contract.title}
-                    </Link>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase ${
-                        STATUS_TONE[contract.status] ?? STATUS_TONE.PAUSED
-                      }`}
-                    >
-                      {statusLabel(contract.status)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
-                    {contract.customer.name}
-                    {contract.contractNumber
-                      ? ` · ${contract.contractNumber}`
-                      : ""}
-                    {" · "}
-                    {contract.department.name}
-                  </p>
-                  <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-[var(--muted,#62685f)]">
-                    <span>
-                      {t("contractsPage.period", {
-                        start: formatDateLocalized(
-                          contract.startDate,
-                          locale,
-                          undefined,
-                          "–",
-                        ),
-                        end: contract.endDate
-                          ? formatDateLocalized(
-                              contract.endDate,
-                              locale,
-                              undefined,
-                              "–",
-                            )
-                          : t("contractsPage.noEndDate"),
-                      })}
-                    </span>
-                    {contract.slaPolicy ? (
-                      <span>
-                        {t("contractsPage.sla", {
-                          name: contract.slaPolicy.name,
-                        })}
-                      </span>
-                    ) : null}
-                    <span>
-                      {t("contractsPage.linesAndOrders", {
-                        lines: contract._count.lines,
-                        orders: contract._count.workOrders,
-                      })}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <a
-                    href={`/api/avtaler/${contract.id}/pdf?locale=${locale}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] px-3 py-2 text-xs font-bold"
-                  >
-                    <Icon name="file" className="h-4 w-4" />
-                    {t("contractsPage.pdf")}
-                  </a>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/kunder/${contract.customer.id}?tab=avtaler`}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)]"
+                    className="text-sm font-black text-ink underline decoration-signal decoration-2 underline-offset-4"
                   >
-                    {t("contractsPage.edit")}
-                    <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                    {contract.title}
                   </Link>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-2xs font-black uppercase ${
+                      STATUS_TONE[contract.status] ?? STATUS_TONE.PAUSED
+                    }`}
+                  >
+                    {statusLabel(contract.status)}
+                  </span>
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
+                <p className="mt-0.5 text-xs text-muted">
+                  {contract.customer.name}
+                  {contract.contractNumber
+                    ? ` · ${contract.contractNumber}`
+                    : ""}
+                  {" · "}
+                  {contract.department.name}
+                </p>
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
+                  <span>
+                    {t("contractsPage.period", {
+                      start: formatDateLocalized(
+                        contract.startDate,
+                        locale,
+                        undefined,
+                        "–",
+                      ),
+                      end: contract.endDate
+                        ? formatDateLocalized(
+                            contract.endDate,
+                            locale,
+                            undefined,
+                            "–",
+                          )
+                        : t("contractsPage.noEndDate"),
+                    })}
+                  </span>
+                  {contract.slaPolicy ? (
+                    <span>
+                      {t("contractsPage.sla", {
+                        name: contract.slaPolicy.name,
+                      })}
+                    </span>
+                  ) : null}
+                  <span>
+                    {t("contractsPage.linesAndOrders", {
+                      lines: contract._count.lines,
+                      orders: contract._count.workOrders,
+                    })}
+                  </span>
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <a
+                  href={`/api/avtaler/${contract.id}/pdf?locale=${locale}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonClassName({ variant: "secondary", size: "sm" })}
+                >
+                  <Icon name="file" className="h-4 w-4" />
+                  {t("contractsPage.pdf")}
+                </a>
+                <Link
+                  href={`/kunder/${contract.customer.id}?tab=avtaler`}
+                  className={buttonClassName({ variant: "primary", size: "sm" })}
+                >
+                  {t("contractsPage.edit")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {total > PAGE_SIZE ? (
-          <Pagination
-            page={Math.min(page, totalPages)}
-            totalPages={totalPages}
-            hrefFor={(nextPage) =>
-              hrefWith({ side: nextPage > 1 ? String(nextPage) : null })
-            }
-            labels={paginationLabels(t)}
-          />
-        ) : null}
-      </div>
-    </div>
+      {total > PAGE_SIZE ? (
+        <Pagination
+          page={Math.min(page, totalPages)}
+          totalPages={totalPages}
+          hrefFor={(nextPage) =>
+            hrefWith({ side: nextPage > 1 ? String(nextPage) : null })
+          }
+          labels={paginationLabels(t)}
+        />
+      ) : null}
+    </PageShell>
   );
 }

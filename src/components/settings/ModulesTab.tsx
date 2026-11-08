@@ -94,17 +94,17 @@ export default function ModulesTab({
                     {label}
                   </h3>
                   {module.core && (
-                    <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em]">
+                    <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2 py-0.5 text-2xs font-black uppercase tracking-[0.08em]">
                       {t("settings.modules.core")}
                     </span>
                   )}
                   {module.status === "planned" && (
-                    <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em]">
+                    <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-2xs font-black uppercase tracking-[0.08em]">
                       {t("settings.modules.planned")}
                     </span>
                   )}
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] ${
+                    className={`rounded-full px-2 py-0.5 text-2xs font-black uppercase tracking-[0.08em] ${
                       module.enabled
                         ? "bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
                         : "border border-[var(--line,#dedcd1)] text-[var(--muted,#62685f)]"

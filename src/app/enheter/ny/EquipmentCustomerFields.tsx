@@ -8,13 +8,10 @@ import CustomerSiteSelect, {
 import CustomerEquipmentSelect, {
   type CustomerEquipmentOption,
 } from "@/components/CustomerEquipmentSelect";
+import { Field, Select } from "@/components/ui";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 type CustomerOption = { id: string; name: string };
-
-const LABEL =
-  "text-2xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
-const CONTROL =
-  "mt-1 min-h-11 w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)] focus:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]";
 
 /**
  * Kunde, sted og overordnet enhet i nytt utstyrs-skjema.
@@ -46,17 +43,13 @@ export default function EquipmentCustomerFields({
 
   return (
     <>
-      <div>
-        <label htmlFor="customerId" className={LABEL}>
-          {t("assets.form.customer")} *
-        </label>
-        <select
+      <Field id="customerId" label={t("assets.form.customer")} required>
+        <Select
           id="customerId"
           name="customerId"
           required
           value={customerId}
           onChange={(event) => setCustomerId(event.target.value)}
-          className={CONTROL}
         >
           <option value="">{t("assets.form.customer")}</option>
           {customers.map((customer) => (
@@ -64,8 +57,8 @@ export default function EquipmentCustomerFields({
               {customer.name}
             </option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Field>
 
       <CustomerSiteSelect
         key={`site-${customerId}`}
@@ -75,7 +68,7 @@ export default function EquipmentCustomerFields({
         id="siteId"
         label={t("assets.form.site")}
         noSiteLabel={t("assets.form.noSite")}
-        className={CONTROL}
+        className={controlClassName()}
       />
 
       <CustomerEquipmentSelect
@@ -89,7 +82,7 @@ export default function EquipmentCustomerFields({
         id="parentId"
         label={t("assets.form.parent")}
         noEquipmentLabel={t("assets.detail.noParent")}
-        className={CONTROL}
+        className={controlClassName()}
       />
     </>
   );

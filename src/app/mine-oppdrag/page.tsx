@@ -130,7 +130,7 @@ const PAPER_CARD_TONES: Record<CardTone, string> = {
 const BADGE_TONES = {
   risk: "bg-risk text-ink",
   signal: "bg-signal text-ink",
-  neutral: "bg-white/10 text-paper/85",
+  neutral: "bg-surface/10 text-paper/85",
 } as const;
 
 type ListVisit = {
@@ -318,7 +318,7 @@ function PaperSheet({
           {title}
         </h2>
         {typeof count === "number" && (
-          <span className="rounded-full bg-white/60 px-2.5 py-1 text-xs font-black text-ink">
+          <span className="rounded-full bg-surface/60 px-2.5 py-1 text-xs font-black text-ink">
             {count}
           </span>
         )}
@@ -666,15 +666,15 @@ export default async function TechnicianDashboard({
     const titleClass = onPaper ? "text-ink" : "text-paper";
     const mutedClass = onPaper ? "text-muted" : "text-paper/70";
     const metaChip = onPaper
-      ? "bg-white/60 text-ink"
-      : "bg-white/[0.07] text-paper/80";
+      ? "bg-surface/60 text-ink"
+      : "bg-surface/[0.07] text-paper/80";
     const phoneClass = onPaper
-      ? "border-line bg-white text-success hover:bg-signal/15"
+      ? "border-line bg-surface text-success hover:bg-signal/15"
       : "border-signal/35 bg-signal/10 text-signal hover:bg-signal/20";
     const mapClass = onPaper
-      ? "border-line bg-white text-ink hover:bg-white/70"
-      : "border-[#2a3328] bg-white/5 text-paper/90 hover:border-signal/60";
-    const footerClass = onPaper ? "border-line" : "border-[#2a3328]";
+      ? "border-line bg-surface text-ink hover:bg-surface/70"
+      : "border-[var(--field-line)] bg-surface/5 text-paper/90 hover:border-signal/60";
+    const footerClass = onPaper ? "border-line" : "border-[var(--field-line)]";
     const openClass = onPaper ? "text-success" : "text-signal";
     const cardTone = onPaper ? PAPER_CARD_TONES[tone] : CARD_TONES[tone];
     const focusOffset = onPaper
@@ -901,7 +901,7 @@ export default async function TechnicianDashboard({
         {/* STATUSLINJE */}
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-signal px-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-ink">
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-signal px-2.5 text-2xs font-black uppercase tracking-[0.14em] text-ink">
               <Icon name="shield" className="h-3.5 w-3.5" />
               {t("orders.fieldList.onDuty")}
             </span>
@@ -910,7 +910,7 @@ export default async function TechnicianDashboard({
               onlineLabel={t("orders.fieldList.liveOnline")}
               offlineLabel={t("orders.fieldList.liveOffline")}
             />
-            <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-bold text-paper/60">
+            <span className="inline-flex min-h-8 items-center gap-1.5 text-2xs font-bold text-paper/60">
               <Icon name="calendar" className="h-3.5 w-3.5" />
               {todayLabel}
             </span>
@@ -963,11 +963,11 @@ export default async function TechnicianDashboard({
                 href={refreshHref}
                 aria-label={t("orders.fieldList.refresh")}
                 title={t("orders.fieldList.refresh")}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#2a3328] bg-field-card text-paper/80 shadow-sm transition hover:bg-white/10"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--field-line)] bg-field-card text-paper/80 shadow-sm transition hover:bg-surface/10"
               >
                 <Icon name="sync" className="h-4 w-4" />
               </Link>
-              <LogoutButton className="min-h-11 shrink-0 rounded-xl border border-[#2a3328] bg-field-card px-3 py-2 text-xs font-bold text-paper/85 shadow-sm transition hover:bg-white/10 disabled:opacity-60">
+              <LogoutButton className="min-h-11 shrink-0 rounded-xl border border-[var(--field-line)] bg-field-card px-3 py-2 text-xs font-bold text-paper/85 shadow-sm transition hover:bg-surface/10 disabled:opacity-60">
                 {t("orders.fieldList.logOut")}
               </LogoutButton>
             </div>
@@ -995,7 +995,7 @@ export default async function TechnicianDashboard({
             <div className="relative">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-signal">
+                  <p className="text-2xs font-black uppercase tracking-[0.28em] text-signal">
                     {t("orders.fieldList.nextJob")}
                   </p>
                   <p className="mt-1 text-xs font-bold text-paper/70">
@@ -1103,7 +1103,7 @@ export default async function TechnicianDashboard({
                       aria-label={t("orders.fieldList.callPhone", {
                         phone: heroPhone,
                       })}
-                      className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper transition hover:border-signal/60 hover:bg-white/10"
+                      className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--field-line)] bg-surface/5 px-4 text-sm font-black text-paper transition hover:border-signal/60 hover:bg-surface/10"
                     >
                       <Icon name="phone" className="h-4 w-4" />
                       {t("orders.fieldList.call")}
@@ -1121,7 +1121,7 @@ export default async function TechnicianDashboard({
                         address: heroAddress?.query || hero.title,
                       })}
                       newTabLabel={t("orders.fieldList.newTab")}
-                      className="min-h-14 flex-1 justify-center rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline hover:border-signal/60 hover:bg-white/10"
+                      className="min-h-14 flex-1 justify-center rounded-2xl border border-[var(--field-line)] bg-surface/5 px-4 text-sm font-black text-paper no-underline hover:border-signal/60 hover:bg-surface/10"
                     />
                   )}
                 </div>
@@ -1153,7 +1153,7 @@ export default async function TechnicianDashboard({
           </section>
         ) : (
           <section className="field-card p-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-signal">
+            <p className="text-2xs font-black uppercase tracking-[0.28em] text-signal">
               {t("orders.fieldList.nextJob")}
             </p>
             <p className="mt-2 text-xl font-black text-paper">
@@ -1185,7 +1185,7 @@ export default async function TechnicianDashboard({
                   <Link
                     key={wo.id}
                     href={`/mine-oppdrag/${wo.id}`}
-                    className="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/55 px-3 py-2 no-underline transition hover:bg-white"
+                    className="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface/55 px-3 py-2 no-underline transition hover:bg-surface"
                   >
                     <span className="w-11 shrink-0 text-sm font-black tabular-nums text-ink">
                       {time}
@@ -1195,7 +1195,7 @@ export default async function TechnicianDashboard({
                         {wo.title}
                       </span>
                       {wo.customer?.name && (
-                        <span className="block truncate text-[11px] font-medium text-muted">
+                        <span className="block truncate text-2xs font-medium text-muted">
                           {wo.customer.name}
                         </span>
                       )}
@@ -1224,7 +1224,7 @@ export default async function TechnicianDashboard({
             )}
             <a
               href="#senere"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-white/60 px-3 text-sm font-bold text-ink no-underline transition hover:bg-white"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-surface/60 px-3 text-sm font-bold text-ink no-underline transition hover:bg-surface"
             >
               {t("orders.fieldList.seeDay")}
               <Icon name="arrowRight" className="h-4 w-4" />
@@ -1245,11 +1245,11 @@ export default async function TechnicianDashboard({
               aria-label={t("orders.fieldList.search")}
               defaultValue={searchQuery}
               placeholder={t("orders.fieldList.searchPlaceholder")}
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#2a3328] bg-field px-3 text-sm font-bold text-paper outline-none transition placeholder:text-paper/65! focus:border-signal"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[var(--field-line)] bg-field px-3 text-sm font-bold text-paper outline-none transition placeholder:text-paper/65! focus:border-signal"
             />
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl bg-white/10 px-5 text-sm font-bold text-paper transition hover:bg-white/15"
+              className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl bg-surface/10 px-5 text-sm font-bold text-paper transition hover:bg-surface/15"
             >
               <Icon name="search" className="h-4 w-4" />
               {t("orders.fieldList.search")}
@@ -1257,7 +1257,7 @@ export default async function TechnicianDashboard({
             {searchQuery && (
               <Link
                 href="/mine-oppdrag"
-                className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[#2a3328] px-4 text-sm font-bold text-paper/80 transition hover:bg-white/10"
+                className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[var(--field-line)] px-4 text-sm font-bold text-paper/80 transition hover:bg-surface/10"
               >
                 {t("orders.fieldList.reset")}
               </Link>

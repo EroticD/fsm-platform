@@ -50,7 +50,7 @@ const LABEL =
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85";
 const DANGER =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-white px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-surface px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]";
 const HINT = "text-xs leading-5 text-[var(--muted,#62685f)]";
 
 const WEEKDAYS = [
@@ -156,7 +156,7 @@ export default async function WorkforceSettingsTab({
         </div>
       ) : null}
       {ok ? (
-        <div className="rounded-xl border border-[#bcd39a] bg-[#eef7d6] p-3 text-sm font-bold text-[#283509]">
+        <div className="rounded-xl border border-[#bcd39a] bg-[var(--success-surface,#eef7d6)] p-3 text-sm font-bold text-[var(--success-text,#283509)]">
           {t("settings.workforce.saved")}
         </div>
       ) : null}
@@ -412,7 +412,7 @@ export default async function WorkforceSettingsTab({
                         <div className="overflow-x-auto">
                           <table className="w-full min-w-[34rem] border-collapse text-left text-xs">
                             <thead>
-                              <tr className="border-b border-[var(--line,#dedcd1)] text-[10px] uppercase tracking-wide text-[var(--muted,#62685f)]">
+                              <tr className="border-b border-[var(--line,#dedcd1)] text-2xs uppercase tracking-wide text-[var(--muted,#62685f)]">
                                 <th scope="col" className="px-2 py-2">
                                   {t(
                                     "settings.workforce.userSkills.skill",

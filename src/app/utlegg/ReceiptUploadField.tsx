@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 /**
  * Laster kvittering gjennom den eksisterende `/api/upload`-ruten og legger
@@ -53,7 +54,7 @@ export default function ReceiptUploadField({
 
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-bold" htmlFor="receipt-file">
+      <label className="type-eyebrow block text-ink" htmlFor="receipt-file">
         {label}
       </label>
       <input
@@ -61,7 +62,7 @@ export default function ReceiptUploadField({
         id="receipt-file"
         type="file"
         accept="image/*,application/pdf"
-        className="block w-full rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm"
+        className={controlClassName("text-sm")}
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) void upload(file);
@@ -79,7 +80,11 @@ export default function ReceiptUploadField({
           {url}
         </a>
       )}
-      {error && <p className="text-xs font-bold text-[var(--risk-text,#b42318)]">{error}</p>}
+      {error && (
+        <p className="text-xs font-bold text-[var(--risk-text,#b42318)]">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

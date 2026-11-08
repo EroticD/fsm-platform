@@ -191,7 +191,7 @@ export default async function CustomerSitesTab({
                           city={site.city}
                           label={t("fieldTools.navigate")}
                           newTabLabel={t("fieldTools.newTab")}
-                          className={`min-h-11 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2.5 text-xs text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]`}
+                          className={`min-h-11 rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-2.5 text-xs text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]`}
                         />
                         {addressLine && (
                           <CopyAddressButton
@@ -199,7 +199,7 @@ export default async function CustomerSitesTab({
                             label={t("fieldTools.copyAddress")}
                             copiedLabel={t("fieldTools.copied")}
                             failedLabel={t("fieldTools.copyFailed")}
-                            className="border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                            className="border-[var(--line,#dedcd1)] bg-surface text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
                           />
                         )}
                       </div>

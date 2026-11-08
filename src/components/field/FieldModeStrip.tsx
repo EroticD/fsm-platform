@@ -63,14 +63,14 @@ export default function FieldModeStrip() {
       </Link>
       <a
         href="#senere"
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-surface/10"
       >
         <Icon name="calendar" className="h-4 w-4" />
         {t("fieldTools.today")}
       </a>
       <Link
         href="/mine-oppdrag/kunder"
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--field-line)] bg-surface/5 px-3 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-surface/10"
       >
         <Icon name="users" className="h-4 w-4" />
         {t("fieldTools.customers")}
@@ -79,7 +79,7 @@ export default function FieldModeStrip() {
       <span
         role="status"
         aria-live="polite"
-        className={`ml-auto inline-flex min-h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-black uppercase tracking-[0.12em] ${
+        className={`ml-auto inline-flex min-h-8 items-center gap-1.5 rounded-full px-2.5 text-2xs font-black uppercase tracking-[0.12em] ${
           online ? "bg-signal/15 text-signal" : "bg-risk/15 text-risk"
         }`}
       >
@@ -87,7 +87,7 @@ export default function FieldModeStrip() {
         {online ? t("fieldTools.online") : t("fieldTools.offline")}
       </span>
       {standalone && (
-        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white/10 px-2.5 text-[11px] font-black text-paper/80">
+        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-surface/10 px-2.5 text-2xs font-black text-paper/80">
           <Icon name="grid" className="h-3.5 w-3.5" />
           {t("fieldTools.installed")}
         </span>

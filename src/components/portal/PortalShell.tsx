@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { portalBranding } from "@/lib/portal-branding";
 import Icon from "@/components/icons";
+import PageShell from "@/components/PageShell";
 import PortalTabs, { type PortalTab } from "./PortalTabs";
 
 export type PortalShellCustomer = {
@@ -20,11 +21,14 @@ export default async function PortalShell({
   active,
   customer,
   userName,
+  headerAction,
   children,
 }: {
   active: PortalTab;
   customer: PortalShellCustomer;
   userName: string;
+  /** Valgfri ekstra handling i det mørke hodet, f.eks. «oppdater». */
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const t = await getTranslations("common");
@@ -35,7 +39,7 @@ export default async function PortalShell({
   const initial = branding.initial;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--canvas,#f4f5f2)] px-4 py-5 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:px-6 sm:py-8">
+    <PageShell className="overflow-x-hidden">
       <div className="mx-auto max-w-5xl space-y-5">
         <header className="relative overflow-hidden rounded-[20px] border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-5 py-6 text-[var(--paper,#f2efe6)] shadow-[4px_4px_0_var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)] sm:px-7 sm:py-7">
           <span
@@ -52,7 +56,7 @@ export default async function PortalShell({
                   alt={t("portal.expansion.branding.logoAlt", {
                     customerName: customer.name,
                   })}
-                  className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"
+                  className="h-12 w-12 shrink-0 rounded-xl bg-[var(--paper,#f2efe6)] object-contain p-1"
                 />
               ) : (
                 <span
@@ -90,6 +94,7 @@ export default async function PortalShell({
                 <Icon name="shield" className="h-4 w-4 shrink-0" />
                 {t("nav.accountSecurity")}
               </Link>
+              {headerAction}
             </div>
           </div>
           <p className="mt-3 text-xs text-[#a9a292]" lang={locale}>
@@ -100,6 +105,6 @@ export default async function PortalShell({
         <PortalTabs active={active} />
         {children}
       </div>
-    </div>
+    </PageShell>
   );
 }

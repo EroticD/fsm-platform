@@ -23,6 +23,15 @@ import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import IsoDateInput from "@/components/IsoDateInput";
 import Icon from "@/components/icons";
+import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import PageShell from "@/components/PageShell";
+import Card from "@/components/ui/Card";
+import { Field, Select } from "@/components/ui";
+import { buttonClassName } from "@/components/ui/Button";
+import { brandInset } from "@/components/ui/brandStyles";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
 import { getMapSettings } from "@/server/map-settings";
@@ -56,6 +65,7 @@ type MapWorkOrder = {
 };
 
 const MAP_LIMIT = 500;
+const FIELD = controlClassName("min-h-11 text-sm");
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -291,35 +301,32 @@ export default async function MapPage({
   }
 
   return (
-    <div className="office-app min-h-screen p-4 [--focus-ring:var(--ink,#101310)] sm:p-6">
-      <div className="mx-auto max-w-4xl space-y-5">
-        <div className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-black text-[var(--ink,#101310)]">
-              <Icon name="map" className="h-6 w-6 shrink-0" strokeWidth={2} />
-              {t("p3.map.title")}
-            </h1>
-            <p className="text-sm text-[var(--muted,#62685f)]">{t("p3.map.description")}</p>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={t("p3.map.title")}
+        subtitle={t("p3.map.description")}
+        icon={<Icon name="map" className="h-6 w-6" strokeWidth={2} />}
+        actions={
           <Link
             href="/kalender"
-            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+            className={buttonClassName({ variant: "secondary", size: "sm" })}
           >
             {t("p3.map.calendar")}
           </Link>
-        </div>
+        }
+      />
 
+      <Card as="section" className="p-4">
         <form
           action="/kart"
           method="get"
-          className="grid grid-cols-1 gap-3 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4 sm:grid-cols-2 lg:grid-cols-5"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
         >
-          <label className="flex flex-col gap-1 text-xs font-bold text-[var(--ink,#101310)]">
-            {t("p3.map.filters.technician")}
-            <select
+          <Field id="map-technician" label={t("p3.map.filters.technician")}>
+            <Select
+              id="map-technician"
               name="technician"
               defaultValue={technicianId}
-              className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)]"
             >
               <option value="">{t("p3.map.filters.allTechnicians")}</option>
               {technicians.map((technician) => (
@@ -327,246 +334,247 @@ export default async function MapPage({
                   {technician.name || technician.id}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-bold text-[var(--ink,#101310)]">
-            {t("p3.map.filters.dateFrom")}
+            </Select>
+          </Field>
+          <Field id="map-date-from" label={t("p3.map.filters.dateFrom")}>
             <IsoDateInput
+              id="map-date-from"
               name="dateFrom"
               defaultValue={range.fromText}
-              className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)]"
+              className={FIELD}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-bold text-[var(--ink,#101310)]">
-            {t("p3.map.filters.dateTo")}
+          </Field>
+          <Field id="map-date-to" label={t("p3.map.filters.dateTo")}>
             <IsoDateInput
+              id="map-date-to"
               name="dateTo"
               defaultValue={range.toText}
-              className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)]"
+              className={FIELD}
             />
-          </label>
+          </Field>
           <button
             type="submit"
-            className="signal-button self-end text-sm"
+            className={`${buttonClassName({ variant: "primary" })} self-end`}
           >
             {t("p3.map.filters.apply")}
           </button>
           <Link
             href="/kart"
-            className="inline-flex min-h-11 items-center justify-center self-end rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+            className={`${buttonClassName({ variant: "secondary" })} self-end`}
           >
             {t("p3.map.filters.clear")}
           </Link>
         </form>
+      </Card>
 
-        {canGeocode && missingCoordinates > 0 && (
-          <div className="office-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-[var(--ink,#101310)]">
-                {t("p3.map.geocode.missing", { count: missingCoordinates })}
-              </p>
-              <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
-                {t("p3.map.geocode.hint")}
-              </p>
-            </div>
-            <form action={geocodeMissingAction}>
-              <button type="submit" className="signal-button text-sm">
-                <Icon name="map" className="h-4 w-4" />
-                {t("p3.map.geocode.action")}
-              </button>
-            </form>
+      {canGeocode && missingCoordinates > 0 && (
+        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-ink">
+              {t("p3.map.geocode.missing", { count: missingCoordinates })}
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              {t("p3.map.geocode.hint")}
+            </p>
           </div>
-        )}
+          <form action={geocodeMissingAction}>
+            <button
+              type="submit"
+              className={buttonClassName({ variant: "primary" })}
+            >
+              <Icon name="map" className="h-4 w-4" />
+              {t("p3.map.geocode.action")}
+            </button>
+          </form>
+        </Card>
+      )}
 
-        {(firstParam(params.geokodet) || firstParam(params.geokodingsfeil)) && (
-          <div
-            role="status"
-            className="office-card border-[var(--line,#dedcd1)] p-4 text-sm font-bold text-[var(--ink,#101310)]"
-          >
-            {(() => {
-              const failure = firstParam(params.geokodingsfeil);
-              const count = Number(firstParam(params.geokodet) ?? 0);
-              const remaining = Number(firstParam(params.geokodingsgjenstår) ?? 0);
-              if (failure === "rate") return t("p3.map.geocode.rateLimited");
-              if (failure === "unavailable" || failure === "timeout") {
-                return t(
-                  failure === "timeout"
-                    ? "p3.map.geocode.timeout"
-                    : "p3.map.geocode.unavailable",
-                );
-              }
-              if (failure === "disabled") return t("p3.map.geocode.disabled");
-              if (failure === "no_result") return t("p3.map.geocode.noResult");
-              return t("p3.map.geocode.result", { count, remaining });
-            })()}
-          </div>
-        )}
-
-        {range.invalid && (
-          <div
-            role="alert"
-            className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
-          >
-            {range.invalidOrder
-              ? t("p3.map.filters.dateRangeError")
-              : t("p3.map.filters.dateError")}
-          </div>
-        )}
-
-        <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 py-3">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
-            {t(
-              coversToday
-                ? "orders.map.visitsToday"
-                : "orders.map.visitsPeriod",
-            )}
-          </p>
-          <p className="mt-1 text-xs font-medium text-[var(--muted,#62685f)]">
-            {t("orders.map.visitsHint")}
-          </p>
-        </div>
-
-        <p className="text-sm font-medium text-[var(--muted,#62685f)]">
-          {t("p3.map.resultRange", {
-            count: workOrders.length,
-            total: totalCount,
-          })}
-        </p>
-        {totalCount > workOrders.length && (
-          <p className="rounded-xl border border-[var(--warning-border,#fde68a)] bg-[var(--warning-surface,#fffbeb)] p-3 text-sm text-[var(--warning,#b45309)]">
-            {t("p3.map.truncated", { limit: MAP_LIMIT })}
-          </p>
-        )}
-
-        <WorkOrderStatusLegend
-          title={t("p3.map.legendTitle")}
-          items={legendItems}
-        />
-
-        {/* Teknikerlaget er et bevisst integrasjonspunkt: kilden kommer i 5C. */}
-        <section
-          aria-labelledby="map-technicians-title"
-          className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 sm:p-4"
+      {(firstParam(params.geokodet) || firstParam(params.geokodingsfeil)) && (
+        <div
+          role="status"
+          className={`${brandInset} p-4 text-sm font-bold text-ink`}
         >
-          <h2
-            id="map-technicians-title"
-            className="flex items-center gap-2 text-sm font-black text-[var(--ink,#101310)]"
-          >
-            <Icon name="users" className="h-4 w-4" />
-            {t("p3.map.technicians.title")}
-          </h2>
-          <p className="mt-1 text-xs font-medium text-[var(--muted,#62685f)]">
-            {technicianLayer.enabled && technicianLayer.markers.length > 0
-              ? t("p3.map.technicians.active", {
-                  count: technicianLayer.markers.length,
-                })
-              : t("p3.map.technicians.pending")}
-          </p>
-        </section>
-
-        <section className="space-y-2 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 sm:p-4">
-          <WorkOrderMap
-            points={mapPoints}
-            technicians={technicianMapPoints}
-            listId="map-order-list"
-            listHint={t("p3.map.regionHint")}
-            ariaLabel={t("p3.map.mapAria")}
-            noPointsLabel={t("p3.map.noMapPoints")}
-            openLabel={t("p3.map.openWorkOrder")}
-            layerLabels={{
-              osm: t("p3.map.layers.osm"),
-              topo: t("p3.map.layers.topo"),
-              light: t("p3.map.layers.light"),
-              satellite: t("p3.map.layers.satellite"),
-            }}
-            settings={mapSettings}
-          />
-          <p className="px-1 text-xs text-[var(--muted,#62685f)]">{t("p3.map.mapHint")}</p>
-        </section>
-
-        <div id="map-order-list" className="space-y-5">
-          {groups.size === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-10 text-center">
-              <p className="text-sm text-[var(--muted,#62685f)]">{t("p3.map.empty")}</p>
-            </div>
-          ) : (
-            Array.from(groups.entries()).map(([city, items]) => (
-              <section
-                key={city}
-                className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-5"
-              >
-                <h2 className="mb-3 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-2 text-lg font-bold text-[var(--ink,#101310)]">
-                  <Icon name="pin" className="h-4 w-4 shrink-0" strokeWidth={2} />
-                  {city} ({items.length})
-                </h2>
-                <ul className="divide-y divide-[var(--line,#dedcd1)]">
-                  {items.map((workOrder) => {
-                    const customer = workOrder.customer;
-                    const location = effectiveAddress({
-                      address: workOrder.address,
-                      postalCode: workOrder.postalCode,
-                      city: workOrder.city,
-                      customer,
-                    });
-                    const address = location.query ?? "";
-                    return (
-                      <li
-                        key={workOrder.id}
-                        className="flex flex-wrap items-center justify-between gap-2 py-3"
-                      >
-                        <div>
-                          <Link
-                            href={`/oppdrag/${workOrder.id}`}
-                            className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:decoration-[var(--ink,#101310)]"
-                          >
-                            {workOrder.title}
-                          </Link>
-                          <p className="text-xs text-[var(--muted,#62685f)]">
-                            {customer?.name || t("p3.map.noCustomer")}
-                            {workOrder.scheduledFor
-                              ? ` · ${formatDateLocalized(workOrder.scheduledFor, locale)}`
-                              : ""}
-                            <span className="ml-2 inline-flex items-center gap-1">
-                              <span
-                                aria-hidden="true"
-                                className="h-2 w-2 rounded-full"
-                                style={{
-                                  backgroundColor: workOrderStatusColor(
-                                    workOrder.status,
-                                  ),
-                                }}
-                              />
-                              {statusLabel(workOrder.status)}
-                            </span>
-                          </p>
-                          {workOrder.technicians.length > 0 && (
-                            <p className="flex items-center gap-1 text-xs text-[var(--muted,#62685f)]">
-                              <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
-                              {workOrder.technicians
-                                .map((technician) => technician.name)
-                                .filter(Boolean)
-                                .join(", ")}
-                            </p>
-                          )}
-                          {address && (
-                            <p className="text-xs text-[var(--muted,#62685f)]">{address}</p>
-                          )}
-                        </div>
-                        <GoogleMapsLink
-                          address={address}
-                          label={t("p3.map.openMaps")}
-                          newTabLabel={t("p3.map.opensInNewTab")}
-                          className="font-bold text-[var(--ink,#101310)]! underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))
-          )}
+          {(() => {
+            const failure = firstParam(params.geokodingsfeil);
+            const count = Number(firstParam(params.geokodet) ?? 0);
+            const remaining = Number(firstParam(params.geokodingsgjenstår) ?? 0);
+            if (failure === "rate") return t("p3.map.geocode.rateLimited");
+            if (failure === "unavailable" || failure === "timeout") {
+              return t(
+                failure === "timeout"
+                  ? "p3.map.geocode.timeout"
+                  : "p3.map.geocode.unavailable",
+              );
+            }
+            if (failure === "disabled") return t("p3.map.geocode.disabled");
+            if (failure === "no_result") return t("p3.map.geocode.noResult");
+            return t("p3.map.geocode.result", { count, remaining });
+          })()}
         </div>
+      )}
+
+      <ErrorBanner
+        message={
+          range.invalid
+            ? range.invalidOrder
+              ? t("p3.map.filters.dateRangeError")
+              : t("p3.map.filters.dateError")
+            : undefined
+        }
+      />
+
+      <div className={`${brandInset} px-4 py-3`}>
+        <p className="type-eyebrow text-ink">
+          {t(
+            coversToday
+              ? "orders.map.visitsToday"
+              : "orders.map.visitsPeriod",
+          )}
+        </p>
+        <p className="mt-1 text-xs font-medium text-muted">
+          {t("orders.map.visitsHint")}
+        </p>
       </div>
-    </div>
+
+      <p className="text-sm font-medium text-muted">
+        {t("p3.map.resultRange", {
+          count: workOrders.length,
+          total: totalCount,
+        })}
+      </p>
+      {totalCount > workOrders.length && (
+        <p className="rounded-xl border border-[color-mix(in_srgb,var(--warning-text,#7a4f0c)_22%,transparent)] bg-[var(--warning-surface,#fdf5e4)] p-3 text-sm text-[var(--warning-text,#7a4f0c)]">
+          {t("p3.map.truncated", { limit: MAP_LIMIT })}
+        </p>
+      )}
+
+      <WorkOrderStatusLegend
+        title={t("p3.map.legendTitle")}
+        items={legendItems}
+      />
+
+      {/* Teknikerlaget er et bevisst integrasjonspunkt: kilden kommer i 5C. */}
+      <Card
+        as="section"
+        aria-labelledby="map-technicians-title"
+        className="p-3 sm:p-4"
+      >
+        <h2
+          id="map-technicians-title"
+          className="flex items-center gap-2 text-sm font-black text-ink"
+        >
+          <Icon name="users" className="h-4 w-4" />
+          {t("p3.map.technicians.title")}
+        </h2>
+        <p className="mt-1 text-xs font-medium text-muted">
+          {technicianLayer.enabled && technicianLayer.markers.length > 0
+            ? t("p3.map.technicians.active", {
+                count: technicianLayer.markers.length,
+              })
+            : t("p3.map.technicians.pending")}
+        </p>
+      </Card>
+
+      <Card as="section" className="space-y-2 p-3 sm:p-4">
+        <WorkOrderMap
+          points={mapPoints}
+          technicians={technicianMapPoints}
+          listId="map-order-list"
+          listHint={t("p3.map.regionHint")}
+          ariaLabel={t("p3.map.mapAria")}
+          noPointsLabel={t("p3.map.noMapPoints")}
+          openLabel={t("p3.map.openWorkOrder")}
+          layerLabels={{
+            osm: t("p3.map.layers.osm"),
+            topo: t("p3.map.layers.topo"),
+            light: t("p3.map.layers.light"),
+            satellite: t("p3.map.layers.satellite"),
+          }}
+          settings={mapSettings}
+        />
+        <p className="px-1 text-xs text-muted">{t("p3.map.mapHint")}</p>
+      </Card>
+
+      <div id="map-order-list" className="space-y-5">
+        {groups.size === 0 ? (
+          <EmptyState
+            icon={<Icon name="pin" className="h-6 w-6" />}
+            title={t("p3.map.empty")}
+          />
+        ) : (
+          Array.from(groups.entries()).map(([city, items]) => (
+            <Card key={city} as="section" className="p-4 sm:p-5">
+              <h2 className="mb-3 flex items-center gap-2 border-b border-line pb-2 text-lg font-bold text-ink">
+                <Icon name="pin" className="h-4 w-4 shrink-0" strokeWidth={2} />
+                {city} ({items.length})
+              </h2>
+              <ul className="divide-y divide-line">
+                {items.map((workOrder) => {
+                  const customer = workOrder.customer;
+                  const location = effectiveAddress({
+                    address: workOrder.address,
+                    postalCode: workOrder.postalCode,
+                    city: workOrder.city,
+                    customer,
+                  });
+                  const address = location.query ?? "";
+                  return (
+                    <li
+                      key={workOrder.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3"
+                    >
+                      <div>
+                        <Link
+                          href={`/oppdrag/${workOrder.id}`}
+                          className="font-bold text-ink underline decoration-signal decoration-2 underline-offset-4 hover:decoration-ink"
+                        >
+                          {workOrder.title}
+                        </Link>
+                        <p className="text-xs text-muted">
+                          {customer?.name || t("p3.map.noCustomer")}
+                          {workOrder.scheduledFor
+                            ? ` · ${formatDateLocalized(workOrder.scheduledFor, locale)}`
+                            : ""}
+                          <span className="ml-2 inline-flex items-center gap-1">
+                            <span
+                              aria-hidden="true"
+                              className="h-2 w-2 rounded-full"
+                              style={{
+                                backgroundColor: workOrderStatusColor(
+                                  workOrder.status,
+                                ),
+                              }}
+                            />
+                            {statusLabel(workOrder.status)}
+                          </span>
+                        </p>
+                        {workOrder.technicians.length > 0 && (
+                          <p className="flex items-center gap-1 text-xs text-muted">
+                            <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
+                            {workOrder.technicians
+                              .map((technician) => technician.name)
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        )}
+                        {address && (
+                          <p className="text-xs text-muted">{address}</p>
+                        )}
+                      </div>
+                      <GoogleMapsLink
+                        address={address}
+                        label={t("p3.map.openMaps")}
+                        newTabLabel={t("p3.map.opensInNewTab")}
+                        className="font-bold text-ink underline decoration-signal decoration-2 underline-offset-4"
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          ))
+        )}
+      </div>
+    </PageShell>
   );
 }

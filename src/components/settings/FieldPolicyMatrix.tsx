@@ -16,9 +16,9 @@ const ACCESS_KEY: Record<FieldAccessLevel, string> = {
 };
 
 const ACCESS_CLASS: Record<FieldAccessLevel, string> = {
-  full: "border-[#b9c99a] bg-[#eef7d6] text-[#283509]",
-  own: "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]",
-  none: "border-[#e7b7a4] bg-[#fae8e0] text-[var(--risk-text,#b42318)]",
+  full: "border-[#b9c99a] bg-[var(--success-surface,#eef7d6)] text-[var(--success-text,#283509)]",
+  own: "border-[#e2cf9b] bg-[var(--warning-surface,#fdf5e4)] text-[var(--warning-text,#7a4f0c)]",
+  none: "border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
 };
 
 function fieldLabelKey(group: FieldGroup): string {

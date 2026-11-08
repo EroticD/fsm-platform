@@ -706,12 +706,12 @@ async function DashboardKeyFigures({
         {t("dashboard.keyFigures")}
       </h2>
       <div
-        className={`${CARD} grid grid-cols-3 divide-x divide-[var(--line,#d8d3c5)] overflow-hidden`}
+        className={`${CARD} grid grid-cols-3 divide-x divide-[var(--line,#dedcd1)] overflow-hidden`}
       >
         {figures.map((figure) => {
           const content = (
             <>
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#5e6356]">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#62685f]">
                 {figure.label}
               </span>
               <span className="mt-0.5 block text-2xl font-black tabular-nums leading-none">
@@ -726,7 +726,7 @@ async function DashboardKeyFigures({
             <Link
               key={figure.key}
               href={figure.href}
-              className="px-3 py-2.5 transition hover:bg-[#f3f6e7] sm:px-4"
+              className="px-3 py-2.5 transition hover:bg-[var(--success-surface,#eef7d6)] sm:px-4"
             >
               {content}
             </Link>
@@ -762,21 +762,21 @@ async function DashboardActivity({ locale }: { locale: string }) {
           {t("dashboard.noActivity")}
         </p>
       ) : (
-        <ol className="divide-y divide-[var(--line,#d8d3c5)]">
+        <ol className="divide-y divide-[var(--line,#dedcd1)]">
           {recentLogs.map((log) => (
             <li key={log.id} className="flex items-start gap-3 py-2 text-sm">
               <span
-                className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#c8f135)] ring-1 ring-[var(--ink,#131711)]"
+                className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)] ring-1 ring-[var(--ink,#101310)]"
                 aria-hidden
               />
               <div className="min-w-0">
-                <p className="font-medium text-[var(--ink,#131711)]">
+                <p className="font-medium text-[var(--ink,#101310)]">
                   {describeAuditAction(
                     log.action,
                     t as unknown as AuditTranslator,
                   ) ?? log.action}
                 </p>
-                <p className="text-xs text-[#5e6356]">
+                <p className="text-xs text-[#62685f]">
                   {log.userName || t("dashboard.unknownUser")} ·{" "}
                   {formatDateTimeLocalized(log.createdAt, locale)}
                 </p>
@@ -785,10 +785,10 @@ async function DashboardActivity({ locale }: { locale: string }) {
           ))}
         </ol>
       )}
-      <div className="mt-2 border-t border-[var(--line,#d8d3c5)] pt-2">
+      <div className="mt-2 border-t border-[var(--line,#dedcd1)] pt-2">
         <Link
           href="/innstillinger?tab=auditlog"
-          className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
+          className="text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
         >
           {t("dashboard.viewAllActivity")}
         </Link>
@@ -819,12 +819,12 @@ function CollapsibleSection({
         </h2>
         <span
           aria-hidden="true"
-          className="text-xs text-[#5e6356] transition group-open:rotate-180"
+          className="text-xs text-[#62685f] transition group-open:rotate-180"
         >
           <Icon name="chevronDown" className="h-4 w-4" />
         </span>
       </summary>
-      <div className="border-t border-[var(--line,#d8d3c5)] px-4 py-3">
+      <div className="border-t border-[var(--line,#dedcd1)] px-4 py-3">
         {children}
       </div>
     </details>
@@ -843,8 +843,8 @@ function QuickActionButton({
       href={action.href}
       className={`flex items-center justify-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-bold transition ${
         action.emphasis
-          ? "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)] shadow-[1px_1px_0_var(--ink,#131711)] hover:translate-x-px hover:translate-y-px hover:shadow-none"
-          : "border-[var(--line,#d8d3c5)] bg-white text-[var(--ink,#131711)] hover:border-[var(--ink,#131711)]"
+          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)] hover:translate-x-px hover:translate-y-px hover:shadow-none"
+          : "border-[var(--line,#dedcd1)] bg-surface text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
       } ${compact ? "min-h-9" : "min-h-10"}`}
     >
       <Icon name={action.icon} className="h-4 w-4 shrink-0" />
@@ -870,17 +870,17 @@ function QuickActionsContent({
         ))}
       </div>
       {secondary.length > 0 && (
-        <details className="group rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)]">
+        <details className="group rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-bold [&::-webkit-details-marker]:hidden">
             <span>{moreLabel}</span>
             <span
               aria-hidden="true"
-              className="text-[#5e6356] transition group-open:rotate-180"
+              className="text-[#62685f] transition group-open:rotate-180"
             >
               <Icon name="chevronDown" className="h-4 w-4" />
             </span>
           </summary>
-          <div className="grid grid-cols-2 gap-2 border-t border-[var(--line,#d8d3c5)] p-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 border-t border-[var(--line,#dedcd1)] p-2 sm:grid-cols-3">
             {secondary.map((action) => (
               <QuickActionButton
                 key={action.href + action.label}
@@ -1116,7 +1116,7 @@ export default async function AdminDashboard({
   const newOrderHref = office ? "/oppdrag/ny" : "/mine-oppdrag/ny";
 
   return (
-    <div className="office-app office-dashboard min-h-screen p-3 sm:p-6 lg:p-8">
+    <div className="office-app office-dashboard office-page">
       <div className="mx-auto max-w-7xl space-y-4">
         <DashboardHeader
           view={view}
@@ -1157,7 +1157,7 @@ export default async function AdminDashboard({
                     </h2>
                     <Link
                       href="/oppdrag"
-                      className="text-xs font-bold underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
+                      className="text-xs font-bold underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                     >
                       {t("dashboard.allOrders")}
                       <Icon name="arrowRight" className="h-3.5 w-3.5" />

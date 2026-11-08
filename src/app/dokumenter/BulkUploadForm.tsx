@@ -60,7 +60,7 @@ const ACTION_ERROR_KEYS: Record<string, string> = {
 };
 
 const FIELD =
-  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-surface px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
 const LABEL =
   "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
 const QUIET_BUTTON =
@@ -559,7 +559,7 @@ export default function BulkUploadForm({
                   row.status === "failed"
                     ? "text-[var(--risk-text,#b42318)]"
                     : row.status === "skipped"
-                      ? "text-[#7a4f0c]"
+                      ? "text-[var(--warning-text,#7a4f0c)]"
                       : "text-[var(--muted,#62685f)]"
                 }`}
               >

@@ -204,7 +204,7 @@ export default function BrandedHeader({
   const pc = primaryColor || "#2563eb";
 
   const searchTone = isField
-    ? "border-[#2a3328] bg-[var(--field)]"
+    ? "border-[var(--field-line)] bg-[var(--field)]"
     : "border-[var(--line)] bg-[var(--surface)]";
 
   return (
@@ -216,7 +216,7 @@ export default function BrandedHeader({
       <header
         className={`flex min-h-16 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8 ${isField ? "" : "[--focus-ring:var(--ink,#101310)]"} ${
           isField
-            ? "border-[#2a3328] bg-[var(--field)] text-[var(--paper)]"
+            ? "border-[var(--field-line)] bg-[var(--field)] text-[var(--paper)]"
             : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]"
         }`}
       >
@@ -302,7 +302,7 @@ export default function BrandedHeader({
               href="/skann"
               aria-label={t("nav.scan")}
               title={t("nav.scan")}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 text-[var(--paper)] transition hover:border-signal/60 hover:bg-white/10"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[var(--field-line)] bg-surface/5 text-[var(--paper)] transition hover:border-signal/60 hover:bg-surface/10"
             >
               <Icon name="camera" className="h-5 w-5" />
             </Link>
@@ -367,7 +367,7 @@ export default function BrandedHeader({
                 onClick={() => setMobileSearchOpen((open) => !open)}
                 aria-expanded={mobileSearchOpen}
                 aria-controls="mobile-global-search"
-                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[#2a3328] bg-[var(--field-card)] px-3 py-2 text-left text-sm font-bold text-[var(--paper)] transition hover:bg-[var(--paper,#f2efe6)]/10"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--field-line)] bg-[var(--field-card)] px-3 py-2 text-left text-sm font-bold text-[var(--paper)] transition hover:bg-[var(--paper,#f2efe6)]/10"
               >
                 <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
@@ -710,7 +710,7 @@ function Breadcrumbs({
       aria-label={t("components.header.breadcrumb")}
       className={`border-b px-4 py-1.5 sm:px-6 lg:px-8 ${
         tone === "field"
-          ? "border-[#2a3328] bg-[var(--field)]"
+          ? "border-[var(--field-line)] bg-[var(--field)]"
           : "border-[var(--line)] bg-[var(--surface)]"
       } ${className ?? ""}`}
     >

@@ -1,9 +1,9 @@
 import { requireModulePage } from "@/lib/module-guards";
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import BrandMark from "@/components/BrandMark";
+import PublicShell from "@/components/public/PublicShell";
+import { brandInset } from "@/components/ui/brandStyles";
 import { VISIT_STATUS_LABEL_KEYS } from "@/lib/visit-status";
 import { getPublicTracking } from "@/server/tracking";
 import TrackingEtaLive from "./TrackingEtaLive";
@@ -38,10 +38,10 @@ export default async function PublicTrackingPage({
       const t = await getTranslations("common");
       return (
         <PublicShell>
-          <h1 className="text-2xl font-black text-[var(--ink,#101310)]">
+          <h1 className="type-title-2 text-[var(--ink,#101310)]">
             {t("tracking.public.rateLimitedTitle")}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted,#62685f)]">
+          <p className="type-ui mt-2 leading-6 text-[var(--muted,#62685f)]">
             {t("tracking.public.rateLimitedText", {
               seconds: result.retryAfterSeconds,
             })}
@@ -60,21 +60,21 @@ export default async function PublicTrackingPage({
 
   return (
     <PublicShell>
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted,#62685f)]">
+      <p className="type-eyebrow text-[var(--muted,#62685f)]">
         {t("tracking.public.eyebrow")}
       </p>
-      <h1 className="mt-2 text-2xl font-black tracking-tight text-[var(--ink,#101310)]">
+      <h1 className="type-title-2 mt-2 text-[var(--ink,#101310)]">
         {t("tracking.public.title")}
       </h1>
-      <p className="mt-2 text-sm leading-6 text-[var(--muted,#62685f)]">
+      <p className="type-ui mt-2 leading-6 text-[var(--muted,#62685f)]">
         {t("tracking.public.intro", { technician })}
       </p>
 
-      <div className="mt-5 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
+      <div className={`${brandInset} mt-5 p-4`}>
+        <p className="type-eyebrow text-[var(--muted,#62685f)]">
           {t("tracking.public.statusLabel")}
         </p>
-        <p className="mt-1 text-lg font-black text-[var(--ink,#101310)]">
+        <p className="type-title-3 mt-1 text-[var(--ink,#101310)]">
           {t(VISIT_STATUS_LABEL_KEYS[tracking.status])}
         </p>
 
@@ -104,28 +104,12 @@ export default async function PublicTrackingPage({
         )}
       </div>
 
-      <p className="mt-4 text-xs leading-5 text-[var(--muted,#62685f)]">
+      <p className="type-micro mt-4 leading-5 text-[var(--muted,#62685f)]">
         {t("tracking.public.privacy")}
       </p>
-      <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+      <p className="type-micro mt-1 leading-5 text-[var(--muted,#62685f)]">
         {t("tracking.public.refreshHint")}
       </p>
     </PublicShell>
-  );
-}
-
-function PublicShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)] sm:p-6">
-      <div className="w-full max-w-md rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
-        <div className="mb-5 flex items-center gap-3">
-          <BrandMark size={36} />
-          <span className="text-sm font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
-            FSM System
-          </span>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }

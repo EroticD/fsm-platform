@@ -48,7 +48,7 @@ export default function AcknowledgeReportForm({
       {state.status === "success" && (
         <p
           role="status"
-          className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-xs font-bold text-[#24502f]"
+          className="rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-xs font-bold text-[var(--success-text,#283509)]"
         >
           {t("p3.portalReports.acknowledgeSuccess")}
         </p>
@@ -56,7 +56,7 @@ export default function AcknowledgeReportForm({
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
+          className="rounded-xl border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
         >
           {t(ERROR_KEYS[state.reason] ?? "p3.portalReports.acknowledgeError")}
         </p>

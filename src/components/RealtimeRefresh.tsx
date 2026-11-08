@@ -162,7 +162,7 @@ export default function RealtimeRefresh() {
           setPaused(false);
           retryRef.current();
         }}
-        className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-100"
+        className="rounded-lg border border-amber-400 bg-surface px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-100"
       >
         {t("components.realtime.retry")}
       </button>

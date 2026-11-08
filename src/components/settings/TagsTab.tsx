@@ -22,7 +22,7 @@ const SIGNAL_BUTTON =
 const INK_SMALL =
   "inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
 const DANGER_SMALL =
-  "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
+  "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[var(--risk-surface,#fdf4f2)] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]";
 const LABEL =
   "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
 

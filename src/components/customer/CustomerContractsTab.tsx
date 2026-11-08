@@ -51,8 +51,8 @@ const STATUS_TONE: Record<string, string> = {
     "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
   ACTIVE:
     "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
-  PAUSED: "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]",
-  EXPIRED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
+  PAUSED: "border-[#e4c98f] bg-[var(--warning-surface,#fdf5e4)] text-[#6b4808]",
+  EXPIRED: "border-[#e7b5ae] bg-[var(--risk-surface,#fdf4f2)] text-[var(--risk-text,#b42318)]",
   TERMINATED: "border-[#c9c0ac] bg-[#efeee8] text-[#4a473e]",
 };
 
@@ -395,7 +395,7 @@ export default async function CustomerContractsTab({
       )}
 
       {office && !isAdmin && !ownDepartmentId && (
-        <p className="rounded-xl border border-[#e4c98f] bg-[#fdf5e4] p-3 text-xs font-bold text-[#6b4808]">
+        <p className="rounded-xl border border-[#e4c98f] bg-[var(--warning-surface,#fdf5e4)] p-3 text-xs font-bold text-[#6b4808]">
           {t("customers.contracts.missingDepartment")}
         </p>
       )}

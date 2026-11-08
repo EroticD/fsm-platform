@@ -613,7 +613,7 @@ For `docker-compose.ha.yml` ligger verktøyene i
   på samme VM er ikke en disaster-recovery-kopi.
 - Skriptene er ikke kjørt mot en ekte S3/Redis/Postgres i denne endringen;
   kjør en øvelse før de tas i bruk. Se restrisiko i
-  [`remaining-features.md`](remaining-features.md).
+  [`docs/BACKLOG.md`](BACKLOG.md).
 
 ---
 

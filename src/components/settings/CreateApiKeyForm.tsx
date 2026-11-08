@@ -128,7 +128,7 @@ export default function CreateApiKeyForm({
             {t("settings.apiKeys.createdTitle")}
             {state.keyName ? ` · ${state.keyName}` : ""}
           </h3>
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-[#6b4a05]">
+          <p className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-[var(--warning-text,#7a4f0c)]">
             <Icon name="alert" className="mt-px h-3.5 w-3.5 shrink-0" />
             {t("settings.apiKeys.createdWarning")}
           </p>
@@ -168,7 +168,7 @@ export default function CreateApiKeyForm({
       {state.status === "error" && state.error && (
         <div
           role="alert"
-          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[var(--risk-surface,#fdf4f2)] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           <Icon name="alert" className="h-4 w-4 shrink-0" />
           {t(ERROR_KEYS[state.error] ?? "settings.apiKeys.errors.error")}

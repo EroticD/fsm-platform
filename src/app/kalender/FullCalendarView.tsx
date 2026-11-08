@@ -26,8 +26,16 @@ import {
   parseDateOnly,
   toDateOnly,
 } from '@/lib/dates';
-import { calendarEditingOptions } from '@/lib/calendar-events';
-import { calendarDayHeaderText, isoWeekNumber } from '@/lib/calendar-format';
+import {
+  calendarEditingOptions,
+  isShortTimedEvent,
+} from '@/lib/calendar-events';
+import {
+  calendarCompactDate,
+  calendarDayHeaderText,
+  calendarWeekdayText,
+  isoWeekNumber,
+} from '@/lib/calendar-format';
 import { VISIT_STATUS_LABEL_KEYS } from '@/lib/visit-status';
 import type { VisitStatus } from '@prisma/client';
 import {
@@ -110,6 +118,26 @@ function allDayInstants(
     startsAt: osloDayStart(toDateOnly(start)),
     endsAt: osloDayStart(toDateOnly(end)),
   };
+}
+
+/**
+ * Merker den vertikalt rullbare beholderen i timegrid-visningene.
+ *
+ * v7 bruker obfuskerte klasse- og data-attributter, så vi finner elementet via
+ * den faktiske overflyten i stedet for en intern klasse. Både tidsaksen og
+ * hendelsesruten er vertikale scrollere og holdes synkronisert av FullCalendar;
+ * den første treffer er derfor et gyldig anker for E2E.
+ */
+function markCalendarScroller(root: HTMLElement): void {
+  for (const element of Array.from(
+    root.querySelectorAll<HTMLElement>("*"),
+  )) {
+    const overflowY = window.getComputedStyle(element).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") {
+      element.setAttribute("data-testid", "calendar-scroller");
+      return;
+    }
+  }
 }
 
 export default function FullCalendarView({
@@ -342,31 +370,53 @@ export default function FullCalendarView({
           className: 'kal-view kal-view-biweekly',
           weekNumbers: true,
           weekNumberCalculation: 'ISO',
-          // To-ukersvisningen skjuler dagnumrene på mobil. Da må
-          // kolonneoverskriften vise både ukedag og dato.
-          dayHeaderFormat: {
-            weekday: "short",
-            day: "numeric",
-            month: "numeric",
-          },
-          // v7 sender feil dato til dayHeaderContent for dayGrid-visninger med
-          // duration: { weeks: 2 } (5. januar 1970). activeStart er riktig, så
-          // vi regner kolonnens dato fra ukedagen i den feilaktige datoen.
+          // v7 sender en kunstig 1970-dato til dayHeaderContent for
+          // dayGrid-visninger med duration: { weeks: 2 }. Datoen er feil, men
+          // ukedagen er riktig. Overskriften viser derfor bare ukedagen; den
+          // ekte datoen settes på hver dagcelle i dayCellTopContent under.
           dayHeaderContent: function(info) {
-            const headerDate = new Date(info.view.activeStart);
-            headerDate.setDate(
-              headerDate.getDate() +
-                ((info.date.getDay() - headerDate.getDay() + 7) % 7),
-            );
             const label = document.createElement('span');
             label.className = 'kal-day-header-label';
-            label.textContent = calendarDayHeaderText(
-              headerDate,
+            label.textContent = calendarWeekdayText(
+              info.date,
               locale,
-              false,
               info.isNarrow,
             );
             return { domNodes: [label] };
+          },
+          // Dagcellene får den ekte datoen fra info.date, også i den andre
+          // ukeraden. Uten dette ville begge radene manglet dato på mobil.
+          dayCellTopContent: function(info) {
+            const nodes: HTMLElement[] = [];
+            // FullCalendar skjuler ukenummerkolonnen når cellene er smale
+            // (mobil). Vis ukenummeret i den første cellen i hver ukerad i
+            // stedet, slik at begge ukene kan leses også på 390 px.
+            if (info.isNarrow && info.date.getDay() === 1) {
+              const week = document.createElement('span');
+              week.className = 'kal-biweekly-week';
+              week.dataset.weekNumber = String(isoWeekNumber(info.date));
+              week.textContent = `${tRef.current("calendar.client.week")} ${isoWeekNumber(info.date)}`;
+              nodes.push(week);
+            }
+            const date = document.createElement('span');
+            date.className = 'kal-biweekly-date';
+            date.textContent = calendarCompactDate(
+              info.date,
+              locale,
+              info.isNarrow,
+            );
+            nodes.push(date);
+            return { domNodes: nodes };
+          },
+          // Ukenummeret vises i starten av hver ukerad. FullCalendar kaller
+          // dette én gang per rad, så begge ukene får sitt eget ISO-nummer.
+          inlineWeekNumberContent: function(info) {
+            const label = document.createElement('span');
+            label.textContent = `${tRef.current("calendar.client.week")} ${info.num}`;
+            return { domNodes: [label] };
+          },
+          inlineWeekNumberDidMount: function(info) {
+            info.el.setAttribute('data-week-number', String(info.num));
           },
           titleFormat: {
             year: "numeric",
@@ -444,10 +494,19 @@ export default function FullCalendarView({
         },
       },
       events: eventsRef.current,
-      // La kalenderen vokse med innholdet i stedet for å skjule de nederste
-      // ukene bak en intern rullefelt. Uke og to uker får høyden fra
-      // min-height-reglene lenger ned.
-      height: 'auto',
+      // Dag- og ukerutenettet skal vokse med innholdet i stedet for å skjule
+      // de nederste ukene bak et internt rullefelt; de får høyden fra
+      // min-height-reglene lenger ned. Timegrid må derimot ha en begrenset
+      // høyde, ellers lager FullCalendar ingen vertikal scrollflate og
+      // scrollTime 07:00 blir ignorert. `view` er med i effektens
+      // avhengigheter, så kalenderen bygges på nytt når visningen byttes.
+      height: view.startsWith("timeGrid")
+        ? "clamp(20rem, 58vh, 32.5rem)"
+        : "auto",
+      // Korte hendelser må fortsatt ha en lesbar minimumshøyde. FullCalendar
+      // bruker eventShortHeight for hendelser som er lavere enn innholdet.
+      eventMinHeight: 18,
+      eventShortHeight: 36,
       // Timegrid skal åpne på arbeidsdagen, ikke ved midnatt. Bare kalenderens
       // toppnivå-alternativ styrer initial scroll; visningskonfigurasjonen
       // arver det.
@@ -569,6 +628,9 @@ export default function FullCalendarView({
       // sier hvilken periodevisning som er aktiv, slik at skjermlesere ikke
       // annonserer en navnløs tabell. v7 har role=table på visningsroten.
       viewDidMount: function(info) {
+        if (info.view.type.startsWith("timeGrid")) {
+          markCalendarScroller(info.el);
+        }
         const viewLabels: Record<string, string> = {
           dayGridMonth: tRef.current("calendar.client.month"),
           dayGridWeek: tRef.current("calendar.client.week"),
@@ -701,6 +763,12 @@ export default function FullCalendarView({
         if (!info.isMirror) {
           info.el.dataset.testid = 'calendar-event';
           info.el.dataset.eventId = info.event.id;
+          if (
+            !info.event.allDay &&
+            isShortTimedEvent(info.event.start, info.event.end)
+          ) {
+            info.el.dataset.short = 'true';
+          }
         }
       },
       // v7 fjernet .fc-daygrid-day. data-date settes eksplisitt, slik at
@@ -1004,6 +1072,30 @@ export default function FullCalendarView({
             font-weight: 800;
             text-decoration: none !important;
           }
+          /* To-ukersvisningen viser en kompakt dato i hver dagcelle, i begge
+             ukeradene. FullCalendar sender den ekte datoen til
+             dayCellTopContent, også når kolonneoverskriften bare viser
+             ukedagen. */
+          .kalender-container .kal-biweekly-date {
+            font-size: 0.78rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.01em;
+            line-height: 1;
+            white-space: nowrap;
+          }
+          .kalender-container .kal-biweekly-week {
+            display: block;
+            color: var(--muted, #62685f);
+            font-size: 0.62rem;
+            font-weight: 800;
+            line-height: 1.1;
+            white-space: nowrap;
+          }
+          .kalender-container .kal-view-biweekly .kal-day-number {
+            max-width: calc(100% - 2px);
+            overflow: hidden;
+          }
           .kalender-container .kal-day-cell-today {
             background: var(--fc-classic-today) !important;
           }
@@ -1037,9 +1129,10 @@ export default function FullCalendarView({
           .kalender-container .kal-week-number {
             background: var(--paper, #f2efe6) !important;
             color: var(--muted, #62685f) !important;
-            font-size: 0.68rem;
+            font-size: 0.75rem;
             font-weight: 800;
             text-align: center;
+            white-space: nowrap;
           }
           .kalender-container .kal-day-events {
             margin: 0 2px 2px;
@@ -1188,6 +1281,40 @@ export default function FullCalendarView({
             line-height: 1.1;
             overflow-wrap: anywhere;
           }
+          /* Tidsstyrte hendelser under 30 minutter har ikke plass til hele
+             innholdsbunken. Adresse og statuslinje skjules; klokkeslett og
+             tittel beholdes, og kortet klippes fortsatt til sin egen rute. */
+          .kalender-container .kal-event[data-short="true"] {
+            padding: 1px 4px;
+          }
+          .kalender-container
+            .kal-event[data-short="true"]
+            .fc-event-address,
+          .kalender-container
+            .kal-event[data-short="true"]
+            .fc-event-status-line {
+            display: none;
+          }
+          .kalender-container
+            .kal-event[data-short="true"]
+            .fc-event-content {
+            gap: 0;
+          }
+          .kalender-container
+            .kal-event[data-short="true"]
+            .fc-event-time-line {
+            font-size: 0.75rem;
+            line-height: 1.1;
+          }
+          .kalender-container
+            .kal-event[data-short="true"]
+            .fc-event-title-line {
+            overflow: hidden;
+            font-size: 0.75rem;
+            line-height: 1.1;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
           .kalender-container .kal-more-link {
             color: var(--ink, #101310);
             font-size: 0.7rem;
@@ -1238,13 +1365,11 @@ export default function FullCalendarView({
             .kalender-container .fc-event-status-line {
               font-size: 0.62em;
             }
-            /* På mobil er cellene for smale for FullCalendars lange
-               dagnummer («26. oktober»). Datofeltet i kolonneoverskriften
-               viser datoen allerede. */
-            .kalender-container
-              .kal-view-biweekly
-              .kal-day-number {
-              display: none;
+            /* To-ukersvisningen viser bare dagnummer når cellen er smal.
+               Fortsatt synlig, slik at den andre ukeraden har dato. */
+            .kalender-container .kal-biweekly-date {
+              font-size: 0.75rem;
+              letter-spacing: 0;
             }
             .kalender-container .kal-view-week .kal-day-cell {
               min-height: 42vh !important;

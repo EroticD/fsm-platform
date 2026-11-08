@@ -294,7 +294,7 @@ export default function AvailabilityBoard({
                 {formatDateLocalized(date, locale, { day: "numeric" })}
               </span>
               {isToday && (
-                <span className="text-[10px] font-bold leading-tight">
+                <span className="text-2xs font-bold leading-tight">
                   {t("portal.bookingWizard.earliest")}
                 </span>
               )}
@@ -310,7 +310,7 @@ export default function AvailabilityBoard({
         {held && (
           <div
             role="status"
-            className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-xs font-bold text-[#24502f]"
+            className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#b9cdb4] bg-[var(--success-surface,#eef7d6)] px-3 py-2 text-xs font-bold text-[var(--success-text,#283509)]"
           >
             <span>
               {t("portal.bookingWizard.held", {
@@ -324,7 +324,7 @@ export default function AvailabilityBoard({
             <button
               type="button"
               onClick={() => void clearHeld()}
-              className="inline-flex min-h-11 items-center rounded-full border border-[#24502f] px-3 text-xs font-bold"
+              className="inline-flex min-h-11 items-center rounded-full border border-[var(--success-text,#283509)] px-3 text-xs font-bold"
             >
               {t("portal.bookingWizard.release")}
             </button>
@@ -335,7 +335,7 @@ export default function AvailabilityBoard({
             {t("portal.bookingWizard.loading")}
           </p>
         ) : error ? (
-          <p role="alert" className="mt-2 text-sm font-bold text-[#a92a12]">
+          <p role="alert" className="mt-2 text-sm font-bold text-[var(--risk-text,#b42318)]">
             {error}
           </p>
         ) : slotsByTechnician.length === 0 ? (
@@ -367,7 +367,7 @@ export default function AvailabilityBoard({
                         className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 text-sm font-bold tabular-nums transition ${
                           active
                             ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
-                            : "border-[#c7d98e] bg-[#f3fbd1] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)] hover:bg-[var(--signal,#d8ff3e)]"
+                            : "border-[#c7d98e] bg-[var(--success-surface,#eef7d6)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)] hover:bg-[var(--signal,#d8ff3e)]"
                         } disabled:cursor-wait`}
                       >
                         {slot.from}–{slot.to}

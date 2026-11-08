@@ -32,8 +32,9 @@ async function login(
   password: string,
 ): Promise<void> {
   await page.goto("/logg-inn");
-  await page.getByLabel("E-post", { exact: true }).fill(email);
-  await page.getByLabel("Passord", { exact: true }).fill(password);
+  // Påkrevde felt har en synlig stjerne i labelen; ikke bruk exact.
+  await page.getByLabel("E-post").fill(email);
+  await page.getByLabel("Passord").fill(password);
   await page.getByRole("button", { name: "Logg inn" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/logg-inn"), {
     timeout: 15_000,
