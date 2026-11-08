@@ -147,7 +147,7 @@ Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet t
 | **REV-02** · Fakturering og betaling | P2 | L | REV-01 | **Levert v1.** Faktura, MVA, delbetaling, kreditnota, forfalt-sveip, CSV og portalvisning. Residual: ingen PSP/kortbetaling eller regnskapsintegrasjon. | Faktura fra fullført oppdrag/rapport med linjer, MVA, kreditnota og betalingsstatus; betalingslenke og avstemming; regnskapseksport med idempotent synk; delvis betaling/avskrivning håndteres; tester dekker MVA, kreditnota og dobbeltsynk. |
 | **OPS-05** · Lager, deler og innkjøp | P2 | L | ARCH-01 | **Levert v1.** Lager/bil, beholdning, atomiske bevegelser, reservasjon/forbruk, kjøpsforslag. Residual: ingen innkjøpsordrer/leverandørfaktura. | Saldo per lager/bil; reservasjon mot oppdrag og visit; forbruk trekkes ved fullført arbeid; innkjøpsforslag ved minimumsnivå; sporbarhet på del/serie/lot der relevant; justeringer og tellinger revideres; tester dekker reservasjon, negativ saldo og samtidige uttak. |
 | **FLD-01** · Kjøring, utlegg og lønnseksport | P2 | M | Arbeidsdager/tid | **Levert v1.** Kjøretur, utlegg med kvittering, godkjenning og idempotent CSV-eksport. Residual: ingen direkte lønnssystemintegrasjon. | Kjøretur kan logges per dag/montør med start/stopp/avstand og formål; kvittering/utlegg festes til oppdrag med beløp, MVA og kategori; godkjenning/avvisning; lønnseksport i avtalt format med periode, timer, reise og utlegg; eksporten er idempotent og revideres; tester dekker avrunding, MVA og avviste utlegg. |
-| **BI-01** · Lønnsomhet og rapportbygger | P2 | M | Arbeidsdager/tid; REV-02 for faktisk omsetning | **Levert v1.** KPI-er, timer/reise, first-time-fix, estimert inntekt, per montør/kunde/oppdrag og CSV. Residual: faktisk omsetning og fri rapportbygger. | Inntekt per oppdrag/kunde/tekniker; first-time-fix; utnyttelse fra arbeidstid; kostnadsgrunnlag merkes tydelig når faktisk omsetning mangler; filter per periode/avdeling/kunde; eksport til CSV/PDF; tallene stemmer med underliggende poster i tester. |
+| **BI-01** · Lønnsomhet og rapportbygger | P2 | M | Arbeidsdager/tid; REV-02 for faktisk omsetning | **Levert v1 + faktisk omsetning.** KPI-er, timer/reise, first-time-fix, estimert og faktisk inntekt side om side, per montør/kunde/oppdrag og CSV. Faktisk omsetning bruker netto fakturerte beløp uten MVA når `invoicing` er på. Residual: kostnadsgrunnlag per oppdrag, fravær i tilgjengelighet og fri rapportbygger. | Inntekt per oppdrag/kunde/tekniker; first-time-fix; utnyttelse fra arbeidstid; kostnadsgrunnlag merkes tydelig når faktisk omsetning mangler; filter per periode/avdeling/kunde; eksport til CSV/PDF; tallene stemmer med underliggende poster i tester. |
 | **CUST-EXPORT-02** · Herding av kundeoverføring | P2 | L | CUST-EXPORT-01 v1 | **Levert v1.** Durable kø, progress, HMAC-signatur, AES-GCM-kryptering, 1.0→1.1, avstemming og retensjon. Residual: ZIP i minnet, HMAC ikke Ed25519, passfrase kun CLI/API. | Durabel asynkron worker med fremdrift, gjenopptakelse etter restart og idempotente steg; signerte og krypterte pakker med dokumentert nøkkelrotasjon; eksplisitte kryssversjon-migratorer med tester; avstemmingsjobb for endelige `/uploads`-filer; juridisk beslutning for signaturbilder/HMS dokumentert; test av krasj/restart, feil sjekksum, feil versjon og avvist signatur. |
 
 **Merknader til P2:**
@@ -161,7 +161,9 @@ Ingen åpne P1-oppgaver per 2026-11-07. DATA-01 og DOC-01 er levert og flyttet t
 - **OPS-05** flytter det gamle PLAT-08-innholdet inn i produktkøen. PLAT-08
   beholdes som referanse i P3-tabellen, men er ikke en egen åpen oppgave.
 - **FLD-01** bygger på levert tidsregistrering; ikke dupliser `Visit`-tid.
-- **BI-01** må merke estimert vs. faktisk omsetning til REV-02 er levert.
+- **BI-01** viser estimert og faktisk omsetning side om side når `invoicing`
+  er på. Faktisk omsetning er netto fakturert uten MVA, uten kladder og med
+  kreditnotaer trukket fra; se [`BI.md`](BI.md).
 - **CUST-EXPORT-02** er herding av v1, ikke en ny eksportfunksjon.
 
 ---
@@ -229,8 +231,8 @@ tillater det.
    `requireModule`/`requireModulePage`.
 2. **Plattformmuliggjører videre:** bruk modulkatalogen før nye produktmoduler
    bygges; ikke hardkod nye flater inn i navigasjon, actions eller workers.
-3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) etter at
-   omsetningsdata finnes.
+3. **Quote-to-cash:** REV-01 (L) → REV-02 (L). BI-01 (M) bruker
+   REV-02-dataene til faktisk omsetning.
 4. **Felt og logistikk:** FLD-01 (M), OPS-05 (L). CUST-EXPORT-02 (L) kan gå
    parallelt som egen data-/plattformstrøm.
 5. **Teknisk gjeld P2:** DATA-04, FLD-02, SEC-06. Disse er små nok til å tas

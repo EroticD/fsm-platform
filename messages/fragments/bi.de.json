@@ -6,7 +6,7 @@
   },
   "bi": {
     "title": "Wirtschaftlichkeit",
-    "subtitle": "Arbeitsaufträge, Zeit, First-Time-Fix und geschätzter Umsatz nach Abteilung, Kunde und Techniker.",
+    "subtitle": "Arbeitsaufträge, Zeit, First-Time-Fix und geschätzter/tatsächlicher Umsatz nach Abteilung, Kunde und Techniker.",
     "export": "CSV exportieren",
     "errors": {
       "invalid": "Die Filter sind ungültig. Prüfen Sie den Zeitraum und versuchen Sie es erneut.",
@@ -28,10 +28,14 @@
     },
     "estimate": {
       "title": "Umsatz und Ergebnis sind Schätzungen",
-      "description": "Tatsächlicher Umsatz ist erst verfügbar, wenn das Fakturierungsmodul (REV-02) installiert ist. Der Umsatz wird aus dem Stundensatz der Vertragspreisliste und der Arbeitszeit aus den Besuchen berechnet. Fahrzeit wird separat angezeigt und nicht in die Umsatzschätzung einbezogen.",
       "basis": "Grundlage: {basis}. {coverage} der Arbeitsaufträge haben einen Stundensatz.",
       "costMissing": "Das Ergebnis wird nicht berechnet, weil der interne Kostensatz fehlt.",
       "costConfigured": "Das Ergebnis wird mit einem internen Kostensatz von {rate} pro Stunde berechnet."
+    },
+    "actual": {
+      "availableTitle": "Geschätzter und tatsächlicher Umsatz",
+      "availableDescription": "Der tatsächliche Umsatz ist der netto fakturierte Betrag ohne MwSt. für {invoices} Rechnungen im Zeitraum. Rechnungsentwürfe sind ausgeschlossen, Gutschriften werden abgezogen, und der Zahlungsstatus beeinflusst die Umsatzrealisierung nicht. Die Schätzung aus dem Vertragsstundensatz wird daneben angezeigt.",
+      "unavailableDescription": "Der tatsächliche Umsatz ist nicht verfügbar, weil das Fakturierungsmodul ausgeschaltet ist oder es keine Nicht-Entwurfs-Rechnungen für die Arbeitsaufträge im Zeitraum gibt. Die Schätzung wird aus dem Vertragsstundensatz und der Arbeitszeit berechnet."
     },
     "basis": {
       "contract_price_list": "Stundensatz aus der Vertragspreisliste",
@@ -60,6 +64,9 @@
       "utilisationSub": "von {available} Std. verfügbarer Zeit",
       "revenue": "Geschätzter Umsatz",
       "revenueSub": "aus {orders} Arbeitsaufträgen mit Stundensatz",
+      "actualRevenue": "Tatsächlicher Umsatz",
+      "actualRevenueSub": "{invoices} Rechnungen · {orders} Arbeitsaufträge",
+      "actualRevenueUnavailable": "nicht verfügbar – keine Rechnungen im Umfang",
       "profit": "Geschätztes Ergebnis",
       "profitSub": "nach internem Kostensatz von {rate}/Std.",
       "profitMissing": "nicht berechnet – Kostensatz fehlt"
@@ -79,11 +86,11 @@
     },
     "tables": {
       "technicians": "Pro Techniker",
-      "techniciansDescription": "Arbeitsaufträge, Stunden, Auslastung und geschätzter Umsatz.",
+      "techniciansDescription": "Arbeitsaufträge, Stunden, Auslastung und geschätzter/tatsächlicher Umsatz.",
       "customers": "Pro Kunde",
-      "customersDescription": "Arbeitsaufträge, Stunden und geschätzter Umsatz pro Kunde.",
+      "customersDescription": "Arbeitsaufträge, Stunden und geschätzter/tatsächlicher Umsatz pro Kunde.",
       "orders": "Pro Arbeitsauftrag",
-      "ordersDescription": "{count} Arbeitsaufträge im Zeitraum mit Zeit, First-Time-Fix und geschätztem Umsatz."
+      "ordersDescription": "{count} Arbeitsaufträge im Zeitraum mit Zeit, First-Time-Fix und geschätztem/tatsächlichem Umsatz."
     },
     "table": {
       "technician": "Techniker",
@@ -97,6 +104,7 @@
       "utilisation": "Auslastung",
       "firstTimeFix": "First-Time-Fix",
       "estimatedRevenue": "Geschätzter Umsatz",
+      "actualRevenue": "Tatsächlicher Umsatz",
       "completedOf": "{completed} von {total} abgeschlossen",
       "status": "Status"
     },

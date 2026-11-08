@@ -5,8 +5,10 @@ import {
   computeCapacityMinutes,
   firstTimeFixOutcome,
   hourlyRateOreForItems,
+  netInvoiceRevenueOre,
   normalizeBiFilters,
   summarizeProfitability,
+  type BiInvoice,
   type BiOrder,
   type BiStaff,
   type BiSummary,
@@ -83,6 +85,35 @@ function summary(orders: BiOrder[], costRate: number | null = null): BiSummary {
     options,
     costRateOrePerHour: costRate,
   });
+}
+
+function summaryWithInvoices(
+  orders: BiOrder[],
+  invoices: BiInvoice[],
+  invoicingEnabled = true,
+): BiSummary {
+  return summarizeProfitability({
+    orders,
+    staff,
+    capacityPlans: [],
+    businessHours: [],
+    filters,
+    options,
+    invoices,
+    invoicingEnabled,
+  });
+}
+
+function invoice(overrides: Partial<BiInvoice> = {}): BiInvoice {
+  return {
+    id: "inv-1",
+    workOrderId: "wo-1",
+    issueDate: new Date("2026-11-02T00:00:00.000Z"),
+    subtotalOre: 100_000,
+    creditedNetOre: 0,
+    status: "SENT",
+    ...overrides,
+  };
 }
 
 describe("BI-filter", () => {
@@ -373,6 +404,110 @@ describe("lønnsomhetssammendrag", () => {
     expect(data.perTechnician).toEqual([]);
     expect(data.perCustomer).toEqual([]);
     expect(data.perOrder).toEqual([]);
+  });
+});
+
+describe("faktisk omsetning", () => {
+  it("regner netto uten MVA, trekker fra kreditnota og utelater kladd", () => {
+    expect(netInvoiceRevenueOre(invoice())).toBe(100_000);
+    expect(
+      netInvoiceRevenueOre(invoice({ status: "CREDITED", creditedNetOre: 100_000 })),
+    ).toBe(0);
+    expect(netInvoiceRevenueOre(invoice({ creditedNetOre: 25_000 }))).toBe(
+      75_000,
+    );
+    expect(netInvoiceRevenueOre(invoice({ status: "DRAFT" }))).toBeNull();
+    expect(
+      netInvoiceRevenueOre(invoice({ subtotalOre: 0, creditedNetOre: 10_000 })),
+    ).toBe(0);
+  });
+
+  it("summerer faktisk omsetning per oppdrag, kunde og montør", () => {
+    const data = summaryWithInvoices(
+      [order(), order({ id: "wo-2", reference: "O-2", customerId: "cust-2", customerName: "Annen Kunde" })],
+      [
+        invoice({ subtotalOre: 80_000 }),
+        invoice({ id: "inv-2", workOrderId: "wo-2", subtotalOre: 50_000 }),
+      ],
+    );
+
+    expect(data.revenue.actualAvailable).toBe(true);
+    expect(data.revenue.actualRevenueOre).toBe(130_000);
+    expect(data.revenue.actualInvoiceCount).toBe(2);
+    expect(data.revenue.actualOrderCount).toBe(2);
+    expect(data.perOrder.map((row) => row.actualRevenueOre)).toEqual([
+      80_000,
+      50_000,
+    ]);
+    expect(
+      data.perCustomer.find((row) => row.id === "cust-1")?.actualRevenueOre,
+    ).toBe(80_000);
+    expect(
+      data.perCustomer.find((row) => row.id === "cust-2")?.actualRevenueOre,
+    ).toBe(50_000);
+  });
+
+  it("fordeler delt oppdrag til laveste montør-id uten dobbelttelling", () => {
+    const shared = order({
+      technicians: [
+        { id: "tech-2", name: "Kari Montør" },
+        { id: "tech-1", name: "Ola Montør" },
+      ],
+    });
+    const data = summaryWithInvoices([shared], [invoice()]);
+
+    expect(data.revenue.actualRevenueOre).toBe(100_000);
+    expect(
+      data.perTechnician.find((row) => row.id === "tech-1")?.actualRevenueOre,
+    ).toBe(100_000);
+    expect(
+      data.perTechnician.find((row) => row.id === "tech-2")?.actualRevenueOre,
+    ).toBe(0);
+    expect(
+      data.perTechnician.reduce(
+        (sum, row) => sum + (row.actualRevenueOre ?? 0),
+        0,
+      ),
+    ).toBe(data.revenue.actualRevenueOre);
+  });
+
+  it("gir utilgjengelig faktisk omsetning når modulen er av eller utvalget er tomt", () => {
+    const empty = summaryWithInvoices([order()], []);
+    expect(empty.revenue.actualAvailable).toBe(false);
+    expect(empty.revenue.actualRevenueOre).toBeNull();
+    expect(empty.revenue.actualInvoiceCount).toBe(0);
+    expect(empty.perOrder[0].actualRevenueOre).toBeNull();
+
+    const disabled = summaryWithInvoices([order()], [invoice()], false);
+    expect(disabled.revenue.actualAvailable).toBe(false);
+    expect(disabled.revenue.actualRevenueOre).toBeNull();
+    expect(disabled.perOrder[0].actualRevenueOre).toBeNull();
+
+    const draftOnly = summaryWithInvoices(
+      [order()],
+      [invoice({ status: "DRAFT" })],
+    );
+    expect(draftOnly.revenue.actualAvailable).toBe(false);
+  });
+
+  it("ignorerer fakturaer som ikke hører til et oppdrag i utvalget", () => {
+    const data = summaryWithInvoices(
+      [order()],
+      [invoice({ workOrderId: "wo-outside" }), invoice({ workOrderId: null })],
+    );
+
+    expect(data.revenue.actualAvailable).toBe(false);
+    expect(data.revenue.actualRevenueOre).toBeNull();
+  });
+
+  it("skriver faktisk omsetning og tilgjengelighet i CSV", () => {
+    const data = summaryWithInvoices([order()], [invoice()]);
+    const csv = buildBiCsv(data);
+
+    expect(csv).toContain("Faktisk inntekt (NOK)");
+    expect(csv).toContain("Faktisk tilgjengelig");
+    expect(csv).toContain("1000.00");
+    expect(csv).toContain("ja");
   });
 });
 
