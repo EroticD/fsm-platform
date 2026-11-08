@@ -5,6 +5,26 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### API, testing og P2-titler
+- API v1 har fått tilbud, eksterne ordrer og lager: `/api/v1/quotes`,
+  `/api/v1/orders` og `/api/v1/inventory/**`, med egne scopes, idempotente
+  ordremottak, `Idempotency-Key`, OpenAPI og avdelings-/kundeisolasjon.
+  Eksterne ordresystemer kan sende ordrer med `source` + `externalId` og få
+  samme ordre tilbake ved replay. Se `docs/API.md`.
+- Ny modulbasert testflyt: `npm run test:changed` og
+  `npm run test:module -- <modul>` mapper endrede filer til berørte tester.
+  PR-er og `dev` kjører bare berørte tester; full dekning og integrasjon
+  kjøres fortsatt på `master` og release-tagger. Se `docs/TESTING.md`.
+- P2-titler er fullført i navigasjon og modulinnstillinger på nb/en/pl/de.
+  Stale «(P2)»/«ikke levert»-tekster er fjernet, og modulbeskrivelsene
+  beskriver levert funksjonalitet.
+- Ruting bruker nå OpenStreetMap/OSRM og valgfri Google Routes API for
+  trafikkbevisst ETA. TomTom/HERE er fjernet. Planlegging kan legge oppdrag
+  utenfor tidsvindu/arbeidstid som overtid i stedet for å la dem stå
+  ufordelte; overtiden vises per stopp og i rutesammendraget.
+- `docs/BACKLOG-REVIEW.md` oppsummerer 28 åpne gap med prioritering,
+  evidens og anbefalt neste arbeid.
+
 ### Betalinger, e-post, push og ruting
 - Faktura kan få betalingslenke via Stripe Checkout eller Vipps MobilePay.
   Webhooker signaturverifiseres, er idempotente og registrerer delbetalinger
