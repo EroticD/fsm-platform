@@ -5,6 +5,17 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Manuell rute og rekkefølge
+- Ruteplanleggeren har nummerfelt per stopp (1/2/3/4). Lagring normaliserer
+  rekkefølgen, lagrer `Visit.routeSequence` og flytter tidspunktene med samme
+  revisjonssporede tjenestelag som «Bruk rekkefølge».
+- Oppdragsdetaljen har tilsvarende rekkefølgenummer per arbeidsdag under
+  «Dager og tid». Nummeret lagres uten å flytte tid; ruteplanleggeren bruker
+  det ved neste visning.
+- Automatisk optimalisering brukes fortsatt når ingen manuell rekkefølge er
+  satt. Manuell rekkefølge respekterer overtid, tidsvinduer, overlapp og
+  fravær, og alle endringer revideres.
+
 ### API, testing og P2-titler
 - API v1 har fått tilbud, eksterne ordrer og lager: `/api/v1/quotes`,
   `/api/v1/orders` og `/api/v1/inventory/**`, med egne scopes, idempotente

@@ -44,6 +44,7 @@ vi.mock("./actions", () => ({
   setContact: vi.fn(),
   setReportLegalHold: vi.fn(),
   setReportLock: vi.fn(),
+  setRouteSequence: vi.fn(),
   setTags: vi.fn(),
   setTemplate: vi.fn(),
   setWorkOrderLegalHold: vi.fn(),

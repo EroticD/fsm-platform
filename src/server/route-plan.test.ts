@@ -70,6 +70,7 @@ function visitRow(overrides: {
   title?: string;
   status?: string;
   workOrderStatus?: string;
+  routeSequence?: number | null;
   requiredSkills?: Array<{ skillId: string; mandatory: boolean }>;
 }) {
   return {
@@ -79,6 +80,7 @@ function visitRow(overrides: {
     endsAt: new Date(overrides.endsAt),
     status: (overrides.status ?? "PLANNED") as VisitStatus,
     sequence: 0,
+    routeSequence: overrides.routeSequence ?? null,
     technicians: [{ userId: overrides.userId ?? "tech-1" }],
     workOrder: {
       id: `wo-${overrides.id}`,
@@ -196,6 +198,36 @@ describe("planTechnicianRoute", () => {
     );
     expect(result.finishAt).toEqual(new Date("2026-11-03T12:09:00.000Z"));
     expect(result).toEqual(await planTechnicianRoute(input));
+  });
+
+  it("respekterer manuell rute-rekkefølge og beholder den uten optimalisering", async () => {
+    const visits = [
+      visitRow({
+        id: "a",
+        startsAt: "2026-11-03T09:00:00.000Z",
+        endsAt: "2026-11-03T10:00:00.000Z",
+        routeSequence: 2,
+      }),
+      visitRow({
+        id: "b",
+        startsAt: "2026-11-03T09:00:00.000Z",
+        endsAt: "2026-11-03T10:00:00.000Z",
+        routeSequence: 1,
+      }),
+    ];
+    const routing = provider([
+      [0, 10, 50],
+      [10, 0, 5],
+      [50, 5, 0],
+    ]);
+    const result = await planTechnicianRoute({
+      technician,
+      visits,
+      routing,
+      startAt: new Date("2026-11-03T08:00:00.000Z"),
+    });
+    expect(result.stops.map((stop) => stop.visitId)).toEqual(["b", "a"]);
+    expect(result.stops.map((stop) => stop.manualSequence)).toEqual([1, 2]);
   });
 
   it("håndterer tom og én stopp uten matrisefeil", async () => {

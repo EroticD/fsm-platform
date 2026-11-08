@@ -113,6 +113,7 @@ const DETAIL_FEEDBACK_MESSAGE_KEYS: Record<string, string> = {
   klonet: "orders.feedback.cloned",
   oppdatert: "orders.feedback.workOrderUpdated",
   dato: "orders.feedback.workOrderUpdated",
+  rekkefolge: "orders.feedback.routeSequenceSaved",
 };
 
 const SLA_STATE_KEYS: Record<string, string> = {
@@ -455,6 +456,7 @@ export default async function AdminWorkOrderPage({
         select: {
           id: true,
           startsAt: true,
+          routeSequence: true,
           status: true,
           enRouteAt: true,
           onSiteAt: true,

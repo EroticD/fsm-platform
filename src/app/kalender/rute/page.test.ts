@@ -48,6 +48,7 @@ vi.mock("@/app/kalender/CalendarShell", () => ({
 vi.mock("./actions", () => ({
   applyRouteOrderAction: vi.fn(),
   optimizeRouteAction: vi.fn(),
+  saveManualOrderAction: vi.fn(),
 }));
 
 import RoutePage from "./page";
@@ -70,6 +71,7 @@ function stop(overrides: Record<string, unknown> = {}) {
     address: "Storgata 1, 6002 Ålesund",
     status: "PLANNED",
     sequence: 1,
+    manualSequence: null,
     plannedStartsAt: new Date("2026-11-03T09:00:00.000Z"),
     plannedEndsAt: new Date("2026-11-03T10:00:00.000Z"),
     arrivalAt: new Date("2026-11-03T08:50:00.000Z"),

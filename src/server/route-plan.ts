@@ -82,6 +82,8 @@ export type RoutePlanStop = {
   address: string;
   status: VisitStatus;
   sequence: number;
+  /** Manuell rekkefølge satt av kontoret, eller null når den ikke er satt. */
+  manualSequence: number | null;
   /** Planlagt start før optimalisering. */
   plannedStartsAt: Date;
   plannedEndsAt: Date;
@@ -187,6 +189,7 @@ const routeVisitSelect = {
   endsAt: true,
   status: true,
   sequence: true,
+  routeSequence: true,
   technicians: { select: { userId: true } },
   workOrder: {
     select: {
@@ -407,13 +410,22 @@ export async function planTechnicianRoute(input: {
   }
 
   const candidates = input.visits.filter((visit) => !absent.has(visit.id));
+  const hasManualOrder = candidates.some(
+    (visit) => visit.routeSequence !== null,
+  );
   const located = candidates
     .filter((visit) => pointFor(visit) !== null)
-    .sort(
-      (a, b) =>
+    .sort((a, b) => {
+      if (hasManualOrder) {
+        const left = a.routeSequence ?? Number.MAX_SAFE_INTEGER;
+        const right = b.routeSequence ?? Number.MAX_SAFE_INTEGER;
+        if (left !== right) return left - right;
+      }
+      return (
         a.startsAt.getTime() - b.startsAt.getTime() ||
-        a.id.localeCompare(b.id),
-    );
+        a.id.localeCompare(b.id)
+      );
+    });
   const missing = candidates
     .filter((visit) => pointFor(visit) === null)
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
@@ -492,6 +504,7 @@ export async function planTechnicianRoute(input: {
     technicianSkillIds: input.technicianSkillIds,
     allowOvertime: input.allowOvertime ?? true,
     maxOvertimeMinutes: input.maxOvertimeMinutes ?? 0,
+    fixedOrder: hasManualOrder,
   });
 
   const byId = new Map(planned.map((visit) => [visit.id, visit]));
@@ -509,6 +522,7 @@ export async function planTechnicianRoute(input: {
       address: addressFor(visit),
       status: visit.status,
       sequence: stops.length + 1,
+      manualSequence: visit.routeSequence ?? null,
       plannedStartsAt: visit.startsAt,
       plannedEndsAt: visit.endsAt,
       arrivalAt: stop.arrivalAt,

@@ -238,3 +238,25 @@ overtid og krever et eget trykk på «Bruk rekkefølge».
   `ROUTE_ALLOW_OVERTIME`.
 - **Overtid vises, men ingenting flyttes** er forventet: ruten er et forslag
   til kontoret godkjenner den med «Bruk rekkefølge».
+
+## Manuell rekkefølge
+
+Kontoret kan overstyre den automatiske ruten på to steder:
+
+- **Ruteplanleggeren** (`/kalender/rute`): hvert stopp har et nummerfelt.
+  Skriv 1, 2, 3 … og trykk «Manuell rekkefølge». Nummereringen normaliseres
+  til 1..n, lagres på `Visit.routeSequence`, og tidspunktene flyttes med samme
+  tjenestelag som «Bruk rekkefølge» (inkludert overtid, overlapp- og
+  fraværskontroll).
+- **Oppdragsdetaljen**: «Dager og tid» har et eget rekkefølgenummer per
+  arbeidsdag. Det lagres uten å flytte tidspunktene; ruteplanleggeren viser
+  den nye rekkefølgen neste gang og flytter tidene når kontoret bruker den.
+
+Tomt felt eller 0 betyr automatisk rekkefølge. Så lenge minst én visitt for
+montøren/dagen har et manuelt nummer, sorterer planleggeren etter nummeret og
+hopper over nærmeste-nabo/2-opt. Fjern nummereringen for å gå tilbake til
+automatisk optimalisering.
+
+Manuell rekkefølge revideres per visitt, og den endelige flyttingen krever
+fortsatt `workorders.assign`.
+

@@ -334,6 +334,8 @@ export function optimiseRoute(input: {
   allowOvertime?: boolean;
   /** 0 betyr ingen grense. Positiv verdi er tak for total overtid i ruten. */
   maxOvertimeMinutes?: number;
+  /** Behold inndata-rekkefølgen uten nærmeste-nabo/2-opt. */
+  fixedOrder?: boolean;
 }): OptimisedRoute {
   const workingStart = input.workingHours?.start ?? null;
   const workingEnd = input.workingHours?.end ?? null;
@@ -411,129 +413,143 @@ export function optimiseRoute(input: {
     scheduleOptions,
   );
 
-  const remaining = [...eligible];
-  const greedy: RouteWindow[] = [];
-  let cursor = input.startIndex;
-  let clock = baselineStart;
-  const priorityWeight = Math.min(
-    30,
-    Math.max(0, input.priorityWeightMinutes ?? DEFAULT_PRIORITY_WEIGHT_MINUTES),
-  );
+  let bestSchedule = baselineSchedule;
+  const greedyUnassigned: RouteUnassigned[] = [];
 
-  while (remaining.length > 0) {
-    let best: {
-      visit: RouteWindow;
-      index: number;
-      leg: TravelEstimate;
-      score: number;
-      feasible: boolean;
-      overtime: number;
-      arrival: Date;
-    } | null = null;
-
-    for (const visit of remaining) {
-      const target = indexById.get(visit.id);
-      if (target === undefined) continue;
-      const leg = input.matrix[cursor]?.[target];
-      if (!leg) continue;
-      const arrival = new Date(
-        clock.getTime() + leg.durationMinutes * 60_000,
-      );
-      const service = serviceFor(visit);
-      const startTime = new Date(
-        Math.max(arrival.getTime(), visit.startsAt.getTime(), clock.getTime()),
-      );
-      const endTime = new Date(startTime.getTime() + service * 60_000);
-      const latestStart = visit.endsAt.getTime() - service * 60_000;
-      const overtime = overtimeFor(startTime, endTime, workingEnd).minutes;
-      const feasible =
-        startTime.getTime() <= latestStart && overtime === 0;
-
-      const priority = priorityFor(visit);
-      const score = Math.max(
+  if (!input.fixedOrder) {
+    const remaining = [...eligible];
+    const greedy: RouteWindow[] = [];
+    let cursor = input.startIndex;
+    let clock = baselineStart;
+    const priorityWeight = Math.min(
+      30,
+      Math.max(
         0,
-        leg.durationMinutes - priority * priorityWeight,
-      );
+        input.priorityWeightMinutes ?? DEFAULT_PRIORITY_WEIGHT_MINUTES,
+      ),
+    );
 
-      const better =
-        !best ||
-        (feasible !== best.feasible
-          ? feasible
-          : !feasible && overtime !== best.overtime
-            ? overtime < best.overtime
-            : score < best.score ||
-              (score === best.score &&
-                leg.durationMinutes < best.leg.durationMinutes) ||
-              (score === best.score &&
-                leg.durationMinutes === best.leg.durationMinutes &&
-                priority > priorityFor(best.visit)) ||
-              (score === best.score &&
-                leg.durationMinutes === best.leg.durationMinutes &&
-                priority === priorityFor(best.visit) &&
-                visit.id.localeCompare(best.visit.id) < 0));
+    while (remaining.length > 0) {
+      let best: {
+        visit: RouteWindow;
+        index: number;
+        leg: TravelEstimate;
+        score: number;
+        feasible: boolean;
+        overtime: number;
+        arrival: Date;
+      } | null = null;
 
-      if (better) {
-        best = {
-          visit,
-          index: target,
-          leg,
-          score,
-          feasible,
-          overtime,
-          arrival,
-        };
+      for (const visit of remaining) {
+        const target = indexById.get(visit.id);
+        if (target === undefined) continue;
+        const leg = input.matrix[cursor]?.[target];
+        if (!leg) continue;
+        const arrival = new Date(
+          clock.getTime() + leg.durationMinutes * 60_000,
+        );
+        const service = serviceFor(visit);
+        const startTime = new Date(
+          Math.max(arrival.getTime(), visit.startsAt.getTime(), clock.getTime()),
+        );
+        const endTime = new Date(startTime.getTime() + service * 60_000);
+        const latestStart = visit.endsAt.getTime() - service * 60_000;
+        const overtime = overtimeFor(startTime, endTime, workingEnd).minutes;
+        const feasible =
+          startTime.getTime() <= latestStart && overtime === 0;
+
+        const priority = priorityFor(visit);
+        const score = Math.max(
+          0,
+          leg.durationMinutes - priority * priorityWeight,
+        );
+
+        const better =
+          !best ||
+          (feasible !== best.feasible
+            ? feasible
+            : !feasible && overtime !== best.overtime
+              ? overtime < best.overtime
+              : score < best.score ||
+                (score === best.score &&
+                  leg.durationMinutes < best.leg.durationMinutes) ||
+                (score === best.score &&
+                  leg.durationMinutes === best.leg.durationMinutes &&
+                  priority > priorityFor(best.visit)) ||
+                (score === best.score &&
+                  leg.durationMinutes === best.leg.durationMinutes &&
+                  priority === priorityFor(best.visit) &&
+                  visit.id.localeCompare(best.visit.id) < 0));
+
+        if (better) {
+          best = {
+            visit,
+            index: target,
+            leg,
+            score,
+            feasible,
+            overtime,
+            arrival,
+          };
+        }
       }
+
+      if (!best) break;
+      greedy.push(best.visit);
+      remaining.splice(remaining.indexOf(best.visit), 1);
+      const service = serviceFor(best.visit);
+      clock = new Date(
+        Math.max(best.arrival.getTime(), best.visit.startsAt.getTime()) +
+          service * 60_000,
+      );
+      cursor = best.index;
     }
 
-    if (!best) break;
-    greedy.push(best.visit);
-    remaining.splice(remaining.indexOf(best.visit), 1);
-    const service = serviceFor(best.visit);
-    clock = new Date(
-      Math.max(best.arrival.getTime(), best.visit.startsAt.getTime()) +
-        service * 60_000,
+    bestSchedule = schedule(
+      greedy,
+      input.matrix,
+      indexById,
+      scheduleOptions,
     );
-    cursor = best.index;
-  }
 
-  let bestSchedule = schedule(
-    greedy,
-    input.matrix,
-    indexById,
-    scheduleOptions,
-  );
+    // Visiter som nærmeste-nabo ikke tok med, mangler en matriserad og kan
+    // ikke lokaliseres. Alle andre årsaker rapporteres allerede av `schedule`.
+    greedyUnassigned.push(
+      ...remaining.map((visit) => ({
+        id: visit.id,
+        reason: "ineligible" as const,
+      })),
+    );
 
-  // Visiter som nærmeste-nabo ikke tok med, mangler en matriserad og kan ikke
-  // lokaliseres. Alle andre årsaker rapporteres allerede av `schedule`.
-  const greedyUnassigned: RouteUnassigned[] = remaining.map((visit) => ({
-    id: visit.id,
-    reason: "ineligible" as const,
-  }));
+    const maxIterations = input.maxIterations ?? 200;
+    let improved = true;
+    let iterations = 0;
 
-  const maxIterations = input.maxIterations ?? 200;
-  let improved = true;
-  let iterations = 0;
+    while (
+      improved &&
+      iterations < maxIterations &&
+      bestSchedule.order.length > 2
+    ) {
+      improved = false;
+      iterations += 1;
 
-  while (improved && iterations < maxIterations && bestSchedule.order.length > 2) {
-    improved = false;
-    iterations += 1;
-
-    for (let i = 0; i < bestSchedule.order.length - 1; i += 1) {
-      for (let j = i + 1; j < bestSchedule.order.length; j += 1) {
-        const candidate = [
-          ...bestSchedule.order.slice(0, i),
-          ...bestSchedule.order.slice(i, j + 1).reverse(),
-          ...bestSchedule.order.slice(j + 1),
-        ];
-        const next = schedule(
-          candidate,
-          input.matrix,
-          indexById,
-          scheduleOptions,
-        );
-        if (isBetterSchedule(next, bestSchedule)) {
-          bestSchedule = next;
-          improved = true;
+      for (let i = 0; i < bestSchedule.order.length - 1; i += 1) {
+        for (let j = i + 1; j < bestSchedule.order.length; j += 1) {
+          const candidate = [
+            ...bestSchedule.order.slice(0, i),
+            ...bestSchedule.order.slice(i, j + 1).reverse(),
+            ...bestSchedule.order.slice(j + 1),
+          ];
+          const next = schedule(
+            candidate,
+            input.matrix,
+            indexById,
+            scheduleOptions,
+          );
+          if (isBetterSchedule(next, bestSchedule)) {
+            bestSchedule = next;
+            improved = true;
+          }
         }
       }
     }

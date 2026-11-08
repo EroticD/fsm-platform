@@ -19,7 +19,11 @@ import {
   type RouteSkippedReason,
 } from "@/server/route-plan";
 import { VISIT_STATUS_LABEL_KEYS } from "@/lib/visit-status";
-import { applyRouteOrderAction, optimizeRouteAction } from "./actions";
+import {
+  applyRouteOrderAction,
+  optimizeRouteAction,
+  saveManualOrderAction,
+} from "./actions";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -69,6 +73,7 @@ export default async function RoutePage({
     dato?: string | string[];
     tekniker?: string | string[];
     anvendt?: string | string[];
+    manuelt?: string | string[];
     feil?: string | string[];
     optimaliser?: string | string[];
   }>;
@@ -84,6 +89,7 @@ export default async function RoutePage({
   const date = firstParam(params.dato) || todayInOslo();
   const technicianId = (firstParam(params.tekniker) ?? "").trim();
   const applied = firstParam(params.anvendt);
+  const manualSaved = firstParam(params.manuelt);
   const error = firstParam(params.feil);
   const showOptimisation = firstParam(params.optimaliser) !== undefined;
 
@@ -194,6 +200,15 @@ export default async function RoutePage({
           className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4 text-sm font-bold text-[var(--ink,#101310)]"
         >
           {t("calendar.route.applied", { count: Number(applied) || 0 })}
+        </div>
+      )}
+
+      {manualSaved === "1" && (
+        <div
+          role="status"
+          className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-4 text-sm font-bold text-[#283509]"
+        >
+          {t("calendar.route.manualOrderSaved")}
         </div>
       )}
 
@@ -524,6 +539,50 @@ export default async function RoutePage({
                     </tbody>
                   </table>
                 </div>
+
+                <form action={saveManualOrderAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                  <input type="hidden" name="dato" value={date} />
+                  <input type="hidden" name="tekniker" value={technicianPlan.technicianId} />
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                      {t("calendar.route.manualOrder")}
+                    </h3>
+                    <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted,#62685f)]">
+                      {t("calendar.route.manualOrderHint")}
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {technicianPlan.stops.map((stop) => (
+                      <label
+                        key={stop.visitId}
+                        className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-2 text-xs"
+                      >
+                        <span className="w-6 shrink-0 text-center font-black tabular-nums text-[var(--muted,#62685f)]">
+                          {stop.sequence}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-bold text-[var(--ink,#101310)]">
+                          {stop.workOrderTitle}
+                        </span>
+                        <input
+                          type="number"
+                          name={`sequence-${stop.visitId}`}
+                          min={1}
+                          max={9999}
+                          defaultValue={stop.manualSequence ?? stop.sequence}
+                          aria-label={`${t("calendar.route.manualOrderSequence")}: ${stop.workOrderTitle}`}
+                          className="h-9 w-16 shrink-0 rounded-md border border-[var(--line,#dedcd1)] bg-white px-1.5 text-center text-sm font-bold tabular-nums text-[var(--ink,#101310)]"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+                  >
+                    <Icon name="check" className="h-4 w-4" />
+                    {t("calendar.route.manualOrder")}
+                  </button>
+                </form>
 
                 <form action={applyRouteOrderAction} className="flex flex-wrap items-center gap-3 border-t border-[var(--line,#dedcd1)] pt-3">
                   <input type="hidden" name="dato" value={date} />

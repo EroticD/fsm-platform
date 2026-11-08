@@ -1085,6 +1085,8 @@ model Visit {
   workOrderId String
   workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   sequence    Int         @default(0)
+  /// Manuell rekkefølge i montørens rute for dagen. Null betyr automatisk.
+  routeSequence Int?
   startsAt    DateTime    @db.Timestamptz(3)
   endsAt      DateTime    @db.Timestamptz(3)
   allDay      Boolean     @default(false)
