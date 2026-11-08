@@ -1,12 +1,12 @@
 # Introduksjon og systemoversikt
 
-*Gjelder FSM-plattformen versjon 0.8.9, 4. november 2026.*
+*Gjelder FSM-plattformen versjon 0.8.11, 8. november 2026.*
 
 ## Hva FSM-plattformen er
 
 FSM-plattformen er et service- og vedlikeholdssystem for arbeid hos kunden: service, vedlikehold, inspeksjon og reparasjon. Systemet samler planlegging, oppdrag, besøk, sjekklister, rapporter, utstyr, serviceavtaler, dokumenter og kundeportal i én tjeneste.
 
-Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne jobbe fra telefon eller nettbrett også med dårlig nett, og kunden skal se avtaler, besøk, rapporter og utstyr uten å ringe. Systemet dokumenterer og planlegger arbeid; det fører ikke timer, beregner ikke priser og sender ikke faktura. Prislister og avtalebeløp er referansedata.
+Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne jobbe fra telefon eller nettbrett også med dårlig nett, og kunden skal se avtaler, besøk, rapporter og utstyr uten å ringe. Kjernen dokumenterer og planlegger arbeid og registrerer tid og reisetid per arbeidsdag. Tilbud, fakturering, betaling, regnskapssynk, lager, utlegg og lønnsomhet er valgfrie moduler som må slås på av administrator. Uten modulene er prislister og avtalebeløp referansedata, og fakturering skjer utenfor plattformen.
 
 ### De fire rollene
 
@@ -19,39 +19,50 @@ Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne j
 
 > **Merk:** «Kontor» er en rolle, ikke en fysisk plass. Administrator kan lage egne roller og gi enkeltbrukere tilpassede rettigheter.
 
-## Hva er nytt i 0.8.9
+## Hva er nytt i 0.8.11
 
-- **Toveis SMS, kontorinnboks og påminnelser.** Innkommende SMS havner i samme
-  samtale som de utgående, med leveringsstatus og STOP/START-samtykke. Kontoret
-  leser og svarer under **Meldinger**, og administrator kan sette opp
-  automatiske SMS-/e-postpåminnelser med stille timer og maksgrense per besøk.
-  Se [kontorkapitlet](10-kontor.md) og
-  [administratorkapitlet](30-administrator.md).
-- **SSO og SCIM.** Innlogging med OIDC mot Microsoft Entra ID, Keycloak,
-  Authentik eller Zitadel, og SCIM 2.0 for automatisk brukerprovisjonering.
-  Passordinnlogging beholdes som nødvei. Se [SSO og SCIM](31-sso-scim.md).
-- **Feltapp med kamera og QR.** Skanneren virker på iOS og Android over HTTPS,
-  bruker nettleserens strekkode-API når det finnes og en reserve ellers.
-  Manuell kode, navigasjon og eksisterende QR-etiketter fra andre systemer er
-  også støttet. Se [teknikerkapitlet](20-tekniker.md).
-- **PDF i appen eller som nedlasting.** Rapporter og revisjoner kan vises trygt i
-  appens PDF-vindu etter sanitering. Direkte lenker og **Last ned PDF** gir
-  fortsatt en fil. Se [rapporter](10-kontor.md).
-- **Kundeoverføring.** Administrator kan eksportere og importere kundepakker
-  som ZIP, med forhåndsvisning, sjekksummer og import i én transaksjon. Se
-  [kundeoverføring](10-kontor.md).
-- **Ruteplanlegging og sanntids ETA.** Ruteplanleggeren foreslår kjøreorden,
-  kjøretid, avstand og ventetid, med valgfri OSRM og lokal beregning som
-  reserve. Sporingssiden viser hvor fersk posisjonen er. Se
-  [ruteplan](10-kontor.md) og
-  [sporing](30-administrator.md).
-- **Kundeadskillelse og enhetsflytting.** Steds- og enhetsvelgere henter bare
-  data for valgt kunde. En enhet kan flyttes til en annen kunde med
-  servicehistorikk, etter forhåndsvisning og kontroll av kontrakter. Se
-  [utstyr](10-kontor.md).
-- **Opplastingsgrenser og kvoter.** 15 MB per bilde, 50 MB per PDF, 2 GiB per
-  bruker per døgn og 10 GiB per kunde. Grensene kan justeres i miljøet. Se
-  [opplasting og OCR](30-administrator.md).
+- **Tilbud, faktura og betalingslenker.** Tilbud har versjoner, utskrift og
+  engangs godkjenningslenke. Fakturaer har delbetaling, kreditnota, forfall og
+  CSV. Kunden kan betale med Stripe Checkout eller Vipps MobilePay der
+  leverandøren er konfigurert. Se [tilbud og fakturering](40-tilbud-faktura.md).
+- **Regnskapssynk.** Sendte fakturaer kan synkroniseres manuelt til Fiken,
+  Tripletex eller PowerOffice Go, med CSV som eksplisitt eksportfallback.
+  Synken er idempotent og revisjonssporet. Se
+  [regnskap](40-tilbud-faktura.md).
+- **Lager, leverandører og innkjøp.** Vareliste, lokasjoner, beholdning,
+  reservasjoner, forbruk, leverandørregister, innkjøpsordrer og varemottak.
+  Se [lager](10-kontor.md).
+- **Kjøreturer, utlegg og lønnsgrunnlag.** Montøren registrerer kjøretur og
+  utlegg med kvittering; kontoret godkjenner og eksporterer en låst lønns-CSV
+  per periode. Se [utlegg](10-kontor.md).
+- **Lønnsomhet.** Estimert og faktisk omsetning, tid, first-time-fix og
+  utnyttelse per avdeling, kunde og montør, med CSV-eksport. Se
+  [lønnsomhet](10-kontor.md).
+- **Automatisk e-post og push.** Transaksjons-e-post går gjennom en vedvarende
+  utboks med retry, av/på per hendelse og testutsending. Pushvarsler går via FCM
+  og APNs med dype lenker og enhetsregistrering. Se
+  [administrator](30-administrator.md) og [tekniker](20-tekniker.md).
+- **Ruting med trafikk og overtid.** Ruting bruker OpenStreetMap/OSRM, med
+  valgfri Google Routes API for trafikkbevisst ETA. Visiter som ikke rekker
+  tidsvinduet, planlegges som overtid i stedet for å bli ufordelte. Se
+  [ruteplan](10-kontor.md).
+- **Manuell rekkefølge.** Både ruteplanleggeren og **Dager og tid** på oppdraget
+  har nummerfelt 1/2/3/4. Manuell rekkefølge overstyrer den automatiske
+  optimaliseringen og revideres per visitt.
+- **SAML 2.0, SCIM-grupper og feltnivå-RBAC.** SAML kan brukes sammen med eller
+  i stedet for OIDC. SCIM Groups gir rolle og avdeling gjennom eksplisitt
+  mapping. Sensitive felt maskeres på serveren for montører og kundeportalen.
+  Se [SSO og SCIM](31-sso-scim.md).
+- **API for tilbud, eksterne ordrer og lager.** `/api/v1/quotes`,
+  `/api/v1/orders` og `/api/v1/inventory/**` har egne scopes. Eksterne
+  ordresystemer bruker `source` + `externalId` og `Idempotency-Key`, og får
+  samme ordre tilbake ved replay. Se [administrator](30-administrator.md).
+- **S3, Redis og HA/PITR.** Opplastinger kan ligge i S3/MinIO, jobbkø og rate
+  limits kan bruke Redis, og HA-profilen har flere app-replikaer, WAL-arkivering
+  og testet PITR-gjenoppretting. Se [administrator](30-administrator.md).
+- **Etterlevelse.** ISO/IEC 27001 og SOC 2-pakken er et
+  **readiness-grunnlag**, ikke en sertifisering eller revisjonsrapport. Se
+  [administrator](30-administrator.md).
 
 ## Slik er systemet bygget opp
 
@@ -70,6 +81,27 @@ Bak flatene ligger en felles applikasjon som håndhever arbeidsflyt og tilgang. 
 | **Brukerflater** | Kundeportal, kontorflate, feltflate og REST-API-klienter i nettleser eller installert PWA. |
 | **Applikasjon** | Tilgangskontroll, arbeidsflyt, varsler, søk og PDF-rendering. |
 | **Data og jobber** | PostgreSQL med data, revisjon og aktivitetslogg; filvolum for PDF-er og bilder; jobbkø for OCR, dokumentjobber og varsler; e-post/SMS der det er satt opp. |
+
+### Moduler
+
+Plattformen har en kjerne og en katalog med moduler som kan slås av og på under
+**Innstillinger → Moduler**. Kjernen (kunder, oppdrag, arbeidsdager, tid,
+revisjon og innstillinger) virker uten valgfrie moduler. En modul kan ha
+avhengigheter, og modulvakten gir `404` på sider og API-er når modulen er av.
+
+| Modul | Nøkkel | Gir |
+| --- | --- | --- |
+| **Tilbud** | `quotes` | Tilbud, versjoner, godkjenningslenke og konvertering til oppdrag |
+| **Fakturering** | `invoicing` | Faktura, betaling, kreditnota, forfall og CSV |
+| **Lager** | `inventory` | Varer, lokasjoner, beholdning, reservasjoner og innkjøp |
+| **Utlegg** | `fieldExpenses` | Kjøreturer, utlegg og lønns-CSV |
+| **Lønnsomhet** | `bi` | Estimert og faktisk omsetning, tid og CSV |
+| **Kundeportal** | `portal` | Kundens egen flate |
+| **API** | `api` | REST-API-et under `/api/v1` |
+
+Eksisterende installasjoner får alle leverte moduler på. Slår du av en modul,
+forsvinner navigasjon, innstillinger, søketreff og bakgrunnsjobber for området,
+men dataene beholdes. Slå modulen på igjen for å få tilgangen tilbake.
 
 Feltflaten har et lokalt mellomlager i nettleseren:
 
@@ -95,6 +127,11 @@ En kladd kan lagres lokalt, men en innsendt rapport regnes ikke som sendt før s
 | **Rapport, enhet og svar** | Utfylt sjekkliste med enheter, bilder og signaturer | Oppdrag, mal, utstyr, PDF, revisjoner, kvittering |
 | **Serviceavtale og SLA** | Avtale om gjentagende service og frister | Kunde, avdeling, mal, SLA-policy, oppdrag |
 | **Bestilling** | Kundens forespørsel eller bekreftede time | Kunde, sted, utstyr, oppdrag, visitt, hendelser |
+| **Tilbud** | Prisforslag med linjer, versjoner og godkjenning | Kunde, kontakt, oppdrag, avtale, utstyr |
+| **Faktura og betaling** | Fakturert beløp, betalinger og kreditnota | Kunde, oppdrag, rapport, tilbud |
+| **Vare og beholdning** | Reservedel med beholdning per lokasjon | Lokasjon, reservasjon, oppdrag |
+| **Innkjopsordre** | Bestilling til leverandør med varemottak | Leverandør, mottakslokasjon, varelinjer |
+| **Kjøretur og utlegg** | Kjøregodtgjørelse eller utgift med kvittering | Bruker, oppdrag, godkjenner, lønns-CSV |
 | **Dokument** | Fil i biblioteket eller vedlegg | Mappe, tags, versjoner, oppdrag, kunde, avtale |
 | **Varsel** | Melding til en bruker om en hendelse | Bruker, type, kilde, lenke, e-poststatus |
 | **Aktivitetslogg** | Sporbar historikk over handlinger | Entitet, aktør, tidspunkt, metadata |
@@ -141,7 +178,7 @@ Rollekapitlene beskriver hvert skritt i detalj. Her ser du hvordan rollene og da
 1. **Administrator** slår på live-sporing for avdelingen. Det er av som standard og gjelder bare visiter i den avdelingen.
 2. **Montøren** setter visitten til «På vei» og kan dele posisjon. Kunden åpner sporingslenken fra «Besøk» eller får den tilsendt.
 3. **Kundeportalbrukeren** ser fornavn, status og estimert ankomst. Posisjonen vises aldri som kart eller koordinater, og lenken utløper når visitten er ferdig eller etter to timer.
-4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.8.9.
+4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.8.11.
 
 ### 5. Rettigheter, varsler og aktivitetslogg gjennom alle flytene
 
@@ -157,8 +194,8 @@ Menyen er tilpasset rolle og rettigheter, så du ser ikke nødvendigvis alle val
 
 | Rolle | Hjem | Hovedmeny | Hamburger og innstillinger |
 | --- | --- | --- | --- |
-| **Administrator** | «Dashbord» | Dashbord, Oppdrag, Kalender, Kunder, Meldinger, Rapporter | Bookinger, Avtaler, Enheter, Søk, HMS, Dokumenter, Kart, Nytt oppdrag, Varsler, Innstillinger |
-| **Kontor** | «Dashbord» | Dashbord, Oppdrag, Kalender, Kunder, Meldinger, Rapporter | Bookinger, Avtaler, Enheter, Søk, HMS, Dokumenter, Kart, Nytt oppdrag, Varsler, Innstillinger |
+| **Administrator** | «Dashbord» | Dashbord, Oppdrag, Kalender, Kunder, Meldinger, Rapporter | Bookinger, Avtaler, Enheter, Søk, HMS, Dokumenter, Kart, Nytt oppdrag, Varsler, Tilbud, Faktura, Lager, Utlegg, Lønnsomhet, Innstillinger |
+| **Kontor** | «Dashbord» | Dashbord, Oppdrag, Kalender, Kunder, Meldinger, Rapporter | Bookinger, Avtaler, Enheter, Søk, HMS, Dokumenter, Kart, Nytt oppdrag, Varsler, Tilbud, Faktura, Lager, Utlegg, Lønnsomhet, Innstillinger |
 | **Montør** | «I dag» | I dag, Oppdrag, Kalender, Kunder, Meldinger | Rapporter, Bookinger, Avtaler, Enheter, Søk, HMS, Dokumenter, Kart, Nytt oppdrag, Varsler, Kunder & utstyr, Innstillinger |
 | **Kundeportalbruker** | «Kundeportal» | Oversikt, Bestillinger, Rapporter, Dokumenter, Utstyr, Avtaler, Besøk, Meldinger, Kontakt | Konto & sikkerhet |
 
@@ -182,13 +219,20 @@ På mobil viser bunnlinjen «Dashbord», «Oppdrag» og «Kalender» for kontor 
 | Aktivitetslogg | Oppdraget → «Aktivitetslogg», eller «Innstillinger» → «Aktivitetslogg» (administrator) |
 | Ansatte, roller og rettigheter | «Innstillinger» → «Ansatte & Roller» eller «Roller & rettigheter» |
 | API-nøkler | «Innstillinger» → «API-nøkler» (administrator) |
+| Tilbud og godkjenningslenker | «Tilbud» |
+| Fakturaer, betalinger og kreditnotaer | «Faktura» |
+| Reservedeler, beholdning og innkjøp | «Lager» |
+| Kjøreturer og utlegg til godkjenning | «Utlegg» → «Kontor» |
+| Omsetning, tid og lønnsomhet | «Lønnsomhet» |
+| Automatisk e-post og push | «Innstillinger» → «Automatisk e-post» / «Pushvarsler» |
 | Alt på tvers av kunder og oppdrag | «Søk» |
 
 ## Slik bruker du manualen
 
-Manualen har en introduksjonsdel, tre rollekapitler og en oppslagsdel. Start med rollen din, og bruk oppslagsdelen når du trenger et begrep, en status eller en feilsøkingssjekk.
+Manualen har en introduksjonsdel, tre rollekapitler, et kapittel om SSO og SCIM, et kapittel om tilbud, fakturering og regnskap og en oppslagsdel. Start med rollen din, og bruk oppslagsdelen når du trenger et begrep, en status eller en feilsøkingssjekk.
 
 - **Rollekapitler:** del 1 for kontor, del 2 for montør og del 3 for administrator. Kundeportalen er beskrevet sammen med kundekortet og rollene som administrerer den.
+- **Fagkapitler:** [SSO og SCIM](31-sso-scim.md) og [tilbud, fakturering og regnskap](40-tilbud-faktura.md) går på tvers av rollene.
 - **Oppslag:** oppslagsdelen har statusordbok, rettighetsmatrise, begreper og feilsøking.
 
 ### Konvensjoner
@@ -198,7 +242,7 @@ Manualen har en introduksjonsdel, tre rollekapitler og en oppslagsdel. Start med
 - Menyvalg vises som **Innstillinger → API-nøkler**.
 - **Merk** forklarer noe som er lett å misforstå. **Tips** er en snarvei eller et godt råd. **Advarsel** betyr at handlingen kan føre til datatap eller feil.
 - Datoer og klokkeslett vises i Europe/Oslo med 24-timers klokke. Mangler en tid eller dato, viser systemet «Tid ikke satt» eller «Ingen dato»; det betyr ikke at verdien er midnatt.
-- Rapport-PDF-er har norske etiketter i 0.8.9, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
+- Rapport-PDF-er har norske etiketter i 0.8.11, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
 
 > **Advarsel:** En innsendt og låst rapport skal ikke endres uten en god grunn. Opplåsing krever administrator og begrunnelse, og alle endringer havner i aktivitetsloggen.
 

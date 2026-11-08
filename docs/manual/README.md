@@ -7,6 +7,8 @@ enkelte kapitler kan oppdateres uten å redigere hele dokumentet.
 - `10-*` – kontor
 - `20-*` – tekniker
 - `30-*` – administrator
+- `31-*` – SSO og SCIM
+- `40-*` – tilbud, fakturering og regnskap
 - `90-*` – oppslag, begreper og feilsøking
 
 Bygg PDF-ene med:
