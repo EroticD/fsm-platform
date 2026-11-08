@@ -132,6 +132,7 @@ function BreakdownTable({
     totalMinutes: number;
     firstTimeFixRate: number | null;
     estimatedRevenueOre: number;
+    actualRevenueOre: number | null;
     utilizationPercent?: number | null;
     availableMinutes?: number;
   }>;
@@ -186,6 +187,9 @@ function BreakdownTable({
                 </th>
                 <th scope="col" className="py-2 pl-2 text-right font-bold">
                   {t("bi.table.estimatedRevenue")}
+                </th>
+                <th scope="col" className="py-2 pl-2 text-right font-bold">
+                  {t("bi.table.actualRevenue")}
                 </th>
               </tr>
             </thead>
@@ -245,6 +249,9 @@ function BreakdownTable({
                   </td>
                   <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
                     {money(row.estimatedRevenueOre, locale)}
+                  </td>
+                  <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
+                    {money(row.actualRevenueOre, locale)}
                   </td>
                 </tr>
               ))}
@@ -354,6 +361,16 @@ export default async function ProfitabilityPage({
       sub: t("bi.kpis.revenueSub", {
         orders: data.revenue.estimatedRevenueOrders,
       }),
+    },
+    {
+      label: t("bi.kpis.actualRevenue"),
+      value: money(data.revenue.actualRevenueOre, locale),
+      sub: data.revenue.actualAvailable
+        ? t("bi.kpis.actualRevenueSub", {
+            invoices: data.revenue.actualInvoiceCount,
+            orders: data.revenue.actualOrderCount,
+          })
+        : t("bi.kpis.actualRevenueUnavailable"),
     },
     {
       label: t("bi.kpis.profit"),
@@ -487,10 +504,16 @@ export default async function ProfitabilityPage({
             <Icon name="alert" className="mt-0.5 h-5 w-5 shrink-0" />
             <div className="min-w-0">
               <h2 id="bi-estimate-title" className="font-extrabold">
-                {t("bi.estimate.title")}
+                {data.revenue.actualAvailable
+                  ? t("bi.actual.availableTitle")
+                  : t("bi.estimate.title")}
               </h2>
               <p className="mt-0.5 leading-6">
-                {t("bi.estimate.description")}
+                {data.revenue.actualAvailable
+                  ? t("bi.actual.availableDescription", {
+                      invoices: data.revenue.actualInvoiceCount,
+                    })
+                  : t("bi.actual.unavailableDescription")}
               </p>
               <p className="mt-1 text-xs font-semibold">
                 {t("bi.estimate.basis", {
@@ -522,7 +545,7 @@ export default async function ProfitabilityPage({
                 className={`absolute inset-x-0 top-0 h-1 ${
                   index === 0
                     ? "bg-[var(--signal,#d8ff3e)]"
-                    : index === 6
+                    : index === 7
                       ? "bg-[var(--risk,#f04427)]"
                       : "bg-[var(--ink,#101310)]"
                 }`}
@@ -632,6 +655,7 @@ export default async function ProfitabilityPage({
                   totalMinutes: row.totalMinutes,
                   firstTimeFixRate: row.firstTimeFixRate,
                   estimatedRevenueOre: row.estimatedRevenueOre,
+                  actualRevenueOre: row.actualRevenueOre,
                   utilizationPercent: row.utilizationPercent,
                   availableMinutes: row.availableMinutes,
                 }))}
@@ -652,6 +676,7 @@ export default async function ProfitabilityPage({
                   totalMinutes: row.totalMinutes,
                   firstTimeFixRate: row.firstTimeFixRate,
                   estimatedRevenueOre: row.estimatedRevenueOre,
+                  actualRevenueOre: row.actualRevenueOre,
                 }))}
                 kind="customer"
                 locale={locale}
@@ -698,6 +723,9 @@ export default async function ProfitabilityPage({
                       <th scope="col" className="py-2 pl-2 text-right font-bold">
                         {t("bi.table.estimatedRevenue")}
                       </th>
+                      <th scope="col" className="py-2 pl-2 text-right font-bold">
+                        {t("bi.table.actualRevenue")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -735,6 +763,9 @@ export default async function ProfitabilityPage({
                         </td>
                         <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
                           {money(order.estimatedRevenueOre, locale)}
+                        </td>
+                        <td className="py-2.5 pl-2 text-right font-bold tabular-nums text-[var(--ink,#101310)]">
+                          {money(order.actualRevenueOre, locale)}
                         </td>
                       </tr>
                     ))}

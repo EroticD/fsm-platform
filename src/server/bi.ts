@@ -12,6 +12,7 @@ import {
   toDateOnly,
 } from "@/lib/dates";
 import {
+  BI_MAX_INVOICES,
   BI_MAX_ORDERS,
   biCsvFileName,
   buildBiCsv,
@@ -19,10 +20,13 @@ import {
   summarizeProfitability,
   type BiFilterInput,
   type BiFilters,
+  type BiInvoice,
+  type BiInvoiceStatus,
   type BiOptions,
   type BiStaff,
   type BiSummary,
 } from "@/lib/bi";
+import { moduleEnabled } from "./modules";
 import {
   can,
   fail,
@@ -34,12 +38,16 @@ import {
 } from "./actor";
 
 /**
- * Tjenestelaget for lønnsomhet (BI-01 v1).
+ * Tjenestelaget for lønnsomhet (BI-01).
  *
  * Bare kontor og administrator får se tallene. Avdelingsomfanget håndheves i
  * selve spørringen – en filterverdi fra URL-en kan aldri utvide omfanget. All
  * summering ligger i `src/lib/bi.ts`, slik at skjerm, CSV og tester bruker
  * nøyaktig samme grunnlag.
+ *
+ * Faktisk omsetning hentes bare når `invoicing`-modulen er på. Fakturaene
+ * begrenses til oppdragene i rapporten, samme avdeling og utstedelsesdato i
+ * perioden. Kreditnotaer summeres gruppevis per faktura for å unngå N+1.
  */
 
 const CUSTOMER_OPTION_LIMIT = 300;
@@ -56,6 +64,12 @@ function decimalValue(value: unknown): number | string {
     return String(value);
   }
   return "0";
+}
+
+/** Regner et Decimal-beløp i kroner om til hele øre uten flyttallsdrift. */
+function oreFromMoney(value: unknown): number {
+  const nok = Number(decimalValue(value));
+  return Number.isFinite(nok) ? Math.round(nok * 100) : 0;
 }
 
 /**
@@ -179,8 +193,14 @@ export async function getProfitability(
     ],
   };
 
-  const [orders, staffRows, capacityPlans, businessHours, customers] =
-    await Promise.all([
+  const [
+    orders,
+    staffRows,
+    capacityPlans,
+    businessHours,
+    customers,
+    invoicingEnabled,
+  ] = await Promise.all([
       prisma.workOrder.findMany({
         where: workOrderWhere,
         orderBy: [{ scheduledFor: "asc" }, { reference: "asc" }],
@@ -290,9 +310,63 @@ export async function getProfitability(
         take: CUSTOMER_OPTION_LIMIT,
         select: { id: true, name: true },
       }),
+      moduleEnabled("invoicing"),
     ]);
 
   if (orders.length > BI_MAX_ORDERS) return fail("too_large");
+
+  // Faktisk omsetning hentes bare når modulen er på. Fakturaene må være knyttet
+  // til et oppdrag i rapportens sett, ligge i samme avdeling og være utstedt i
+  // perioden. Kladder utelates allerede i spørringen.
+  const orderIds = orders.map((order) => order.id);
+  const invoiceRows =
+    invoicingEnabled && orderIds.length > 0
+      ? await prisma.invoice.findMany({
+          where: {
+            workOrderId: { in: orderIds },
+            departmentId: { in: departmentIds },
+            issueDate: { gte: fromDate, lte: toDate },
+            status: { not: "DRAFT" },
+          },
+          orderBy: [
+            { issueDate: "asc" },
+            { invoiceNumber: "asc" },
+            { id: "asc" },
+          ],
+          take: BI_MAX_INVOICES + 1,
+          select: {
+            id: true,
+            workOrderId: true,
+            status: true,
+            issueDate: true,
+            subtotal: true,
+          },
+        })
+      : [];
+
+  if (invoiceRows.length > BI_MAX_INVOICES) return fail("too_large");
+
+  const invoiceIds = invoiceRows.map((invoice) => invoice.id);
+  const creditRows =
+    invoiceIds.length > 0
+      ? await prisma.creditNote.groupBy({
+          by: ["invoiceId"],
+          where: { invoiceId: { in: invoiceIds } },
+          _sum: { amount: true },
+        })
+      : [];
+  const creditedByInvoice = new Map(
+    creditRows.map((row) => [row.invoiceId, oreFromMoney(row._sum.amount)]),
+  );
+
+  const invoices: BiInvoice[] = invoiceRows.map((invoice) => ({
+    id: invoice.id,
+    workOrderId: invoice.workOrderId,
+    issueDate: invoice.issueDate,
+    subtotalOre: oreFromMoney(invoice.subtotal),
+    creditedNetOre: creditedByInvoice.get(invoice.id) ?? 0,
+    status: invoice.status as BiInvoiceStatus,
+  }));
 
   const staff: BiStaff[] = staffRows.map((person) => ({
     id: person.id,
@@ -362,6 +436,8 @@ export async function getProfitability(
     filters,
     options,
     costRateOrePerHour: internalCostRateOrePerHour(),
+    invoices,
+    invoicingEnabled,
   });
 
   return ok(data);
@@ -412,7 +488,8 @@ export async function exportProfitabilityCsv(
         rowCount,
         checksum,
         estimatedRevenue: true,
-        actualRevenueAvailable: false,
+        actualRevenueAvailable: result.data.revenue.actualAvailable,
+        actualInvoiceCount: result.data.revenue.actualInvoiceCount,
       },
     });
   });

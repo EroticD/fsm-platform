@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -92,6 +93,8 @@ const emptyData = {
   revenue: {
     actualAvailable: false,
     actualRevenueOre: null,
+    actualInvoiceCount: 0,
+    actualOrderCount: 0,
     estimatedRevenueOre: 0,
     estimatedRevenueOrders: 0,
     ordersWithoutRate: 0,
@@ -159,5 +162,35 @@ describe("lønnsomhetssiden", () => {
       customerId: "cust-1",
       technicianId: "tech-1",
     });
+  });
+
+  it("viser faktisk omsetning ved siden av estimatet når den er tilgjengelig", async () => {
+    mocks.getProfitability.mockResolvedValue({
+      ok: true,
+      data: {
+        ...emptyData,
+        revenue: {
+          ...emptyData.revenue,
+          actualAvailable: true,
+          actualRevenueOre: 123_400,
+          actualInvoiceCount: 2,
+          actualOrderCount: 1,
+        },
+      },
+    });
+
+    const element = await ProfitabilityPage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain("bi.actual.availableTitle");
+    expect(html).toContain("bi.kpis.actualRevenue");
+  });
+
+  it("forklarer hvorfor faktisk omsetning mangler", async () => {
+    const element = await ProfitabilityPage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain("bi.actual.unavailableDescription");
+    expect(html).toContain("bi.kpis.actualRevenueUnavailable");
   });
 });

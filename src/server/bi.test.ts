@@ -9,13 +9,17 @@ const mocks = vi.hoisted(() => ({
     capacityPlan: { findMany: vi.fn() },
     businessHours: { findMany: vi.fn() },
     customer: { findMany: vi.fn() },
+    invoice: { findMany: vi.fn() },
+    creditNote: { groupBy: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  moduleEnabled: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("./modules", () => ({ moduleEnabled: mocks.moduleEnabled }));
 
 import {
   exportProfitabilityCsv,
@@ -96,6 +100,9 @@ beforeEach(() => {
   mocks.prisma.customer.findMany.mockResolvedValue([
     { id: "cust-1", name: "Kunde AS" },
   ]);
+  mocks.prisma.invoice.findMany.mockResolvedValue([]);
+  mocks.prisma.creditNote.groupBy.mockResolvedValue([]);
+  mocks.moduleEnabled.mockResolvedValue(true);
   mocks.prisma.$transaction.mockImplementation(
     async (callback: (tx: typeof mocks.prisma) => unknown) =>
       callback(mocks.prisma),
@@ -269,6 +276,85 @@ describe("lønnsomhetstjenesten – tall", () => {
 
     expect(result).toEqual({ ok: false, reason: "too_large" });
   });
+
+  it("henter faktisk omsetning uten MVA og trekker fra kreditnotaer", async () => {
+    mocks.prisma.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-1",
+        workOrderId: "wo-1",
+        status: "PARTIALLY_PAID",
+        issueDate: new Date("2026-11-02T00:00:00.000Z"),
+        subtotal: "1000.00",
+      },
+    ]);
+    mocks.prisma.creditNote.groupBy.mockResolvedValue([
+      { invoiceId: "inv-1", _sum: { amount: "200.00" } },
+    ]);
+
+    const result = await getProfitability(actor(), {
+      from: "2026-11-02",
+      to: "2026-11-02",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data;
+    expect(data.revenue.actualAvailable).toBe(true);
+    expect(data.revenue.actualRevenueOre).toBe(80_000);
+    expect(data.revenue.actualInvoiceCount).toBe(1);
+    expect(data.revenue.actualOrderCount).toBe(1);
+    expect(data.revenue.estimatedRevenueOre).toBe(100_000);
+    expect(data.perOrder[0].actualRevenueOre).toBe(80_000);
+    expect(data.perTechnician[0].actualRevenueOre).toBe(80_000);
+    expect(data.perCustomer[0].actualRevenueOre).toBe(80_000);
+    expect(mocks.prisma.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workOrderId: { in: ["wo-1"] },
+          departmentId: { in: ["dep-a"] },
+          status: { not: "DRAFT" },
+        }),
+      }),
+    );
+  });
+
+  it("gir estimat bare når faktureringsmodulen er av", async () => {
+    mocks.moduleEnabled.mockResolvedValue(false);
+
+    const result = await getProfitability(actor(), {
+      from: "2026-11-02",
+      to: "2026-11-02",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mocks.moduleEnabled).toHaveBeenCalledWith("invoicing");
+    expect(mocks.prisma.invoice.findMany).not.toHaveBeenCalled();
+    expect(result.data.revenue.actualAvailable).toBe(false);
+    expect(result.data.revenue.actualRevenueOre).toBeNull();
+    expect(result.data.perOrder[0].actualRevenueOre).toBeNull();
+    expect(result.data.revenue.estimatedRevenueOre).toBe(100_000);
+  });
+
+  it("avviser for mange fakturaer i omfanget", async () => {
+    mocks.prisma.invoice.findMany.mockResolvedValue(
+      Array.from({ length: 5_001 }, (_, index) => ({
+        id: `inv-${index}`,
+        workOrderId: "wo-1",
+        status: "SENT",
+        issueDate: new Date("2026-11-02T00:00:00.000Z"),
+        subtotal: "100.00",
+      })),
+    );
+
+    const result = await getProfitability(actor(), {
+      from: "2026-11-02",
+      to: "2026-11-02",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "too_large" });
+    expect(mocks.prisma.creditNote.groupBy).not.toHaveBeenCalled();
+  });
 });
 
 describe("lønnsomhetseksport", () => {
@@ -290,6 +376,7 @@ describe("lønnsomhetseksport", () => {
     expect(first.data.checksum).toBe(second.data.checksum);
     expect(first.data.fileName).toBe("lonnsomhet-2026-11-02-2026-11-02.csv");
     expect(first.data.csv).toContain("Estimert inntekt");
+    expect(first.data.csv).toContain("Faktisk inntekt");
     expect(mocks.audit).toHaveBeenCalledTimes(2);
     expect(mocks.audit).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -297,6 +384,10 @@ describe("lønnsomhetseksport", () => {
         entityType: "ProfitabilityExport",
         entityId: first.data.checksum,
         departmentId: "dep-a",
+        metadata: expect.objectContaining({
+          actualRevenueAvailable: false,
+          actualInvoiceCount: 0,
+        }),
       }),
     );
   });

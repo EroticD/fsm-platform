@@ -8,10 +8,15 @@
  * CSV-formatering skjer her. Da kan tallene testes uten en nettleser eller en
  * database, og eksporten bruker nøyaktig samme tallgrunnlag som dashbordet.
  *
- * Viktig avgrensning i v1: systemet har ingen fakturaer (REV-02). Inntekt er
- * derfor alltid et estimat basert på timepris i avtalens prisliste. Feltet
- * `actualRevenueOre` er `null` og `actualAvailable` er `false` til
- * faktureringsmodulen finnes.
+ * Inntekt finnes i to spor:
+ *   - estimat fra timepris i avtalens prisliste × arbeidstid, og
+ *   - faktisk omsetning fra fakturaer når `invoicing`-modulen er på.
+ *
+ * Faktisk omsetning regnes netto uten MVA (`subtotal` minus netto kreditnotaer)
+ * og bare for fakturaer som er knyttet til et oppdrag i rapportens omfang.
+ * Kladder teller aldri. Betalingsstatus påvirker ikke inntektsføringen:
+ * SENT, PARTIALLY_PAID, PAID og OVERDUE behandles likt. Se `docs/BI.md` for de
+ * fullstendige reglene.
  */
 
 import {
@@ -29,6 +34,11 @@ import {
 
 export const BI_MAX_PERIOD_DAYS = 366;
 export const BI_MAX_ORDERS = 5_000;
+/**
+ * Fakturaer er per oppdrag, så et oppdrag kan ha flere rader. Taket er likevel
+ * det samme som for oppdrag for å holde spørringen og CSV-en forutsigbar.
+ */
+export const BI_MAX_INVOICES = 5_000;
 
 export type BiFilterInput = {
   from?: string | string[];
@@ -106,6 +116,29 @@ export type BiCapacityPlan = {
   capacityMinutes: number;
 };
 
+export type BiInvoiceStatus =
+  | "DRAFT"
+  | "SENT"
+  | "PARTIALLY_PAID"
+  | "PAID"
+  | "OVERDUE"
+  | "CREDITED";
+
+/**
+ * En faktura slik lønnsomhetsrapporten trenger den. Serverlaget har allerede
+ * begrenset den til rapportens periode, avdelingsomfang og oppdragssett.
+ * Beløpene er i øre. `subtotalOre` er uten MVA, og `creditedNetOre` er summen
+ * av kreditnotaenes netto beløp (også uten MVA).
+ */
+export type BiInvoice = {
+  id: string;
+  workOrderId: string | null;
+  issueDate: Date | null;
+  subtotalOre: number;
+  creditedNetOre: number;
+  status: BiInvoiceStatus;
+};
+
 export type BiBusinessHours = {
   departmentId: string;
   weekday: number;
@@ -122,6 +155,10 @@ export type BiSummaryInput = {
   options: BiOptions;
   /** Intern kostnadssats i øre per time. `null` gir ingen resultatberegning. */
   costRateOrePerHour?: number | null;
+  /** Fakturaer i samme periode og oppdragssett. Utelates når modulen er av. */
+  invoices?: BiInvoice[];
+  /** Om `invoicing`-modulen er på. Faktisk omsetning er ellers utilgjengelig. */
+  invoicingEnabled?: boolean;
 };
 
 export type BiFirstTimeFixOutcome =
@@ -146,7 +183,8 @@ export type BiOrderRow = {
   firstTimeFix: BiFirstTimeFixOutcome;
   estimatedRevenueOre: number | null;
   hourlyRateOre: number | null;
-  actualRevenueOre: null;
+  /** `null` når faktisk omsetning er utilgjengelig, ellers 0 eller mer. */
+  actualRevenueOre: number | null;
   deviationRemediation: boolean;
 };
 
@@ -166,6 +204,8 @@ export type BiTechnicianRow = {
   firstTimeFixRate: number | null;
   estimatedRevenueOre: number;
   estimatedRevenueOrders: number;
+  /** `null` når faktisk omsetning er utilgjengelig, ellers 0 eller mer. */
+  actualRevenueOre: number | null;
 };
 
 export type BiCustomerRow = {
@@ -181,6 +221,7 @@ export type BiCustomerRow = {
   firstTimeFixRate: number | null;
   estimatedRevenueOre: number;
   estimatedRevenueOrders: number;
+  actualRevenueOre: number | null;
 };
 
 export type BiSummary = {
@@ -215,9 +256,11 @@ export type BiSummary = {
     workUtilizationPercent: number | null;
   };
   revenue: {
-    /** Faktisk omsetning finnes ikke før REV-02. */
-    actualAvailable: false;
-    actualRevenueOre: null;
+    /** Sann bare når fakturering er på og minst én ikke-kladd er i omfanget. */
+    actualAvailable: boolean;
+    actualRevenueOre: number | null;
+    actualInvoiceCount: number;
+    actualOrderCount: number;
     estimatedRevenueOre: number;
     estimatedRevenueOrders: number;
     ordersWithoutRate: number;
@@ -371,6 +414,27 @@ export function firstTimeFixOutcome(
 function percent(part: number, total: number): number | null {
   if (!(total > 0)) return null;
   return Math.round((part / total) * 1000) / 10;
+}
+
+/**
+ * Netto fakturert beløp i øre, uten MVA. `subtotalOre` er allerede eksklusiv
+ * MVA, og `creditedNetOre` er kreditnotaenes netto beløp. Kladder gir `null`.
+ * Et overkreditert beløp klippes til 0 i stedet for å bli negativ omsetning.
+ */
+export function netInvoiceRevenueOre(
+  invoice: Pick<BiInvoice, "status" | "subtotalOre" | "creditedNetOre">,
+): number | null {
+  if (invoice.status === "DRAFT") return null;
+  if (
+    !Number.isFinite(invoice.subtotalOre) ||
+    !Number.isFinite(invoice.creditedNetOre)
+  ) {
+    return null;
+  }
+  return Math.max(
+    0,
+    Math.round(invoice.subtotalOre) - Math.round(invoice.creditedNetOre),
+  );
 }
 
 function dateKey(date: Date): string {
@@ -611,6 +675,68 @@ export function summarizeProfitability(input: BiSummaryInput): BiSummary {
     };
   });
 
+  const orderById = new Map(
+    orderViews.map((view) => [view.order.id, view.order]),
+  );
+
+  // Bare fakturaer som hører til et oppdrag i rapporten teller. Serverlaget
+  // har allerede filtrert periode, avdeling og modul; sjekken her gjør den rene
+  // logikken trygg også når den kalles direkte i tester.
+  const actualInvoices = input.invoicingEnabled
+    ? (input.invoices ?? [])
+        .map((invoice) => ({
+          invoice,
+          netOre: netInvoiceRevenueOre(invoice),
+          order: invoice.workOrderId
+            ? orderById.get(invoice.workOrderId) ?? null
+            : null,
+        }))
+        .filter(
+          (
+            entry,
+          ): entry is {
+            invoice: BiInvoice;
+            netOre: number;
+            order: BiOrder;
+          } => entry.netOre !== null && entry.order !== null,
+        )
+    : [];
+
+  const actualRevenueOre =
+    actualInvoices.length > 0
+      ? actualInvoices.reduce((sum, entry) => sum + entry.netOre, 0)
+      : null;
+  const actualAvailable = actualRevenueOre !== null;
+
+  const actualByOrder = new Map<string, number>();
+  const actualByCustomer = new Map<string, number>();
+  const actualByTechnician = new Map<string, number>();
+  const actualOrderIds = new Set<string>();
+  for (const entry of actualInvoices) {
+    const order = entry.order;
+    actualOrderIds.add(order.id);
+    actualByOrder.set(
+      order.id,
+      (actualByOrder.get(order.id) ?? 0) + entry.netOre,
+    );
+    const customerKey = order.customerId ?? "__none__";
+    actualByCustomer.set(
+      customerKey,
+      (actualByCustomer.get(customerKey) ?? 0) + entry.netOre,
+    );
+    // Hele fakturabeløpet føres til oppdragets primære montør (lavest id).
+    // Da blir delte oppdrag/visiter aldri dobbelttalt i montørtabellen.
+    const primary = [...order.technicians].sort((a, b) =>
+      compareText(a.id, b.id),
+    )[0];
+    if (primary) {
+      actualByTechnician.set(
+        primary.id,
+        (actualByTechnician.get(primary.id) ?? 0) + entry.netOre,
+      );
+    }
+  }
+
   const byStatus: Record<string, number> = {};
   for (const view of orderViews) {
     byStatus[view.order.status] = (byStatus[view.order.status] ?? 0) + 1;
@@ -743,6 +869,9 @@ export function summarizeProfitability(input: BiSummaryInput): BiSummary {
         ),
         estimatedRevenueOre: row.estimatedRevenueOre,
         estimatedRevenueOrders: row.estimatedRevenueOrders,
+        actualRevenueOre: actualAvailable
+          ? actualByTechnician.get(row.id) ?? 0
+          : null,
       };
     })
     .sort(
@@ -812,6 +941,9 @@ export function summarizeProfitability(input: BiSummaryInput): BiSummary {
       ),
       estimatedRevenueOre: row.estimatedRevenueOre,
       estimatedRevenueOrders: row.estimatedRevenueOrders,
+      actualRevenueOre: actualAvailable
+        ? actualByCustomer.get(row.id ?? "__none__") ?? 0
+        : null,
     }))
     .sort(
       (a, b) =>
@@ -841,7 +973,9 @@ export function summarizeProfitability(input: BiSummaryInput): BiSummary {
       firstTimeFix: view.firstTimeFix,
       estimatedRevenueOre: view.estimatedRevenueOre,
       hourlyRateOre: view.hourlyRateOre,
-      actualRevenueOre: null,
+      actualRevenueOre: actualAvailable
+        ? actualByOrder.get(view.order.id) ?? 0
+        : null,
       deviationRemediation: view.order.deviationRemediation,
     }))
     .sort(
@@ -897,8 +1031,10 @@ export function summarizeProfitability(input: BiSummaryInput): BiSummary {
       ),
     },
     revenue: {
-      actualAvailable: false,
-      actualRevenueOre: null,
+      actualAvailable,
+      actualRevenueOre,
+      actualInvoiceCount: actualInvoices.length,
+      actualOrderCount: actualOrderIds.size,
       estimatedRevenueOre,
       estimatedRevenueOrders: revenueOrders.length,
       ordersWithoutRate,
@@ -952,6 +1088,7 @@ export function buildBiCsv(data: BiSummary): string {
     "Utnyttelse %",
     "Estimert inntekt (NOK)",
     "Faktisk inntekt (NOK)",
+    "Faktisk tilgjengelig",
     "Inntektsgrunnlag",
     "Estimert kostnad (NOK)",
     "Estimert resultat (NOK)",
@@ -973,6 +1110,7 @@ export function buildBiCsv(data: BiSummary): string {
       ? `Intern sats ${csvMoney(data.revenue.costRateOrePerHour)} kr/t`
       : "Mangler kostnadssats",
   ];
+  const actualFlag = data.revenue.actualAvailable ? "ja" : "nei";
 
   const rows: unknown[][] = [
     [
@@ -993,7 +1131,8 @@ export function buildBiCsv(data: BiSummary): string {
       csvHours(data.capacity.availableMinutes),
       csvPercent(data.capacity.utilizationPercent),
       csvMoney(data.revenue.estimatedRevenueOre),
-      "",
+      csvMoney(data.revenue.actualRevenueOre),
+      actualFlag,
       data.revenue.basis,
       csvMoney(data.revenue.estimatedCostOre),
       csvMoney(data.revenue.estimatedProfitOre),
@@ -1017,7 +1156,8 @@ export function buildBiCsv(data: BiSummary): string {
       csvHours(row.availableMinutes),
       csvPercent(row.utilizationPercent),
       csvMoney(row.estimatedRevenueOre),
-      "",
+      csvMoney(row.actualRevenueOre),
+      actualFlag,
       row.estimatedRevenueOrders > 0 ? "contract_price_list" : "missing",
       "",
       "",
@@ -1041,7 +1181,8 @@ export function buildBiCsv(data: BiSummary): string {
       "",
       "",
       csvMoney(row.estimatedRevenueOre),
-      "",
+      csvMoney(row.actualRevenueOre),
+      actualFlag,
       row.estimatedRevenueOrders > 0 ? "contract_price_list" : "missing",
       "",
       "",
@@ -1069,7 +1210,8 @@ export function buildBiCsv(data: BiSummary): string {
       "",
       "",
       csvMoney(row.estimatedRevenueOre),
-      "",
+      csvMoney(row.actualRevenueOre),
+      actualFlag,
       row.hourlyRateOre === null ? "missing" : "contract_price_list",
       "",
       "",

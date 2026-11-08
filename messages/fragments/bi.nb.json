@@ -6,7 +6,7 @@
   },
   "bi": {
     "title": "Lønnsomhet",
-    "subtitle": "Oppdrag, tid, first-time-fix og estimert inntekt per avdeling, kunde og montør.",
+    "subtitle": "Oppdrag, tid, first-time-fix og estimert/faktisk inntekt per avdeling, kunde og montør.",
     "export": "Eksporter CSV",
     "errors": {
       "invalid": "Filterne er ugyldige. Kontroller perioden og prøv igjen.",
@@ -28,10 +28,14 @@
     },
     "estimate": {
       "title": "Inntekt og resultat er estimater",
-      "description": "Faktisk omsetning finnes ikke før faktureringsmodulen (REV-02) er installert. Inntekten beregnes fra timepris i avtalens prisliste og arbeidstid fra visittene. Reisetid vises separat og inngår ikke i inntektsestimatet.",
       "basis": "Grunnlag: {basis}. {coverage} av oppdragene har en timepris.",
       "costMissing": "Resultat er ikke beregnet fordi intern kostnadssats mangler.",
       "costConfigured": "Resultat er beregnet med intern kostnadssats {rate} per time."
+    },
+    "actual": {
+      "availableTitle": "Estimert og faktisk omsetning",
+      "availableDescription": "Faktisk omsetning er netto fakturert beløp uten MVA for {invoices} fakturaer i perioden. Fakturakladder er utelatt, kreditnotaer er trukket fra, og betalingsstatus påvirker ikke inntektsføringen. Estimatet fra avtalens timepris vises ved siden av.",
+      "unavailableDescription": "Faktisk omsetning er ikke tilgjengelig fordi faktureringsmodulen er av, eller fordi det ikke finnes ikke-kladde fakturaer for oppdragene i perioden. Estimatet er beregnet fra avtalens timepris og arbeidstid."
     },
     "basis": {
       "contract_price_list": "timepris fra avtalens prisliste",
@@ -60,6 +64,9 @@
       "utilisationSub": "av {available} t tilgjengelig tid",
       "revenue": "Estimert inntekt",
       "revenueSub": "fra {orders} oppdrag med timepris",
+      "actualRevenue": "Faktisk omsetning",
+      "actualRevenueSub": "{invoices} fakturaer · {orders} oppdrag",
+      "actualRevenueUnavailable": "ikke tilgjengelig – ingen fakturaer i omfanget",
       "profit": "Estimert resultat",
       "profitSub": "etter intern kostnadssats {rate}/t",
       "profitMissing": "ikke beregnet – mangler kostnadssats"
@@ -79,11 +86,11 @@
     },
     "tables": {
       "technicians": "Per montør",
-      "techniciansDescription": "Oppdrag, timer, utnyttelse og estimert inntekt.",
+      "techniciansDescription": "Oppdrag, timer, utnyttelse og estimert/faktisk inntekt.",
       "customers": "Per kunde",
-      "customersDescription": "Oppdrag, timer og estimert inntekt per kunde.",
+      "customersDescription": "Oppdrag, timer og estimert/faktisk inntekt per kunde.",
       "orders": "Per oppdrag",
-      "ordersDescription": "{count} oppdrag i perioden med tid, first-time-fix og estimert inntekt."
+      "ordersDescription": "{count} oppdrag i perioden med tid, first-time-fix og estimert/faktisk inntekt."
     },
     "table": {
       "technician": "Montør",
@@ -97,6 +104,7 @@
       "utilisation": "Utnyttelse",
       "firstTimeFix": "First-time-fix",
       "estimatedRevenue": "Estimert inntekt",
+      "actualRevenue": "Faktisk inntekt",
       "completedOf": "{completed} av {total} fullført",
       "status": "Status"
     },
