@@ -163,6 +163,7 @@
       "createLink": "Create payment link",
       "recreateLink": "Create a new payment link",
       "linkCreated": "The payment link was created. You can share it with the customer.",
+      "notConfigured": "The payment provider is not configured.",
       "disabled": "The payment provider is not configured.",
       "unsupportedCurrency": "The payment provider only supports NOK in this version.",
       "providerError": "The payment provider did not respond as expected. Try again.",

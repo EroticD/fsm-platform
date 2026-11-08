@@ -163,6 +163,7 @@
       "createLink": "Opprett betalingslenke",
       "recreateLink": "Lag ny betalingslenke",
       "linkCreated": "Betalingslenken er opprettet. Du kan dele den med kunden.",
+      "notConfigured": "Betalingsleverandøren er ikke konfigurert.",
       "disabled": "Betalingsleverandøren er ikke konfigurert.",
       "unsupportedCurrency": "Betalingsleverandøren støtter bare NOK i denne versjonen.",
       "providerError": "Betalingsleverandøren svarte ikke som forventet. Prøv igjen.",

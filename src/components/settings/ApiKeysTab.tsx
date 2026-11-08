@@ -69,7 +69,7 @@ export default async function ApiKeysTab({
   const now = new Date().getTime();
 
   return (
-    <div className="space-y-5">
+    <div data-api-settings className="space-y-5">
       <section className="office-card p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
           <div className="min-w-0">

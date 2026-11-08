@@ -260,7 +260,7 @@ export default async function InvoiceDetailPage({
         ) : null}
 
         {canManage && payable ? (
-          <section className={CARD}>
+          <section data-payment-panel className={CARD}>
             <h2 className="text-lg font-extrabold">{t("invoicing.payment.title")}</h2>
             {paymentInfo.configured && paymentInfo.provider ? (
               <>

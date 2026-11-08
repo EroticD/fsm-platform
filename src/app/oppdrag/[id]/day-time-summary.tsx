@@ -168,7 +168,10 @@ export function renderDayTimeSummary({
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--line,#d8d3c5)]">
+      <div
+        data-workorder-route-sequence
+        className="overflow-x-auto rounded-xl border border-[var(--line,#d8d3c5)]"
+      >
         <table className="w-full min-w-[44rem] border-collapse text-left text-xs">
           <thead className="bg-[var(--ink,#131711)] text-[var(--paper,#f2efe6)]">
             <tr>

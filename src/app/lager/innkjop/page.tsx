@@ -193,7 +193,7 @@ export default async function PurchasingPage({
           </section>
         )}
 
-        <section className={CARD}>
+        <section data-purchase-orders className={CARD}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-sm font-black uppercase tracking-[0.12em]">
               {t("inventory.purchasing.ordersTitle")}

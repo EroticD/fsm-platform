@@ -30,7 +30,7 @@ export default async function SamlSettingsSection({
   const t = await getTranslations("common");
 
   return (
-    <section className="office-card p-5 sm:p-6">
+    <section data-saml-settings className="office-card p-5 sm:p-6">
       <div className="mb-4 border-b border-[var(--line,#dedcd1)] pb-3">
         <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
           <Icon name="shield" className="h-4 w-4 shrink-0" />

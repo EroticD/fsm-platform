@@ -53,7 +53,7 @@ export default async function EmailSettingsTab({
   const errorMessage = errorKey(error);
 
   return (
-    <div className="space-y-5">
+    <div data-email-settings className="space-y-5">
       {errorMessage && (
         <p
           role="alert"

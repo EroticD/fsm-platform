@@ -139,9 +139,10 @@ export default async function ExpenseOfficePage({
           })}
         </div>
 
-        <section className={CARD}>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-            {t("expenses.trip.approvalTitle")}
+        <div data-expense-approval className="space-y-4">
+          <section className={CARD}>
+            <h2 className="text-sm font-black uppercase tracking-[0.12em]">
+              {t("expenses.trip.approvalTitle")}
           </h2>
           {trips.length === 0 ? (
             <p className="mt-3 text-sm text-[var(--muted,#62685f)]">{t("expenses.office.empty")}</p>
@@ -252,7 +253,8 @@ export default async function ExpenseOfficePage({
               ))}
             </div>
           )}
-        </section>
+          </section>
+        </div>
 
         <section className={CARD}>
           <h2 className="text-sm font-black uppercase tracking-[0.12em]">

@@ -532,6 +532,7 @@ export default async function ProfitabilityPage({
 
         {/* KPI-er */}
         <section
+          data-bi-kpis
           aria-label={t("bi.kpis.title")}
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         >
