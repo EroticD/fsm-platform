@@ -52,6 +52,8 @@ export type MetricsSnapshot = {
     smsDeadLetter: number;
     smsFailed: number;
     notificationEmailFailed: number;
+    pushPending: number;
+    pushDeadLetter: number;
   };
   slaCleanup: SlaCleanupStatus;
   backup: BackupStatus;
@@ -73,6 +75,9 @@ export type MetricsPrisma = {
     count(args: { where: Record<string, unknown> }): Promise<number>;
   };
   notification: {
+    count(args: { where: Record<string, unknown> }): Promise<number>;
+  };
+  pushMessage?: {
     count(args: { where: Record<string, unknown> }): Promise<number>;
   };
   slaCleanupRun: {
@@ -309,6 +314,8 @@ export async function collectMetrics({
     smsDeadLetter,
     smsFailed,
     notificationEmailFailed,
+    pushPending,
+    pushDeadLetter,
     lastSlaCleanup,
     slaCleanupFailures,
   ] = await Promise.all([
@@ -323,6 +330,12 @@ export async function collectMetrics({
       emailError: { not: null },
       emailAttempts: { gte: 5 },
     }),
+    prisma.pushMessage
+      ? safeCount(prisma.pushMessage.count, { status: "PENDING" })
+      : Promise.resolve(0),
+    prisma.pushMessage
+      ? safeCount(prisma.pushMessage.count, { status: "DEAD_LETTER" })
+      : Promise.resolve(0),
     safeLatestSlaCleanup(prisma.slaCleanupRun.findFirst),
     safeCount(prisma.slaCleanupRun.count, {
       status: "FAILED",
@@ -344,6 +357,8 @@ export async function collectMetrics({
       smsDeadLetter,
       smsFailed,
       notificationEmailFailed,
+      pushPending,
+      pushDeadLetter,
     },
     slaCleanup: slaCleanupStatus(
       lastSlaCleanup,
@@ -396,6 +411,10 @@ export function serializePrometheus(snapshot: MetricsSnapshot): string {
     "# HELP fsm_notification_email_failures Varsler som har gitt opp e-postutsending.",
     "# TYPE fsm_notification_email_failures gauge",
     `fsm_notification_email_failures ${snapshot.queue.notificationEmailFailed}`,
+    "# HELP fsm_push_messages Push-meldinger etter status.",
+    "# TYPE fsm_push_messages gauge",
+    `fsm_push_messages{status="pending"} ${snapshot.queue.pushPending}`,
+    `fsm_push_messages{status="dead_letter"} ${snapshot.queue.pushDeadLetter}`,
     "# HELP fsm_sla_cleanup_enabled Automatisk SLA-opprydding er slått på.",
     "# TYPE fsm_sla_cleanup_enabled gauge",
     `fsm_sla_cleanup_enabled ${snapshot.slaCleanup.enabled ? 1 : 0}`,

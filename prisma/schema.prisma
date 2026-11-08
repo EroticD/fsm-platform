@@ -142,6 +142,8 @@ model User {
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  pushDevices             PushDevice[]
+  pushMessages            PushMessage[]
   savedSearches           SavedSearch[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   apiKeys                 ApiKey[]
@@ -1894,9 +1896,83 @@ model Notification {
   emailLockedBy      String?
   createdAt          DateTime  @default(now())
 
+  pushMessages PushMessage[]
+
   @@index([userId, readAt, createdAt])
   @@index([createdAt])
   @@index([emailSentAt, emailNextAttemptAt])
+}
+
+/// Registrert mobilenhet for pushvarsler.
+///
+/// Tokenet er unikt per plattform. Samme fysiske enhet kan bytte eier etter en
+/// ny innlogging: registreringen flytter da raden til den nye brukeren i
+/// stedet for å lage en duplikat. Selve tokenet logges aldri.
+model PushDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// android | ios
+  platform   String
+  token      String
+  appVersion String?
+  /// Klientens stabile enhets-id, når appen oppgir den. Ikke et push-token.
+  deviceId   String?
+  active     Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages PushMessage[]
+
+  @@unique([platform, token])
+  @@index([userId, active])
+  @@index([active, lastSeenAt])
+  @@index([deviceId])
+}
+
+/// Vedvarende utboks for pushvarsler. Én rad per varsel og enhet, slik at
+/// gjentatt innsetting er idempotent og en krasjet worker kan gjenoppta.
+model PushMessage {
+  id String @id @default(cuid())
+  /// Stabil idempotensnøkkel, f.eks. «<notificationId>:<deviceId>».
+  idempotencyKey String @unique
+
+  notificationId String?
+  notification   Notification? @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId String
+  device   PushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  /// Kopi av plattformen på køtidspunktet, slik at en senere enhetsendring
+  /// ikke sender meldingen til feil leverandør.
+  platform String
+  /// Tittel/tekst brukes bare for testvarsler. Vanlige varsler slås opp fra
+  /// Notification ved sending, med mottakerens språk.
+  title  String?
+  body   String?
+  path   String?
+  /// PENDING | SENDING | SENT | SKIPPED | FAILED | DEAD_LETTER
+  status String @default("PENDING")
+
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?
+  /// Stabil feilkode fra leverandøradapteret. Aldri rå leverandørtekst.
+  errorCode     String?
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@index([deviceId, status])
+  @@index([notificationId])
 }
 
 model NotificationPreference {

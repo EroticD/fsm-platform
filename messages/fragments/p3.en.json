@@ -39,7 +39,8 @@
         "BOOKING": "Booking",
         "CONTRACT_DUE": "Service agreement",
         "OVERDUE": "Overdue",
-        "CONTACT_UPDATE": "Contact update"
+        "CONTACT_UPDATE": "Contact update",
+        "INVOICE_PAID": "Invoice paid"
       }
     },
     "notificationSettings": {
@@ -60,7 +61,8 @@
         "BOOKING": "New booking from the customer portal",
         "CONTRACT_DUE": "Service agreement due",
         "OVERDUE": "Work order overdue",
-        "CONTACT_UPDATE": "Customer requests updated contact information"
+        "CONTACT_UPDATE": "Customer requests updated contact information",
+        "INVOICE_PAID": "Invoice has been paid"
       },
       "inAppAria": "{label} in app",
       "emailAria": "{label} by email",

@@ -84,6 +84,11 @@ export const NOTIFICATION_TYPE_PRESENTATION: Record<
     labelKey: "sms.notifications.type",
     tone: "blue",
   },
+  INVOICE_PAID: {
+    icon: "🧾",
+    labelKey: "p3.notifications.types.INVOICE_PAID",
+    tone: "green",
+  },
 };
 
 /**

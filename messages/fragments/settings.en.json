@@ -736,5 +736,59 @@
       "duplicateEmail": "A user with this email address already exists.",
       "missingField": "Fill in name, email and select a contact person."
     }
+  },
+  "push": {
+    "settings": {
+      "title": "Push notifications",
+      "description": "Send notifications to the mobile app through FCM (Android) and APNs (iOS).",
+      "noSecrets": "Keys and tokens are never shown here.",
+      "loading": "Loading status …",
+      "providersTitle": "Providers",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "project": "Project: {project}",
+      "environment": "Environment: {environment}",
+      "sandbox": "sandbox",
+      "production": "production",
+      "devicesTitle": "Devices",
+      "devicesActive": "{active} active of {total}",
+      "devicesStale": "{count} stale (older than {days} days)",
+      "queueTitle": "Outbox",
+      "queuePending": "{count} pending",
+      "queueDeadLetter": "{count} given up",
+      "sentTitle": "Last 24 hours",
+      "queueSent": "{count} sent",
+      "lastSent": "Last sent: {time}",
+      "neverSent": "No push has been sent yet.",
+      "testTitle": "Send test notification",
+      "testDescription": "Delivered to your own registered devices.",
+      "sendTest": "Send test",
+      "sending": "Sending …",
+      "testSent": "{sent} of {queued} messages sent.",
+      "testNoDevices": "No active devices were found for your account.",
+      "testNotConfigured": "Push is not configured. Add the FCM or APNs setup first.",
+      "cleanupTitle": "Clear stale devices",
+      "cleanupDescription": "Deletes disabled devices and devices not seen for {days} days.",
+      "cleanup": "Clear devices",
+      "cleaning": "Clearing …",
+      "cleanupResult": "{count} devices deleted.",
+      "error": "The action could not be completed. Try again.",
+      "errorForbidden": "Only an administrator can manage push notifications.",
+      "errorRateLimited": "Too many attempts. Try again shortly.",
+      "errorUnauthenticated": "You are not signed in.",
+      "loadError": "Could not load push status."
+    },
+    "test": {
+      "title": "Test notification",
+      "body": "Push notifications are configured for this installation."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Invoice paid",
+        "body": "Invoice {invoiceNumber} has been paid."
+      }
+    }
   }
 }

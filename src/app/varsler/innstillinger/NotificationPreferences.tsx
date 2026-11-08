@@ -27,7 +27,7 @@ export default async function NotificationPreferences() {
     SLA_BREACHED: t("p3.notificationSettings.labels.SLA_BREACHED"),
     WARRANTY: t("p3.notificationSettings.labels.WARRANTY"),
     MESSAGE: t("sms.notifications.type"),
-
+    INVOICE_PAID: t("p3.notificationSettings.labels.INVOICE_PAID"),
   };
 
   return (

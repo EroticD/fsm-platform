@@ -221,13 +221,69 @@
     "notifications": {
       "types": {
         "SLA_AT_RISK": "SLA gefährdet",
-        "SLA_BREACHED": "SLA verletzt"
+        "SLA_BREACHED": "SLA verletzt",
+        "INVOICE_PAID": "Rechnung bezahlt"
       }
     },
     "notificationSettings": {
       "labels": {
         "SLA_AT_RISK": "SLA gefährdet",
-        "SLA_BREACHED": "SLA verletzt"
+        "SLA_BREACHED": "SLA verletzt",
+        "INVOICE_PAID": "Rechnung wurde bezahlt"
+      }
+    }
+  },
+  "push": {
+    "settings": {
+      "title": "Push-Benachrichtigungen",
+      "description": "Benachrichtigungen über FCM (Android) und APNs (iOS) an die Mobil-App senden.",
+      "noSecrets": "Schlüssel und Tokens werden hier nie angezeigt.",
+      "loading": "Status wird geladen …",
+      "providersTitle": "Anbieter",
+      "fcm": "FCM (Android)",
+      "apns": "APNs (iOS)",
+      "configured": "Konfiguriert",
+      "notConfigured": "Nicht konfiguriert",
+      "project": "Projekt: {project}",
+      "environment": "Umgebung: {environment}",
+      "sandbox": "Sandbox",
+      "production": "Produktion",
+      "devicesTitle": "Geräte",
+      "devicesActive": "{active} aktiv von {total}",
+      "devicesStale": "{count} veraltet (älter als {days} Tage)",
+      "queueTitle": "Ausgangskorb",
+      "queuePending": "{count} wartend",
+      "queueDeadLetter": "{count} aufgegeben",
+      "sentTitle": "Letzte 24 Stunden",
+      "queueSent": "{count} gesendet",
+      "lastSent": "Zuletzt gesendet: {time}",
+      "neverSent": "Es wurde noch kein Push gesendet.",
+      "testTitle": "Testbenachrichtigung senden",
+      "testDescription": "Wird an Ihre eigenen registrierten Geräte gesendet.",
+      "sendTest": "Test senden",
+      "sending": "Wird gesendet …",
+      "testSent": "{sent} von {queued} Nachrichten gesendet.",
+      "testNoDevices": "Für Ihr Konto wurden keine aktiven Geräte gefunden.",
+      "testNotConfigured": "Push ist nicht konfiguriert. Richten Sie zuerst FCM oder APNs ein.",
+      "cleanupTitle": "Veraltete Geräte bereinigen",
+      "cleanupDescription": "Löscht deaktivierte Geräte und Geräte, die seit {days} Tagen nicht gesehen wurden.",
+      "cleanup": "Geräte bereinigen",
+      "cleaning": "Wird bereinigt …",
+      "cleanupResult": "{count} Geräte gelöscht.",
+      "error": "Die Aktion konnte nicht ausgeführt werden. Versuchen Sie es erneut.",
+      "errorForbidden": "Nur ein Administrator kann Push-Benachrichtigungen verwalten.",
+      "errorRateLimited": "Zu viele Versuche. Versuchen Sie es gleich noch einmal.",
+      "errorUnauthenticated": "Sie sind nicht angemeldet.",
+      "loadError": "Der Push-Status konnte nicht geladen werden."
+    },
+    "test": {
+      "title": "Testbenachrichtigung",
+      "body": "Push-Benachrichtigungen sind für diese Installation konfiguriert."
+    },
+    "notifications": {
+      "invoicePaid": {
+        "title": "Rechnung bezahlt",
+        "body": "Rechnung {invoiceNumber} wurde bezahlt."
       }
     }
   }

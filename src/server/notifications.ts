@@ -24,6 +24,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { enqueuePushForNotification } from "./push";
 
 export const NOTIFICATION_TYPES = [
   "ASSIGNMENT",
@@ -38,6 +39,7 @@ export const NOTIFICATION_TYPES = [
   "SLA_BREACHED",
   "WARRANTY",
   "MESSAGE",
+  "INVOICE_PAID",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -449,6 +451,15 @@ export async function notifyUser(
     });
     // Beste-forsøk: varselet er allerede opprettet, og en feil her skal ikke
     // gjøre at innsenderen tror varselet ikke ble lagret.
+    try {
+      await enqueuePushForNotification({
+        id: notification.id,
+        userId: input.userId,
+        type: input.type,
+      });
+    } catch {
+      // Push-utboksen er et supplement til in-app-varselet.
+    }
     await publishRealtime("notifications");
     return notification;
   } catch (error) {
