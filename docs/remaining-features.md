@@ -1,10 +1,8 @@
-# Gjenstående arbeid etter 0.8.10
+# Gjenstående arbeid etter 0.8.11
 
-> **Status snapshot 0.8.10:** 2026-11-07, `master` @ `f5ba5b1`.
-> `package.json` er 0.8.10. Taggen `v0.8.10` peker på `de4be00`; `f5ba5b1`
-> inneholder i tillegg det som står under «Unreleased» i
-> [`CHANGELOG.md`](../CHANGELOG.md): FullCalendar 7, arbeidsdager/tid/reise og
-> live feltstatus.
+> **Status snapshot 0.8.11:** 2026-11-08, `master` @ `ca756be`.
+> `package.json` er 0.8.11. Taggen `v0.8.11` peker på denne utgivelsen, som
+> inneholder FullCalendar 7, arbeidsdager/tid/reise og live feltstatus.
 >
 > **Dette er den reelle gjenstående køen.** Leverte ting står under
 > [«Levert»](#levert-ikke-dupliser) og skal ikke gjenåpnes som nye oppgaver.
@@ -12,10 +10,10 @@
 
 | Felt | Verdi |
 | --- | --- |
-| Dato | 2026-11-07 |
-| Kodegren | `master` @ `f5ba5b1` |
-| Versjon | 0.8.10 (`v0.8.10` = `de4be00`, 30 commits bak `f5ba5b1`) |
-| Denne doc-endringen | `feat/backlog-0810` |
+| Dato | 2026-11-08 |
+| Kodegren | `master` @ `ca756be` |
+| Versjon | 0.8.11 (`v0.8.11`) |
+| Denne doc-endringen | `release/v0.8.11` |
 | Verifisert mot | `CHANGELOG.md`, git-historikk, [`DECISIONS.md`](DECISIONS.md), [`OPERATIONS.md`](OPERATIONS.md), [`AZURE.md`](AZURE.md), [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md), [`backlog-customer-export-import.md`](backlog-customer-export-import.md), [`manual/nb`](manual/nb), og faktisk kode der status var uklar |
 | P0 | Ingen åpne P0 funnet på denne commiten |
 

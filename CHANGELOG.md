@@ -5,6 +5,10 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.8.11 — 2026-11-08
+
 ### Arbeidsdager, tid og SLA
 - Oppdrag planlegges nå som rene datoer: **Dato for utførelse** og eventuell
   **Til dato**. Hver dato blir én arbeidsdag med egen intern økt, også når
