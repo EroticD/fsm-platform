@@ -10,14 +10,22 @@ import {
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
+import {
+  DEFAULT_BUSINESS_HOURS,
+  osloWallTimeToUtc,
+} from "@/lib/business-hours";
 import { isValidCoordinates, type Coordinates } from "@/lib/geo";
 import { effectiveAddress } from "@/lib/geocode";
 import { createHaversineProvider, getRoutingProvider } from "@/lib/routing";
-import { optimiseRoute, type RouteWindow } from "@/lib/routing/route-optimizer";
+import {
+  optimiseRoute,
+  type RouteWindow,
+} from "@/lib/routing/route-optimizer";
 import type {
   RoutingProvider,
   TravelEstimate,
 } from "@/lib/routing/types";
+import { slaRemainingMinutes, slaStateAt } from "@/lib/sla";
 import { isClosedStatus } from "@/lib/work-order-status";
 import { recomputeWorkOrderSchedule } from "./visits";
 import {
@@ -61,7 +69,11 @@ export const ROUTE_ERROR_CODES = {
 export type RouteSkippedReason =
   | "missing_coordinates"
   | "outside_time_window"
-  | "limit";
+  | "limit"
+  | "missing_skills"
+  | "working_hours"
+  | "absence"
+  | "ineligible";
 
 export type RoutePlanStop = {
   visitId: string;
@@ -101,9 +113,16 @@ export type TechnicianRoutePlan = {
   totalDistanceKm: number;
   totalTravelMinutes: number;
   totalWaitingMinutes: number;
+  /** Kjøretid/avstand for den opprinnelige rekkefølgen. */
+  baselineTravelMinutes: number;
+  baselineDistanceKm: number;
+  savedTravelMinutes: number;
+  savedDistanceKm: number;
+  /** False når planen allerede var i den beste rekkefølgen. */
+  orderChanged: boolean;
   startAt: Date;
   finishAt: Date | null;
-  provider: "osrm" | "haversine";
+  provider: TravelEstimate["provider"];
   /** Satt når den eksterne leverandøren feilet og reserveberegningen ble brukt. */
   fallbackUsed: boolean;
 };
@@ -141,6 +160,21 @@ const routeVisitSelect = {
       longitude: true,
       legalHold: true,
       status: true,
+      skillRequirements: { select: { skillId: true, mandatory: true } },
+      slaClocks: {
+        where: { state: { not: "CANCELLED" } },
+        orderBy: { startedAt: "desc" },
+        select: {
+          startedAt: true,
+          respondBy: true,
+          resolveBy: true,
+          respondedAt: true,
+          resolvedAt: true,
+          breachedAt: true,
+          state: true,
+        },
+        take: 1,
+      },
       site: {
         select: {
           latitude: true,
@@ -238,7 +272,32 @@ function serviceMinutes(visit: RouteVisitRow): number {
   );
 }
 
-function visitWindow(visit: RouteVisitRow, point: Coordinates): RouteWindow {
+/**
+ * Prioritet utledes fra SLA i stedet for et eget felt på oppdraget:
+ * brudd = 3, under én time igjen = 2, under fire timer = 1, ellers 0.
+ * Da får en hard SLA tidligere plass uten at skjemaet må endres.
+ */
+function priorityFor(visit: RouteVisitRow, now: Date): number {
+  const clock = visit.workOrder.slaClocks?.[0];
+  if (!clock) return 0;
+  if (slaStateAt(clock, now) === "BREACHED") return 3;
+  const remaining = slaRemainingMinutes(clock, now);
+  if (remaining <= 60) return 2;
+  if (remaining <= 240) return 1;
+  return 0;
+}
+
+function requiredSkillIds(visit: RouteVisitRow): string[] {
+  return (visit.workOrder.skillRequirements ?? [])
+    .filter((requirement) => requirement.mandatory)
+    .map((requirement) => requirement.skillId);
+}
+
+function visitWindow(
+  visit: RouteVisitRow,
+  point: Coordinates,
+  now: Date,
+): RouteWindow {
   return {
     id: visit.id,
     point,
@@ -249,6 +308,8 @@ function visitWindow(visit: RouteVisitRow, point: Coordinates): RouteWindow {
       visit.endsAt.getTime() + ROUTE_WINDOW_TOLERANCE_MINUTES * 60_000,
     ),
     serviceMinutes: serviceMinutes(visit),
+    priority: priorityFor(visit, now),
+    requiredSkillIds: requiredSkillIds(visit),
   };
 }
 
@@ -273,24 +334,51 @@ export async function planTechnicianRoute(input: {
   visits: RouteVisitRow[];
   routing: RoutingProvider;
   startAt: Date;
+  now?: Date;
+  /** Arbeidstid for dagen. Utelatt betyr ingen tidsgrense. */
+  workingHours?: { start: Date; end: Date } | null;
+  /** Montørens gyldige kompetanse. Utelatt betyr «ikke kontroller». */
+  technicianSkillIds?: readonly string[];
+  absences?: Array<{ startsAt: Date; endsAt: Date }>;
 }): Promise<TechnicianRoutePlan> {
-  const located = input.visits
+  const now = input.now ?? new Date();
+  const skipped: RouteSkippedVisit[] = [];
+  const skippedIds = new Set<string>();
+  const addSkipped = (visit: RouteVisitRow, reason: RouteSkippedReason) => {
+    if (skippedIds.has(visit.id)) return;
+    skippedIds.add(visit.id);
+    skipped.push(skippedVisit(visit, reason));
+  };
+
+  const absent = new Set<string>();
+  for (const visit of input.visits) {
+    const absence = input.absences?.find(
+      (row) =>
+        row.startsAt.getTime() < visit.endsAt.getTime() &&
+        row.endsAt.getTime() > visit.startsAt.getTime(),
+    );
+    if (absence) {
+      absent.add(visit.id);
+      addSkipped(visit, "absence");
+    }
+  }
+
+  const candidates = input.visits.filter((visit) => !absent.has(visit.id));
+  const located = candidates
     .filter((visit) => pointFor(visit) !== null)
     .sort(
       (a, b) =>
         a.startsAt.getTime() - b.startsAt.getTime() ||
         a.id.localeCompare(b.id),
     );
-  const missing = input.visits
+  const missing = candidates
     .filter((visit) => pointFor(visit) === null)
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   const limited = located.slice(MAX_ROUTE_STOPS);
   const planned = located.slice(0, MAX_ROUTE_STOPS);
 
-  const skipped: RouteSkippedVisit[] = [
-    ...missing.map((visit) => skippedVisit(visit, "missing_coordinates")),
-    ...limited.map((visit) => skippedVisit(visit, "limit")),
-  ];
+  for (const visit of missing) addSkipped(visit, "missing_coordinates");
+  for (const visit of limited) addSkipped(visit, "limit");
 
   if (planned.length === 0) {
     return {
@@ -303,6 +391,11 @@ export async function planTechnicianRoute(input: {
       totalDistanceKm: 0,
       totalTravelMinutes: 0,
       totalWaitingMinutes: 0,
+      baselineTravelMinutes: 0,
+      baselineDistanceKm: 0,
+      savedTravelMinutes: 0,
+      savedDistanceKm: 0,
+      orderChanged: false,
       startAt: input.startAt,
       finishAt: null,
       provider: "haversine",
@@ -321,13 +414,18 @@ export async function planTechnicianRoute(input: {
 
   let fallbackUsed = false;
   let matrix: TravelEstimate[][];
-  let provider: "osrm" | "haversine" =
-    input.routing.name === "osrm" ? "osrm" : "haversine";
+  let provider: TravelEstimate["provider"] =
+    input.routing.name === "haversine" ? "haversine" : input.routing.name;
 
   try {
     matrix = await input.routing.matrix(points, points);
     const sample = matrix[0]?.find((leg) => Boolean(leg));
-    if (sample) provider = sample.provider;
+    if (sample) {
+      provider = sample.provider;
+      if (input.routing.name !== "haversine" && sample.provider === "haversine") {
+        fallbackUsed = true;
+      }
+    }
   } catch {
     // En ekstern leverandør som kaster skal aldri stoppe planleggingen.
     const fallback = createHaversineProvider();
@@ -337,12 +435,16 @@ export async function planTechnicianRoute(input: {
   }
 
   const result = optimiseRoute({
-    visits: planned.map((visit) => visitWindow(visit, pointFor(visit)!)),
+    visits: planned.map((visit) =>
+      visitWindow(visit, pointFor(visit)!, now),
+    ),
     matrix,
     start: anchorPoint,
     startAt: input.startAt,
     startIndex: 0,
     indexById,
+    workingHours: input.workingHours ?? null,
+    technicianSkillIds: input.technicianSkillIds,
   });
 
   const byId = new Map(planned.map((visit) => [visit.id, visit]));
@@ -372,10 +474,14 @@ export async function planTechnicianRoute(input: {
     });
   }
 
+  for (const row of result.unassigned) {
+    const visit = byId.get(row.id);
+    if (visit) addSkipped(visit, row.reason as RouteSkippedReason);
+  }
   const orderedIds = new Set(stops.map((stop) => stop.visitId));
   for (const visit of planned) {
     if (!orderedIds.has(visit.id)) {
-      skipped.push(skippedVisit(visit, "outside_time_window"));
+      addSkipped(visit, "outside_time_window");
     }
   }
 
@@ -390,6 +496,11 @@ export async function planTechnicianRoute(input: {
     totalDistanceKm: result.totalDistanceKm,
     totalTravelMinutes: result.totalTravelMinutes,
     totalWaitingMinutes: result.totalWaitingMinutes,
+    baselineTravelMinutes: result.baselineTravelMinutes,
+    baselineDistanceKm: result.baselineDistanceKm,
+    savedTravelMinutes: result.savedTravelMinutes,
+    savedDistanceKm: result.savedDistanceKm,
+    orderChanged: result.changed,
     startAt: input.startAt,
     finishAt,
     provider,
@@ -428,6 +539,20 @@ type RouteLoadResult =
           id: string;
           name: string | null;
           email: string | null;
+          departmentId: string | null;
+          skills: Array<{ skillId: string; validUntil: Date | null }>;
+          availability: Array<{
+            weekday: number;
+            startMinute: number;
+            endMinute: number;
+          }>;
+          absences: Array<{ startsAt: Date; endsAt: Date }>;
+        }>;
+        businessHours: Array<{
+          departmentId: string;
+          weekday: number;
+          openMinute: number;
+          closeMinute: number;
         }>;
       };
     }
@@ -440,13 +565,22 @@ type RouteLoadResult =
  */
 async function loadRouteInput(
   actor: ServiceActor,
-  input: { date: string; technicianId?: string | null; departmentId?: string | null },
+  input: {
+    date: string;
+    technicianId?: string | null;
+    departmentId?: string | null;
+    visitIds?: string[];
+  },
 ): Promise<RouteLoadResult> {
   const bounds = dayBounds(input.date);
   if (!bounds) return { ok: false, reason: "invalid" };
 
   const departmentId = departmentFor(actor, input.departmentId);
   const technicianId = cleanId(input.technicianId);
+  const selectedVisitIds = (input.visitIds ?? [])
+    .map(cleanId)
+    .filter(Boolean)
+    .slice(0, MAX_ROUTE_STOPS);
 
   const technicianWhere: Prisma.UserWhereInput = {
     AND: [
@@ -456,10 +590,31 @@ async function loadRouteInput(
     ],
   };
 
-  const [technicians, visits] = await Promise.all([
+  const [technicians, visits, businessHours] = await Promise.all([
     prisma.user.findMany({
       where: technicianWhere,
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        departmentId: true,
+        skills: {
+          select: { skillId: true, validUntil: true },
+          take: 200,
+        },
+        availability: {
+          select: { weekday: true, startMinute: true, endMinute: true },
+          take: 50,
+        },
+        absences: {
+          where: {
+            startsAt: { lt: bounds.dayEnd },
+            endsAt: { gt: bounds.dayStart },
+          },
+          select: { startsAt: true, endsAt: true },
+          take: 50,
+        },
+      },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       take: 200,
     }),
@@ -468,6 +623,9 @@ async function loadRouteInput(
         startsAt: { lt: bounds.dayEnd },
         endsAt: { gt: bounds.dayStart },
         status: { in: PLANNABLE_STATUSES },
+        ...(selectedVisitIds.length > 0
+          ? { id: { in: selectedVisitIds } }
+          : {}),
         workOrder: {
           AND: [
             workOrderScopeFor(actor),
@@ -482,6 +640,16 @@ async function loadRouteInput(
       select: routeVisitSelect,
       orderBy: [{ startsAt: "asc" }, { id: "asc" }],
       take: MAX_ROUTE_VISITS,
+    }),
+    prisma.businessHours.findMany({
+      where: departmentId ? { departmentId } : {},
+      select: {
+        departmentId: true,
+        weekday: true,
+        openMinute: true,
+        closeMinute: true,
+      },
+      take: 500,
     }),
   ]);
 
@@ -501,7 +669,88 @@ async function loadRouteInput(
           !visit.workOrder.legalHold,
       ),
       technicians,
+      businessHours,
     },
+  };
+}
+
+type RouteTechnician = Extract<RouteLoadResult, { ok: true }>["data"]["technicians"][number];
+
+function weekdayForDate(date: string): number | null {
+  const parsed = parseDateOnly(date);
+  if (!parsed || toDateOnly(parsed) !== date) return null;
+  return (parsed.getUTCDay() + 6) % 7;
+}
+
+/**
+ * Arbeidstid for én montør på én dato. Individuell arbeidstid vinner over
+ * avdelingens åpningstider; mangler begge, brukes standarden 08–16 på
+ * hverdager. En dag uten arbeidstid gir ingen ekstra tidsgrense.
+ */
+function workingHoursFor(
+  date: string,
+  technician: RouteTechnician,
+  businessHours: Array<{
+    departmentId: string;
+    weekday: number;
+    openMinute: number;
+    closeMinute: number;
+  }>,
+): { start: Date; end: Date } | null {
+  const weekday = weekdayForDate(date);
+  if (weekday === null) return null;
+
+  const availability = (technician.availability ?? []).filter(
+    (row) => row.weekday === weekday && row.endMinute > row.startMinute,
+  );
+  let openMinute: number | null = null;
+  let closeMinute: number | null = null;
+
+  if (availability.length > 0) {
+    openMinute = Math.min(...availability.map((row) => row.startMinute));
+    closeMinute = Math.max(...availability.map((row) => row.endMinute));
+  } else {
+    const departmentRows = (businessHours ?? []).filter(
+      (row) =>
+        row.departmentId === technician.departmentId &&
+        row.weekday === weekday &&
+        row.closeMinute > row.openMinute,
+    );
+    if (departmentRows.length > 0) {
+      openMinute = Math.min(...departmentRows.map((row) => row.openMinute));
+      closeMinute = Math.max(...departmentRows.map((row) => row.closeMinute));
+    } else {
+      const defaults = DEFAULT_BUSINESS_HOURS.filter(
+        (row) => row.weekday === weekday,
+      );
+      if (defaults.length > 0) {
+        openMinute = Math.min(...defaults.map((row) => row.openMinute));
+        closeMinute = Math.max(...defaults.map((row) => row.closeMinute));
+      }
+    }
+  }
+
+  if (openMinute === null || closeMinute === null || closeMinute <= openMinute) {
+    return null;
+  }
+
+  return {
+    start: osloWallTimeToUtc(date, openMinute),
+    end: osloWallTimeToUtc(date, closeMinute),
+  };
+}
+
+function extendWorkingEnd(
+  window: { start: Date; end: Date } | null,
+  visits: RouteVisitRow[],
+  dayEnd: Date,
+): { start: Date; end: Date } | null {
+  if (!window || visits.length === 0) return window;
+  const latest = Math.max(...visits.map((visit) => visit.endsAt.getTime()));
+  if (latest <= window.end.getTime()) return window;
+  return {
+    start: window.start,
+    end: new Date(Math.min(latest, dayEnd.getTime())),
   };
 }
 
@@ -516,12 +765,15 @@ export async function getRoutePlan(
     date: string;
     technicianId?: string | null;
     departmentId?: string | null;
+    /** Valgfritt utvalg. Tomt/utelatt betyr alle visiter for dagen. */
+    visitIds?: string[];
   },
   options: RoutePlanOptions = {},
 ): Promise<ServiceResult<RoutePlanOverview>> {
   if (
     !actor?.isActive ||
     (!can(actor, "workorders.view") &&
+      !can(actor, "workorders.update") &&
       !can(actor, "workorders.assign") &&
       !can(actor, "dispatch.configure"))
   ) {
@@ -543,6 +795,8 @@ export async function getRoutePlan(
   const isToday = input.date === dateOnlyInOslo(now);
 
   const plans: TechnicianRoutePlan[] = [];
+  // Arbeidstid per avdeling slås opp én gang for hele dagen.
+  const businessHours = loaded.data.businessHours;
   for (const technician of loaded.data.technicians) {
     const visits = loaded.data.visits.filter((visit) =>
       visit.technicians.some((row) => row.userId === technician.id),
@@ -558,6 +812,18 @@ export async function getRoutePlan(
     const startAt = new Date(
       Math.max(earliest, isToday ? now.getTime() : 0),
     );
+    const workingHours = extendWorkingEnd(
+      workingHoursFor(input.date, technician, businessHours),
+      visits,
+      loaded.data.dayEnd,
+    );
+    const technicianSkillIds = (technician.skills ?? [])
+      .filter(
+        (skill) =>
+          !skill.validUntil ||
+          skill.validUntil.getTime() >= loaded.data.dayStart.getTime(),
+      )
+      .map((skill) => skill.skillId);
 
     plans.push(
       await planTechnicianRoute({
@@ -565,6 +831,10 @@ export async function getRoutePlan(
         visits,
         routing,
         startAt,
+        now,
+        workingHours,
+        technicianSkillIds,
+        absences: technician.absences ?? [],
       }),
     );
   }
@@ -625,7 +895,11 @@ export async function applyRouteOrder(
 
   const plan = await getRoutePlan(
     actor,
-    { date: input.date, technicianId },
+    {
+      date: input.date,
+      technicianId,
+      visitIds: requestedIds,
+    },
     options,
   );
   if (!plan.ok) return plan;
@@ -813,6 +1087,9 @@ export async function applyRouteOrder(
             endsAt: move.endsAt.toISOString(),
           },
           provider: technicianPlan.provider,
+          savedTravelMinutes: technicianPlan.savedTravelMinutes,
+          savedDistanceKm: technicianPlan.savedDistanceKm,
+          orderChanged: technicianPlan.orderChanged,
         },
       });
       applied += 1;

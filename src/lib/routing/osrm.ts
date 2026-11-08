@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Coordinates } from "@/lib/geo";
 import { createHaversineProvider } from "./haversine";
+import { createTrafficProvider, resolveTrafficConfig } from "./traffic";
 import {
   RoutingTimeoutError,
   type RoutingProvider,
@@ -203,17 +204,21 @@ function routingTimeout(env: RoutingEnv): number {
 }
 
 /**
- * Velger leverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
+ * Velger basisleverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
  * haversine, slik at utvikling, tester og en installasjon uten ruteserver
  * aldri gjør et eksternt kall.
  */
-export function resolveRoutingProvider(
-  env: RoutingEnv = process.env,
+function resolveBaseProvider(
+  env: RoutingEnv,
   fetchImpl?: typeof fetch,
 ): RoutingProvider {
   const provider = (env.ROUTING_PROVIDER ?? "").trim().toLowerCase();
   const baseUrl = (env.OSRM_BASE_URL ?? "").trim();
-  if (baseUrl && (provider === "osrm" || provider === "")) {
+  const isTrafficProvider = provider === "tomtom" || provider === "here";
+  if (
+    baseUrl &&
+    (provider === "osrm" || provider === "" || isTrafficProvider)
+  ) {
     return createOsrmProvider({
       baseUrl,
       fetchImpl,
@@ -221,6 +226,32 @@ export function resolveRoutingProvider(
     });
   }
   return createHaversineProvider();
+}
+
+/**
+ * Velger leverandør ut fra servermiljøet.
+ *
+ * Rekkefølgen er bevisst: en konfigurert trafikkleverandør (TomTom/HERE) får
+ * svare på enkeltstrekninger, men matrisen og alle feil faller tilbake til
+ * OSRM, som selv faller tilbake til haversine. Dermed er reserven alltid
+ * deterministisk og krever ingen ekstra konfigurasjon.
+ */
+export function resolveRoutingProvider(
+  env: RoutingEnv = process.env,
+  fetchImpl?: typeof fetch,
+): RoutingProvider {
+  const fallback = resolveBaseProvider(env, fetchImpl);
+  const traffic = resolveTrafficConfig(env);
+  if (!traffic) return fallback;
+
+  return createTrafficProvider({
+    ...traffic,
+    fallback,
+    fetchImpl,
+    timeoutMs: traffic.timeoutMs,
+    cacheTtlMs: traffic.cacheTtlMs,
+    maxRequestsPerMinute: traffic.maxRequestsPerMinute,
+  });
 }
 
 let defaultProvider: RoutingProvider | null = null;

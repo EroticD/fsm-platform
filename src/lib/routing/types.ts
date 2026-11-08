@@ -1,11 +1,29 @@
 import type { Coordinates } from "@/lib/geo";
 
+/**
+ * Leverandørene rutinglaget kan svare med.
+ *
+ * `tomtom` og `here` er trafikkbevisste: reisetiden er hentet med
+ * sanntidstrafikk. `osrm` er en vanlig ruteserver uten trafikk, og
+ * `haversine` er den lokale reserveberegningen (luftlinje × veifaktor).
+ */
+export type RoutingProviderName =
+  | "osrm"
+  | "haversine"
+  | "tomtom"
+  | "here";
+
 /** Reisetid og avstand mellom to punkter. */
 export type TravelEstimate = {
   distanceKm: number;
   durationMinutes: number;
-  /** `osrm` når en ekstern ruteleverandør svarte, ellers `haversine`. */
-  provider: "osrm" | "haversine";
+  /** Leverandøren som faktisk svarte. */
+  provider: RoutingProviderName;
+  /**
+   * True når varigheten er beregnet med trafikk. En trafikkleverandør som
+   * faller tilbake til OSRM eller haversine setter dette til false.
+   */
+  traffic?: boolean;
 };
 
 /**
@@ -13,7 +31,7 @@ export type TravelEstimate = {
  * klienten: miljøvariabler og eventuelle nøkler blir liggende på serveren.
  */
 export type RoutingProvider = {
-  name: "osrm" | "haversine";
+  name: RoutingProviderName;
   route(from: Coordinates, to: Coordinates): Promise<TravelEstimate>;
   matrix(
     origins: Coordinates[],

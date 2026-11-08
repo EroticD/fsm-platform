@@ -103,6 +103,25 @@
       "utilisationShort": "Utnyttelse",
       "noTechnicians": "Ingen aktive montører i avdelingen."
     },
+    "routeOptimizer": {
+      "optimize": "Optimaliser ruten",
+      "previewTitle": "Før og etter optimalisering",
+      "beforeTravel": "Kjøretid før",
+      "afterTravel": "Kjøretid etter",
+      "beforeDistance": "Avstand før",
+      "afterDistance": "Avstand etter",
+      "savedTravel": "Spart kjøretid",
+      "savedDistance": "Spart avstand",
+      "changed": "Ruten er endret. Kontroller rekkefølgen før du bruker den.",
+      "unchanged": "Dagen er allerede i beste rekkefølge. Ingenting flyttes.",
+      "optimizeHint": "Optimaliseringen flytter ingenting. Bruk «Bruk rekkefølge» for å lagre, og endringen revisjonslogges.",
+      "providerTomTom": "TomTom med trafikk",
+      "providerHere": "HERE med trafikk",
+      "skippedMissingSkills": "mangler nødvendig kompetanse",
+      "skippedWorkingHours": "får ikke plass innenfor arbeidstiden",
+      "skippedAbsence": "kolliderer med registrert fravær",
+      "skippedIneligible": "kan ikke planlegges i denne ruten"
+    },
     "errors": {
       "invalid": "Ugyldig data.",
       "forbidden": "Du har ikke tilgang til dispatch.",

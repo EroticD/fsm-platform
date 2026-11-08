@@ -21,7 +21,7 @@ vi.mock("@/server/route-plan", async (importOriginal) => {
   return { ...actual, applyRouteOrder: mocks.applyRouteOrder };
 });
 
-import { applyRouteOrderAction } from "./actions";
+import { applyRouteOrderAction, optimizeRouteAction } from "./actions";
 
 const user = {
   id: "office-1",
@@ -54,8 +54,7 @@ beforeEach(() => {
   });
 });
 
-describe("applyRouteOrderAction", () => {
-  it("bruker rekkefølgen og redirecter med antall flyttede visiter", async () => {
+describe("applyRouteOrderAction", () => {  it("bruker rekkefølgen og redirecter med antall flyttede visiter", async () => {
     await expect(
       applyRouteOrderAction(
         form({
@@ -108,6 +107,30 @@ describe("applyRouteOrderAction", () => {
       ),
     ).rejects.toThrow(
       "REDIRECT:/kalender/rute?dato=2026-11-03&tekniker=tech-1&feil=route.errors.absence",
+    );
+  });
+});
+
+describe("optimizeRouteAction", () => {
+  it("åpner optimaliseringsforslaget uten å flytte noe", async () => {
+    await expect(
+      optimizeRouteAction(
+        form({ dato: "2026-11-03", tekniker: "tech-1" }),
+      ),
+    ).rejects.toThrow(
+      "REDIRECT:/kalender/rute?dato=2026-11-03&tekniker=tech-1&optimaliser=1",
+    );
+  });
+
+  it("avviser brukere uten oppdateringsrettighet", async () => {
+    mocks.hasPermission.mockReturnValue(false);
+
+    await expect(
+      optimizeRouteAction(
+        form({ dato: "2026-11-03", tekniker: "tech-1" }),
+      ),
+    ).rejects.toThrow(
+      "REDIRECT:/kalender/rute?dato=2026-11-03&tekniker=tech-1&feil=route.errors.forbidden",
     );
   });
 });

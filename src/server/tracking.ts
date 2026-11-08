@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { estimateEta, isValidCoordinates, type Coordinates } from "@/lib/geo";
 import { getRoutingProvider } from "@/lib/routing";
-import type { RoutingProvider } from "@/lib/routing/types";
+import type { RoutingProvider, RoutingProviderName } from "@/lib/routing/types";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import {
@@ -256,7 +256,7 @@ export type PublicTrackingView = {
   /** Alder på siste ping i hele minutter. */
   pingAgeMinutes: number | null;
   lastUpdatedAt: Date | null;
-  travelProvider: "osrm" | "haversine" | null;
+  travelProvider: RoutingProviderName | null;
 };
 
 /** ETA-ruten returnerer aldri montørens navn eller andre personopplysninger. */
@@ -382,7 +382,7 @@ async function estimateLiveArrival(input: {
 }): Promise<{
   minutes: number;
   arrivalAt: Date;
-  provider: "osrm" | "haversine";
+  provider: RoutingProviderName;
 } | null> {
   try {
     const estimate = await input.routing.route(input.from, input.to);
@@ -438,7 +438,7 @@ async function buildTrackingSnapshot(
   const destination = publicDestination(link);
 
   let eta:
-    | { minutes: number; arrivalAt: Date; provider: "osrm" | "haversine" }
+    | { minutes: number; arrivalAt: Date; provider: RoutingProviderName }
     | null = null;
   if (
     link.visit.status === "EN_ROUTE" &&

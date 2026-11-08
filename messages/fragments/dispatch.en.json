@@ -103,6 +103,25 @@
       "utilisationShort": "Utilisation",
       "noTechnicians": "No active technicians in the department."
     },
+    "routeOptimizer": {
+      "optimize": "Optimise route",
+      "previewTitle": "Before and after optimisation",
+      "beforeTravel": "Drive time before",
+      "afterTravel": "Drive time after",
+      "beforeDistance": "Distance before",
+      "afterDistance": "Distance after",
+      "savedTravel": "Drive time saved",
+      "savedDistance": "Distance saved",
+      "changed": "The route has changed. Review the order before applying it.",
+      "unchanged": "The day is already in the best order. Nothing will be moved.",
+      "optimizeHint": "Optimisation moves nothing. Use “Use order” to save it, and the change is written to the audit log.",
+      "providerTomTom": "TomTom with traffic",
+      "providerHere": "HERE with traffic",
+      "skippedMissingSkills": "missing required skills",
+      "skippedWorkingHours": "does not fit within working hours",
+      "skippedAbsence": "collides with registered absence",
+      "skippedIneligible": "cannot be scheduled on this route"
+    },
     "errors": {
       "invalid": "Invalid data.",
       "forbidden": "You do not have access to dispatch.",
