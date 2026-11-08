@@ -1,7 +1,7 @@
 # Plattformanalyse: FSM-plattformen mot markedet
 
-> **Status:** 2026-11-08, `dev` @ `5043cd6`, etter utgivelsen av `v0.8.11` på
-> `master`. Analysen beskriver funksjonene som faktisk finnes i denne grenen,
+> **Status:** 2026-11-08, `master` og `dev` @ `c46085f`, versjon `0.9.0`
+> (`v0.9.0`). Analysen beskriver funksjonene som faktisk finnes i denne grenen,
 > ikke bare det som er planlagt.
 >
 > **Metode:** Kode- og dokumentasjonsgjennomgang av dette repoet, offentlig
@@ -24,19 +24,24 @@ kundeportal, tilbud, faktura, lager, utlegg, lønnsomhet og revisjonsbevis – i
 
 Sammenlignet med **Jobber, Housecall Pro, Zoho FSM og Praxedo** har vi bredere
 dybde i servicebevis, utstyrshistorikk, avtaler/SLA, revisjon, GDPR-sletting,
-dokumenthåndtering og selvhosting. Vi mangler deres mest salgbare
-overflatefunksjoner: betalinger/finansiering, markedsføring, moden mobilapp,
-ruteoptimalisering og et stort integrasjonsøkosystem.
+dokumenthåndtering og selvhosting. Betalingslenker (Stripe/Vipps),
+ruteoptimalisering med trafikk-ETA og regnskapssynk er levert som v1, men vi
+mangler fortsatt deres mest salgbare overflatefunksjoner: finansiering og
+refusjon/capture i appen, bankavstemming, markedsføring, moden mobilapp i
+butikk, dynamisk omruting/turn-by-turn og et stort integrasjonsøkosystem.
 
 Sammenlignet med **ServiceTitan** har vi lavere kostnad, enklere innføring og
-datakontroll, men mangler prisbok, avansert dispatch, AI, betalinger,
-provisjon, markedsføring og den kommersielle modenheten.
+datakontroll, men mangler prisbok med good/better/best, avansert dispatch, AI,
+finansiering, provisjon, markedsføring og den kommersielle modenheten.
 
 Sammenlignet med **Salesforce Field Service, Microsoft Dynamics 365 Field
 Service, ServiceMax, IFS og Oracle Field Service** har vi langt lavere
 kompleksitet og kostnad og en tydeligere FSM-kjerne, men mangler AI-basert
-optimalisering, IoT/prediktivt vedlikehold, ERP-dybde, multi-tenant skala,
-SAML/SCIM-grupper, feltnivå-RBAC og enterprise-drift (HA, PITR, S3, køtjeneste).
+optimalisering, IoT/prediktivt vedlikehold, ERP-dybde og multi-tenant skala.
+SAML 2.0 SP, SCIM 2.0 Users+Groups, feltnivå-RBAC, S3/MinIO-lagring,
+Redis-varsling/cache med DB-fallback samt HA- og PITR-skript finnes som v1,
+men er ikke verifisert eller øvd mot ekte tjenester og mangler
+enterprise-driftsbevis.
 
 Sammenlignet med **Fieldly og Next** har vi servicekontrakter, SLA, utstyr,
 servicerapporter, portal og revisjon, men mangler deres
@@ -60,11 +65,11 @@ ikke en enterprise-suite.
 | Valuta/format | NOK, norsk MVA og norske adresser; CSV til regnskap/lønn |
 | Lisens | BUSL-1.1 (source-available, ikke OSI-open source) |
 | Moduler | 22 nøkler: kjerne + 21 av-/påslåbare, med avhengigheter og presets |
-| Datamodell | 101 Prisma-modeller, 23 enums, additive migreringer |
-| Flater | 91 `page.tsx`, 71 API-ruter |
-| Tester | 327 testfiler / 2 986 enhetstester + 33 filer / 184 integrasjonstester mot ekte PostgreSQL |
+| Datamodell | 116 Prisma-modeller, 27 enums, additive migreringer |
+| Flater | 91 `page.tsx`, 94 API-ruter |
+| Tester | 403 testfiler / 3 257 enhetstester + 41 filer / 222 integrasjonstester mot ekte PostgreSQL, 12 E2E-spesifikasjoner |
 | CI | Typesjekk, lint, i18n, enhet, integrasjon, Playwright E2E, axe/Lighthouse, Docker, Trivy |
-| Sikkerhet | 2FA, OIDC SSO, SCIM, API-nøkler med scopes, rate limits, hash-kjedet revisjon, legal hold, GDPR-sletting, PDF-sanering, opplastingskvoter |
+| Sikkerhet | 2FA, OIDC SSO, SAML 2.0 SP, SCIM 2.0 Users+Groups, feltnivå-RBAC, API-nøkler med scopes, rate limits, hash-kjedet revisjon, legal hold, GDPR-sletting, PDF-sanering, opplastingskvoter |
 | Multi-tenant | Nei – én installasjon per kunde/organisasjon; avdelinger gir intern isolasjon |
 
 ### 2.1 Arkitektur
@@ -77,29 +82,33 @@ Plattformen er bevisst en **modulær monolitt**. Det gir:
 - lavere driftskompleksitet enn mikrotjenester.
 
 Prisen er at skala, isolasjon og uavhengig deploy av funksjoner er svakere enn
-en multi-tenant SaaS. Kø og rate limits er databasebaserte; det finnes ingen
-Redis/BullMQ, S3-driver eller egen worker-tjeneste. Det er dokumentert som P3.
+en multi-tenant SaaS. Kø og rate limits har database som standard og kilde til
+sannhet, med valgfri Redis som vekkemekanisme og cache; uten Redis faller alt
+tilbake til databasen. Lagring kan kjøre på lokal disk eller S3/MinIO. Det
+finnes ingen egen worker-tjeneste – in-process workere er dokumentert trygge
+fordi databasen og Redis er delt. `docker-compose.ha.yml`, WAL-arkiv og
+PITR-skript finnes, men er ikke øvd mot ekte tjenester.
 
 ### 2.2 Modenhet per område
 
 | Område | Modenhet | Kommentar |
 | --- | --- | --- |
 | Oppdrag, kunder, ansatte, avdelinger | Høy | Kjerne, godt testet, dagens arbeidsflyt |
-| Kalender, dispatch, rute/ETA | Middels–høy | FullCalendar 7, dispatch, kapasitet, ruteplan; ikke trafikk eller optimalisering |
+| Kalender, dispatch, rute/ETA | Middels–høy | FullCalendar 7, dispatch, kapasitet, ruteplan, OSRM + valgfri Google Routes, trafikk-ETA og 2-opt; ikke dynamisk omruting eller turn-by-turn |
 | Servicerapporter, sjekklister, signatur, PDF | Høy | Revisjoner, enheter, bilder, signatur, PDF, HMS |
 | Utstyr og servicehistorikk | Høy | Enhetskort, målinger, garanti, vedlikeholdsplaner, flytting med historikk |
 | Avtaler, SLA, bookinger | Høy | Gjentakende service, SLA-policyer, bookingkø, datoforespørsler |
 | Kundeportal | Høy | Bestillinger, rapporter, dokumenter, utstyr, avtaler, faktura, tilbud, sporing, omtaler |
-| Tilbud og faktura | Middels–høy | Versjoner, portalgodkjenning, MVA, delbetaling, kreditnota, CSV, print |
+| Tilbud og faktura | Middels–høy | Versjoner, portalgodkjenning, MVA, delbetaling, kreditnota, Stripe/Vipps-betalingslenke, CSV, print |
 | Lager og innkjøp | Middels–høy | Beholdning, reservasjon/forbruk, leverandør, innkjøpsordre, varemottak |
 | Tid, reise, utlegg, lønn | Middels–høy | Arbeidsdager, reisetid, kjøretur, utlegg, godkjenning, lønn-CSV |
-| BI og lønnsomhet | Middels | Estimat + faktisk omsetning, timer/reise, first-time-fix, CSV; ikke kostnad per oppdrag |
+| BI og lønnsomhet | Middels | Estimat + faktisk omsetning, intern kostnadssats for estimert resultat, timer/reise, first-time-fix, CSV; ingen kostnadsdata per oppdrag |
 | Dokumenter og søk | Høy | Mapper, tags, versjoner, OCR, fulltekstsøk |
 | SMS og varsler | Høy | Toveis SMS, webhook, samtykke, påminnelser, kontorinnboks |
-| Sikkerhet og personvern | Høy | 2FA, SSO/SCIM, audit-kjede, legal hold, GDPR-sletting, API-scopes |
-| Integrasjoner | Lav–middels | REST-API og CSV; ingen regnskap/PSP/e-faktura/webhooks |
+| Sikkerhet og personvern | Høy | 2FA, OIDC/SAML, SCIM Users+Groups, felt-RBAC, audit-kjede, legal hold, GDPR-sletting, API-scopes |
+| Integrasjoner | Middels | REST-API v1 (kunder, oppdrag, eksterne ordrer, tilbud, lager, avtaler, utstyr, dokumenter, rapporter, visiter, SLA-policyer, vedlikeholdsplaner, `me`), Stripe/Vipps-betalingslenker, regnskapssynk (Fiken/Tripletex/PowerOffice Go/CSV) og CSV; e-faktura/Peppol og utgående webhooks mangler |
 | AI og prediktivt | Ingen | Ingen Copilot, optimalisering, IoT eller prediktivt vedlikehold |
-| Skala og HA | Lav–middels | Én appprosessmodell, DB-kø, ingen Redis/S3/HA/PITR |
+| Skala og HA | Lav–middels | In-process workere, DB-kø med Redis-varsling/cache og DB-fallback, lokal/S3-lagring; HA-/PITR-skript finnes, men er ikke øvd |
 
 ---
 
@@ -128,7 +137,7 @@ Redis/BullMQ, S3-driver eller egen worker-tjeneste. Det er dokumentert som P3.
   servicekontrakt/SLA, ikke enterprise, begrenset selvhosting.
 - **Relevant for oss:** Den viktigste SMB-målestokken. Vi slår Jobber på
   servicebevis, utstyr, avtaler/SLA, revisjon, lager og selvhosting; Jobber slår
-  oss på betalinger, ruteoptimalisering, mobilpolish og økosystem.
+  oss på betalingsdybde, dynamisk ruteoptimalisering, mobilpolish og økosystem.
 
 #### Housecall Pro
 
@@ -139,8 +148,8 @@ Redis/BullMQ, S3-driver eller egen worker-tjeneste. Det er dokumentert som P3.
 - **Svakheter:** Ikke dyp enterprise, lager/innkjøp og utstyrslivssyklus er
   begrenset, mange verdifulle funksjoner er add-ons.
 - **Relevant for oss:** Sterk på kundereise og betaling. Vi må matche
-  betaling og booking før vi kan vinne prisbevisste SMB-kunder som vil ha
-  «alt i ett».
+  betalingsdybde og direkte booking før vi kan vinne prisbevisste SMB-kunder
+  som vil ha «alt i ett».
 
 #### Zoho FSM
 
@@ -263,7 +272,7 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 | Kalender og dispatch | ✅ | ✅ | ✅ | ✅ | ✅ | ◐ |
 | Drag-and-drop dispatch | ✅ | ✅ | ✅ | ✅ | ✅ | ◐ |
 | Ruteplan og ETA | ✅ | ✅ / ◐ | ✅ | ✅ | ✅ | ◐ |
-| Ruteoptimalisering med trafikk | — | ✅ Jobber / ◐ HCP | ✅ | ✅ | ✅ | — |
+| Ruteoptimalisering med trafikk | ◐ 2-opt + trafikk-ETA; ikke dynamisk omruting | ✅ Jobber / ◐ HCP | ✅ | ✅ | ✅ | — |
 | Kompetanse-/sertifiseringsmatch | ◐ | ◐ | ✅ | ✅ | ✅ | — |
 | SLA, avtaler og entitlements | ✅ | ◐ | ✅ | ✅ | ✅ | ◐ |
 | Forebyggende vedlikehold | ✅ | ◐ | ✅ | ✅ | ✅ | ◐ |
@@ -271,8 +280,8 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 | Good/better/best og prisbok | — | ◐ | ✅ | ◐ | ◐ | — |
 | Tilbudsgodkjenning i portal | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Faktura, MVA og kreditnota | ✅ | ✅ | ✅ | ◐ | ✅ | ✅ |
-| Kortbetaling/PSP/finansiering | — | ✅ | ✅ | ◐ | ◐ | — |
-| Regnskap/ERP-integrasjon | — | ✅ QuickBooks/Xero | ✅ | ✅ | ✅ | ✅ |
+| Kortbetaling/PSP/finansiering | ◐ Stripe/Vipps-lenker; ikke refusjon/capture/void | ✅ | ✅ | ◐ | ◐ | — |
+| Regnskap/ERP-integrasjon | ◐ Fiken/Tripletex/PowerOffice Go/CSV; ikke toveis | ✅ QuickBooks/Xero | ✅ | ✅ | ✅ | ✅ |
 | E-faktura/Peppol | — | — | ◐ | ◐ | ◐ | ◐ |
 | Lager og beholdning | ✅ | ◐ | ✅ | ✅ | ✅ | ◐ |
 | Innkjøp, leverandør og varemottak | ✅ | — / ◐ | ✅ | ✅ | ✅ | ◐ |
@@ -284,7 +293,7 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 | Rapporter, sjekklister og signatur | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Servicerapport som PDF | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Kundeportal og selvbetjening | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Online booking med direkte slot | — | ✅ | ✅ | ✅ | ✅ | ◐ |
+| Online booking med direkte slot | — Bevisst datoforespørsel | ✅ | ✅ | ✅ | ✅ | ◐ |
 | Toveis SMS og påminnelser | ✅ | ✅ | ✅ | ◐ | ◐ | ◐ |
 | Dokumentbibliotek, versjoner og OCR | ✅ | ◐ | ◐ | ✅ | ✅ | ✅ |
 | Tid, reise, kjøretur og utlegg | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -297,9 +306,9 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 | REST-API | ✅ | ✅ / ◐ | ✅ | ✅ | ✅ | ✅ |
 | Utgående webhooks | — | ◐ | ✅ | ✅ | ✅ | ◐ |
 | SSO/OIDC | ✅ | ◐ | ✅ | ✅ | ✅ | ◐ |
-| SAML | — | — | ✅ | ✅ | ✅ | — |
+| SAML | ✅ SP; IdP-metadata via env | — | ✅ | ✅ | ✅ | — |
 | SCIM-brukerprovisjonering | ✅ | — | ◐ | ✅ | ✅ | — |
-| SCIM-grupper | — | — | ◐ | ✅ | ✅ | — |
+| SCIM-grupper | ✅ | — | ◐ | ✅ | ✅ | — |
 | Revisjonslogg med kjede/legal hold | ✅ | ◐ | ◐ | ✅ | ✅ | ◐ |
 | GDPR-sletting med legal hold | ✅ | ◐ | ◐ | ✅ | ✅ | ◐ |
 | Avdelingsisolering | ✅ | ◐ | ✅ | ✅ | ✅ | ◐ |
@@ -334,20 +343,32 @@ integrasjon eller begrenset · **—** = ikke dokumentert / ikke relevant.
 
 ### 5.2 Hvor vi er svakere
 
-- **Betalinger og økonomi.** Ingen PSP, kort, Vipps, finansiering eller
-  regnskapsintegrasjon. CSV er ikke nok for de fleste SMB-kjøpere.
+- **Betalinger og økonomi.** Stripe/Vipps-betalingslenker og regnskapssynk
+  (Fiken/Tripletex/PowerOffice Go/CSV, med retry) er levert som v1. Det som
+  mangler er dybde: refusjon/capture/void, bankavstemming, kreditnota/refusjon
+  til regnskap, leverandørfaktura, toveis synk, konfigurerbar MVA-kartlegging
+  og e-faktura/Peppol. Betalinger er foreløpig NOK-only. CSV alene er ikke
+  nok for de fleste SMB-kjøpere.
 - **AI og optimalisering.** Ingen scheduling-optimering, Copilot, prediktivt
   vedlikehold eller IoT. Dette er bordstake i enterprise og i ferd med å bli
   det i mid-market.
 - **Mobil.** Native Android-/iOS-prosjekter i `fsm-mobile` har runtime
   servervalg og sjudøgns offline-cache, men signert butikkbygg, push,
   bakgrunnssynk og enhets-QA gjenstår før de er på Jobber/HCP-nivå.
-- **Integrasjoner.** REST-API finnes, men ikke et konnektorbibliotek,
-  webhooks, regnskap, e-faktura eller markedsføringsverktøy.
-- **Skala.** Én appprosessmodell, DB-basert kø, ingen S3/Redis/HA/PITR.
-  Det er greit for titalls samtidige brukere, ikke for global SaaS.
-- **Enterprise-governance.** Ingen SAML, SCIM-grupper, feltnivå-RBAC,
-  separation of duties eller formelle sertifiseringer (ISO 27001/SOC 2).
+- **Integrasjoner.** REST-API v1, PSP og regnskapssynk finnes, men ikke
+  utgående signerte webhooks, e-faktura/Peppol, CRM-konnektorer eller et
+  konnektorbibliotek/markedsføringsverktøy.
+- **Skala.** In-process workere, databasekø med valgfri Redis og
+  lokal/S3-lagring er på plass, og `docker-compose.ha.yml`, WAL-arkiv og
+  PITR-skript finnes.
+  Men HA/PITR/restore er ikke øvd mot ekte Postgres/S3/Redis, og Redis er en
+  vekkemekanisme med DB-fallback, ikke en egen køtjeneste. Det er greit for
+  titalls samtidige brukere, ikke for global SaaS.
+- **Enterprise-governance.** SAML 2.0 SP, SCIM 2.0 Users+Groups, OIDC og
+  feltnivå-RBAC er levert som v1. Residualene er Entra group overage,
+  IdP-metadata bare via miljøvariabler, ingen ekte tenant i CI, ingen
+  redigerbar feltmatrise, ingen separation of duties og ingen formelle
+  sertifiseringer (ISO 27001/SOC 2) med driftsbevis.
 - **Kommersiell modenhet.** BUSL-lisens, ingen offentlig prisliste, ingen
   partnerøkosystem, ingen 24/7 SLA eller implementeringsorganisasjon.
 
@@ -396,10 +417,13 @@ både pris og kompleksitet.
 
 ### 7.2 Vi taper når kunden
 
-- forventer kortbetaling, Vipps/Stripe, finansiering og automatisk regnskap;
+- forventer full PSP-flyt med refusjon/capture, finansiering, bankavstemming
+  og e-faktura/Peppol, ikke bare betalingslenker og regnskapssynk;
 - vil ha en ferdig mobilapp med push og butikkdistribusjon;
-- trenger avansert ruteoptimalisering, AI-scheduling eller prediktivt vedlikehold;
-- er en stor enterprise med ERP, IoT, SAML, feltnivå-RBAC og 24/7 SLA;
+- trenger dynamisk omruting, turn-by-turn, AI-scheduling eller prediktivt
+  vedlikehold;
+- er en stor enterprise med ERP, IoT, multi-tenant, separation of duties,
+  sertifiseringer og 24/7 SLA;
 - driver bygg/installasjonsprosjekt og trenger byggdagbok, ID06,
   bemanningsregister og EDI (Fieldly/Next er bedre);
 - trenger markedsføring, lead-gen, anmeldelseskampanjer og prisbok med
@@ -434,19 +458,24 @@ hva som er teknisk morsomt. P3-punkter krever eiergodkjenning.
 
 ### P0 – nødvendig for å konkurrere i SMB/mid-market (0–3 måneder)
 
-1. **Betalinger og regnskap**
-   - Vipps/Stripe/kort og betalingslenke for faktura.
-   - Konnektor for Fiken/Tripletex/PowerOffice/Visma/Business Central.
-   - Avstemming og idempotent eksport.
-   - Hvorfor: uten dette taper vi nesten alle Jobber/HCP-dealer.
-2. **E-postlevering av tilbud, faktura og bookingbekreftelse**
-   - I dag deles lenker manuelt. Konkurrentene sender automatisk.
+1. **Produksjonsbevis for betalinger og regnskap**
+   - Stripe/Vipps-lenker og Fiken/Tripletex/PowerOffice Go/CSV-synk er levert
+     som v1. Verifiser ende-til-ende med ekte PSP- og regnskapskontoer.
+   - Utdyp deretter: refusjon/capture/void, bankavstemming, kreditnota/
+     refusjon til regnskap og konfigurerbar MVA-kartlegging.
+   - Hvorfor: uten produksjonsbevis taper vi fortsatt Jobber/HCP-dealer som
+     forventer at betaling og avstemming «bare virker».
+2. **Produksjonsbevis for e-post, SMS og push**
+   - Durabel e-postutboks er levert og tilbud, faktura, booking og
+     arbeidsordre sendes automatisk. Verifiser SMTP, FCM/APNs og
+     leverandørfeilmoduser mot ekte tjenester.
 3. **Signer og publiser mobilappen**
    - Native prosjekter, servervalg og 7-dagers cache er levert; signering,
      FCM/APNs, butikkinnhold og enhetstest gjenstår.
-4. **Ruteoptimalisering og trafikk (eller dokumentert integrasjon)**
-   - Vi har ruteplan/ETA, men ikke optimalisering. Dette er en synlig
-     demo-funksjon.
+4. **Verifiser ruting, trafikk og optimalisering**
+   - OSRM, valgfri Google Routes, trafikk-ETA, 2-opt, manuell ruterekkefølge
+     og overtidsplanlegging er levert. Verifiser mot ekte trafikk-kilde og
+     avgrens tydelig at dynamisk omruting og turn-by-turn ikke er levert.
 5. **Rapport-/PDF-løft**
    - Fri rapportbygger eller minst flere faste rapporter og PDF-eksport av BI.
 
@@ -458,19 +487,23 @@ hva som er teknisk morsomt. P3-punkter krever eiergodkjenning.
    - Gjenbruk tilbudslinjer, marginer og pakker.
 8. **Kundeinitiert booking med valgbar direkte bekreftelse**
    - Dagens datoforespørsel er bevisst; tilby direkte slot som opt-in.
-9. **SAML, SCIM-grupper og feltnivå-RBAC**
-   - Nødvendig for større kunder og offentlig sektor.
-10. **S3/objektlagring, Redis/BullMQ og HA/PITR**
-    - Skaleringsvei og drift som enterprise kjøpere forventer.
-11. **Utgående webhooks og integrasjonsplattform**
-    - Gjør det mulig å koble CRM, regnskap og kundesystemer uten egne
-      integrasjoner.
+9. **Enterprise-governance: verifiser og gjør redigerbar**
+   - SAML 2.0 SP, SCIM 2.0 Users+Groups, OIDC og feltnivå-RBAC er levert v1.
+     Lukk residualene: Entra group overage, IdP-metadata via admin-UI, ekte
+     IdP i CI, redigerbar feltmatrise og separation of duties.
+10. **Driftsmodenhet: øv HA, PITR og restore**
+    - `docker-compose.ha.yml`, S3/MinIO, Redis og PITR-skript finnes. Kjør
+      restore-/failover-øvelse mot ekte Postgres/S3/Redis, mål RTO/RPO og
+      etabler SLO/on-call.
+11. **Utgående webhooks og API-dybde**
+    - Signerte webhooks med retry/DLQ mangler. Legg til `invoices`/`expenses`
+      i API v1 og CRM-konnektorer slik at kunder kan koble systemene sine.
 
 ### P2 – langsiktig differensiering (6–12 måneder)
 
 12. **Multi-tenant/white-label**
     - Hvis vi vil selge til tjenesteleverandører eller franchiser.
-13. **E-faktura/Peppol, KID/OCR og utvidet regnskapsflyt**
+13. **E-faktura/Peppol, KID/OCR og bankavstemming**
 14. **IoT, tilstandsovervåking og prediktivt vedlikehold**
 15. **Bygg-/installasjonsmodul** (byggdagbok, ID06, bemanning, EDI)
     - Bare hvis vi vil inn i Fieldly/Next-segmentet.
@@ -498,19 +531,19 @@ hva som er teknisk morsomt. P3-punkter krever eiergodkjenning.
 | Selvhosting | Docker, Caddy, backup/restore, Azure-guide, ingen SaaS-avhengighet |
 | Modulær | 22 moduler, avhengigheter, `core`/`full`, data bevares |
 | Norsk først | NOK, MVA, Kartverket, norske SMS-leverandører, nb/en/pl/de |
-| Kvalitet | 2 986 enhetstester, 184 integrasjonstester, E2E, axe/Lighthouse, Trivy |
-| Sikkerhet | 2FA, OIDC, SCIM, API-scopes, rate limits, kvoter, PDF-sanering |
+| Kvalitet | 3 257 enhetstester, 222 integrasjonstester, 12 E2E-spesifikasjoner, axe/Lighthouse, Trivy |
+| Sikkerhet | 2FA, OIDC, SAML 2.0 SP, SCIM 2.0 Users+Groups, feltnivå-RBAC, API-scopes, rate limits, kvoter, PDF-sanering |
 
 ### 9.2 Svakheter (risiko)
 
 | Svakhet | Risiko | Tiltak |
 | --- | --- | --- |
-| Ingen PSP/regnskap | Taper SMB-dealer | P0: Vipps/Stripe + regnskapskonnektor |
-| Ingen e-postutsending | Manuell friksjon | P0: transaksjonell e-post |
+| PSP/regnskap v1 uten dybde | Taper SMB-dealer ved refusjon og avstemming | P0: produksjonsbevis + refusjon/capture/bankavstemming |
+| E-post uten leverandørbevis | Friksjon hvis SMTP/retry feiler | P0: verifiser SMTP, bounce og retry |
 | Mobil ikke i butikk | Lavere opplevd kvalitet | P0: signert app + push |
 | Ingen AI/optimalisering | Taper mid-market/enterprise | P1: assistent + scheduling |
-| Ingen SAML/SCIM-grupper | Blokkert i større innkjøp | P1 |
-| Ingen S3/Redis/HA | Skaleringsrisiko | P1/P2 |
+| SAML/SCIM uten enterprise-bevis | Blokkert i større innkjøp | P1: ekte IdP, overage, metadata-UI, SoD |
+| HA/PITR ikke øvd | Skaleringsrisiko | P1/P2: restore-/failover-øvelse med målte RTO/RPO |
 | Ingen ISO/SOC | Compliance-krav | P2 |
 | BUSL-lisens | Kan skremme noen kjøpere | Tydelig kommersiell modell og støtteavtale |
 | Ingen offentlig prisliste | Vanskeligere selvbetjent kjøp | Publiser pakker eller «fra»-pris |
@@ -541,12 +574,13 @@ hva som er teknisk morsomt. P3-punkter krever eiergodkjenning.
    mot SaaS.
 4. **Tilby managed hosting:** fjern driftsbyrden for kunder som vil ha
    selvhosting uten å drifte selv.
-5. **Bygg to–tre integrasjoner først:** Vipps/Stripe, Fiken/Tripletex/
-   PowerOffice og e-post. Ikke bygg et konnektorbibliotek på måfå.
+5. **Verifiser og utdyp de tre viktigste integrasjonene:** Vipps/Stripe,
+   Fiken/Tripletex/PowerOffice og e-post. De er levert som v1; bygg ikke et
+   konnektorbibliotek på måfå før produksjonsbeviset er på plass.
 6. **Bruk modulene i salget:** start kjerne, slå på tilbud/faktura, deretter
    lager/utlegg/BI. Det senker terskelen og viser verdi trinnvis.
-7. **Vær ærlig om grensene:** ikke lov enterprise-HA, AI eller
-   regnskapsintegrasjon før det er levert. Det er et salgsargument at
+7. **Vær ærlig om grensene:** ikke lov enterprise-HA, AI, Peppol eller full
+   regnskapsavstemming før det er levert. Det er et salgsargument at
    dokumentasjonen er presis.
 
 ---
@@ -558,15 +592,17 @@ uvanlig sterk kombinasjon av servicebevis, utstyr, avtaler/SLA, revisjon,
 personvern og selvhosting. Den er ikke en fullverdig erstatning for
 ServiceTitan, Salesforce Field Service eller Dynamics 365 i enterprise, og
 heller ikke en billigere Jobber/Housecall Pro for kunder som først og fremst
-vil ha betalinger, markedsføring og en polert mobilapp.
+vil ha full betalingsflyt, markedsføring og en polert mobilapp.
 
 Det strategiske rommet er tydelig: **norske og europeiske servicebedrifter som
 trenger dokumenterbar service, datakontroll og lav TCO – og som er villige til
-å bytte bort noe av SMB-polish og enterprise-AI for det.** Neste steg bør være
-P0-tiltakene: betalinger/regnskap, e-post, mobilapp med push og
-ruteoptimalisering. Deretter P1: AI-assistent, prisbok, SAML/SCIM-grupper,
-S3/Redis/HA og webhooks. Da flyttes plattformen fra «teknisk sterk
-selvhostet FSM» til «reell utfordrer i nordisk mid-market».
+å bytte bort noe av SMB-polish og enterprise-AI for det.** Neste steg er
+produksjonsbevis og utdyping av det som allerede er levert: ekte
+PSP-/regnskaps-/SMTP-/SAML-/S3-/Redis-verifisering, restore-/PITR-øvelse,
+signert mobilapp, PSP-dybde, e-faktura/Peppol og utgående webhooks. Deretter
+P1: AI-assistent, prisbok, direkte booking som opt-in og
+enterprise-governance (ekte IdP, redigerbar feltmatrise, separation of
+duties). Den samlede køen og akseptansekriteriene er `docs/BACKLOG.md`.
 
 ---
 
@@ -594,7 +630,7 @@ Hentet 2026-11-08. Priser og funksjoner kan være endret.
 - Praxedo – priser: <https://www.praxedo.com/pricing>
 - Capterra – FSM-priser 2026: <https://www.capterra.com/resources/field-service-management-software-pricing-models/>
 - FSM-news – markedsoverblikk 2026: <https://fsm-news.com/news/best-field-service-management-software>
-- Interne kilder: `README.md`, `docs/MODULES.md`, `docs/remaining-features.md`,
+- Interne kilder: `README.md`, `docs/MODULES.md`, `docs/BACKLOG.md`,
   `docs/OPERATIONS.md`, `docs/REV.md`, `docs/INVENTORY.md`,
   `docs/PAYROLL_EXPORT.md`, `docs/BI.md`, `docs/privacy-erasure.md`,
   `prisma/schema.prisma`, `src/lib/modules.ts`.
@@ -606,6 +642,7 @@ Hentet 2026-11-08. Priser og funksjoner kan være endret.
   ikke at den er like dyp eller god som vår.
 - Priser er listepriser i USD/EUR/GBP/SEK der de er publisert; norske priser,
   rabatter, bindingsperioder og implementeringskostnader varierer.
-- Vår egen vurdering er basert på koden i `dev` per 2026-11-08. P3-punkter og
-  dokumenterte residualer er ikke regnet som leverte.
+- Vår egen vurdering er basert på koden i `master`/`dev` per 2026-11-08.
+  v1-funksjoner med dokumenterte residualer og P3-punkter regnes ikke som
+  fullt leverte.
 - Analysen er ikke juridisk rådgivning om BUSL-lisensen eller GDPR.

@@ -1024,10 +1024,10 @@ nytt. Importfeil blokkerer skriving, og en avbrutt import ruller tilbake hele
 transaksjonen og rydder midlertidige filer.
 
 **Begrensninger:** Pakken er begrenset til 500 MiB og 50 MiB per fil, og
-eksporten kjører synkront. Globale dokumenter uten kunde-/utstyrseier følger
-ikke med. Signaturer, SLA-klokker, bookinger, varsler, SMS, sporing og
-rapportkladder er bevisst utelatt. Se `docs/backlog-customer-export-import.md`
-for full liste.
+eksporten kjører som en durabel bakgrunnsjobb med fremdrift. Globale dokumenter
+uten kunde-/utstyrseier følger ikke med. Signaturer, SLA-klokker, bookinger,
+varsler, SMS, sporing og rapportkladder er bevisst utelatt. Se
+`docs/BACKLOG.md` for full liste.
 
 ## Grensesnitt mot tekniker- og administratordelen
 

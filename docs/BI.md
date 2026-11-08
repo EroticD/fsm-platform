@@ -5,7 +5,8 @@ bilde av oppdrag, tid, first-time-fix, **estimert** og **faktisk** inntekt per
 avdeling, kunde og montør. Rapporten kan filtreres på periode, avdeling, kunde
 og montør, og eksporteres til CSV med nøyaktig samme filter og avdelingsomfang.
 
-Modulen er `bi` (avhengig av `reports`). Siden og eksportruten bruker
+Modulen er `bi` (ingen hard modulavhengighet; faktisk omsetning krever
+`invoicing`). Siden og eksportruten bruker
 `requireModulePage("bi")` / `moduleApiGuard("bi")`, så en avslått modul gir 404
 også ved direkte URL.
 
@@ -150,7 +151,8 @@ som skjermen, så filter og avdelingsomfang er identisk.
 1. Legg inn kostnadsgrunnlag per oppdrag (lønn, bil, deler, utlegg) i stedet
    for én global intern sats.
 2. Trekk fra fravær og helligdager i tilgjengeligheten.
-3. Vurder PDF-eksport og egendefinert rapportbygger som egen leveranse.
+3. Vurder PDF-eksport og egendefinert rapportbygger som egen leveranse; CSV er
+   i dag eneste eksportformat.
 4. Vurder en mer finmasket fordeling av faktisk omsetning per montør når flere
    montører deler et oppdrag, og inkludering av fakturaer uten oppdrag i en
    egen omsetningsrapport.

@@ -1,6 +1,6 @@
 # Kjøreturer, utlegg og lønnsgrunnlag (FLD-01)
 
-Modulnøkkel: `fieldExpenses` (avhenger av `calendar`).
+Modulnøkkel: `fieldExpenses` (ingen harde modulavhengigheter).
 
 ## Flater
 
@@ -77,6 +77,6 @@ revisjonslogg i samme transaksjon som endringen.
 
 ## Ikke inkludert
 
-Ingen ekstern lønnsleverandør er integrert. CSV-kontrakten over er grensesnittet
-mot lønnssystemet, og må eventuelt mappes av en integrasjon utenfor denne
-modulen.
+CSV-kontrakten over er grensesnittet mot lønnssystemet. Det finnes ingen direkte
+konnektor mot Tripletex, Visma eller et annet lønns-/HR-system; en slik
+integrasjon må i så fall mappe CSV-kontrakten utenfor denne modulen.

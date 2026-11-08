@@ -5,7 +5,18 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Dokumentasjon og backlog
+- Ny `docs/BACKLOG.md` er eneste kilde til gjenstående arbeid: leverte ting,
+  åpne P1/P2/P3-oppgaver, avhengigheter, akseptansekriterier og
+  eierbeslutninger.
+- Fjernet utdaterte backlog-, baseline- og overføringsdokumenter, samt den
+  gamle OpenAPI-baselinen fra 0.8.0. Innholdet er migrert til den nye køen.
+- `PLATFORM-ANALYSIS.md` er oppdatert med faktiske tall og status for 0.9.0,
+  inkludert P2 v1, API v1, SAML/SCIM, felt-RBAC, S3/Redis/HA/PITR og
+  konfigurerbare oppdragsstatuser.
+- Fagdocs for tilbud, regnskap, push, lønn, lager og BI er rettet mot faktisk
+  kode, og manualens kundeoverføringstekst beskriver den durabelige
+  bakgrunnsjobben. PDF-manualene er bygget på nytt.
 
 ## 0.9.0 — 2026-11-08
 
@@ -66,8 +77,8 @@ skjermbildene er oppdatert for utgivelsen.
   trafikkbevisst ETA. TomTom/HERE er fjernet. Planlegging kan legge oppdrag
   utenfor tidsvindu/arbeidstid som overtid i stedet for å la dem stå
   ufordelte; overtiden vises per stopp og i rutesammendraget.
-- `docs/BACKLOG-REVIEW.md` oppsummerer 28 åpne gap med prioritering,
-  evidens og anbefalt neste arbeid.
+- `docs/BACKLOG.md` samler åpne gap med prioritering, evidens og anbefalt
+  neste arbeid.
 
 ### Betalinger, e-post, push og ruting
 - Faktura kan få betalingslenke via Stripe Checkout eller Vipps MobilePay.
@@ -119,7 +130,7 @@ skjermbildene er oppdatert for utgivelsen.
   `docs/BACKUP-RESTORE.md` og `docs/SCALING.md`.
 - `DATABASE_POOL_MAX` styrer DB-tilkoblinger per appprosess.
 - Ekte S3, Redis og PITR-restore er ikke verifisert uten legitimasjon/miljø;
-  se restrisiko i `docs/remaining-features.md` (PLAT-01/02/06).
+  se restrisiko i `docs/BACKLOG.md` (PLAT-01/02/06).
 
 ### Native Android- og iOS-app flyttet til eget repo
 - Android- og iOS-appen ligger nå i det egne repoet `fsm-mobile`. Plattformen
@@ -380,7 +391,7 @@ skjermbildene er oppdatert for utgivelsen.
 - Kundeoverføring er synkron/in-memory (500 MiB pakke, 50 MiB per fil) og
   har ingen pakkekryptering/signatur eller bakgrunnsrekonciliering.
 - Signaturbilder i kundepakker er opt-in; kilde-audit er kun proveniens.
-- Se `docs/remaining-features.md` for gjenstående arbeid (blant annet
+- Se `docs/BACKLOG.md` for gjenstående arbeid (blant annet
   GDPR-sletting og bookingpolicy).
 
 ## 0.8.5 — 2026-11-02

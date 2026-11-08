@@ -1,6 +1,6 @@
 # Lager og reservedeler (OPS-05)
 
-Modulnøkkel: `inventory` (avhenger av `equipment`).
+Modulnøkkel: `inventory` (ingen harde modulavhengigheter).
 
 ## Flater
 
@@ -105,7 +105,8 @@ visitt settes til `DONE`.
 
 ## Residual (v1)
 
-Innkjøpsflyten stopper ved varemottak. Følgende er bevisst ikke levert:
+Varemottak med atomisk beholdning er levert; innkjøpsflyten stopper der.
+Følgende er bevisst ikke levert:
 
 - Leverandørfaktura, fakturakontroll og regnskapsintegrasjon. Mottatte varer
   gir økt beholdning, men ingen bilag eller leverandørgjeld.

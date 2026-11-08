@@ -5,9 +5,9 @@ en generisk CSV-fil. Integrasjonen er enkel og ærlig: den oppretter kunde,
 faktura og betalinger, lagrer eksterne id-er og en retrybar tilstand. Den
 later aldri som et eksternt kall lyktes.
 
-Komponenten `src/components/accounting/AccountingSettings.tsx` er klar for
-innstillingstabbene, men er ikke koblet inn i denne endringen. Hovedagenten kan
-rendre `<AccountingSettings />` der den skal ligge.
+Innstillingene ligger under **Faktura → Innstillinger**, der
+`src/app/faktura/innstillinger/page.tsx` rendrer `<AccountingSettings />`.
+Administrator slår integrasjonen på, tester forbindelsen og ser siste synk der.
 
 ## Kjerneprinsipper
 
@@ -151,15 +151,22 @@ for én faktura om gangen.
   PowerOffice-konnektorene er implementert mot dokumenterte endepunkter, men
   payload-felter og kontokrav må verifiseres mot leverandørens sandbox før
   produksjon.
-- **Ingen kontinuerlig/automatisk synk.** Bare manuell synk per faktura.
-  Det finnes ingen bakgrunnsjobb som prøver feilede synker automatisk.
+- **v1 synkroniserer per faktura med retry.** Hver faktura synkroniseres
+  manuelt, og en feilet synk kan kjøres på nytt med økende `attemptCount`. Det
+  finnes ingen kontinuerlig bakgrunnssynk eller automatisk retry-jobb.
 - **Ingen oppdatering av allerede sendt faktura.** Første vellykkede synk
   gjenbrukes. Endringer i regnskapet må gjøres der.
-- **Ingen kreditnota-, refusjons- eller e-faktura-synk.** Bare kunde, faktura
-  og positive betalinger.
-- **Ingen toveis synk.** Vi leser ikke fakturaer eller betalinger tilbake.
-- **MVA-mapping er enkel.** Standard MVA-type/kode fra miljøet; spesielle
-  MVA-koder, avgiftsfrie varer og utenlandsk MVA krever manuell kontroll.
+- **Ingen kreditnota- eller refusjonssynk.** Bare kunde, faktura og positive
+  betalinger sendes.
+- **Ingen leverandørfakturaer.** Integrasjonen dekker utgående kundefaktura,
+  ikke innkommende leverandørfaktura eller bilag.
+- **Ingen toveis avstemming.** Vi leser ikke fakturaer eller betalinger tilbake.
+- **MVA-mapping er ikke konfigurerbar i UI.** Standard MVA-type/kode fra
+  miljøet; spesielle MVA-koder, avgiftsfrie varer og utenlandsk MVA krever
+  manuell kontroll.
+- **Ingen e-faktura, Peppol/EHF, KID/OCR eller bankavstemming.** Fakturaen
+  sendes som e-post/print, ikke som EHF, og innbetalinger avstemmes ikke mot
+  banken automatisk.
 - **PowerOffice-endepunkter kan variere.** Stiene er derfor konfigurerbare, og
   standardverdiene må bekreftes mot riktig API-versjon.
 - **CSV er ikke en integrasjon.** Den markerer eksport, ikke bokføring.

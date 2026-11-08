@@ -3,8 +3,8 @@
 Denne filen oppsummerer valg som ble tatt under P2/P3-arbeidet, og hva som
 bevisst er utsatt. Den er ment som grunnlag for neste planleggingsrunde.
 
-> **Aktuell UI-arbeidskjø ligger i `docs/ui-ux-backlog.md`.** Nye UI-oppgaver
-> føres der; denne filen dokumenterer bare beslutninger og avgrensninger.
+> **Aktuell arbeidskø ligger i `docs/BACKLOG.md`.** Nye oppgaver føres der;
+> denne filen dokumenterer bare beslutninger og avgrensninger.
 
 ## Fullført i denne runden
 
@@ -44,8 +44,9 @@ bevisst er utsatt. Den er ment som grunnlag for neste planleggingsrunde.
    lagres lokalt offline, og kladden sendes når nettet er tilbake. Selve
    signeringen og innsendingen krever fortsatt nett, slik at en signert rapport
    alltid er bekreftet av serveren.
-6. **Varsler er in-app + e-post.** Push/SMS er ikke innført. E-postkoen ligger i
-   `Notification`-tabellen og tømmes av jobbworkeren.
+6. **Varsler er in-app, e-post, SMS og push.** Dette startet som in-app +
+   e-post; SMS (5B) og push (0.9.0) er senere levert. E-postkoen ligger i
+   `EmailMessage` og tømmes av jobbworkeren; SMS og push har egne utbokser.
 7. **Multi-tenancy er ikke innført.** P5-0 gjelder bare hvis plattformen skal
    bli en SaaS for flere selskaper. For on-prem/single-company er den utsatt.
 8. **Felles UI-primitiver.** Sider gjenbruker `PageHeader`, `SectionCard`,
@@ -60,24 +61,25 @@ som ikke kan ferdigstilles og verifiseres i denne kjøringen:
 
 | Område | Blokkering | Anbefalt neste steg |
 | --- | --- | --- |
-| P4-1 objektlagring | S3/MinIO-bøtte og nøkler | Lag `src/lib/storage.ts` med lokal og S3-driver; migrer eksisterende filer med et gjenopptakbart skript |
-| P4-2 Redis/BullMQ | Redis-instans | Bytt rate limits og jobbkø til Redis/BullMQ; lasttest to replikaer |
-| P4-3 regnskap | Sandbox-konto (Fiken/Visma/Tripletex) | Provider-grensesnitt + én adapter; idempotent synk |
-| P4-4 lager | Beslutning om lagerstruktur | Schema for lager, bevegelser og reservasjoner |
-| P4-5 API/webhooks | API-token- og webhook-policy | Token-scopes, OpenAPI, HMAC-signerte webhooks med retry |
-| P5-1 SSO/SCIM | Test-IdP og kundekrav | OIDC/SAML + SCIM; bryt-glass-admin |
-| P5-2 avansert RBAC | Regelverk for godkjenning | Scoped roller, feltnivå, segregering av plikter |
-| P5-3 GDPR/oppbevaring | Juridisk avklaring | Eksport/sletting, retention, hash-kjedet audit |
+| P4-1 objektlagring | Levert i 0.9.0: lokal/S3-driver og gjenopptakbar migrering; ekte S3/MinIO er ikke verifisert | Røyktest mot ekte S3/MinIO med versjonering og lasttest; se PRV-01 i `docs/BACKLOG.md` |
+| P4-2 Redis/BullMQ | Levert delvis: Redis-varsling/cache med DB-fallback; ingen egen køtjeneste eller BullMQ | Lasttest med 2+ replikaer mot ekte Redis/Postgres og vurder BullMQ ved behov; se PRV-01 |
+| P4-3 regnskap | Levert i 0.9.0 med Fiken/Tripletex/PowerOffice Go/CSV; ekte sandbox er ikke verifisert | Verifiser mot ekte sandbox-kontoer og lukk INT-03 i `docs/BACKLOG.md` |
+| P4-4 lager | Levert i 0.9.0: lager, bevegelser, reservasjoner, innkjøp og varemottak | Utvid med leverandørfaktura, retur og EDI etter behov; se `docs/INVENTORY.md` |
+| P4-5 API/webhooks | API v1 er levert; utgående signerte webhooks mangler | Abonnementsmodell, HMAC, retry og DLQ; se INT-01 i `docs/BACKLOG.md` |
+| P5-1 SSO/SCIM | OIDC/SAML og SCIM er levert; ekte IdP-røyktest og eventuelle kundekrav gjenstår | Verifiser mot ekte IdP-tenant og lukk SSO-01 i `docs/BACKLOG.md` |
+| P5-2 avansert RBAC | Feltnivå-RBAC er levert v1; redigerbar matrise og pliktsegregering mangler | Redigerbar feltmatrise (RBAC-01) og to-personers godkjenning (GOV-02) i `docs/BACKLOG.md` |
+| P5-3 GDPR/oppbevaring | Sletting/anonymisering, retention og hash-kjedet audit er levert; juridisk avklaring av oppbevaringsfrister gjenstår | Juridisk bekreftelse og lukk eventuelle restanser |
 | P5-4 white-label/domener | DNS/TLS og kundedomener | Per-tenant branding og domenevalidering |
-| P5-5 fakturering | Betalingsleverandør | Stripe eller lokal faktura; entitlements |
-| P5-6 HA/DR | Infrastruktur og RPO/RTO | PITR, failover-test, lasttest, pen-test |
+| P5-5 fakturering | Stripe/Vipps-betalingslenker er levert for kundefaktura; abonnementsfakturering og entitlements mangler | Avklar plattformens egen abonnementsmodell og entitlements |
+| P5-6 HA/DR | HA-compose, WAL-arkiv og PITR-skript finnes, men restore/failover er ikke øvd | Gjennomfør PRV-02 med målt RTO/RPO, failover-test og lasttest |
 
 Disse bør planlegges som egne faser med egne akseptansekriterier og
-infrastrukturforutsetninger. Inntil da er P3 den siste fullførte fasen.
+infrastrukturforutsetninger. P2 v1 og P3 er levert; deler av P4/P5 er også
+levert (regnskap, lager, API v1 og SSO/SCIM), mens resten gjenstår.
 
 ## Sikkerhetsgjennomgang 24. oktober 2026 (SEC-1–SEC-10)
 
-Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
+Sikkerhetsarbeidet ble gjennomført på `dev` og er med i 0.9.0 på `master`/`dev`.
 
 - **SEC-1** – opplastede filer kan bare knyttes til en entitet av opplasteren
   eller av den eksisterende eieren. Ueide dokumentopplastinger kan bare claimеs
@@ -108,7 +110,9 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
 
 1. **Timebruk, materialer og fakturaeksport er fjernet.** Systemet skal bare
    dokumentere arbeidet på et oppdrag, ikke fakturere eller opprette ordrer.
-   I stedet har oppdrag fått et valgfritt eksternt `orderNumber`.
+   I stedet har oppdrag fått et valgfritt eksternt `orderNumber`. (Dette var
+   SEC-fasens beslutning; de modulgated P2-modulene for tilbud og fakturering er
+   senere levert og dokumentert i `docs/REV.md`.)
 2. **Ingen backfill av iCal-tokens.** Gamle tokens var plaintext og er droppet.
    Sikkerhetsmessig er det bedre å kreve regenerering enn å hash-e dem videre.
 3. **Myk sletting av oppdrag.** Oppdrag, rapporter, revisjoner og vedlegg
@@ -337,8 +341,9 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   liste per kunde. `BookingRequest.siteId` peker på stedet, og adressen kopieres
   til oppdraget slik at senere endringer i stedsregisteret ikke flytter
   historikken. Multi-site på oppdrag og utstyr er fortsatt Phase 5D.
-- **Ingen fakturering.** Prislister er referansedata; booking og visitt
-  inneholder ingen beløp, faktura eller betalingsflyt.
+- **Ingen fakturering i 5A.** Prislister er referansedata; booking og visitt
+  inneholder ingen beløp, faktura eller betalingsflyt. (P2-modulen `invoicing`
+  er senere levert; se `docs/REV.md`.)
 
 ## Live sporing og kundeomtaler (Phase 5C, 2026-10-30)
 

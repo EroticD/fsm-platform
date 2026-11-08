@@ -226,17 +226,22 @@ Kundeportalbrukere får samme trygge lenke som in-app-varselet, for eksempel
 
 ## Restanser
 
-- **Ekte legitimasjon mangler.** Repoet inneholder ingen FCM-tjenestekonto eller
+Serverutboksen, FCM/APNs-adapterne og den native push-bootstrapen i `fsm-mobile`
+er levert, inkludert tokenregistrering ved innlogging/rotasjon og
+signerings-CI. Det som gjenstår er produksjonsbevis:
+
+- **Ekte FCM/APNs-legitimasjon.** Repoet inneholder ingen FCM-tjenestekonto eller
   APNs `.p8`-nøkkel. Uten dem er push en no-op, og ende-til-ende-leveranse er
-  ikke verifisert mot Googles eller Apples produksjonsendepunkter.
-- **APNs over HTTP/2.** APNs krever HTTP/2. Adapteren bruker `fetch`; kjøremiljøet
-  må tilby HTTP/2 (Node/undici med HTTP/2-støtte) eller få en HTTP/2-proxy foran.
-  Dette må verifiseres i det faktiske produksjonsmiljøet før iOS-push tas i bruk.
-- **Signering av mobilappen.** Universell lenke/URL-scheme for dype lenker må
-  konfigureres i appens iOS- og Android-prosjekt. Serveren sender bare stien.
-- **Enhetsregistrering fra appen.** Mobilappen må kalle
-  `POST /api/mobile/push-tokens` etter innlogging og ved tokenrotasjon, og
-  `DELETE` ved utlogging. Denne serverleveransen inneholder ikke appkoden.
+  ikke verifisert mot Googles eller Apples produksjonsendepunkter. APNs krever
+  HTTP/2; adapteren bruker `fetch`, så kjøremiljøet må tilby HTTP/2 eller ha en
+  HTTP/2-proxy foran.
+- **Butikksignering og oppføring.** Android upload-keystore, Apple
+  Distribution-sertifikat med provisioning profile, butikktekster,
+  personvernstekst og skjermbilder må på plass før publisering. CI verifiserer
+  at native filer og konfigurasjon er til stede og at appen bygger.
+- **Fysisk enhets-QA.** Push i forgrunn, bakgrunn og kaldstart, trykk mot dype
+  lenker (`/oppdrag/<id>`), tokenrotasjon, utlogging og offline-gjenoppretting
+  må verifiseres på ekte Android- og iOS-enheter.
 - **Kvittering fra appen.** `lastSeenAt` oppdateres ved registrering, ikke ved
   hver mottatt push. En enhet som bare mottar varsler, kan derfor bli ryddet
   etter 90 dager hvis appen aldri registrerer seg på nytt.
