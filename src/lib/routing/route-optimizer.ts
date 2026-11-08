@@ -19,11 +19,14 @@ export type RouteWindow = {
   requiredSkillIds?: string[];
 };
 
+/**
+ * Årsaker til at en visitt ikke kan planlegges i det hele tatt. Tidsvindu og
+ * arbeidstid er bevisst ikke blant dem: de gir overtid, ikke ufordelt visitt.
+ */
 export type RouteUnassignedReason =
   | "missing_coordinates"
-  | "outside_time_window"
   | "missing_skills"
-  | "working_hours"
+  | "overtime_limit"
   | "ineligible";
 
 export type RouteUnassigned = {
@@ -44,6 +47,12 @@ export type RouteStop = {
   waitMinutes: number;
   travelMinutes: number;
   distanceKm: number;
+  /** Tjenestetid som faller etter arbeidstidens slutt. */
+  overtimeMinutes: number;
+  /** True når jobben starter etter visittens tidsvindu. */
+  outsideTimeWindow: boolean;
+  /** True når jobben varer forbi arbeidstidens slutt. */
+  outsideWorkingHours: boolean;
 };
 
 export type RouteBaseline = {
@@ -52,6 +61,7 @@ export type RouteBaseline = {
   totalTravelMinutes: number;
   totalDistanceKm: number;
   totalWaitingMinutes: number;
+  totalOvertimeMinutes: number;
 };
 
 export type OptimisedRoute = {
@@ -64,12 +74,15 @@ export type OptimisedRoute = {
   totalTravelMinutes: number;
   /** Sum ventetid før visittenes tidsvindu åpner. */
   totalWaitingMinutes: number;
+  /** Sum tjenestetid etter arbeidstidens slutt. */
+  totalOvertimeMinutes: number;
   stops: RouteStop[];
   finishAt: Date | null;
   /** Beregnet kjøretid/avstand for den opprinnelige rekkefølgen. */
   baseline: RouteBaseline;
   baselineTravelMinutes: number;
   baselineDistanceKm: number;
+  baselineOvertimeMinutes: number;
   savedTravelMinutes: number;
   savedDistanceKm: number;
   /** True når optimaliseringen faktisk endret rekkefølgen. */
@@ -82,9 +95,9 @@ type Schedule = {
   travel: number;
   distance: number;
   waiting: number;
+  overtime: number;
   stops: RouteStop[];
   finishAt: Date;
-  feasible: boolean;
 };
 
 type ScheduleOptions = {
@@ -93,6 +106,8 @@ type ScheduleOptions = {
   startIndex: number;
   workingStart: Date | null;
   workingEnd: Date | null;
+  allowOvertime: boolean;
+  maxOvertimeMinutes: number;
 };
 
 const DEFAULT_PRIORITY_WEIGHT_MINUTES = 5;
@@ -125,20 +140,36 @@ function missingSkills(
   return required.some((skillId) => !available.has(skillId));
 }
 
-function effectiveStart(
-  startAt: Date,
-  workingStart: Date | null,
-): Date {
+function effectiveStart(startAt: Date, workingStart: Date | null): Date {
   return workingStart && workingStart.getTime() > startAt.getTime()
     ? workingStart
     : startAt;
 }
 
 /**
- * Bygger en kjøreplan for en gitt rekkefølge. En visitt som ikke kan nås
- * innenfor tidsvinduet, eller som ikke blir ferdig innen arbeidsdagens slutt,
- * hoppes over i stedet for å bryte vinduet. Da kan ruteoptimaliseringen aldri
- * flytte en jobb utenfor avtalt tid eller arbeidstid.
+ * Tjenestetid som faller etter arbeidstidens slutt. En visitt som starter
+ * etter arbeidstid teller bare selve tjenestetiden, ikke reise-/ventetid før.
+ */
+function overtimeFor(
+  startsAt: Date,
+  endsAt: Date,
+  workingEnd: Date | null,
+): { rawMs: number; minutes: number } {
+  if (!workingEnd || endsAt.getTime() <= workingEnd.getTime()) {
+    return { rawMs: 0, minutes: 0 };
+  }
+  const rawMs = Math.max(
+    0,
+    endsAt.getTime() - Math.max(startsAt.getTime(), workingEnd.getTime()),
+  );
+  return { rawMs, minutes: Math.ceil(rawMs / 60_000) };
+}
+
+/**
+ * Bygger en kjøreplan for en gitt rekkefølge. Visiter som havner utenfor
+ * tidsvinduet eller arbeidstiden planlegges fortsatt, og merkes med overtid.
+ * Bare visiter som mangler koordinater/matrise, eller som bryter en
+ * konfigurert hard overtidsgrense, rapporteres som ufordelte.
  */
 function schedule(
   visits: RouteWindow[],
@@ -154,6 +185,7 @@ function schedule(
   let travel = 0;
   let distance = 0;
   let waiting = 0;
+  let overtime = 0;
 
   for (const visit of visits) {
     const target = indexById.get(visit.id);
@@ -183,18 +215,22 @@ function schedule(
     const startTime = new Date(
       Math.max(arrival.getTime(), earliest.getTime(), clock.getTime()),
     );
+    const endTime = new Date(startTime.getTime() + service * 60_000);
+    const outsideTimeWindow = startTime.getTime() > latestStart.getTime();
+    const stopOvertime = overtimeFor(startTime, endTime, options.workingEnd);
+    const outsideWorkingHours = stopOvertime.rawMs > 0;
 
-    if (startTime.getTime() > latestStart.getTime()) {
-      unassigned.push({ id: visit.id, reason: "outside_time_window" });
+    // En hard grense eller avslått overtid er de eneste tidsårsakene som
+    // fortsatt kan holde en lokalisert visitt utenfor planen.
+    if (!options.allowOvertime && outsideWorkingHours) {
+      unassigned.push({ id: visit.id, reason: "overtime_limit" });
       continue;
     }
-
-    const endTime = new Date(startTime.getTime() + service * 60_000);
     if (
-      options.workingEnd &&
-      endTime.getTime() > options.workingEnd.getTime()
+      options.maxOvertimeMinutes > 0 &&
+      overtime + stopOvertime.minutes > options.maxOvertimeMinutes
     ) {
-      unassigned.push({ id: visit.id, reason: "working_hours" });
+      unassigned.push({ id: visit.id, reason: "overtime_limit" });
       continue;
     }
 
@@ -205,6 +241,7 @@ function schedule(
     travel += leg.durationMinutes;
     distance += leg.distanceKm;
     waiting += waitMinutes;
+    overtime += stopOvertime.minutes;
     ordered.push(visit);
     stops.push({
       visit,
@@ -214,6 +251,9 @@ function schedule(
       waitMinutes,
       travelMinutes: leg.durationMinutes,
       distanceKm: leg.distanceKm,
+      overtimeMinutes: stopOvertime.minutes,
+      outsideTimeWindow,
+      outsideWorkingHours,
     });
     clock = endTime;
     cursor = target;
@@ -225,9 +265,9 @@ function schedule(
     travel: Math.round(travel),
     distance: Math.round(distance * 1000) / 1000,
     waiting: Math.round(waiting),
+    overtime: Math.round(overtime),
     stops,
     finishAt: clock,
-    feasible: unassigned.length === 0,
   };
 }
 
@@ -243,15 +283,33 @@ function uniqueUnassigned(rows: RouteUnassigned[]): RouteUnassigned[] {
 }
 
 /**
+ * True når `candidate` er en bedre kjøreplan enn `current`: færrest ufordelte,
+ * deretter minst overtid, til slutt kortest kjøretid. Da kan 2-opt aldri bytte
+ * bort en løsning med mindre overtid mot bare litt kortere kjøring.
+ */
+function isBetterSchedule(candidate: Schedule, current: Schedule): boolean {
+  if (candidate.unassigned.length !== current.unassigned.length) {
+    return candidate.unassigned.length < current.unassigned.length;
+  }
+  if (candidate.overtime !== current.overtime) {
+    return candidate.overtime < current.overtime;
+  }
+  return candidate.travel < current.travel;
+}
+
+/**
  * Nearest-neighbour + 2-opt over dagens visiter.
  *
- * - Tidsvinduene respekteres alltid; en visitt som ikke får plass rapporteres
- *   med årsak i stedet for å flyttes ulovlig.
+ * - Tidsvinduer og arbeidstid blokkerer ikke lenger planlegging. En visitt som
+ *   ikke rekker vinduet, eller som varer forbi arbeidstidens slutt, planlegges
+ *   med `outsideTimeWindow`/`outsideWorkingHours` og overtidsminutter.
+ * - `allowOvertime=false` eller en positiv `maxOvertimeMinutes` kan likevel
+ *   avvise en visitt som `overtime_limit`. Standard er å tillate all overtid.
  * - Kompetansekrav filtreres før ruten beregnes når montørens kompetanse er
- *   oppgitt.
- * - Arbeidstiden begrenser både start og ferdig-tid når den er oppgitt.
+ *   oppgitt. Manglende koordinater og kompetanse er de eneste faste
+ *   forhåndsfiltrene.
  * - Prioritet (0–3) trekker en visitt fram i nærmeste-nabo-valget. 2-opt
- *   forbedrer deretter kjørelengden innenfor de samme grensene.
+ *   forbedrer deretter kjørelengden uten å øke overtiden.
  *
  * Rekkefølgen er deterministisk: lik reisetid brytes på prioritet, deretter
  * visitt-id. Funksjonen er ren og gjør ingen database- eller nettverkskall.
@@ -272,10 +330,19 @@ export function optimiseRoute(input: {
   technicianSkillIds?: readonly string[];
   /** Minutter høyere prioritet kan «spare» i nærmeste-nabo-valget. */
   priorityWeightMinutes?: number;
+  /** Standard true. False gjør at arbeid etter arbeidstid ikke planlegges. */
+  allowOvertime?: boolean;
+  /** 0 betyr ingen grense. Positiv verdi er tak for total overtid i ruten. */
+  maxOvertimeMinutes?: number;
 }): OptimisedRoute {
   const workingStart = input.workingHours?.start ?? null;
   const workingEnd = input.workingHours?.end ?? null;
   const baselineStart = effectiveStart(input.startAt, workingStart);
+  const allowOvertime = input.allowOvertime ?? true;
+  const maxOvertimeMinutes = Math.max(
+    0,
+    Math.round(input.maxOvertimeMinutes ?? 0),
+  );
 
   const eligible: RouteWindow[] = [];
   const prefiltered: RouteUnassigned[] = [];
@@ -301,6 +368,7 @@ export function optimiseRoute(input: {
     totalTravelMinutes: 0,
     totalDistanceKm: 0,
     totalWaitingMinutes: 0,
+    totalOvertimeMinutes: 0,
   };
 
   if (eligible.length === 0) {
@@ -311,11 +379,13 @@ export function optimiseRoute(input: {
       totalDistanceKm: 0,
       totalTravelMinutes: 0,
       totalWaitingMinutes: 0,
+      totalOvertimeMinutes: 0,
       stops: [],
       finishAt: baselineStart,
       baseline: emptyBaseline,
       baselineTravelMinutes: 0,
       baselineDistanceKm: 0,
+      baselineOvertimeMinutes: 0,
       savedTravelMinutes: 0,
       savedDistanceKm: 0,
       changed: false,
@@ -328,6 +398,8 @@ export function optimiseRoute(input: {
     startIndex: input.startIndex,
     workingStart,
     workingEnd,
+    allowOvertime,
+    maxOvertimeMinutes,
   };
 
   // «Før»-bildet er dagens rekkefølge, ikke en sortert kopi. Da kan
@@ -354,6 +426,8 @@ export function optimiseRoute(input: {
       index: number;
       leg: TravelEstimate;
       score: number;
+      feasible: boolean;
+      overtime: number;
       arrival: Date;
     } | null = null;
 
@@ -366,16 +440,14 @@ export function optimiseRoute(input: {
         clock.getTime() + leg.durationMinutes * 60_000,
       );
       const service = serviceFor(visit);
+      const startTime = new Date(
+        Math.max(arrival.getTime(), visit.startsAt.getTime(), clock.getTime()),
+      );
+      const endTime = new Date(startTime.getTime() + service * 60_000);
       const latestStart = visit.endsAt.getTime() - service * 60_000;
-      if (arrival.getTime() > latestStart) continue;
-      if (
-        workingEnd &&
-        Math.max(arrival.getTime(), visit.startsAt.getTime()) +
-          service * 60_000 >
-          workingEnd.getTime()
-      ) {
-        continue;
-      }
+      const overtime = overtimeFor(startTime, endTime, workingEnd).minutes;
+      const feasible =
+        startTime.getTime() <= latestStart && overtime === 0;
 
       const priority = priorityFor(visit);
       const score = Math.max(
@@ -383,24 +455,31 @@ export function optimiseRoute(input: {
         leg.durationMinutes - priority * priorityWeight,
       );
 
-      if (
+      const better =
         !best ||
-        score < best.score ||
-        (score === best.score &&
-          leg.durationMinutes < best.leg.durationMinutes) ||
-        (score === best.score &&
-          leg.durationMinutes === best.leg.durationMinutes &&
-          priority > priorityFor(best.visit)) ||
-        (score === best.score &&
-          leg.durationMinutes === best.leg.durationMinutes &&
-          priority === priorityFor(best.visit) &&
-          visit.id.localeCompare(best.visit.id) < 0)
-      ) {
+        (feasible !== best.feasible
+          ? feasible
+          : !feasible && overtime !== best.overtime
+            ? overtime < best.overtime
+            : score < best.score ||
+              (score === best.score &&
+                leg.durationMinutes < best.leg.durationMinutes) ||
+              (score === best.score &&
+                leg.durationMinutes === best.leg.durationMinutes &&
+                priority > priorityFor(best.visit)) ||
+              (score === best.score &&
+                leg.durationMinutes === best.leg.durationMinutes &&
+                priority === priorityFor(best.visit) &&
+                visit.id.localeCompare(best.visit.id) < 0));
+
+      if (better) {
         best = {
           visit,
           index: target,
           leg,
           score,
+          feasible,
+          overtime,
           arrival,
         };
       }
@@ -424,35 +503,12 @@ export function optimiseRoute(input: {
     scheduleOptions,
   );
 
-  // Visiter som nærmeste-nabo ikke tok med må få en årsak. Uten dette ville
-  // en visitt som ble avvist allerede i valgfasen (f.eks. fordi den ikke ble
-  // ferdig innen arbeidstidens slutt) forsvinne fra `unassigned`.
-  const greedyUnassigned: RouteUnassigned[] = [];
-  for (const visit of remaining) {
-    const target = indexById.get(visit.id);
-    const leg = target === undefined ? undefined : input.matrix[cursor]?.[target];
-    if (target === undefined || !leg) {
-      greedyUnassigned.push({ id: visit.id, reason: "ineligible" });
-      continue;
-    }
-    const arrival = new Date(clock.getTime() + leg.durationMinutes * 60_000);
-    const service = serviceFor(visit);
-    const start = Math.max(arrival.getTime(), visit.startsAt.getTime());
-    const latestStart = visit.endsAt.getTime() - service * 60_000;
-    if (start > latestStart) {
-      greedyUnassigned.push({
-        id: visit.id,
-        reason: "outside_time_window",
-      });
-    } else if (
-      workingEnd &&
-      start + service * 60_000 > workingEnd.getTime()
-    ) {
-      greedyUnassigned.push({ id: visit.id, reason: "working_hours" });
-    } else {
-      greedyUnassigned.push({ id: visit.id, reason: "ineligible" });
-    }
-  }
+  // Visiter som nærmeste-nabo ikke tok med, mangler en matriserad og kan ikke
+  // lokaliseres. Alle andre årsaker rapporteres allerede av `schedule`.
+  const greedyUnassigned: RouteUnassigned[] = remaining.map((visit) => ({
+    id: visit.id,
+    reason: "ineligible" as const,
+  }));
 
   const maxIterations = input.maxIterations ?? 200;
   let improved = true;
@@ -475,7 +531,7 @@ export function optimiseRoute(input: {
           indexById,
           scheduleOptions,
         );
-        if (next.feasible && next.travel < bestSchedule.travel) {
+        if (isBetterSchedule(next, bestSchedule)) {
           bestSchedule = next;
           improved = true;
         }
@@ -508,6 +564,7 @@ export function optimiseRoute(input: {
     totalDistanceKm: bestSchedule.distance,
     totalTravelMinutes: bestSchedule.travel,
     totalWaitingMinutes: bestSchedule.waiting,
+    totalOvertimeMinutes: bestSchedule.overtime,
     stops: bestSchedule.stops,
     finishAt: bestSchedule.finishAt,
     baseline: {
@@ -515,9 +572,11 @@ export function optimiseRoute(input: {
       totalTravelMinutes: baselineTravel,
       totalDistanceKm: baselineDistance,
       totalWaitingMinutes: baselineSchedule.waiting,
+      totalOvertimeMinutes: baselineSchedule.overtime,
     },
     baselineTravelMinutes: baselineTravel,
     baselineDistanceKm: baselineDistance,
+    baselineOvertimeMinutes: baselineSchedule.overtime,
     savedTravelMinutes: baselineTravel - bestSchedule.travel,
     savedDistanceKm:
       Math.round((baselineDistance - bestSchedule.distance) * 1000) / 1000,

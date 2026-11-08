@@ -19,10 +19,12 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 - Server-side pushvarsler via FCM HTTP v1 og APNs, med enhetsregistrering,
   token-opprydding, durabel utboks og dype lenker. Mobilappen registrerer
   tokens og håndterer varseltrykk. Se `docs/PUSH.md`.
-- Ruteoptimalisering med tidssoner, kompetanse, prioritet og arbeidstid, samt
-  trafikkbevisst ETA via TomTom/HERE med OSRM/haversine-fallback. Endelig
-  rekkefølge brukes først etter eksplisitt, revidert handling. Se
-  `docs/ROUTING.md`.
+- Ruteoptimalisering med tidssoner, kompetanse, prioritet og arbeidstid.
+  Visiter som ikke rekker tidsvinduet eller arbeidstiden planlegges med
+  overtid i stedet for å bli ufordelte, med konfigurerbar grense. Ruting er
+  OpenStreetMap/OSRM, og trafikkbevisst ETA kan hentes fra Google Routes API
+  med OSRM/haversine-fallback. Endelig rekkefølge brukes først etter
+  eksplisitt, revidert handling. Se `docs/ROUTING.md`.
 ### SAML 2.0, SCIM-grupper og feltnivå-RBAC v1
 - SAML 2.0-tjenesteleverandør med `@node-saml/node-saml`: per-leverandør
   konfigurasjon, SP-metadata, ACS og innloggingsrute, signert assertion,

@@ -32,17 +32,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const SKIPPED_KEYS: Record<RouteSkippedReason, string> = {
   missing_coordinates: "calendar.route.skippedMissingCoordinates",
-  outside_time_window: "calendar.route.skippedOutsideWindow",
   limit: "calendar.route.skippedLimit",
   missing_skills: "dispatch.routeOptimizer.skippedMissingSkills",
-  working_hours: "dispatch.routeOptimizer.skippedWorkingHours",
+  overtime_limit: "calendar.route.skippedOvertimeLimit",
   absence: "dispatch.routeOptimizer.skippedAbsence",
   ineligible: "dispatch.routeOptimizer.skippedIneligible",
 };
 
 const PROVIDER_KEYS: Record<string, string> = {
-  tomtom: "dispatch.routeOptimizer.providerTomTom",
-  here: "dispatch.routeOptimizer.providerHere",
+  google: "calendar.route.providerGoogle",
   osrm: "calendar.route.providerOsrm",
   haversine: "calendar.route.providerLocal",
 };
@@ -250,7 +248,7 @@ export default async function RoutePage({
                   {technicianPlan.technicianName}
                 </h2>
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
                 <div>
                   <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("calendar.route.totalDrive")}
@@ -278,6 +276,16 @@ export default async function RoutePage({
                   <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
                     {t("calendar.route.minutes", {
                       count: technicianPlan.totalWaitingMinutes,
+                    })}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                    {t("calendar.route.totalOvertime")}
+                  </dt>
+                  <dd className="font-black tabular-nums text-[var(--ink,#101310)]">
+                    {t("calendar.route.minutes", {
+                      count: technicianPlan.totalOvertimeMinutes,
                     })}
                   </dd>
                 </div>
@@ -383,6 +391,14 @@ export default async function RoutePage({
               </p>
             )}
 
+            {technicianPlan.totalOvertimeMinutes > 0 && (
+              <p className="rounded-lg border border-[#e7c98a] bg-[#fff8e6] p-3 text-xs font-bold text-[var(--ink,#101310)]">
+                {t("calendar.route.overtimeNotice", {
+                  minutes: technicianPlan.totalOvertimeMinutes,
+                })}
+              </p>
+            )}
+
             {technicianPlan.stops.length > 0 && (
               <>
                 <WorkOrderMap
@@ -423,6 +439,9 @@ export default async function RoutePage({
                           {t("calendar.route.planned")}
                         </th>
                         <th scope="col" className="px-2 py-2">
+                          {t("calendar.route.overtime")}
+                        </th>
+                        <th scope="col" className="px-2 py-2">
                           {t("calendar.route.travel")}
                         </th>
                         <th scope="col" className="px-2 py-2">
@@ -449,6 +468,29 @@ export default async function RoutePage({
                           </td>
                           <td className="px-2 py-3 text-[var(--muted,#62685f)]">
                             {formatDateTimeLocalized(stop.plannedStartsAt, locale)}
+                          </td>
+                          <td className="px-2 py-3 tabular-nums">
+                            <span
+                              className={
+                                stop.overtimeMinutes > 0
+                                  ? "font-black text-[var(--risk-text,#b42318)]"
+                                  : "text-[var(--muted,#62685f)]"
+                              }
+                            >
+                              {t("calendar.route.minutes", {
+                                count: stop.overtimeMinutes,
+                              })}
+                            </span>
+                            {stop.outsideTimeWindow && (
+                              <span className="mt-1 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                                {t("calendar.route.outsideTimeWindow")}
+                              </span>
+                            )}
+                            {stop.outsideWorkingHours && (
+                              <span className="mt-1 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                                {t("calendar.route.outsideWorkingHours")}
+                              </span>
+                            )}
                           </td>
                           <td className="px-2 py-3 tabular-nums text-[var(--muted,#62685f)]">
                             {t("calendar.route.minutes", {

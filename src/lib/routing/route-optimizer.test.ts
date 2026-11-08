@@ -55,7 +55,7 @@ describe("ruteoptimalisering", () => {
     expect(result.skipped).toEqual([]);
   });
 
-  it("bryter aldri et tidsvindu", () => {
+  it("planlegger en visitt utenfor tidsvinduet med flagg i stedet for å hoppe over", () => {
     const visits = [
       visit("a", "2026-11-02T09:00:00.000Z", "2026-11-02T12:00:00.000Z", 61),
       // Reisen fra a tar 120 minutter, så b kan ikke nås før 12:00.
@@ -73,11 +73,13 @@ describe("ruteoptimalisering", () => {
       startIndex: 0,
     });
 
-    expect(result.order.map((row) => row.id)).toEqual(["a"]);
-    expect(result.skipped).toEqual(["b"]);
-    for (const row of result.order) {
-      expect(row.startsAt.getTime()).toBeLessThan(row.endsAt.getTime());
-    }
+    expect(result.order.map((row) => row.id)).toEqual(["a", "b"]);
+    expect(result.skipped).toEqual([]);
+    expect(result.unassigned).toEqual([]);
+    const b = result.stops.find((stop) => stop.visit.id === "b");
+    expect(b?.outsideTimeWindow).toBe(true);
+    expect(b?.outsideWorkingHours).toBe(false);
+    expect(b?.overtimeMinutes).toBe(0);
   });
 
   it("er deterministisk ved lik reisetid", () => {
@@ -237,7 +239,7 @@ describe("ruteoptimalisering", () => {
     expect(withSkill.unassigned).toEqual([]);
   });
 
-  it("respekterer arbeidsdagens slutt", () => {
+  it("planlegger en visitt etter arbeidstid med overtid", () => {
     const visits = [
       visit("a", "2026-11-02T09:00:00.000Z", "2026-11-02T10:00:00.000Z", 61),
       visit("b", "2026-11-02T15:30:00.000Z", "2026-11-02T17:00:00.000Z", 62),
@@ -258,9 +260,67 @@ describe("ruteoptimalisering", () => {
       },
     });
 
+    expect(result.order.map((row) => row.id)).toEqual(["a", "b"]);
+    expect(result.unassigned).toEqual([]);
+    const b = result.stops.find((stop) => stop.visit.id === "b");
+    expect(b?.outsideWorkingHours).toBe(true);
+    expect(b?.outsideTimeWindow).toBe(false);
+    expect(b?.overtimeMinutes).toBe(30);
+    expect(result.totalOvertimeMinutes).toBe(30);
+  });
+
+  it("rapporterer overtime_limit når en hard overtidsgrense overskrides", () => {
+    const visits = [
+      visit("a", "2026-11-02T09:00:00.000Z", "2026-11-02T10:00:00.000Z", 61),
+      visit("b", "2026-11-02T15:30:00.000Z", "2026-11-02T17:00:00.000Z", 62),
+    ];
+    const result = optimiseRoute({
+      visits,
+      matrix: matrix([
+        [0, 10, 10],
+        [10, 0, 5],
+        [10, 5, 0],
+      ]),
+      start,
+      startAt: new Date("2026-11-02T08:00:00.000Z"),
+      startIndex: 0,
+      workingHours: {
+        start: new Date("2026-11-02T08:00:00.000Z"),
+        end: new Date("2026-11-02T16:00:00.000Z"),
+      },
+      maxOvertimeMinutes: 15,
+    });
+
     expect(result.order.map((row) => row.id)).toEqual(["a"]);
+    expect(result.skipped).toEqual(["b"]);
     expect(result.unassigned).toEqual([
-      { id: "b", reason: "working_hours" },
+      { id: "b", reason: "overtime_limit" },
+    ]);
+    expect(result.totalOvertimeMinutes).toBe(0);
+  });
+
+  it("kan slå av overtid helt med allowOvertime=false", () => {
+    const result = optimiseRoute({
+      visits: [
+        visit("b", "2026-11-02T15:30:00.000Z", "2026-11-02T17:00:00.000Z", 62),
+      ],
+      matrix: matrix([
+        [0, 10],
+        [10, 0],
+      ]),
+      start,
+      startAt: new Date("2026-11-02T08:00:00.000Z"),
+      startIndex: 0,
+      workingHours: {
+        start: new Date("2026-11-02T08:00:00.000Z"),
+        end: new Date("2026-11-02T16:00:00.000Z"),
+      },
+      allowOvertime: false,
+    });
+
+    expect(result.stops).toEqual([]);
+    expect(result.unassigned).toEqual([
+      { id: "b", reason: "overtime_limit" },
     ]);
   });
 

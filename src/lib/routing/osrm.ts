@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import type { Coordinates } from "@/lib/geo";
+import {
+  createGoogleRoutesProvider,
+  resolveGoogleRoutesConfig,
+} from "./google-routes";
 import { createHaversineProvider } from "./haversine";
-import { createTrafficProvider, resolveTrafficConfig } from "./traffic";
 import {
   RoutingTimeoutError,
   type RoutingProvider,
@@ -206,7 +209,8 @@ function routingTimeout(env: RoutingEnv): number {
 /**
  * Velger basisleverandør ut fra servermiljøet. Uten `OSRM_BASE_URL` brukes
  * haversine, slik at utvikling, tester og en installasjon uten ruteserver
- * aldri gjør et eksternt kall.
+ * aldri gjør et eksternt kall. OSRM er basert på OpenStreetMap og har ingen
+ * sanntidstrafikk.
  */
 function resolveBaseProvider(
   env: RoutingEnv,
@@ -214,10 +218,11 @@ function resolveBaseProvider(
 ): RoutingProvider {
   const provider = (env.ROUTING_PROVIDER ?? "").trim().toLowerCase();
   const baseUrl = (env.OSRM_BASE_URL ?? "").trim();
-  const isTrafficProvider = provider === "tomtom" || provider === "here";
   if (
     baseUrl &&
-    (provider === "osrm" || provider === "" || isTrafficProvider)
+    (provider === "osrm" ||
+      provider === "" ||
+      provider === "google")
   ) {
     return createOsrmProvider({
       baseUrl,
@@ -231,26 +236,26 @@ function resolveBaseProvider(
 /**
  * Velger leverandør ut fra servermiljøet.
  *
- * Rekkefølgen er bevisst: en konfigurert trafikkleverandør (TomTom/HERE) får
- * svare på enkeltstrekninger, men matrisen og alle feil faller tilbake til
- * OSRM, som selv faller tilbake til haversine. Dermed er reserven alltid
- * deterministisk og krever ingen ekstra konfigurasjon.
+ * Rekkefølgen er bevisst: en konfigurert Google Routes-nøkkel får svare på
+ * enkeltstrekninger med trafikkbevisst varighet, men matrisen og alle feil
+ * faller tilbake til OSRM, som selv faller tilbake til haversine. Dermed er
+ * reserven alltid deterministisk og krever ingen ekstra konfigurasjon.
  */
 export function resolveRoutingProvider(
   env: RoutingEnv = process.env,
   fetchImpl?: typeof fetch,
 ): RoutingProvider {
   const fallback = resolveBaseProvider(env, fetchImpl);
-  const traffic = resolveTrafficConfig(env);
-  if (!traffic) return fallback;
+  const google = resolveGoogleRoutesConfig(env);
+  if (!google) return fallback;
 
-  return createTrafficProvider({
-    ...traffic,
+  return createGoogleRoutesProvider({
+    ...google,
     fallback,
     fetchImpl,
-    timeoutMs: traffic.timeoutMs,
-    cacheTtlMs: traffic.cacheTtlMs,
-    maxRequestsPerMinute: traffic.maxRequestsPerMinute,
+    timeoutMs: google.timeoutMs,
+    cacheTtlMs: google.cacheTtlMs,
+    maxRequestsPerMinute: google.maxRequestsPerMinute,
   });
 }
 
