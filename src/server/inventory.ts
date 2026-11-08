@@ -132,7 +132,7 @@ async function findAccessibleLocation(
  * NOTHING` gjør opprettelsen samtidighetssikker; låsen tas etterpå, så alle
  * som vil endre samme rad serialiseres.
  */
-async function lockStockLevel(
+export async function lockStockLevel(
   tx: Prisma.TransactionClient,
   itemId: string,
   locationId: string,

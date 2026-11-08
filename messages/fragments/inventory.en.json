@@ -107,6 +107,95 @@
       "consumeVisit": "Consume parts for a completed session",
       "consumeVisitDescription": "Consumes all active reservations tied to the session. Use this when the work has actually been done.",
       "consumeAll": "Consume all"
+    },
+    "purchasing": {
+      "title": "Purchasing",
+      "eyebrow": "OPS-05 · Purchasing and suppliers",
+      "description": "Purchase orders from purchase suggestions, goods receipts into stock, and a supplier register. Stock increases only when goods actually arrive.",
+      "link": "Purchasing",
+      "suppliersLink": "Suppliers",
+      "back": "Back to purchasing",
+      "ordersTitle": "Purchase orders",
+      "empty": "No purchase orders have been registered yet.",
+      "create": {
+        "title": "New purchase order from suggestions",
+        "description": "Choose a supplier and receiving location. Tick the items to order; the suggested quantity is recalculated on the server.",
+        "supplier": "Supplier",
+        "chooseSupplier": "Choose supplier",
+        "noSuppliers": "No suppliers have been registered.",
+        "location": "Receiving location",
+        "expectedAt": "Expected delivery",
+        "notes": "Note",
+        "selectItems": "Select items",
+        "createButton": "Create draft"
+      },
+      "filter": {
+        "status": "Filter by status",
+        "all": "All statuses",
+        "apply": "Filter"
+      },
+      "table": {
+        "number": "Number",
+        "supplier": "Supplier",
+        "location": "Location",
+        "status": "Status",
+        "expectedAt": "Expected",
+        "lines": "Lines",
+        "orderedTotal": "Ordered total"
+      },
+      "status": {
+        "draft": "Draft",
+        "ordered": "Ordered",
+        "partially_received": "Partially received",
+        "received": "Received",
+        "cancelled": "Cancelled"
+      },
+      "order": {
+        "supplier": "Supplier",
+        "location": "Receiving location",
+        "expectedAt": "Expected delivery",
+        "orderedAt": "Ordered",
+        "receivedAt": "Received",
+        "cancelledAt": "Cancelled",
+        "notes": "Note",
+        "noNotes": "No note.",
+        "created": "Created",
+        "totals": {
+          "ordered": "Ordered total",
+          "received": "Received total"
+        },
+        "linesTitle": "Order lines",
+        "noLines": "The order has no lines yet.",
+        "addLine": "Add item",
+        "chooseItem": "Choose item",
+        "orderedQuantity": "Ordered quantity",
+        "receivedQuantity": "Received",
+        "remaining": "Remaining",
+        "unitCost": "Unit cost",
+        "lineTotal": "Line total",
+        "remove": "Remove",
+        "addButton": "Add",
+        "editTitle": "Edit draft",
+        "saveButton": "Save draft",
+        "orderButton": "Place order",
+        "cancelButton": "Cancel order",
+        "receiveTitle": "Goods receipt",
+        "receiveDescription": "Receiving increases stock at the receiving location and can never exceed the ordered quantity. A partial receipt sets the order to partially received.",
+        "receiveButton": "Receive goods",
+        "receiveQuantity": "Received now"
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "description": "Suppliers are used on purchase orders. Suppliers without a department are shared across the installation.",
+        "empty": "No suppliers have been registered yet.",
+        "create": "New supplier",
+        "name": "Name",
+        "orgNumber": "Organisation number",
+        "email": "Email",
+        "phone": "Phone",
+        "createButton": "Create supplier",
+        "created": "The supplier has been created."
+      }
     }
   }
 }
