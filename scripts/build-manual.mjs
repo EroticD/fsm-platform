@@ -15,6 +15,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import {
+  inlineHtmlImages,
+  inlineMarkdownImages,
+} from "./lib/manual-images.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -79,17 +83,22 @@ function markdownHeadings(markdown) {
   return headings;
 }
 
-function convertMarkdown(markdown, source) {
+function convertMarkdown(markdown, sourcePath) {
+  // Chromium får ingen filbase når HTML-en settes med setContent. Bilder må
+  // derfor innlines som data-URI-er før de havner i PDF-en.
+  const inlined = inlineMarkdownImages(markdown, sourcePath, { root });
   const result = spawnSync("md2html", ["--gfm"], {
-    input: markdown,
+    input: inlined,
     encoding: "utf8",
-    maxBuffer: 32 * 1024 * 1024,
+    maxBuffer: 128 * 1024 * 1024,
   });
   if (result.error) fail(`Kunne ikke kjøre md2html: ${result.error.message}`);
   if (result.status !== 0) {
-    fail(`md2html feilet for ${source}: ${result.stderr || "ukjent feil"}`);
+    fail(
+      `md2html feilet for ${path.relative(root, sourcePath)}: ${result.stderr || "ukjent feil"}`,
+    );
   }
-  return result.stdout;
+  return inlineHtmlImages(result.stdout, sourcePath, { root });
 }
 
 function addHeadingIds(html, prefix) {
@@ -108,7 +117,7 @@ function renderSection(section, locale) {
   const markdown = fs.readFileSync(sourcePath, "utf8");
   const headings = markdownHeadings(markdown);
   const html = addHeadingIds(
-    convertMarkdown(markdown, path.relative(root, sourcePath)),
+    convertMarkdown(markdown, sourcePath),
     slugify(section.label) || "del",
   );
 
@@ -272,6 +281,27 @@ function bodyHtml(doc, sections) {
   th, td { border: 1px solid #dedcd1; padding: 2mm 2.4mm; text-align: left; vertical-align: top; }
   th { background: #f2efe6; font-weight: 750; }
   tr:nth-child(even) td { background: #fbfbf8; }
+  figure { margin: 5mm 0; padding: 0; break-inside: avoid; }
+  figure > img { margin-top: 0; margin-bottom: 0; }
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 232mm;
+    width: auto;
+    height: auto;
+    margin: 4mm auto;
+    border: 1px solid #dedcd1;
+    border-radius: 5px;
+    box-shadow: 0 2px 6px rgba(16, 19, 16, .12);
+    break-inside: avoid;
+  }
+  figcaption {
+    margin-top: 2mm;
+    color: #4d554b;
+    font-size: 8.6pt;
+    line-height: 1.35;
+    text-align: center;
+  }
   .chapter { break-before: page; }
   .chapter.first { break-before: auto; }
   .part-kicker { display: inline-block; margin-bottom: 2mm; padding: 1mm 2.5mm; border-radius: 3px; background: #d8ff3e; color: #101310; font-size: 8pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
@@ -362,6 +392,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(`✖ ${error.message ?? error}`);
   process.exit(1);
 });
