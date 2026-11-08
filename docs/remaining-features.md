@@ -89,10 +89,14 @@
 - **Toveis SMS og påminnelser** — innkommende webhook med signatur,
   idempotens, leveringsstatus og STOP/START; kontorinnboks med svar;
   konfigurerbare SMS-/e-postpåminnelser via durabel worker (`ab66155`).
-- **SSO og SCIM-brukere** — OIDC for Entra ID, Keycloak, Authentik og Zitadel,
-  verifisert e-post-kobling, rolle-/gruppemapping; SCIM 2.0 Users med
-  hash-lagrede token og admin-fane (`334a700`). SAML, SCIM Groups og Entra
-  group overage gjenstår, se **PLAT-04**.
+- **SSO, SAML og SCIM** — OIDC for Entra ID, Keycloak, Authentik og Zitadel
+  med verifisert e-post-kobling og rolle-/gruppemapping; SAML 2.0 SP med
+  signert assertion, audience/recipient/tid, replay-vakt og eksplisitt
+  rolle-/avdelingsmapping; SCIM 2.0 Users og Groups med hash-lagrede tokens.
+  Feltnivå-RBAC v1 maskerer kundekontakt, fakturabeløp, rapportsignaturer og
+  lønnsbeløp på serveren. Residual: Entra group overage, IdP-metadata-
+  administrasjon i UI og feltmatrise-redigering, se **PLAT-04** og
+  **PLAT-05**.
 - **Feltapp, navigasjon og strekkode** — `/skann` med BarcodeDetector/ZXing og
   manuell fallback, Apple/Google Maps-dypelenker, kopier adresse/ring,
   PWA-forbedringer og Capacitor-skall (`9f290ac`). Kunders eksisterende
@@ -210,8 +214,8 @@ driftsbegrunnelse. Status er verifisert mot kode og dokumentasjon ved 0.8.11/dev
 | **PLAT-01** · S3/objektlagring | **Åpen.** Appen bruker lokal disk; Azure-guiden sier uttrykkelig at S3-driver ikke finnes. | Storage-abstraksjon med lokal og S3/MinIO-driver, gjenopptakbar migrering av eksisterende filer, ingen lokal-disk-kobling i tjenestelaget. |
 | **PLAT-02** · Redis/BullMQ | **Åpen.** Jobbkø og rate limits er databasebaserte; Azure-guiden nevner in-process workers og Redis som skaleringsvei. | Redis/BullMQ bak samme grensesnitt, DB-fallback, lasttest med to replikaer, dokumentert drift. |
 | **PLAT-03** · Utgående signerte webhooks | **Åpen.** Bare innkommende SMS-webhook finnes. | Retry, idempotens, dead letter, HMAC-signering, abonnements-/innstillings-UI og tester. |
-| **PLAT-04** · SSO/OIDC/SAML + SCIM | **Delvis.** OIDC (Entra ID, Keycloak, Authentik, Zitadel), SCIM 2.0 Users og break-glass er levert. | SAML; SCIM Groups; Entra group overage via Graph eller dokumentert begrensning; tester for provisioning/deaktivering; se [`manual/nb/31-sso-scim.md`](manual/nb/31-sso-scim.md) og [`OPERATIONS.md`](OPERATIONS.md). |
-| **PLAT-05** · Avansert RBAC/field-level + separation of duties | **Åpen.** Roller/rettigheter finnes, men ikke feltnivå eller pliktsegregering. | Scoped roller, feltnivåregler, godkjenningsflyt som krever to personer, tester for hver rolle. |
+| **PLAT-04** · SSO/OIDC/SAML + SCIM | **Levert v1.** OIDC, SAML 2.0 SP, SCIM 2.0 Users og Groups, replay-vakt og break-glass er levert. Residual: Entra group overage via Graph, IdP-metadata redigeres bare med miljøvariabler, og SAML er testet med én selvsignert test-IdP (ikke en ekte tenant i CI). | Entra group overage via Graph eller dokumentert begrensning; flere IdP-spesifikke røyktester; se [`manual/nb/31-sso-scim.md`](manual/nb/31-sso-scim.md) og [`OPERATIONS.md`](OPERATIONS.md). |
+| **PLAT-05** · Avansert RBAC/field-level + separation of duties | **Levert v1 for feltnivå.** Feltgrupper for kundekontakt, fakturabeløp, rapportsignaturer og lønnsbeløp håndheves i lesetjenester, API, søk og eksport, med tester per rolle. Residual: matrisen er rollebasert og skrivebeskyttet i UI; pliktsegregering (to-personers godkjenning) gjenstår. | Scoped roller, redigerbar feltmatrise, godkjenningsflyt som krever to personer, tester for hver rolle og pliktsegregering. Se [`RBAC.md`](RBAC.md). |
 | **PLAT-06** · HA/DR/PITR | **Åpen.** Backup/restore og Azure-guide finnes, men ikke HA, failover-drill eller PITR. | RPO/RTO, PITR, failover-test, lasttest, dokumentert restore-drill; se [`BACKUP-RESTORE.md`](BACKUP-RESTORE.md) og [`AZURE.md`](AZURE.md). |
 | **PLAT-07** · White-label/custom domains | **Åpen.** Én deployment med Caddy/TLS; ingen tenant-host-mapping. | Host-mapping, per-tenant branding, TLS/DNS-validering, feilhåndtering for ukjent vert. |
 | **PLAT-08** · Lager/stock-modul | **Flyttet til OPS-05 (P2).** | Beholdes bare som historisk referanse; ikke start som egen P3-oppgave. |

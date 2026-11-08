@@ -78,6 +78,42 @@
         "not_found": "Nie znaleziono tokenu.",
         "error": "Nie udało się przetworzyć tokenu SCIM."
       }
+    },
+    "saml": {
+      "title": "Dostawcy SAML 2.0",
+      "description": "SAML jest konfigurowany za pomocą SAML_PROVIDERS i zmiennych SAML_<NAZWA>_. Każdy dostawca weryfikuje podpisane asercje, odbiorcę, adresata i okno czasowe oraz odrzuca powtórzenia.",
+      "configErrors": "Konfiguracja SAML zawiera błędy, które należy poprawić w środowisku:",
+      "empty": "Nie skonfigurowano żadnego dostawcy SAML. Ustaw SAML_PROVIDERS i odpowiednie zmienne.",
+      "active": "Aktywny",
+      "entityId": "Identyfikator SP",
+      "acsUrl": "Adres ACS",
+      "groupsAttribute": "Atrybut grup",
+      "provisioning": "Automatyczne tworzenie kont",
+      "autoProvisionActive": "Włączone – nowi użytkownicy są aktywowani",
+      "autoProvisionInactive": "Włączone – nowi użytkownicy są nieaktywni",
+      "autoProvisionOff": "Wyłączone – użytkownik musi istnieć wcześniej",
+      "idpInitiatedOn": "Logowanie inicjowane przez IdP jest dozwolone; kontrola podpisu i powtórzeń pozostaje aktywna.",
+      "idpInitiatedOff": "Dozwolone jest tylko logowanie inicjowane przez SP.",
+      "help": "Metadane są publikowane pod /api/auth/saml/<slug>/metadata. Zobacz docs/OPERATIONS.md i docs/manual/en/30-administrator.md. Zmiany wymagają ponownego uruchomienia aplikacji."
+    },
+    "fieldPolicy": {
+      "title": "RBAC na poziomie pól",
+      "description": "Wrażliwe pola są maskowane na serwerze, zanim dane trafią do API, wyszukiwania, eksportu lub interfejsu. Poniższa matryca obowiązuje domyślnie dla ról.",
+      "field": "Grupa pól",
+      "full": "Pełny",
+      "own": "Własne",
+      "none": "Zamaskowane",
+      "note": "ADMIN i OFFICE zachowują dotychczasowy dostęp. Technicy widzą własne kwoty wynagrodzeń i wydatków, ale nie dane kontaktowe klientów ani kwoty faktur. Portal klienta widzi tylko własne dane.",
+      "overrideNote": "Administrator może jawnie przyznać pojedyncze pole kluczem fields.<grupa> w uprawnieniach użytkownika. Klucz może tylko rozszerzyć dostęp, nigdy przyznać ADMIN.",
+      "fields": {
+        "customerContact": "Kontakt z klientem, e-mail i telefon",
+        "billingAmounts": "Kwoty faktur i płatności",
+        "reportSignatures": "Podpisy raportów",
+        "payrollAmounts": "Kwoty wynagrodzeń i wydatków"
+      }
     }
+  },
+  "saml": {
+    "signInWith": "Zaloguj się przez {provider} (SAML)"
   }
 }

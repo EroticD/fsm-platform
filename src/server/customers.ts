@@ -41,6 +41,10 @@ import {
   type ServiceResult,
 } from "./actor";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import {
+  CUSTOMER_CONTACT_FIELDS,
+  redactRecord,
+} from "@/lib/field-rbac";
 import { contractScopeFor } from "./contracts";
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
@@ -669,13 +673,35 @@ export async function getCustomerDetail(
       : Promise.resolve([]),
   ]);
 
+  // Feltnivå-RBAC: kontaktinfo maskeres for roller uten tilgang, mens navn,
+  // adresse og oppdrag forblir lesbare. ADMIN/OFFICE er uendret.
+  const safeCustomer = redactRecord(actor, customer, {
+    group: "customerContact",
+    fields: CUSTOMER_CONTACT_FIELDS,
+    customerId: customer.id,
+  });
+  const safeContacts = customer.contacts.map((contact) =>
+    redactRecord(actor, contact, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+  const safePortalUsers = portalUsers.map((user) =>
+    redactRecord(actor, user, {
+      group: "customerContact",
+      fields: CUSTOMER_CONTACT_FIELDS,
+      customerId: customer.id,
+    }),
+  );
+
   return ok({
-    customer,
+    customer: { ...safeCustomer, contacts: safeContacts },
     customerAuditLogs,
     customerComments,
     activityFeed,
     recentActivity: activityFeed.slice(0, 5),
-    portalUsers,
+    portalUsers: safePortalUsers,
     templates,
     departments,
     defaultDepartmentId,

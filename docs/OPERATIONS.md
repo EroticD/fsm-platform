@@ -911,7 +911,7 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 - Opprettelse, tilbakekalling og rotasjon logges i aktivitetsloggen. Sist brukt
   og utløp vises i listen. Utløpte og tilbakekalte nøkler gir `401`.
 
-## SSO (OIDC) og SCIM-provisjonering
+## SSO (OIDC/SAML) og SCIM-provisjonering
 
 SSO og SCIM er valgfritt og konfigureres utelukkende med miljøvariabler. Uten
 dem virker passordinnlogging som før. Passordinnloggingen fjernes aldri når SSO
@@ -997,8 +997,60 @@ og nonce mot discovery-dokumentet.
   rolleobjektet som nøkler, så `SSO_ZITADEL_GROUPS_CLAIM` settes til
   `urn:zitadel:iam:org:project:roles`.
 
-SAML er ikke implementert. Entra ID, Keycloak, Authentik og Zitadel dekkes via
-OIDC; SAML kan legges til senere uten å endre kontomodellen.
+### SAML 2.0-leverandører
+
+SAML er additivt og bruker egne variabler, slik at OIDC-oppsettet er urørt.
+List leverandørene i `SAML_PROVIDERS`; hver får prefikset `SAML_<SLUG>_`.
+Signert assertion, audience, recipient og tidsvindu valideres av
+`@node-saml/node-saml`. Replay avvises av en databasebasert cache, slik at
+kontrollen også virker med flere appinstanser.
+
+```dotenv
+SAML_PROVIDERS=entra-saml
+SAML_ENTRA_SAML_DISPLAY_NAME=Entra SAML
+SAML_ENTRA_SAML_ENTRY_POINT=https://login.microsoftonline.com/<tenant-id>/saml2
+SAML_ENTRA_SAML_IDP_ISSUER=https://sts.windows.net/<tenant-id>/
+SAML_ENTRA_SAML_IDP_CERT=<base64-sertifikat eller PEM>
+SAML_ENTRA_SAML_SP_ENTITY_ID=https://fsm.example.no/api/auth/saml/entra-saml/metadata
+SAML_ENTRA_SAML_ACS_URL=https://fsm.example.no/api/auth/saml/entra-saml/acs
+SAML_ENTRA_SAML_ALLOWED_EMAIL_DOMAINS=example.no
+SAML_ENTRA_SAML_GROUPS_ATTRIBUTE=http://schemas.microsoft.com/ws/2008/06/identity/claims/groups
+SAML_ENTRA_SAML_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SAML_ENTRA_SAML_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+SAML_ENTRA_SAML_SYNC_ROLES=false
+SAML_ENTRA_SAML_SYNC_DEPARTMENT=false
+SAML_ENTRA_SAML_AUTO_PROVISION=false
+SAML_ENTRA_SAML_AUTO_PROVISION_ACTIVE=false
+SAML_ENTRA_SAML_DEFAULT_ROLE=USER
+```
+
+| Variabel | Betydning |
+| --- | --- |
+| `SAML_<SLUG>_ENTRY_POINT` / `_SSO_URL` | IdP-ens SingleSignOnService. Kan utelates når metadata er satt. |
+| `SAML_<SLUG>_METADATA_URL` / `_METADATA_XML` | Henter entry point og sertifikat fra IdP-metadata. URL-en må være http(s); redirects avvises. |
+| `SAML_<SLUG>_IDP_CERT` / `_CERT` | IdP-signeringssertifikat. Base64 uten headere normaliseres til PEM. |
+| `SAML_<SLUG>_IDP_ISSUER` | Forventet `Issuer` i assertionen. |
+| `SAML_<SLUG>_SP_ENTITY_ID` / `_ACS_URL` | SP-ens entity id og ACS. Standard utledes fra `APP_URL`/`NEXTAUTH_URL`. |
+| `SAML_<SLUG>_AUDIENCE` | Forventet audience. Standard lik SP entity id. |
+| `SAML_<SLUG>_WANT_ASSERTIONS_SIGNED` | Standard `true`; kan ikke slås av uten å svekke innloggingen. |
+| `SAML_<SLUG>_WANT_RESPONSE_SIGNED` | Krev signert respons i tillegg til assertion. Standard `false`. |
+| `SAML_<SLUG>_ALLOW_IDP_INITIATED` | Standard `false`. Når `true`, slås InResponseTo-kontrollen av, men signatur, audience, recipient, tid og replay er fortsatt aktiv. |
+| `SAML_<SLUG>_EMAIL_ATTRIBUTE` / `_NAME_ATTRIBUTE` / `_GROUPS_ATTRIBUTE` / `_DEPARTMENT_ATTRIBUTE` | Attributtnavnene i assertionen. E-post og grupper er påkrevde for kobling. |
+| `SAML_<SLUG>_GROUP_ROLE_MAP` / `_GROUP_DEPARTMENT_MAP` | Eksplisitt mapping fra gruppe til rolle/avdeling. Ukjent gruppe gir ingen endring. |
+| `SAML_<SLUG>_SYNC_ROLES` / `_SYNC_DEPARTMENT` | `true` oppdaterer eksisterende bruker ved innlogging. Standard `false`. |
+| `SAML_<SLUG>_AUTO_PROVISION` / `_AUTO_PROVISION_ACTIVE` / `_DEFAULT_ROLE` / `_DEFAULT_DEPARTMENT` | Samme trygge provisjoneringsregler som OIDC. `CUSTOMER` er ikke tillatt. |
+| `SAML_<SLUG>_SIGN_AUTHN_REQUEST` / `_SP_PRIVATE_KEY` | Signerer AuthnRequest. Krever begge. Standard av. |
+
+SP-metadata publiseres på
+`https://<app>/api/auth/saml/<slug>/metadata`. Registrer entity id og ACS-URL i
+IdP-en. Innlogging starter på `/api/auth/saml/<slug>/login`; ACS ligger på
+`/api/auth/saml/<slug>/acs`. SAML bruker samme konto-, rolle-, avdelings- og
+2FA-regler som OIDC, og kundeportalbrukere kan aldri kobles.
+
+**Replay og tid:** cachen ligger i `SamlCacheEntry` og ryddes automatisk når
+oppføringen utløper. En assertion kan bare brukes én gang, også når flere
+appinstanser deler database. Klokkeavvik godtas i fem sekunder; assertioner
+eldre enn fem minutter avvises.
 
 Appen leser claims fra **ID-tokenet**. Sørg for at grupper/roller er med der,
 ikke bare i userinfo. Entra ID utelater `groups` når brukeren er medlem av
@@ -1037,6 +1089,9 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 | `/api/scim/v2/Users` | `GET` | Liste med `filter`, `startIndex`, `count`. Støtter `eq`, `ne`, `co`, `sw`, `pr` og `and` på `userName`, `emails.value`, `externalId`, `active`, `id`, `displayName` og `role`. |
 | `/api/scim/v2/Users` | `POST` | Opprett bruker. `active=true` må sendes eksplisitt for at kontoen skal kunne logge inn. |
 | `/api/scim/v2/Users/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, deloppdater eller deaktiver. `DELETE` er myk deaktivering. |
+| `/api/scim/v2/Groups` | `GET` | Liste med `filter`, `startIndex`, `count`. Filter på `displayName`, `externalId`, `id` og `members`. |
+| `/api/scim/v2/Groups` | `POST` | Opprett gruppe med `displayName`, valgfri `externalId` og `members[].value` (lokal bruker-id). |
+| `/api/scim/v2/Groups/{id}` | `GET` / `PUT` / `PATCH` / `DELETE` | Hent, erstatt, legg til/fjern medlemmer eller slett gruppen. Brukerne slettes aldri. |
 | `/api/scim/v2/ServiceProviderConfig` | `GET` | Kapabiliteter for IdP-oppsett. |
 
 - **Tokens:** opprettes under **Innstillinger → SSO og SCIM** av administrator.
@@ -1068,9 +1123,18 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   Overskridelse gir `429` med `Retry-After`.
 - **Feilformat:** alle feil, også 401/403/404/409, bruker
   `application/scim+json` og `{ "schemas": [«...Error»], "detail": ..., "status": "400" }`.
-- **Begrensninger:** SCIM Groups er ikke implementert. Rolle styres av `roles`
-  / `groups` på brukeren og den eksplisitte mappingen. SAML er ikke
-  implementert; Entra ID, Keycloak, Authentik og Zitadel bruker OIDC.
+- **SCIM Groups:** grupper speiles med `displayName`, `externalId` og
+  medlemmer. Et medlem er en lokal bruker-id. `PATCH` støtter `displayName`,
+  `externalId`, `members` (add/replace/remove) og
+  `members[value eq "…"]`. Gruppen gir bare tilgang når navnet finnes i
+  `SCIM_GROUP_ROLE_MAP` eller `SCIM_GROUP_DEPARTMENT_MAP`; uten mapping skjer
+  ingenting. Flere grupper som peker på ulike roller/avdelinger gir ingen
+  endring og en revisjonsrad. `ADMIN` krever fortsatt `SCIM_ALLOW_ADMIN=true`.
+  Brukerens `GET`-ressurs viser gruppene som `groups[].value/display`.
+  `DELETE` sletter gruppen og medlemskapene, men beholder brukerne.
+- **Feltnivå:** svar fra SCIM inneholder aldri passord, 2FA-hemmeligheter eller
+  andre interne felt. Se [`RBAC.md`](RBAC.md) for maskering av kundekontakt,
+  fakturabeløp, rapportsignaturer og lønnsbeløp.
 
 ### Break-glass og minste privilegium
 

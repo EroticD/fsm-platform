@@ -67,11 +67,22 @@ OIDC, PKCE, state/nonce and verified email. The redirect URL is
 **Settings → SSO and SCIM** shows the provider status, issuer, default role and
 allowed domains. Password sign-in always remains as break-glass.
 
+SAML 2.0 is additive and uses `SAML_PROVIDERS` and `SAML_<SLUG>_*`. Register the
+SP entity ID and ACS URL from `/api/auth/saml/<slug>/metadata` in the IdP. The
+server validates the signed assertion, audience, recipient and time window, and
+rejects assertion replay. `ALLOW_IDP_INITIATED=true` is only for IdP-initiated
+sign-in; signature, audience, recipient and replay checks remain active. SAML
+uses the same account, role, department and 2FA rules as OIDC.
+
 SCIM 2.0 is served at `/api/scim/v2` with a dedicated Bearer token created,
 rotated and revoked in the same tab. `DELETE` deactivates the user without
 deleting it, and `ADMIN` requires both an explicit group mapping and
-`SCIM_ALLOW_ADMIN=true`. Use one token per integration, and keep at least two
-local administrators with strong passwords and 2FA.
+`SCIM_ALLOW_ADMIN=true`. SCIM Groups at `/api/scim/v2/Groups` mirror group
+membership. A group only affects role or department through
+`SCIM_GROUP_ROLE_MAP` / `SCIM_GROUP_DEPARTMENT_MAP`; without a mapping nothing
+happens, and conflicting mappings change nothing. Use one token per
+integration, and keep at least two local administrators with strong passwords
+and 2FA.
 
 ## 4. Roles and permissions
 
@@ -88,6 +99,8 @@ Administrator and Customer are locked. Office and Technician can be edited, but 
 **Custom role:** go to **Settings → Roles & permissions → New role**, enter **Name**, optional **Description**, select **Permissions** and choose **Create role**. The role gets a fixed key based on its name; the key does not change if the display name changes. A role in use cannot be deleted until its users are moved.
 
 **Per user:** open **Permissions for this user**, select the list and choose **Save permissions**. The list overrides the role completely; if it matches the role’s list, the override is removed. **Use the role's permissions** does the same. Customisation does not apply to administrators or portal users, and changing a role clears the list.
+
+**Field-level access:** sensitive fields are masked on the server before they reach the API, search, exports or the UI. ADMIN and OFFICE keep full access. Technicians do not see customer contact details or invoice amounts, and only their own payroll and expense amounts. The customer portal sees only its own contact and billing data. An administrator can grant one field group explicitly with `fields.customerContact`, `fields.billingAmounts`, `fields.reportSignatures` or `fields.payrollAmounts` in a user's permissions; in v1 this is done directly in the database/API because the settings list filters unknown keys. This never grants ADMIN. See `docs/RBAC.md`.
 
 The permission groups are **Work orders** (`workorders.*`, `dispatch.configure`), **Customers and equipment** (`customers.*`, `equipment.*`), **Agreements and SLA** (`contracts.*`, `sla.manage`), **Reports and documents** (`reports.*`, `documents.*`) and **Administration** (`templates.*`, `users.*`, `settings.manage`, `audit.view`).
 

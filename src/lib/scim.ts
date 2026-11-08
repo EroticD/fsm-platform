@@ -190,6 +190,8 @@ export type ScimUserRow = {
   role: string;
   departmentId: string | null;
   department?: { id: string; name: string } | null;
+  /** SCIM-grupper brukeren er direkte medlem av. */
+  groups?: Array<{ id: string; displayName: string }> | null;
 };
 
 /** Nåværende bruker som SCIM-input, brukt som grunnlag for PATCH. */
@@ -248,6 +250,13 @@ export function scimUserResource(
       : [],
     active: user.isActive,
     roles: [{ value: user.role, primary: true, type: "work" }],
+    // Bare gruppe-id og visningsnavn – aldri medlemslister på andre brukere.
+    groups: (user.groups ?? []).map((group) => ({
+      value: group.id,
+      display: group.displayName,
+      type: "direct",
+      $ref: `${baseUrl}/api/scim/v2/Groups/${group.id}`,
+    })),
     ...(department
       ? {
           [SCIM_ENTERPRISE_SCHEMA]: { department },

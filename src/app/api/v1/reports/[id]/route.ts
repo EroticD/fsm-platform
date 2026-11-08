@@ -4,6 +4,7 @@ import { hasPermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { parseJsonObject } from "@/lib/report-answers";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import { canSeeField } from "@/lib/field-rbac";
 
 export const runtime = "nodejs";
 
@@ -147,8 +148,15 @@ export async function GET(
     answers: safeRecord(parseJsonObject(answersJson)),
   }));
 
-  const technicianUrl = safeSignatureUrl(report.technicianSignatureUrl);
-  const customerUrl = safeSignatureUrl(report.customerSignatureUrl);
+  const signaturesVisible = canSeeField(auth.actor, "reportSignatures", {
+    customerId: report.workOrder.customerId,
+  });
+  const technicianUrl = signaturesVisible
+    ? safeSignatureUrl(report.technicianSignatureUrl)
+    : null;
+  const customerUrl = signaturesVisible
+    ? safeSignatureUrl(report.customerSignatureUrl)
+    : null;
 
   return apiJson({
     id: report.id,
@@ -186,5 +194,13 @@ export async function GET(
     customerAcknowledgedAt: report.customerAcknowledgedAt,
     customerAcknowledgedBy: report.customerAcknowledgedBy,
     customerAcknowledgedComment: report.customerAcknowledgedComment,
+    ...(signaturesVisible
+      ? {}
+      : {
+          redactedFields: [
+            "signatures.technician.url",
+            "signatures.customer.url",
+          ],
+        }),
   });
 }

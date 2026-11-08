@@ -109,6 +109,7 @@ model User {
   /// brukes til å matche oppdateringer fra identitetsleverandøren.
   scimExternalId String? @unique
   ssoIdentities  SsoIdentity[]
+  scimGroups     ScimGroupMember[]
 
   // Kundeportalbrukere kobles til en kontaktperson på kundekortet
   contactId String?
@@ -251,6 +252,51 @@ model ScimToken {
 
   @@index([revokedAt])
   @@index([createdById])
+}
+
+/// SCIM 2.0-gruppe. Gruppen er leverandørens gruppe, ikke en lokal rolle:
+/// medlemskap gir bare tilgang når gruppenavnet finnes i en eksplisitt
+/// SCIM_GROUP_ROLE_MAP eller SCIM_GROUP_DEPARTMENT_MAP. Gruppen kan derfor
+/// aldri gi ADMIN av seg selv.
+model ScimGroup {
+  id          String  @id @default(cuid())
+  displayName String  @unique
+  externalId  String? @unique
+
+  /// SCIM-tokenets oppretter, for attribusjon i revisjonsloggen.
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members ScimGroupMember[]
+
+  @@index([createdAt])
+}
+
+/// Medlemskap i en SCIM-gruppe. Slettes sammen med gruppen eller brukeren.
+model ScimGroupMember {
+  groupId String
+  group   ScimGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+/// Kortlevd nøkkelverdi-lager for SAML. Det gjør AuthnRequest-id-er og
+/// replay-vakter delbare mellom appinstanser, i stedet for en prosesslokal
+/// cache som gir hull ved flere replikaer eller restart.
+model SamlCacheEntry {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 // Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver

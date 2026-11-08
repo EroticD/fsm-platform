@@ -17,7 +17,7 @@ import {
   scimUserName,
   type ScimUserInput,
 } from "@/lib/scim";
-import { parseGroupRoleMap } from "@/lib/sso";
+import { parseGroupDepartmentMap, parseGroupRoleMap } from "@/lib/sso";
 import type { ScimTokenActor } from "@/server/scim-tokens";
 
 /**
@@ -58,6 +58,7 @@ export type ScimUserRecord = {
   role: string;
   departmentId: string | null;
   department: { id: string; name: string } | null;
+  groups: Array<{ id: string; displayName: string }>;
 };
 
 export const SCIM_USER_SELECT = {
@@ -69,6 +70,9 @@ export const SCIM_USER_SELECT = {
   role: true,
   departmentId: true,
   department: { select: { id: true, name: true } },
+  scimGroups: {
+    select: { group: { select: { id: true, displayName: true } } },
+  },
 } satisfies Prisma.UserSelect;
 
 type ScimUserRow = Prisma.UserGetPayload<{ select: typeof SCIM_USER_SELECT }>;
@@ -83,6 +87,7 @@ function toRecord(row: ScimUserRow): ScimUserRecord {
     role: row.role,
     departmentId: row.departmentId,
     department: row.department ?? null,
+    groups: (row.scimGroups ?? []).map((membership) => membership.group),
   };
 }
 
@@ -103,6 +108,7 @@ export type ScimConfig = {
   defaultDepartment: string | null;
   allowAdmin: boolean;
   groupRoleMap: Record<string, string>;
+  groupDepartmentMap: Record<string, string>;
 };
 
 export function readScimConfig(
@@ -114,6 +120,9 @@ export function readScimConfig(
     defaultDepartment: env.SCIM_DEFAULT_DEPARTMENT?.trim() || null,
     allowAdmin: enabled(env.SCIM_ALLOW_ADMIN),
     groupRoleMap: parseGroupRoleMap(env.SCIM_GROUP_ROLE_MAP).map,
+    groupDepartmentMap: parseGroupDepartmentMap(
+      env.SCIM_GROUP_DEPARTMENT_MAP,
+    ).map,
   };
 }
 

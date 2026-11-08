@@ -163,7 +163,13 @@ export function payableAmount(invoice: InvoiceMoneyState): Prisma.Decimal {
 }
 
 /** Formaterer et beløp med to desimaler og norsk gruppering for visning. */
-export function formatAmount(value: { toString(): string } | number | string, currency = "NOK"): string {
+export function formatAmount(
+  value: { toString(): string } | number | string | null | undefined,
+  currency = "NOK",
+): string {
+  // Feltnivå-RBAC kan fjerne beløpet for en rolle uten tilgang. Da viser vi en
+  // maske i stedet for å krasje på `null.toString()`.
+  if (value === null || value === undefined) return "••••";
   const number = Number(value.toString());
   if (!Number.isFinite(number)) return "";
   return new Intl.NumberFormat("nb-NO", {

@@ -54,7 +54,10 @@ export default async function InvoiceDetailPage({
   const locale = await getLocale();
   const canManage = hasPermission(user, "customers.manage");
   const payable = ["SENT", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status);
-  const creditable = payable && Number(invoice.outstanding.toString()) > 0;
+  const creditable =
+    payable &&
+    invoice.outstanding != null &&
+    Number(invoice.outstanding.toString()) > 0;
   const errorMessages: Record<string, string> = {
     forbidden: t("invoicing.errors.forbidden"),
     invalid: t("invoicing.errors.invalid"),
@@ -225,7 +228,7 @@ export default async function InvoiceDetailPage({
                 <input type="hidden" name="idempotencyKey" value={randomUUID()} />
                 <label>
                   <span className="mb-1 block text-xs font-bold">{t("invoicing.detail.amount")}</span>
-                  <input name="amount" type="number" min="0.01" step="0.01" defaultValue={invoice.outstanding.toFixed(2)} required className={INPUT} />
+                  <input name="amount" type="number" min="0.01" step="0.01" defaultValue={invoice.outstanding?.toFixed(2) ?? ""} required className={INPUT} />
                 </label>
                 <label>
                   <span className="mb-1 block text-xs font-bold">{t("invoicing.detail.paidAt")}</span>
@@ -262,7 +265,7 @@ export default async function InvoiceDetailPage({
                   <input type="hidden" name="id" value={invoice.id} />
                   <label>
                     <span className="mb-1 block text-xs font-bold">{t("invoicing.detail.creditAmount")}</span>
-                    <input name="amount" type="number" min="0.01" step="0.01" max={invoice.outstanding.toFixed(2)} required className={INPUT} />
+                    <input name="amount" type="number" min="0.01" step="0.01" max={invoice.outstanding?.toFixed(2) ?? ""} required className={INPUT} />
                   </label>
                   <label>
                     <span className="mb-1 block text-xs font-bold">{t("invoicing.detail.creditDate")}</span>

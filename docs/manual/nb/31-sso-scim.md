@@ -62,6 +62,31 @@ SSO_ENTRA_GROUP_ROLE_MAP={"FSM-Office":"OFFICE","FSM-Technicians":"TECHNICIAN"}
 SSO_ENTRA_SYNC_ROLES=false
 ```
 
+### SAML 2.0
+
+SAML konfigureres med `SAML_PROVIDERS` og `SAML_<SLUG>_`. OIDC-variablene er
+urørt, så en installasjon kan ha begge deler. Eksempel:
+
+```dotenv
+SAML_PROVIDERS=entra-saml
+SAML_ENTRA_SAML_DISPLAY_NAME=Entra SAML
+SAML_ENTRA_SAML_ENTRY_POINT=https://login.microsoftonline.com/<tenant>/saml2
+SAML_ENTRA_SAML_IDP_CERT=<sertifikat>
+SAML_ENTRA_SAML_ALLOWED_EMAIL_DOMAINS=example.no
+SAML_ENTRA_SAML_GROUPS_ATTRIBUTE=groups
+SAML_ENTRA_SAML_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SAML_ENTRA_SAML_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+SAML_ENTRA_SAML_AUTO_PROVISION=false
+SAML_ENTRA_SAML_DEFAULT_ROLE=USER
+```
+
+Registrer **SP entity id** og **ACS-URL** fra
+`/api/auth/saml/<slug>/metadata` i IdP-en. Appen validerer signert assertion,
+audience, recipient og tidsvindu, og avviser replay av samme assertion.
+`ALLOW_IDP_INITIATED=true` er bare for IdP-initierte innlogginger; signatur,
+audience, recipient og replay er fortsatt på. SAML bruker samme konto-, rolle-,
+avdelings- og 2FA-regler som OIDC.
+
 Start appen på nytt. Åpne **Innstillinger → SSO og SCIM**. Leverandøren skal
 vises som **Aktiv**, med issuer, standardrolle og tillatte domener. Røde
 konfigurasjonsfeil betyr at en påkrevd variabel mangler eller er ugyldig.
@@ -126,6 +151,31 @@ Feltmapping:
 `DELETE` deaktiverer brukeren; den slettes ikke. Passord settes aldri. Endringer
 i rolle, avdeling, e-post eller aktiv status logger ut eksisterende økter.
 `ADMIN` krever `SCIM_ALLOW_ADMIN=true` i tillegg til eksplisitt mapping.
+
+### SCIM-grupper
+
+Grupper ligger på `/api/scim/v2/Groups` med samme token og feilformat som
+brukere. En gruppe har `displayName`, valgfri `externalId` og `members` med
+lokal bruker-id i `value`. `PATCH` støtter `displayName`, `externalId`,
+`members` og `members[value eq "…"]`.
+
+Grupper gir **bare** tilgang gjennom eksplisitt mapping:
+
+```dotenv
+SCIM_GROUP_ROLE_MAP={"FSM-Office":"OFFICE"}
+SCIM_GROUP_DEPARTMENT_MAP={"FSM-Oslo":"Oslo"}
+```
+
+Uten mapping skjer ingenting. To grupper som peker på ulike roller eller
+avdelinger gir ingen endring, bare en revisjonsrad. `ADMIN` krever fortsatt
+`SCIM_ALLOW_ADMIN=true`. `DELETE` sletter gruppen og medlemskapene, men beholder
+brukerne.
+
+### Feltnivå i visningen
+
+Montører og kundeportalbrukere ser maskerte verdier for kundekontakt,
+fakturabeløp, rapportsignaturer og lønnsbeløp der de ikke har tilgang.
+ADMIN og OFFICE beholder dagens tilgang. Se `docs/RBAC.md`.
 
 ## 8. Break-glass og feilsøking
 

@@ -5,6 +5,23 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### SAML 2.0, SCIM-grupper og feltnivå-RBAC v1
+- SAML 2.0-tjenesteleverandør med `@node-saml/node-saml`: per-leverandør
+  konfigurasjon, SP-metadata, ACS og innloggingsrute, signert assertion,
+  audience/recipient/tidsvindu, databasebasert replay-vakt og eksplisitt
+  gruppe→rolle/avdeling. OIDC-oppsettet er urørt.
+- SCIM 2.0 Groups med list/get/create/replace/patch/delete, RFC 7644-filter,
+  paginering, SCIM-feilformat, samme bearer-token som Users, revisjon og
+  gruppekrav på brukerressursen. Medlemskap gir bare tilgang gjennom
+  `SCIM_GROUP_ROLE_MAP`/`SCIM_GROUP_DEPARTMENT_MAP`; ADMIN krever fortsatt
+  `SCIM_ALLOW_ADMIN=true`.
+- Feltnivå-RBAC v1 for kundekontakt, faktura-/betalingsbeløp,
+  rapportsignaturer og lønns-/utleggsbeløp. Serveren maskerer før API, søk,
+  eksport og UI; ADMIN/OFFICE beholder dagens tilgang, montører og
+  kundeportalen får minste privilegium. Se `docs/RBAC.md`.
+- Additiv migrering `20261109094000_saml_scim_groups_rbac` for SCIM-grupper og
+  SAML-cache.
+
 ### Native Android- og iOS-app flyttet til eget repo
 - Android- og iOS-appen ligger nå i det egne repoet `fsm-mobile`. Plattformen
   inneholder ikke lenger Capacitor-prosjekter, skall eller signeringsfiler.

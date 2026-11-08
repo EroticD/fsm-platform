@@ -37,9 +37,11 @@
     "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
   },
   "dependencies": {
+    "@node-saml/node-saml": "^5.2.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
+    "@xmldom/xmldom": "^0.8.15",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "bcryptjs": "^3.0.3",

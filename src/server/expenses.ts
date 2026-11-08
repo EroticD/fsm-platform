@@ -13,6 +13,7 @@ import {
 } from "@/lib/dates";
 import { cleanText, cleanUrl, LIMITS } from "@/lib/sanitize";
 import { summarizeVisitTimes } from "@/lib/visit-time";
+import { fieldAccess } from "@/lib/field-rbac";
 import {
   DEFAULT_MILEAGE_RATE,
   DEFAULT_VAT_RATE,
@@ -93,6 +94,12 @@ function requireExport(actor: ServiceActor): ServiceFailure | null {
   if (!actor?.isActive || !isOfficeActor(actor)) return fail("forbidden");
   const allowed = can(actor, "settings.manage") || can(actor, "workorders.edit");
   return allowed ? null : fail("forbidden");
+}
+
+/** Lønnsbeløp er en egen feltgruppe; uten tilgang avvises hele eksporten. */
+function requirePayrollAmounts(actor: ServiceActor): ServiceFailure | null {
+  if (fieldAccess(actor, "payrollAmounts").masked) return fail("forbidden");
+  return null;
 }
 
 function ownWhere(actor: ServiceActor): { userId: string } {
@@ -851,7 +858,7 @@ export async function listApprovalQueue(
   params: { status?: string } = {},
 ): Promise<ServiceResult<ApprovalQueue>> {
   if (!(await requireModule("fieldExpenses"))) return fail("not_found");
-  const denied = requireApprove(actor);
+  const denied = requireApprove(actor) ?? requirePayrollAmounts(actor);
   if (denied) return denied;
   const allowed = ["DRAFT", "PENDING", "APPROVED", "REJECTED"];
   const status = allowed.includes(String(params.status ?? ""))
@@ -1148,7 +1155,7 @@ export async function previewPayroll(
   input: { start: unknown; end: unknown; departmentId?: unknown },
 ): Promise<ServiceResult<PayrollPreview>> {
   if (!(await requireModule("fieldExpenses"))) return fail("not_found");
-  const denied = requireExport(actor);
+  const denied = requireExport(actor) ?? requirePayrollAmounts(actor);
   if (denied) return denied;
   const period = normalizePeriod(input);
   const departmentId = resolveDepartmentId(actor, input.departmentId);
@@ -1198,7 +1205,7 @@ export async function listPayrollExports(
   actor: ServiceActor,
 ): Promise<ServiceResult<{ exports: PayrollExportSummary[] }>> {
   if (!(await requireModule("fieldExpenses"))) return fail("not_found");
-  const denied = requireExport(actor);
+  const denied = requireExport(actor) ?? requirePayrollAmounts(actor);
   if (denied) return denied;
   const departmentId = resolveDepartmentId(actor);
   if (!departmentId) return fail("forbidden");
@@ -1256,7 +1263,7 @@ export async function exportPayroll(
   input: { start: unknown; end: unknown; departmentId?: unknown },
 ): Promise<ServiceResult<PayrollExportResult>> {
   if (!(await requireModule("fieldExpenses"))) return fail("not_found");
-  const denied = requireExport(actor);
+  const denied = requireExport(actor) ?? requirePayrollAmounts(actor);
   if (denied) return denied;
   const period = normalizePeriod(input);
   const departmentId = resolveDepartmentId(actor, input.departmentId);
