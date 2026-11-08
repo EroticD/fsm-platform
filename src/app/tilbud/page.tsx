@@ -195,6 +195,13 @@ export default async function QuotesPage({
                   <p className="text-xs text-[var(--muted,#62685f)]">
                     {t("quotes.list.updated", { date: formatDateLocalized(quote.updatedAt, locale) })}
                   </p>
+                  <Link
+                    href={`/tilbud/${quote.id}/skriv`}
+                    className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs font-bold underline"
+                  >
+                    <Icon name="file" className="h-4 w-4" />
+                    {t("quotes.print.action")}
+                  </Link>
                 </div>
               </article>
             ))}

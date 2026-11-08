@@ -21,6 +21,7 @@ navigasjons-/innstillingspunktene er på plass.
 | `/tilbud/ny` | quotes | opprett kladd |
 | `/tilbud/[id]` | quotes | detalj, sending, versjon, kloning, konvertering |
 | `/tilbud/[id]/rediger` | quotes | rediger kladd |
+| `/tilbud/[id]/skriv` | quotes | utskriftsvennlig tilbud (nettleserens print-til-PDF) |
 | `/tilbud/godkjenn/[token]` | quotes | offentlig godkjenning/avslag med engangstoken |
 | `/faktura` | invoicing | liste, filtre, forfalt-sweep, CSV-lenke |
 | `/faktura/ny` | invoicing | opprett fakturakladd |
@@ -34,6 +35,26 @@ navigasjons-/innstillingspunktene er på plass.
 | `/kundeportal/faktura/[id]` | portal + invoicing | kundens fakturavisning |
 
 Portalens fakturaside er bevisst ikke lagt i `PortalTabs` i denne grenen.
+
+## Utskrift og PDF
+
+Både fakturaer og tilbud har en utskriftsvennlig side som gjenbruker
+`src/components/billing/PrintButton.tsx` og de eksisterende print-stilene.
+`/tilbud/[id]/skriv` viser firma/merkevare fra `Branding`, kunde og kontakt,
+tilbudsnummer og versjon, tilbudsdato, gyldighet, linjer med mengde/enhet,
+pris, MVA og sum, totaler, notater og status.
+
+Siden er modulgated med `quotes` og bruker `getQuote`, altså samme
+avdelings-/kundeavgrensning og leserettigheter som detaljsiden. En tekniker uten
+lesetilgang, en kunde som spør etter en annen kundes tilbud, og en avslått
+`quotes`-modul gir alle 404. Utskriften eksponerer ikke tokenlenken eller
+andre interne id-er.
+
+**PDF er nettleserens print-til-PDF.** Det er ingen server-generert PDF, ingen
+ny PDF-avhengighet og ingen e-postutsending. Brukeren velger «Skriv ut» og
+deretter «Lagre som PDF» i nettleseren. Kvaliteten og sideskift styres dermed av
+nettleserens skrivemotor, ikke av en egen PDF-mal. Det er en bevisst v1-
+begrensning, ikke en fullverdig PDF-tjeneste.
 
 ## Datamodell
 
@@ -89,6 +110,10 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
   CSV-eksporten er et regnskapsvennlig uttrekk, ikke en integrasjon.
 - **Ingen e-postutsending av tilbud/faktura.** Godkjenningslenken vises i
   grensesnittet og må deles manuelt.
+- **Utskrift/PDF er print-til-PDF i nettleseren.** Det finnes ingen
+  server-generert PDF for tilbud, ingen lagret PDF-fil og ingen egen PDF-mal.
+  Nettsiden er optimalisert for A4-utskrift, men sideskift og fonter følger
+  nettleseren.
 - **Fakturanummerering kan få hull** ved samtidige sendinger fordi nummeret
   allokeres før den betingede oppdateringen. Unikhetsindeksen er skarp; hull er
   dokumentert og påvirker ikke entydigheten.
@@ -109,11 +134,16 @@ Alle mutasjoner skriver revisjonsrad i samme transaksjon.
 
 - `src/lib/billing.test.ts` – MVA, øreavrunding, utestående og statusavledning.
 - `src/app/billing-module-gate.test.ts` – sidene gir 404 når modulen er av.
+- `src/app/tilbud/[id]/skriv/page.test.ts` – utskriftsvisningen rendrer linjer,
+  totaler, merkevare og gir 404 ved manglende tilgang eller avslått modul.
+- `src/server/quotes-scope.test.ts` – lesetilgang per rolle/avdeling og
+  krysskundeisolasjon i tilbudsscope-en.
 - `src/app/api/cron/billing/route.test.ts` – cron-vakt, modul 404 og idempotente jobber.
 - `src/server/integration/quotes-invoicing.integration.test.ts` – ekte
   PostgreSQL: totaler, konfigurerbar MVA, tokenutløp, godkjenning, versjonering,
   konvertering til oppdrag, delbetaling, idempotent betaling, kreditnota,
-  rettigheter, krysskundeisolasjon, forfall og CSV-idempotens.
+  rettigheter, krysskundeisolasjon (inkl. tilbudslesing for utskrift), forfall
+  og CSV-idempotens.
 
 Kjør integrasjonstestene mot en dedikert database:
 
