@@ -816,7 +816,7 @@ async function ensureHtmlCached(url, userId) {
     ) {
       const responsePath = new URL(response.url, url).pathname;
       if (responsePath === url.pathname) {
-        await cachePageResponse(url, HTML_KIND, response, userId);
+        void cachePageResponse(url, HTML_KIND, response, userId);
       }
     }
   } catch {
@@ -876,7 +876,7 @@ async function navigationResponse(request, url) {
       const responsePath = new URL(response.url, url).pathname;
       if (responsePath === url.pathname) {
         const userId = await readOfflineUser();
-        await cachePageResponse(url, HTML_KIND, response, userId);
+        void cachePageResponse(url, HTML_KIND, response, userId);
       }
     }
     return response;
@@ -906,7 +906,7 @@ async function rscResponse(request, url, prefetch) {
       contentType.startsWith("text/x-component")
     ) {
       const userId = await readOfflineUser();
-      await cachePageResponse(url, RSC_KIND, response, userId);
+      void cachePageResponse(url, RSC_KIND, response, userId);
     }
     return response;
   } catch {
@@ -930,7 +930,7 @@ async function nextDataResponse(request, url) {
     }
     if (response.ok && isCacheablePage(url.pathname)) {
       const userId = await readOfflineUser();
-      await cachePageResponse(url, RSC_KIND, response, userId);
+      void cachePageResponse(url, RSC_KIND, response, userId);
     }
     return response;
   } catch {
@@ -959,7 +959,7 @@ async function apiResponse(request, url) {
       userId &&
       !cacheControl.toLowerCase().includes("no-store")
     ) {
-      await cacheWithTtl(
+      void cacheWithTtl(
         apiCacheName(userId),
         request,
         response,
@@ -997,7 +997,7 @@ async function fileResponse(request, url) {
     }
     const userId = await readOfflineUser();
     if (response.ok && userId) {
-      await cacheWithTtl(
+      void cacheWithTtl(
         fileCacheName(userId),
         request,
         response,
