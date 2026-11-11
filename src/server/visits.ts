@@ -35,6 +35,9 @@ import {
   type ServiceResult,
 } from "./actor";
 import { markResponded, markResolved } from "./sla";
+import { recomputeWorkOrderSchedule } from "@/lib/work-order-schedule";
+
+export { recomputeWorkOrderSchedule };
 
 /** Millisekunder i et døgn. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1459,44 +1462,6 @@ export async function createDefaultVisit(
 }
 
 /**
- * Avleder oppdragets `scheduledFor`/`scheduledTo` fra visittene.
- *
- * Datoene regnes i Europe/Oslo, ikke UTC. `endsAt` er eksklusiv, så siste
- * kalenderdag finnes ved å trekke fra ett millisekund før datoen leses. En
- * heldagsvisitt som slutter ved midnatt gir dermed ikke en ekstra dag på
- * oppdraget. Uten aktive visiter tømmes begge feltene.
+ * `recomputeWorkOrderSchedule` eksporteres øverst i filen; implementasjonen
+ * ligger i `@/lib/work-order-schedule`.
  */
-export async function recomputeWorkOrderSchedule(
-  tx: Prisma.TransactionClient,
-  workOrderId: string,
-): Promise<void> {
-  const bounds = await tx.visit.aggregate({
-    where: {
-      workOrderId,
-      status: { not: "CANCELLED" },
-    },
-    _min: { startsAt: true },
-    _max: { endsAt: true },
-  });
-
-  const firstStart = bounds._min.startsAt;
-  const lastEnd = bounds._max.endsAt;
-
-  let scheduledFor: Date | null = null;
-  let scheduledTo: Date | null = null;
-
-  if (firstStart && lastEnd) {
-    const lastIncludedInstant = new Date(lastEnd.getTime() - 1);
-    scheduledFor = parseDateOnly(dateOnlyInOslo(firstStart));
-    scheduledTo = parseDateOnly(dateOnlyInOslo(lastIncludedInstant));
-
-    if (scheduledFor && scheduledTo && scheduledTo < scheduledFor) {
-      scheduledTo = scheduledFor;
-    }
-  }
-
-  await tx.workOrder.update({
-    where: { id: workOrderId },
-    data: { scheduledFor, scheduledTo },
-  });
-}

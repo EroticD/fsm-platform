@@ -2,6 +2,7 @@
 // handlingsstrenger. De oversettes ved visning i `src/lib/audit-actions.ts`.
 import { Prisma } from "@prisma/client";
 import { statusKeysByCategory } from "@/lib/work-order-status";
+import { closeWorkOrderState } from "@/lib/work-order-status-action";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyWorkOrderEvent } from "./notifications";
@@ -1506,6 +1507,17 @@ export async function submitReport(
         });
 
         if (completed.count > 0) {
+          // Rapporten fullfører oppdraget på stedet, uten at noen går via
+          // statusvelgeren. Da må samme rydding skje her: visittene lukkes,
+          // returkjøring avsluttes, sporingslenken tilbakekalles og
+          // SLA-klokken løses – ellers blir oppdraget stående som aktivt i
+          // lister, kalender og sporing.
+          await closeWorkOrderState(tx, {
+            workOrderId,
+            cancelled: false,
+            closedAt: now,
+          });
+
           await audit(tx, {
             entityType: "WorkOrder",
             entityId: workOrderId,

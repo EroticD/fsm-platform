@@ -509,6 +509,11 @@ at samtidige kall ikke dupliserer arbeid. Slås av med
   med gyldig aktiv avtale og samme policy beholdes uendret. Hver kjøring
   vurderer inntil 1000 klokker; en større engangsmengde tas over flere
   intervaller eller med CLI-en.
+- **Erstatning:** peker klokken på en annen policy enn avtalen gir, kanselleres
+  den gamle og klokken for gjeldende policy startes i samme transaksjon, med
+  samme start- og responstidspunkt. Tilstanden regnes fra fristene, så et
+  forfalt oppdrag ikke blir seende friskt ut. Oppdrag som allerede er lukket
+  hoppes over.
 - **Transaksjon + revisjon:** hver kansellering skrives i samme transaksjon som
   revisjonsloggen.
 - **Kjøringslogg:** hver kjøring får en rad i `SlaCleanupRun` med status,
@@ -534,6 +539,31 @@ Den manuelle kjøringen rører ikke `SlaCleanupRun`; den er bare et
 diagnoseverktøy. `sweepSlaClocks` og oppdragsdetaljen ignorerer kansellerte
 klokker, så de verken varsler eller vises i SLA-panelet. Ta backup og kjør mot
 en kopi/testdatabase før `--apply` i produksjon.
+
+### Reparasjon av lukkede oppdrag
+
+Rapporter som fullførte oppdraget på stedet skrev tidligere status uten å lukke
+visiter, returkjøring, sporingslenker og SLA-klokker. Koden gjør dette riktig
+fra og med neste utgivelse, men eldre rader kan fortsatt henge. Skriptet bruker
+samme ryddefunksjon som koden og er idempotent: det plukker bare oppdrag som
+faktisk har hengende tilstand.
+
+```bash
+# Tørrkjøring: viser oppdrag, aktive visiter, returkjøring, sporing og SLA
+npm run repair:closed-work-orders
+
+# Anvend når listen ser riktig ut
+npm run repair:closed-work-orders -- --apply
+```
+
+Hver reparasjon skrives i én transaksjon med revisjonsraden «Reparerer hengende
+tilstand etter lukking», slik at endringen kan spores. Lukketidspunktet settes
+til oppdragets siste endring (`updatedAt`), ikke til tidspunktet skriptet
+kjører. Uten det ville en visitt som har hengt siden i vår fått «arbeidstid» på
+måneder og SLA-brudd på dagen. Returkjøring settes til arbeidets `doneAt`, aldri
+senere. Lukkestatusene leses fra `WorkOrderStatusSetting` og faller tilbake til
+`COMPLETED`/`CANCELLED` når tabellen er tom. Ta backup og kjør mot en kopi før
+`--apply` i produksjon.
 
 ### Databaseroller (minste privilegium)
 
@@ -915,7 +945,7 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
   ```bash
   cd /opt/fsm-platform
   DATABASE_URL="$(grep '^DATABASE_URL=' .env | cut -d= -f2-)" \
-    node scripts/break-glass-2fa.mjs --email admin@example.com --confirm
+    npx tsx scripts/break-glass-2fa.mjs --email admin@example.com --confirm
   ```
 
   Skriptet nullstiller bare 2FA for én bruker, øker `sessionVersion` (alle økter
@@ -1169,7 +1199,7 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 - Behold minst to lokale administratorer med sterkt passord og 2FA, også når
   SSO er på. Passordskjemaet på `/logg-inn` vises alltid.
 - En lokal administrator kan låse seg ute av SSO ved feil i IdP-en. Da brukes
-  den lokale kontoen, og `node scripts/break-glass-2fa.mjs --email ... --confirm`
+  den lokale kontoen, og `npx tsx scripts/break-glass-2fa.mjs --email ... --confirm`
   er den dokumenterte nødveien for 2FA.
 - Gi `SSO_*_DEFAULT_ROLE=USER` og eksplisitt gruppemapping for kontor, montør
   og eventuelt admin. Ikke map en bred «alle ansatte»-gruppe til `ADMIN`.

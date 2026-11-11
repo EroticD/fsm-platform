@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { AccessUser } from "@/lib/access";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { apiError } from "@/lib/api-response";
+import { auditRequestContext, auditStandalone } from "@/lib/audit";
 import { attachmentDisposition } from "@/lib/http";
 import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { hasPermission } from "@/lib/permissions";
@@ -10,6 +11,43 @@ import { reportWorkOrderScope } from "@/lib/report-scope";
 import { getReportPdfForViewer } from "@/server/reports";
 
 export const runtime = "nodejs";
+
+/** Best effort: revisjonsloggen skal aldri velte et API-svar. */
+async function logReportPdfView(input: {
+  actor: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    departmentId?: string | null;
+  };
+  reportId: string;
+  workOrderId: string;
+}): Promise<void> {
+  try {
+    await auditStandalone({
+      entityType: "Report",
+      entityId: input.reportId,
+      action: "Viste rapport-PDF via API",
+      actor: {
+        id: input.actor.id,
+        name: input.actor.name ?? null,
+        email: input.actor.email ?? null,
+        departmentId: input.actor.departmentId ?? null,
+      },
+      actionCode: "report.pdf.viewed",
+      metadata: {
+        workOrderId: input.workOrderId,
+        channel: "api",
+      },
+      context: await auditRequestContext(),
+    });
+  } catch (error) {
+    console.error("[audit] kunne ikke logge report.pdf.viewed (API)", {
+      reportId: input.reportId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * PDF-en for én rapport.
@@ -72,6 +110,12 @@ export async function GET(
   const fileName = result.fileName.toLowerCase().endsWith(".pdf")
     ? result.fileName
     : `${result.fileName}.pdf`;
+
+  await logReportPdfView({
+    actor: auth.actor,
+    reportId: report.id,
+    workOrderId: report.workOrderId,
+  });
 
   return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {

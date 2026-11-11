@@ -309,10 +309,21 @@ export type AuditBackfillResult =
  */
 export async function backfillAuditChain(
   client: AuditBackfillClient,
-  options: { batchSize?: number; maxRows?: number } = {},
+  options: {
+    batchSize?: number;
+    maxRows?: number;
+    /**
+     * `fill` (standard) fyller bare rader uten hash og avbryter ved avvik.
+     * `rebuild` regner kjeden på nytt for alle rader. Brukes bare når en rad
+     * er skrevet utenfor `audit()` og har laget en forgrening; eksporterte
+     * bevis må da tas på nytt.
+     */
+    mode?: "fill" | "rebuild";
+  } = {},
 ): Promise<AuditBackfillResult> {
   const batchSize = Math.max(1, Math.min(options.batchSize ?? 500, 5_000));
   const maxRows = Math.max(1, options.maxRows ?? 1_000_000);
+  const rebuild = options.mode === "rebuild";
   let updated = 0;
   let checked = 0;
   let previousHash: string | null = null;
@@ -351,6 +362,24 @@ export async function backfillAuditChain(
           checked: checked - 1,
           reason: "too_many_rows",
         };
+      }
+
+      if (rebuild) {
+        // Regn hele kjeden på nytt. Rader som er skrevet utenfor `audit()` har
+        // ingen hash, og de påfølgende radene kan ha kjedet seg til feil hale.
+        const hashes = auditHashesForRow(
+          { ...row, metadata: safeMetadata(row.metadata) },
+          previousHash,
+        );
+        if (hashes.hash !== row.hash || hashes.prevHash !== row.prevHash) {
+          await client.auditLog.update({
+            where: { id: row.id },
+            data: hashes,
+          });
+          updated += 1;
+        }
+        previousHash = hashes.hash;
+        continue;
       }
 
       if (row.hash) {

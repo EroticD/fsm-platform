@@ -915,6 +915,23 @@ export type CustomerUpdateInput = {
   responsibleTechnicianId?: unknown;
 };
 
+/**
+ * Før/etter for kundefeltene som faktisk endret seg. Tom verdi skrives som
+ * `null`, slik at «fjernet» og «uendret» ikke blandes sammen.
+ */
+function customerFieldChanges(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): Record<string, { from: string | null; to: string | null }> {
+  const changes: Record<string, { from: string | null; to: string | null }> = {};
+  for (const [field, next] of Object.entries(after)) {
+    const from = (before[field] as string | null | undefined) ?? null;
+    const to = (next as string | null | undefined) ?? null;
+    if (from !== to) changes[field] = { from, to };
+  }
+  return changes;
+}
+
 /** Oppdaterer kundekortet. */
 export async function updateCustomer(
   actor: ServiceActor,
@@ -984,6 +1001,23 @@ export async function updateCustomer(
 
   try {
     await prisma.$transaction(async (tx) => {
+      // Verdiene før endringen, slik at loggen viser hva som faktisk ble
+      // endret – ikke bare at noen trykket «lagre».
+      const before = await tx.customer.findUnique({
+        where: { id: customerId },
+        select: {
+          name: true,
+          customerNumber: true,
+          orgNumber: true,
+          address: true,
+          postalCode: true,
+          city: true,
+          email: true,
+          departmentId: true,
+          responsibleTechnicianId: true,
+        },
+      });
+
       await tx.customer.update({
         where: { id: customerId },
         data: {
@@ -1002,11 +1036,28 @@ export async function updateCustomer(
           responsibleTechnicianId: responsibleTechnicianId || null,
         },
       });
+      const changes = before
+        ? customerFieldChanges(before as unknown as Record<string, unknown>, {
+            name,
+            customerNumber: customerNumber || null,
+            orgNumber: orgNumber || null,
+            address: address || null,
+            postalCode: postalCode || null,
+            city: city || null,
+            email: email || null,
+            departmentId: departmentId || null,
+            responsibleTechnicianId: responsibleTechnicianId || null,
+          })
+        : null;
       await audit(tx, {
         entityType: "Customer",
         entityId: customerId,
         action: `Endret kundeinformasjon: ${name}`,
         actor: toAuditActor(actor),
+        actionCode: "customer.updated",
+        metadata: changes
+          ? { changes, changedFields: Object.keys(changes) }
+          : { changedFields: [] },
       });
     });
     return ok(undefined);

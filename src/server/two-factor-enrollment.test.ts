@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  auditStandalone: vi.fn(),
+  auditRequestContext: vi.fn(),
   createTotpSecret: vi.fn(),
   verifyTotpStep: vi.fn(),
   acceptTotpTimeStep: vi.fn(),
@@ -15,7 +17,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/audit", () => ({
+  audit: mocks.audit,
+  auditStandalone: mocks.auditStandalone,
+  auditRequestContext: mocks.auditRequestContext,
+}));
 vi.mock("@/lib/two-factor", () => ({
   createTotpSecret: mocks.createTotpSecret,
   TWO_FACTOR_SETUP_TTL_MS: 10 * 60_000,
@@ -145,9 +151,12 @@ describe("confirmRequiredEnrollment", () => {
     const result = await confirmRequiredEnrollment("u1", "000000");
 
     expect(result).toEqual({ ok: false, reason: "invalid_code" });
-    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith(
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ action: "2FA: feilet verifisering" }),
+        entityId: "u1",
+        action: "2FA: feilet verifisering",
+        actionCode: "auth.2fa.failed",
+        outcome: "DENIED",
       }),
     );
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();

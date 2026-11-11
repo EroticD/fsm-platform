@@ -5,7 +5,53 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Revisjonslogg
+- Alle 22 direkte skrivinger til `AuditLog` går nå gjennom `audit()` eller
+  `auditStandalone()`. Rader fra innlogging, 2FA, SSO, SAML, SCIM, roller,
+  avdelinger og break-glass ligger dermed i hash-kjeden; `audit:verify` er
+  grønn og `audit-write-paths.test.ts` hindrer tilbakefall.
+- Nye felter på `AuditLog`: `ip`, `userAgent`, `requestId`, `outcome`,
+  `actionCode`, `retentionClass` og `targetUserId`. Avviste og feilede
+  handlinger logges med `outcome: DENIED`.
+- Nye hendelser: feilet innlogging, låst/inaktiv konto, feil TOTP og
+  gjenopprettingskode, avvist SSO, SCIM-authfeil, utlogging og sesjonsutløp.
+- Utlevering logges: filer via `/uploads`, rapport-/avtale-PDF, faktura-CSV,
+  portalens CSV-eksport og kundeoverføring (bygg, nedlasting og dekryptering).
+  Lesing og eksport av revisjonsloggen logges også.
+- Forretningsdata logges med før/etter: kunde, utstyr, avtale, rolle,
+  rettigheter, faktureringsinnstillinger og lager. Serviceavtaler bruker nå
+  `entityType: "Contract"` i stedet for `"Customer"`.
+- Retensjonsklasser: `ACCOUNTING_5Y` (fem år), `SECURITY_1Y`, `OPS_90D`.
+  Global verdi er gulv, ikke tak.
+- `audit:backfill -- --rebuild` regner kjeden på nytt når en rad har laget
+  forgrening; kjørt på utviklingsdatabasen og verifisert.
+
+### Feilrettinger
+- **Lukking av oppdrag rydder hele livssyklusen.** Rapporter som fullfører
+  oppdraget på stedet, knytter nå på samme rydding som manuell statusendring:
+  pågående visiter lukkes, returkjøring avsluttes, offentlige sporingslenker
+  tilbakekalles og SLA-klokken løses – i samme transaksjon. Tidligere ble
+  oppdraget stående som aktivt i lister, kalender og sporing.
+- **Kansellering fra bookingkøen og kundeportalen** bruker samme rydding.
+  Før ble bare én visitt kansellert, og sporingslenke og SLA-klokke ble stående.
+- **Gjenåpning gir oppdraget en aktiv visitt igjen.** Lukkingen markerer
+  hvilke visiter den selv lukket (`Visit.autoClosedAt`). Ved gjenåpning settes
+  bare disse tilbake – til `ASSIGNED` når de hadde montør, ellers `PLANNED`.
+  Reise- og tilstedetidspunktene nullstilles og bevares i revisjonsloggen, så
+  en manuelt kansellert visitt ikke vekkes og en gammel retur ikke henger igjen.
+- **SLA-oppryddingen erstatter feil klokke** i stedet for bare å kansellere den.
+  Erstatningsklokken beholder opprinnelig start- og responstidspunkt og får
+  tilstanden regnet fra fristene, så et forfalt oppdrag ikke blir seende friskt
+  ut. Oppdrag som allerede er lukket hoppes over.
+- **Feltappens hjemlenke peker på feltflaten.** `BrandedHeader` bruker
+  mobilvarianten av hjemplanen for montører, så logo og brødsmuler ikke lenger
+  sender montøren til kontordashbordet.
+- Ryddingen er samlet i `closeWorkOrderState` / `reopenWorkOrderState` og brukes
+  av alle veier som lukker eller gjenåpner et oppdrag.
+- Nytt idempotent skript `npm run repair:closed-work-orders` retter rader som
+  allerede henger. Tørrkjøring er standard; `--apply` skriver. Lukkestatusene
+  leses fra `WorkOrderStatusSetting`.
+- Ingen datamigreringer er nødvendige.
 
 ## 0.9.2 — 2026-11-11
 

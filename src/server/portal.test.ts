@@ -37,7 +37,19 @@ const mocks = vi.hoisted(() => ({
     customer: { findFirst: vi.fn() },
     contact: { findFirst: vi.fn() },
     portalDelegation: { findUnique: vi.fn() },
-    visit: { findMany: vi.fn(), update: vi.fn() },
+    visit: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+      count: vi.fn(async () => 1),
+      findFirst: vi.fn(async () => null),
+      aggregate: vi.fn(async () => ({
+        _min: { startsAt: null },
+        _max: { endsAt: null },
+      })),
+    },
+    trackingLink: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    slaClock: { findMany: vi.fn(async () => []), updateMany: vi.fn(async () => ({ count: 0 })) },
     $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
@@ -536,6 +548,12 @@ describe("kundeportaltjenesten", () => {
         status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING"] },
       },
       data: { status: "CANCELLED" },
+    });
+    // Også for en planlagt avtale skal SLA og sporing ryddes.
+    expect(mocks.prisma.slaClock.updateMany).toHaveBeenCalled();
+    expect(mocks.prisma.trackingLink.updateMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
     });
   });
 

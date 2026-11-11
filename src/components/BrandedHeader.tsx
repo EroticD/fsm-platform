@@ -106,7 +106,7 @@ export default function BrandedHeader({
     showNav &&
     !isCustomer &&
     pathname !== "/" &&
-    pathname !== homePathForRole(role) &&
+    pathname !== homePathForRole(role, { mobile: isField }) &&
     !pathname.startsWith("/kundeportal");
   const showInlineBreadcrumb = showNav && !isCustomer && isField;
 
@@ -221,7 +221,7 @@ export default function BrandedHeader({
         }`}
       >
         <Link
-          href={isCustomer ? "/kundeportal" : homePathForRole(role)}
+          href={isCustomer ? "/kundeportal" : homePathForRole(role, { mobile: isField })}
           className="flex shrink-0 items-center gap-3"
           suppressHydrationWarning
           style={{ color: isField ? "var(--signal)" : pc }}
@@ -615,7 +615,7 @@ function BreadcrumbItems({
 }) {
   const t = useTranslations("common");
   const allSegments = pathname.split("/").filter(Boolean);
-  const homeHref = homePathForRole(role);
+  const homeHref = homePathForRole(role, { mobile: tone === "field" });
   const homeLabel =
     homeHref === "/mine-oppdrag" ? t("nav.today") : t("nav.dashboard");
   // På hjemflaten til rollen (for eksempel /mine-oppdrag for montører) skal

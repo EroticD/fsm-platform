@@ -906,6 +906,35 @@ function hasOwn(input: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(input, key);
 }
 
+type EquipmentDiffValue = string | number | boolean | null;
+
+function equipmentDiffValue(value: unknown): EquipmentDiffValue {
+  if (value === undefined || value === null) return null;
+  if (value instanceof Date) return toDateOnly(value);
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return value;
+  return String(value);
+}
+
+/**
+ * Før/etter for feltene som faktisk endret seg. Serienummer, status og
+ * plassering er identifikatorer i rapporter og garantisaker, så loggen må vise
+ * verdiene – ikke bare hvilke felt som ble sendt inn.
+ */
+function equipmentChanges(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): Record<string, { from: EquipmentDiffValue; to: EquipmentDiffValue }> {
+  const changes: Record<string, { from: EquipmentDiffValue; to: EquipmentDiffValue }> = {};
+  for (const [field, next] of Object.entries(after)) {
+    const from = equipmentDiffValue(before[field]);
+    const to = equipmentDiffValue(next);
+    if (from !== to) changes[field] = { from, to };
+  }
+  return changes;
+}
+
 export async function updateEquipment(
   actor: ServiceActor,
   input: EquipmentUpdateInput,
@@ -1056,12 +1085,30 @@ export async function updateEquipment(
       }
 
       await tx.product.update({ where: { id }, data: update });
+      const changes = equipmentChanges(current as unknown as Record<string, unknown>, {
+        model: data.model ?? current.model,
+        serialNumber:
+          data.serialNumber !== undefined ? data.serialNumber || null : current.serialNumber,
+        location: data.location !== undefined ? data.location || null : current.location,
+        status: data.status ?? current.status,
+        criticality: data.criticality ?? current.criticality,
+        meterUnit: data.meterUnit !== undefined ? data.meterUnit || null : current.meterUnit,
+        installDate,
+        warrantyUntil,
+        categoryId:
+          data.categoryId !== undefined ? data.categoryId || null : current.categoryId,
+        parentId: data.parentId !== undefined ? data.parentId || null : current.parentId,
+        siteId: data.siteId !== undefined ? data.siteId || null : current.siteId,
+      });
       await audit(tx, {
         entityType: "Product",
         entityId: id,
         action: `Oppdaterte utstyr: ${data.model ?? current.model}`,
         actor: toAuditActor(actor),
-        metadata: { fields: Object.keys(data).filter((key) => key !== "id") },
+        actionCode: "equipment.updated",
+        // Driftsdata, ikke regnskaps- eller sikkerhetsdata.
+        retentionClass: null,
+        metadata: { changes, changedFields: Object.keys(changes) },
       });
       return ok({ id });
     });

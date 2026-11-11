@@ -1,6 +1,6 @@
 // i18n-ignore-file: revisjonshandlinger er stabile driftsdata.
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { auditRequestContext, auditStandalone } from "@/lib/audit";
 import { createSessionCookie, setPendingTwoFactor } from "@/lib/session-token";
 import { moduleEnabled } from "@/server/modules";
 import {
@@ -23,6 +23,37 @@ function failure(request: Request, code = "SsoInvalidClaims") {
 }
 
 /**
+ * Avviser en SAML-innlogging og skriver en revisjonsrad for avvisningen.
+ *
+ * SAML-svaret, assertionen og claims lagres aldri – bare leverandørens slug og
+ * den stabile årsakskoden. Loggingen er best effort: den kan aldri endre
+ * svaret klienten får.
+ */
+async function reject(
+  request: Request,
+  reason: string,
+  code = "SsoInvalidClaims",
+  provider: string | null = null,
+) {
+  try {
+    await auditStandalone({
+      entityType: "User",
+      entityId: "unknown",
+      action: `SSO: SAML-innlogging avvist (${reason})`,
+      actionCode: "auth.sso.rejected",
+      outcome: "DENIED",
+      retentionClass: "SECURITY_1Y",
+      actor: { id: "", name: null, email: null },
+      metadata: { reason, provider },
+      context: await auditRequestContext(),
+    });
+  } catch {
+    // Revisjonsraden er best effort, som for passordinnlogging.
+  }
+  return failure(request, code);
+}
+
+/**
  * AssertionConsumerService. Godtar bare POST fra IdP-en.
  *
  * Signaturen, audience/recipient og tidsvinduet valideres av node-saml før
@@ -30,26 +61,28 @@ function failure(request: Request, code = "SsoInvalidClaims") {
  * cachen i databasen.
  */
 export async function POST(request: Request, context: RouteContext) {
-  if (!(await moduleEnabled("sso"))) return failure(request, "SsoDisabled");
+  if (!(await moduleEnabled("sso"))) {
+    return reject(request, "module_disabled", "SsoDisabled");
+  }
 
   const { slug } = await context.params;
   const config = findSamlProvider(slug);
-  if (!config) return failure(request, "SsoConfiguration");
+  if (!config) return reject(request, "unknown_provider", "SsoConfiguration", slug);
 
   let formData: FormData;
   try {
     formData = await request.formData();
   } catch {
-    return failure(request);
+    return reject(request, "invalid_form_data", "SsoInvalidClaims", slug);
   }
 
   const samlResponse = formData.get("SAMLResponse");
   const relayState = formData.get("RelayState");
   if (typeof samlResponse !== "string" || !samlResponse) {
-    return failure(request);
+    return reject(request, "missing_response", "SsoInvalidClaims", slug);
   }
   if (!config.allowIdpInitiated && (typeof relayState !== "string" || !relayState)) {
-    return failure(request);
+    return reject(request, "missing_relay_state", "SsoInvalidClaims", slug);
   }
 
   try {
@@ -60,11 +93,13 @@ export async function POST(request: Request, context: RouteContext) {
         : {}),
     });
     if (!result.ok) {
-      return failure(
+      return reject(
         request,
+        result.reason,
         result.reason === "not_provisioned"
           ? "SsoNotProvisioned"
           : "SsoInvalidClaims",
+        slug,
       );
     }
 
@@ -73,14 +108,22 @@ export async function POST(request: Request, context: RouteContext) {
       await setPendingTwoFactor(result.user.id);
       if (gate === "enroll") {
         try {
-          await prisma.auditLog.create({
-            data: {
-              entityType: "User",
-              entityId: result.user.id,
-              action: "2FA: påkrevd oppsett startet",
-              userName: result.user.name || result.user.email || "Ukjent",
-              actorId: result.user.id,
+          await auditStandalone({
+            entityType: "User",
+            entityId: result.user.id,
+            action: "2FA: påkrevd oppsett startet",
+            actionCode: "user.2fa.enrollment.required",
+            outcome: "SUCCESS",
+            retentionClass: "SECURITY_1Y",
+            actor: {
+              id: result.user.id,
+              name: result.user.name,
+              email: result.user.email,
             },
+            departmentId: result.user.departmentId,
+            targetUserId: result.user.id,
+            metadata: { reason: "policy", method: "saml", provider: slug },
+            context: await auditRequestContext(),
           });
         } catch {
           // Revisjonsraden er best effort, som for passordinnlogging.
@@ -112,10 +155,10 @@ export async function POST(request: Request, context: RouteContext) {
         error instanceof Error ? error.name : "unknown",
       );
     }
-    return failure(request, "SsoServerError");
+    return reject(request, "server_error", "SsoServerError", slug);
   }
 }
 
-export function GET(request: Request) {
-  return failure(request);
+export async function GET(request: Request) {
+  return reject(request, "wrong_method");
 }

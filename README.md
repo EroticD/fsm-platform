@@ -311,7 +311,7 @@ pinning til digest.
 
 ## Lokal utvikling
 
-Forutsetninger: Node.js 22+, Docker og npm.
+Forutsetninger: Node.js 24+ (26 brukes i produksjon), Docker og npm.
 
 ```bash
 npm ci

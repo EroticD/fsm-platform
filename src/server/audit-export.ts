@@ -176,12 +176,32 @@ export async function exportAuditArchive(
   });
 
   await prisma.$transaction(async (tx) => {
+    // Lesingen føres som egen hendelse ved siden av eksporten, slik at et
+    // uttrekk av loggen kan spores også når arkivet bare brukes til kontroll.
+    await audit(tx, {
+      entityType: "AuditLog",
+      entityId: "read",
+      action: `Leste ${rows.length} revisjonslogger for eksport`,
+      actor: toAuditActor(actor),
+      departmentId: null,
+      actionCode: "audit.log.read",
+      retentionClass: "SECURITY_1Y",
+      metadata: {
+        rowCount: rows.length,
+        chainOk: verification.ok,
+        dateFrom: dateFrom?.toISOString() ?? null,
+        dateTo: dateTo?.toISOString() ?? null,
+        departmentId,
+      },
+    });
     await audit(tx, {
       entityType: "AuditLog",
       entityId: "export",
       action: `Eksporterte ${rows.length} revisjonslogger som ZIP-arkiv`,
       actor: toAuditActor(actor),
       departmentId: null,
+      actionCode: "audit.log.exported",
+      retentionClass: "SECURITY_1Y",
       metadata: {
         rowCount: rows.length,
         manifestSha256: sha256Hex(

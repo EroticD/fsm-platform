@@ -83,7 +83,12 @@ export async function extractPdfText(filePath: string): Promise<{ text: string; 
     } catch {
       return { text: "", pages: [] };
     }
-  } else if (!fs.existsSync(fullPath)) {
+  } else if (
+    // Stien er runtime-data fra storage-driveren, allerede avgrenset av
+    // UPLOAD_URL og `basename`. Uten dette hintet tror Turbopack at hele
+    // prosjektet er dynamisk lest og pakker alle kildefiler i serverbundelen.
+    !fs.existsSync(/* turbopackIgnore: true */ fullPath)
+  ) {
     return { text: "", pages: [] };
   }
 

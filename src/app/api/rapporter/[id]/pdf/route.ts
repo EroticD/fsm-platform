@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
+import { auditRequestContext, auditStandalone } from "@/lib/audit";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { attachmentDisposition, inlineDisposition } from "@/lib/http";
 import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
@@ -7,6 +8,48 @@ import { getReportPdfForViewer } from "@/server/reports";
 import { moduleApiGuard } from "@/lib/module-guards";
 
 export const runtime = "nodejs";
+
+/**
+ * Revisjonslogg for PDF-visning. En feil her skal aldri hindre at PDF-en
+ * leveres; avviket rapporteres til operatør med handlingens kode.
+ */
+async function logReportPdfView(input: {
+  viewer: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    departmentId?: string | null;
+  };
+  reportId: string;
+  workOrderId: string;
+  inline: boolean;
+}): Promise<void> {
+  try {
+    await auditStandalone({
+      entityType: "Report",
+      entityId: input.reportId,
+      action: "Viste rapport-PDF",
+      actor: {
+        id: input.viewer.id,
+        name: input.viewer.name ?? null,
+        email: input.viewer.email ?? null,
+        departmentId: input.viewer.departmentId ?? null,
+      },
+      actionCode: "report.pdf.viewed",
+      metadata: {
+        workOrderId: input.workOrderId,
+        delivery: input.inline ? "inline" : "attachment",
+      },
+      context: await auditRequestContext(),
+    });
+  } catch (error) {
+    console.error("[audit] kunne ikke logge report.pdf.viewed", {
+      reportId: input.reportId,
+      workOrderId: input.workOrderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * Henter (og eventuelt rendrer) rapport-PDF-en for et oppdrag. Tilgang,
@@ -65,6 +108,13 @@ export async function GET(
   const fileName = result.fileName.toLowerCase().endsWith(".pdf")
     ? result.fileName
     : `${result.fileName}.pdf`;
+
+  await logReportPdfView({
+    viewer,
+    reportId: reportId ?? id,
+    workOrderId: id,
+    inline: wantsInline,
+  });
 
   return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {

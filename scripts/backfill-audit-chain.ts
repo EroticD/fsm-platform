@@ -10,6 +10,12 @@
  * Skriptet er idempotent. Rader som allerede har hash hoppes over, men inngår
  * i kjeden. Stemmer en eksisterende hash ikke med innholdet, avbrytes hele
  * backfillen uten å skrive mer.
+ *
+ *   npm run audit:backfill -- --rebuild
+ *
+ * `--rebuild` regner kjeden på nytt for alle rader. Det er bare riktig når en
+ * rad er skrevet utenfor `audit()` og har laget en forgrening; eksporterte
+ * bevis må da tas på nytt. Ta backup først.
  */
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
@@ -31,7 +37,11 @@ const prisma = new PrismaClient({
 });
 
 try {
-  const result = await backfillAuditChain(prisma, { batchSize: 500 });
+  const rebuild = process.argv.includes("--rebuild");
+  const result = await backfillAuditChain(prisma, {
+    batchSize: 500,
+    ...(rebuild ? { mode: "rebuild" as const } : {}),
+  });
   if (!result.ok) {
     console.error(`Backfill avbrutt: ${result.reason}`);
     console.error(`Oppdaterte ${result.updated} rader før avbruddet.`);

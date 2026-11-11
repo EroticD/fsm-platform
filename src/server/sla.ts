@@ -228,9 +228,18 @@ async function policyCoveredByActiveContract(
 export async function startClock(
   tx: Tx,
   workOrderId: string,
-  options: { policyId?: string | null; now?: Date } = {},
+  options: {
+    policyId?: string | null;
+    now?: Date;
+    /** Overstyrer starttidspunktet, brukt når en klokke erstattes. */
+    startedAt?: Date;
+    /** Bevarer første respons når en klokke erstattes. */
+    respondedAt?: Date | null;
+  } = {},
 ): Promise<StartClockResult> {
   const now = options.now ?? new Date();
+  const startedAt = options.startedAt ?? now;
+  const respondedAt = options.respondedAt ?? null;
 
   let policyId = options.policyId ?? null;
   let calendarDepartmentId: string | null = null;
@@ -278,26 +287,36 @@ export async function startClock(
     calendarDepartmentId ?? policy.departmentId,
   );
   const respondBy = deadlineFor(
-    now,
+    startedAt,
     policy.responseMinutes,
     policy.businessHoursOnly,
     calendar,
   );
   const resolveBy = deadlineFor(
-    now,
+    startedAt,
     policy.resolutionMinutes,
     policy.businessHoursOnly,
     calendar,
+  );
+
+  // Når en klokke erstattes, kan starttidspunktet ligge bakover i tid. Da må
+  // tilstanden regnes fra fristene, ikke settes til ON_TRACK: ellers ville et
+  // forfalt oppdrag se friskt ut bare fordi klokken ble byttet.
+  const initial = stateFor(
+    { startedAt, respondBy, resolveBy, respondedAt, resolvedAt: null },
+    now,
   );
 
   const clock = await tx.slaClock.create({
     data: {
       workOrderId,
       policyId: policy.id,
-      startedAt: now,
+      startedAt,
+      respondedAt,
       respondBy,
       resolveBy,
-      state: "ON_TRACK",
+      state: initial.state,
+      breachedAt: initial.breachedAt,
     },
     select: { id: true, policyId: true, state: true },
   });

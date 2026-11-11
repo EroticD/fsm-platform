@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   bumpSessionVersion: vi.fn(),
   clearRecoveryCodesForDisplay: vi.fn(),
+  auditStandalone: vi.fn(),
+  auditRequestContext: vi.fn(),
 }));
 
 vi.mock("@/lib/credentials", () => ({
@@ -13,6 +15,10 @@ vi.mock("@/lib/session", () => ({
 }));
 vi.mock("@/lib/session-token", () => ({
   clearRecoveryCodesForDisplay: mocks.clearRecoveryCodesForDisplay,
+}));
+vi.mock("@/lib/audit", () => ({
+  auditStandalone: mocks.auditStandalone,
+  auditRequestContext: mocks.auditRequestContext,
 }));
 
 import { authOptions, SESSION_ABSOLUTE_MAX_AGE } from "./auth-options";
@@ -32,6 +38,9 @@ const authorize = provider.options?.authorize ?? provider.authorize;
 describe("NextAuth authorize", () => {
   beforeEach(() => {
     mockedVerify.mockReset();
+    mocks.auditStandalone.mockReset();
+    mocks.auditStandalone.mockResolvedValue(undefined);
+    mocks.auditRequestContext.mockResolvedValue({ ip: "203.0.113.9" });
   });
 
   it("slipper gjennom en aktiv bruker uten 2FA", async () => {
@@ -101,12 +110,36 @@ describe("NextAuth authorize", () => {
     await expect(
       authorize!({ email: "inaktiv@example.com", password: "x" }, { headers: {} }),
     ).rejects.toThrow("AccountNotActivated");
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionCode: "auth.login.inactive",
+        outcome: "DENIED",
+        entityId: "unknown",
+      }),
+    );
   });
 
   it("avviser feil passord", async () => {
+    const forsoktPassord = "UnikTestPassord-42";
     mockedVerify.mockResolvedValue({ status: "invalid" });
-    const result = await authorize!({ email: "feil@example.com", password: "x" }, { headers: {} });
+    const result = await authorize!(
+      { email: "feil@example.com", password: forsoktPassord },
+      { headers: {} },
+    );
     expect(result).toBeNull();
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionCode: "auth.login.failed",
+        outcome: "DENIED",
+        entityId: "unknown",
+      }),
+    );
+    // Verken e-posten eller passordet skal havne i revisjonsraden.
+    const serialized = JSON.stringify(mocks.auditStandalone.mock.calls);
+    expect(serialized).not.toContain("feil@example.com");
+    expect(serialized).not.toContain(forsoktPassord);
   });
 
   it("ignorerer X-Forwarded-For når proxy ikke er betrodd", async () => {
@@ -167,6 +200,13 @@ describe("jwt callback", () => {
     } as never);
 
     expect(token).toBeNull();
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: "u1",
+        actionCode: "auth.session.expired",
+        metadata: expect.objectContaining({ reason: "absolute_max_age" }),
+      }),
+    );
   });
 
   it("fornyer en økt som fortsatt er innenfor levetiden", async () => {
@@ -188,8 +228,12 @@ describe("signOut event", () => {
   beforeEach(() => {
     mocks.bumpSessionVersion.mockReset();
     mocks.clearRecoveryCodesForDisplay.mockReset();
+    mocks.auditStandalone.mockReset();
+    mocks.auditRequestContext.mockReset();
     mocks.bumpSessionVersion.mockResolvedValue(3);
     mocks.clearRecoveryCodesForDisplay.mockResolvedValue(undefined);
+    mocks.auditStandalone.mockResolvedValue(undefined);
+    mocks.auditRequestContext.mockResolvedValue({});
   });
 
   it("ugyldiggjør brukerens JWTs og rydder visningscookien", async () => {
@@ -197,6 +241,36 @@ describe("signOut event", () => {
       token: { id: "u1" },
       session: {},
     } as never);
+
+    expect(mocks.bumpSessionVersion).toHaveBeenCalledWith("u1");
+    expect(mocks.clearRecoveryCodesForDisplay).toHaveBeenCalled();
+  });
+
+  it("revisjonslogger utloggingen med auth.logout", async () => {
+    await authOptions.events!.signOut!({
+      token: { id: "u1", name: "Kari", email: "kari@example.test" },
+      session: {},
+    } as never);
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: "User",
+        entityId: "u1",
+        actionCode: "auth.logout",
+        outcome: "SUCCESS",
+      }),
+    );
+  });
+
+  it("fullfører utloggingen selv om revisjonsloggen feiler", async () => {
+    mocks.auditStandalone.mockRejectedValue(new Error("db nede"));
+
+    await expect(
+      authOptions.events!.signOut!({
+        token: { id: "u1" },
+        session: {},
+      } as never),
+    ).resolves.toBeUndefined();
 
     expect(mocks.bumpSessionVersion).toHaveBeenCalledWith("u1");
     expect(mocks.clearRecoveryCodesForDisplay).toHaveBeenCalled();

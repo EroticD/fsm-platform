@@ -1,6 +1,7 @@
 import type { PrismaClient, SlaState } from "@prisma/client";
 import { audit } from "@/lib/audit";
-import { resolveSlaPolicyId } from "./sla";
+import { statusKeysByCategory } from "@/lib/work-order-status";
+import { resolveSlaPolicyId, startClock } from "./sla";
 
 /**
  * Opprydding av SLA-klokker som ikke lenger har dekning i en aktiv avtale.
@@ -8,11 +9,15 @@ import { resolveSlaPolicyId } from "./sla";
  * Den nye SLA-regelen starter bare klokker for oppdrag som har en aktiv,
  * datogyldig avtale med en aktiv SLA-policy. Eldre data kan derfor ha klokker
  * som aldri skulle vært startet, eller som peker på en annen policy enn den
- * avtalen nå gir. Denne tjenesten finner slike klokker og kansellerer dem.
+ * avtalen nå gir.
  *
  * - Klokker som allerede er `CANCELLED` røres ikke.
  * - Klokker som fortsatt har samme gyldige policy beholdes uendret.
- * - Hver kansellering revisjonslogges med forrige tilstand og årsak.
+ * - Peker klokken på feil policy, men avtalen gir en gyldig en, kanselleres
+ *   den gamle og den riktige startes i samme transaksjon. Uten dette blir
+ *   oppdraget stående uten SLA-dekning selv om avtalen faktisk gir det.
+ * - Har oppdraget ingen aktiv avtale, kanselleres klokken.
+ * - Hver endring revisjonslogges med forrige tilstand og årsak.
  * - Tørrkjøring (standard) skriver ingenting.
  */
 export type SlaCleanupClient = Pick<PrismaClient, "$transaction">;
@@ -40,6 +45,8 @@ export type SlaCleanupResult = {
   /** Kandidater som kanselleres (eller ville blitt det i tørrkjøring). */
   candidates: SlaCleanupCandidate[];
   cancelled: number;
+  /** Klokker som er erstattet med en klokke for riktig policy. */
+  replaced: number;
 };
 
 export type SlaCleanupOptions = {
@@ -64,7 +71,12 @@ export async function cancelUncontractedSlaClocks(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('sla-cleanup'))`;
 
     const clocks = await tx.slaClock.findMany({
-      where: { state: { not: "CANCELLED" } },
+      where: {
+        state: { not: "CANCELLED" },
+        // Et lukket oppdrag skal ikke få en ny, levende SLA-klokke. Det ville
+        // gitt falske frister i panelet og i metrics.
+        workOrder: { status: { notIn: statusKeysByCategory("CLOSED") } },
+      },
       orderBy: [{ startedAt: "asc" }, { id: "asc" }],
       take,
       select: {
@@ -72,6 +84,8 @@ export async function cancelUncontractedSlaClocks(
         workOrderId: true,
         policyId: true,
         state: true,
+        startedAt: true,
+        respondedAt: true,
         policy: { select: { name: true } },
         workOrder: { select: { title: true } },
       },
@@ -80,6 +94,7 @@ export async function cancelUncontractedSlaClocks(
     const candidates: SlaCleanupCandidate[] = [];
     let kept = 0;
     let cancelled = 0;
+    let replaced = 0;
 
     for (const clock of clocks) {
       const applicable = await resolveSlaPolicyId(
@@ -128,6 +143,32 @@ export async function cancelUncontractedSlaClocks(
         },
       });
       cancelled += 1;
+
+      // Avtalen gir en annen, gyldig policy: start den riktige klokken i
+      // samme transaksjon, med samme start- og responstidspunkt. Da beholder
+      // oppdraget fristene sine i stedet for å få en fersk frist det aldri
+      // hadde krav på. Klokken telles bare som erstattet når det faktisk ble
+      // opprettet en ny rad.
+      if (applicable) {
+        const existing = await tx.slaClock.findUnique({
+          where: {
+            workOrderId_policyId: {
+              workOrderId: clock.workOrderId,
+              policyId: applicable.policyId,
+            },
+          },
+          select: { id: true },
+        });
+        if (!existing) {
+          const created = await startClock(tx, clock.workOrderId, {
+            policyId: applicable.policyId,
+            now,
+            startedAt: clock.startedAt,
+            respondedAt: clock.respondedAt,
+          });
+          if (created) replaced += 1;
+        }
+      }
     }
 
     return {
@@ -136,6 +177,7 @@ export async function cancelUncontractedSlaClocks(
       kept,
       candidates,
       cancelled,
+      replaced,
     };
   });
 }

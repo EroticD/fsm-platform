@@ -41,7 +41,10 @@ export type RealtimeSqlClient = {
 
 const ENTITY_KINDS: Record<string, RealtimeKind> = {
   workorder: "workorders",
+  visit: "workorders",
   customer: "customers",
+  contract: "customers",
+  equipment: "customers",
   document: "documents",
   documentfolder: "documents",
   report: "reports",

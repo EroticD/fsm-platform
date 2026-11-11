@@ -1130,6 +1130,10 @@ model Visit {
   /// Når retur-/viderekjøringen etter fullført arbeid er avsluttet. Settes av
   /// «Avslutt kjøring» eller automatisk når neste visitt starter EN_ROUTE.
   travelFromEndedAt DateTime? @db.Timestamptz(3)
+  /// Satt når lukkingen av oppdraget selv lukket eller kansellerte visitten.
+  /// Gjenåpning gjenoppretter bare disse, slik at en visitt som ble kansellert
+  /// manuelt («kunden var ikke hjemme») ikke vekkes til live igjen.
+  autoClosedAt DateTime? @db.Timestamptz(3)
 
   technicians   VisitTechnician[]
   meterReadings MeterReading[]
@@ -1852,6 +1856,20 @@ model AuditLog {
   /// eksport; eldre rader kan mangle verdi og vises bare for administrator.
   departmentId String?
   metadata   Json?
+  /// Hvem som utførte handlingen, hvorfra, og hvilket resultat den fikk.
+  /// Feltene er valgfrie fordi eldre rader mangler dem.
+  ip           String?
+  userAgent    String?
+  requestId    String?
+  /// SUCCESS | DENIED | ERROR. Avviste og feilede handlinger er også hendelser.
+  outcome      String   @default("SUCCESS")
+  /// Stabil handlingskode, f.eks. `workorder.status.changed`. `action` forblir
+  /// menneskelesbar tekst; koden brukes til filtrering og aggregering.
+  actionCode   String?
+  /// ACCOUNTING_5Y | SECURITY_1Y | OPS_90D | null (global standard).
+  retentionClass String?
+  /// Brukeren handlingen gjaldt, når den er en annen enn aktøren.
+  targetUserId String?
   /// SHA-256 av forrige rad i kjeden (null for første rad).
   prevHash   String?
   /// SHA-256 av denne radens kanoniske innhold og `prevHash`.
@@ -1863,6 +1881,9 @@ model AuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
   @@index([departmentId, createdAt])
+  @@index([actionCode])
+  @@index([outcome, createdAt])
+  @@index([retentionClass, createdAt])
   @@index([hash])
   @@index([prevHash])
 }

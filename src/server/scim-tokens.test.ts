@@ -14,11 +14,17 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  auditStandalone: vi.fn(),
+  auditRequestContext: vi.fn(),
   allowRequestDb: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/audit", () => ({
+  audit: mocks.audit,
+  auditStandalone: mocks.auditStandalone,
+  auditRequestContext: mocks.auditRequestContext,
+}));
 vi.mock("@/lib/rate-limit-db", () => ({
   allowRequestDb: mocks.allowRequestDb,
 }));
@@ -88,6 +94,8 @@ beforeEach(() => {
   mocks.prisma.user.findUnique.mockResolvedValue({ isActive: true });
   mocks.prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
   mocks.audit.mockResolvedValue(undefined);
+  mocks.auditStandalone.mockResolvedValue(undefined);
+  mocks.auditRequestContext.mockResolvedValue({ ip: "203.0.113.9" });
   mocks.allowRequestDb.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
 });
 
@@ -259,9 +267,12 @@ describe("authenticateScimRequest", () => {
     expect(mocks.prisma.scimToken.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { lastUsedAt: expect.any(Date) } }),
     );
-    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith(
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ entityType: "ScimToken" }),
+        entityType: "ScimToken",
+        entityId: "token-1",
+        actionCode: "scim.token.used",
+        outcome: "SUCCESS",
       }),
     );
   });
@@ -278,5 +289,41 @@ describe("authenticateScimRequest", () => {
     expect(result.response.headers.get("retry-after")).toBe("42");
     const body = await result.response.json();
     expect(body.status).toBe("429");
+  });
+
+  it("revisjonslogger 401 som scim.auth.failed uten å lagre tokenet", async () => {
+    const token = generateScimToken();
+    mocks.prisma.scimToken.findUnique.mockResolvedValueOnce(
+      storedRow({ revokedAt: new Date() }),
+    );
+    const result = await authenticateScimRequest(request(token));
+    expect(result.ok).toBe(false);
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: "ScimToken",
+        actionCode: "scim.auth.failed",
+        outcome: "DENIED",
+        metadata: expect.objectContaining({ reason: "unknown_or_revoked" }),
+      }),
+    );
+    expect(JSON.stringify(mocks.auditStandalone.mock.calls)).not.toContain(
+      token,
+    );
+  });
+
+  it("revisjonslogger 429 som scim.auth.failed", async () => {
+    mocks.allowRequestDb.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 5,
+    });
+    await authenticateScimRequest(request(generateScimToken()));
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionCode: "scim.auth.failed",
+        metadata: expect.objectContaining({ reason: "rate_limited" }),
+      }),
+    );
   });
 });

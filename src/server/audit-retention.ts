@@ -284,6 +284,7 @@ type Candidate = {
   entityType: string;
   entityId: string;
   hash?: string | null;
+  retentionClass?: string | null;
 };
 
 async function heldEntityIds(
@@ -360,12 +361,42 @@ export async function cleanupExpiredAuditLogs(
   }
 
   const cutoff = new Date(now.getTime() - setting.retentionDays * DAY_MS);
+  // Retensjonsklasser kan kreve lengre oppbevaring enn den globale innstillingen
+  // – først og fremst regnskapsmateriale, som skal bevares i fem år etter
+  // bokføringsloven § 13. Den globale verdien fungerer som et gulv, aldri som
+  // en forkortelse av en strengere klasse.
+  const classDays: Record<string, number> = {
+    ACCOUNTING_5Y: Math.max(setting.retentionDays, 5 * 365),
+    SECURITY_1Y: Math.max(setting.retentionDays, 365),
+    OPS_90D: Math.max(setting.retentionDays, 90),
+  };
+  const retentionFilter = {
+    OR: [
+      { retentionClass: null, createdAt: { lt: cutoff } },
+      {
+        retentionClass: "ACCOUNTING_5Y",
+        createdAt: {
+          lt: new Date(now.getTime() - classDays.ACCOUNTING_5Y * DAY_MS),
+        },
+      },
+      {
+        retentionClass: "SECURITY_1Y",
+        createdAt: {
+          lt: new Date(now.getTime() - classDays.SECURITY_1Y * DAY_MS),
+        },
+      },
+      {
+        retentionClass: "OPS_90D",
+        createdAt: { lt: new Date(now.getTime() - classDays.OPS_90D * DAY_MS) },
+      },
+    ],
+  };
   let deleted = 0;
   let heldTotal = 0;
 
   for (let batch = 0; batch < AUDIT_RETENTION_MAX_BATCHES; batch += 1) {
     const candidates = (await client.auditLog.findMany({
-      where: { createdAt: { lt: cutoff } },
+      where: retentionFilter,
       orderBy: { seq: "asc" },
       take: AUDIT_RETENTION_BATCH_SIZE,
       select: {
@@ -373,6 +404,7 @@ export async function cleanupExpiredAuditLogs(
         entityType: true,
         entityId: true,
         hash: true,
+        retentionClass: true,
       },
     })) as Candidate[];
     if (candidates.length === 0) break;

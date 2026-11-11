@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import path from "path";
 import prisma from "@/lib/prisma";
 import type { AccessUser } from "@/lib/access";
+import {
+  auditRequestContext,
+  auditStandalone,
+  type AuditActor,
+  type AuditOutcome,
+} from "@/lib/audit";
 import { contentTypeFor } from "@/lib/uploads";
 import {
   getStorageDriver,
@@ -48,6 +55,136 @@ function contentDisposition(fileKey: string, originalName?: string | null) {
 }
 
 /**
+ * Revisjonslogg for filutlevering. Loggen skal aldri blokkere en nedlasting:
+ * feilen rapporteres til operatør, men svaret går videre.
+ */
+type FileAuditTarget = {
+  entityType: "Upload" | "Document" | "Report" | "Contract" | "Customer";
+  entityId: string;
+  departmentId?: string | null;
+};
+
+type UploadOwnerRow = {
+  id: string;
+  ownerType: string;
+  ownerId: string | null;
+  departmentId: string | null;
+};
+
+function auditActorFor(user: AccessUser): AuditActor {
+  return {
+    id: user.id,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    departmentId: user.departmentId ?? null,
+  };
+}
+
+/**
+ * Rapporten eier filen når opplastingen er en rapport-PDF. Ellers følger
+ * entitetstypen opplastingens eier, slik at loggen kan følges på tvers av
+ * dokument, avtale og kunde.
+ */
+function auditTargetFor(
+  upload: UploadOwnerRow | null,
+  fallbackId: string,
+  reportId?: string | null,
+): FileAuditTarget {
+  if (reportId) {
+    return {
+      entityType: "Report",
+      entityId: reportId,
+      departmentId: upload?.departmentId ?? null,
+    };
+  }
+  if (upload?.ownerType === "DOCUMENT" && upload.ownerId) {
+    return {
+      entityType: "Document",
+      entityId: upload.ownerId,
+      departmentId: upload.departmentId,
+    };
+  }
+  if (upload?.ownerType === "CONTRACT" && upload.ownerId) {
+    return {
+      entityType: "Contract",
+      entityId: upload.ownerId,
+      departmentId: upload.departmentId,
+    };
+  }
+  if (upload?.ownerType === "CUSTOMER" && upload.ownerId) {
+    return {
+      entityType: "Customer",
+      entityId: upload.ownerId,
+      departmentId: upload.departmentId,
+    };
+  }
+  return {
+    entityType: "Upload",
+    entityId: upload?.id ?? fallbackId,
+    departmentId: upload?.departmentId ?? null,
+  };
+}
+
+async function logFileAccess(input: {
+  user: AccessUser;
+  fileKey: string;
+  target: FileAuditTarget;
+  actionCode: "file.downloaded" | "file.denied";
+  outcome: AuditOutcome;
+  metadata?: Prisma.InputJsonObject;
+}): Promise<void> {
+  try {
+    const metadata: Prisma.InputJsonObject = {
+      fileKey: input.fileKey.slice(0, 300),
+      ...(input.metadata ?? {}),
+    };
+    await auditStandalone({
+      entityType: input.target.entityType,
+      entityId: input.target.entityId,
+      action:
+        input.actionCode === "file.downloaded"
+          ? "Lastet ned fil"
+          : "Avviste filtilgang",
+      actor: auditActorFor(input.user),
+      departmentId: input.target.departmentId ?? null,
+      actionCode: input.actionCode,
+      outcome: input.outcome,
+      metadata,
+      context: await auditRequestContext(),
+    });
+  } catch (error) {
+    // En manglende revisjonsrad skal ikke gi brukeren en 500 på en fil.
+    console.error(`[audit] kunne ikke logge ${input.actionCode}`, {
+      entityType: input.target.entityType,
+      entityId: input.target.entityId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** Logger et ACL-avslag og returnerer 403 uten å avsløre filens eksistens. */
+async function denyFile(
+  user: AccessUser,
+  fileKey: string,
+  reason: string,
+  target?: FileAuditTarget,
+): Promise<NextResponse> {
+  await logFileAccess({
+    user,
+    fileKey,
+    target:
+      target ?? {
+        entityType: "Upload",
+        entityId: fileKey.slice(0, 200) || "ukjent",
+      },
+    actionCode: "file.denied",
+    outcome: "DENIED",
+    metadata: { reason },
+  });
+  return new NextResponse("Forbidden", { status: 403 });
+}
+
+/**
  * Ansatte i en deaktivert avdeling skal ikke kunne hente filer, selv om
  * økten ble opprettet før avdelingen ble deaktivert. Kundeportalen og
  * administrator er ikke avdelingssperret.
@@ -75,8 +212,13 @@ export async function GET(
     return new NextResponse("Not authenticated", { status: 401 });
   }
 
+  // Stien leses før tilgangskontrollen slik at også avviste forsøk kan
+  // registreres i revisjonsloggen med den forespurte nøkkelen.
+  const { path: segments } = await params;
+  const requestedPath = segments.join("/");
+
   if (await staffDepartmentInactive(user)) {
-    return new NextResponse("Forbidden", { status: 403 });
+    return denyFile(user, requestedPath, "department_inactive");
   }
 
   // Kundeportalens delegasjon gjelder også direkte fil-URL-er. Uten dette
@@ -85,11 +227,10 @@ export async function GET(
   const portalAccess =
     user.role === "CUSTOMER" ? await resolvePortalAccess(user) : null;
   if (user.role === "CUSTOMER" && !portalAccess?.ok) {
-    return new NextResponse("Forbidden", { status: 403 });
+    return denyFile(user, requestedPath, "portal_access_denied");
   }
 
-  const { path: segments } = await params;
-  const fileKey = tryNormaliseStorageKey(segments.join("/"));
+  const fileKey = tryNormaliseStorageKey(requestedPath);
 
   // Aldri les filer utenfor opplastingsroten eller interne stagingfiler.
   if (!fileKey || isInternalStorageKey(fileKey)) {
@@ -98,6 +239,10 @@ export async function GET(
 
   const storedName = path.basename(fileKey);
   const upload = await prisma.upload.findUnique({ where: { storedName } });
+  // Rapport-PDF-er eies av rapporten, ikke av oppdraget. Id-en brukes i loggen.
+  let reportPdfId: string | null = null;
+  const targetFor = (): FileAuditTarget =>
+    auditTargetFor(upload, storedName, reportPdfId);
 
   if (!upload) {
     // Eldre filer uten metadata: bare administrator kan lese dem. Backfill-
@@ -127,12 +272,12 @@ export async function GET(
         departmentIsActive: workOrder?.department?.isActive,
       })
     ) {
-      return new NextResponse("Forbidden", { status: 403 });
+      return denyFile(user, fileKey, "acl_denied", targetFor());
     }
 
     if (user.role === "CUSTOMER") {
       if (!portalAccess?.ok) {
-        return new NextResponse("Forbidden", { status: 403 });
+        return denyFile(user, fileKey, "portal_access_denied", targetFor());
       }
       const required =
         upload.ownerType === "EQUIPMENT"
@@ -144,7 +289,7 @@ export async function GET(
               ? "canViewDocuments"
               : null;
       if (required && !portalAccessAllows(portalAccess.data, required)) {
-        return new NextResponse("Forbidden", { status: 403 });
+        return denyFile(user, fileKey, "portal_permission_denied", targetFor());
       }
     }
 
@@ -162,7 +307,7 @@ export async function GET(
 
       // Kansellerte oppdrag er lukket for montørene, også filene deres.
       if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
-        return new NextResponse("Forbidden", { status: 403 });
+        return denyFile(user, fileKey, "work_order_cancelled", targetFor());
       }
 
       // En slettet kunde skal ikke kunne lese oppdragsfilene via portalen.
@@ -186,6 +331,7 @@ export async function GET(
         },
       });
       if (reportPdf) {
+        reportPdfId = reportPdf.id;
         if (reportPdf.deletedAt || reportPdf.workOrder?.deletedAt) {
           return new NextResponse("File not found", { status: 404 });
         }
@@ -193,7 +339,7 @@ export async function GET(
           user.role === "TECHNICIAN" &&
           reportPdf.workOrder?.status === "CANCELLED"
         ) {
-          return new NextResponse("Forbidden", { status: 403 });
+          return denyFile(user, fileKey, "work_order_cancelled", targetFor());
         }
         if (user.role === "CUSTOMER") {
           // Rapport-PDF-en er et dokument. Kunden må ha dokumenttilgang, og
@@ -202,13 +348,18 @@ export async function GET(
             !portalAccess?.ok ||
             !portalAccessAllows(portalAccess.data, "canViewDocuments")
           ) {
-            return new NextResponse("Forbidden", { status: 403 });
+            return denyFile(
+              user,
+              fileKey,
+              "portal_permission_denied",
+              targetFor(),
+            );
           }
           if (!reportPdf.isLocked) {
             return new NextResponse("File not found", { status: 404 });
           }
         } else if (!hasPermission(user, "reports.view")) {
-          return new NextResponse("Forbidden", { status: 403 });
+          return denyFile(user, fileKey, "permission_missing", targetFor());
         }
       }
     }
@@ -248,6 +399,23 @@ export async function GET(
     const info = await storage.stat(fileKey);
     if (!info) return new NextResponse("File not found", { status: 404 });
     const stream = await storage.stream(fileKey);
+
+    // Først når filen faktisk kan leveres, registreres utleveringen. Feiler
+    // loggen, går nedlastingen likevel gjennom (se `logFileAccess`).
+    await logFileAccess({
+      user,
+      fileKey,
+      target: targetFor(),
+      actionCode: "file.downloaded",
+      outcome: "SUCCESS",
+      metadata: {
+        bytes: info.size,
+        contentType: contentTypeFor(fileKey),
+        delivery: contentTypeFor(fileKey).startsWith("image/")
+          ? "inline"
+          : "attachment",
+      },
+    });
 
     return new NextResponse(stream, {
       headers: {

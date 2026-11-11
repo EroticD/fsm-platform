@@ -12,8 +12,9 @@ const mocks = vi.hoisted(() => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    user: { count: vi.fn() },
-    auditLog: { create: vi.fn() },
+    user: { count: vi.fn(), updateMany: vi.fn() },
+    auditLog: { create: vi.fn(), findFirst: vi.fn() },
+    $transaction: vi.fn(),
   },
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -23,7 +24,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/session", () => ({
   requireAdmin: vi.fn(async () => mocks.state.admin),
-  actorName: vi.fn(async () => "Admin"),
+  getCurrentUser: vi.fn(async () => ({
+    id: "admin-1",
+    name: "Admin",
+    email: "admin@example.test",
+    departmentId: "dep-a",
+  })),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -51,6 +57,14 @@ beforeEach(() => {
   mocks.prisma.role.delete.mockResolvedValue({});
   mocks.prisma.user.count.mockImplementation(async () => mocks.state.users);
   mocks.prisma.auditLog.create.mockResolvedValue({});
+  mocks.prisma.auditLog.findFirst.mockResolvedValue(null);
+  // Revisjonsloggen skrives i samme transaksjon som rolleendringen.
+  mocks.prisma.$transaction.mockImplementation(
+    async (arg: unknown) =>
+      typeof arg === "function"
+        ? (arg as (tx: unknown) => unknown)(mocks.prisma)
+        : Promise.all(arg as Promise<unknown>[]),
+  );
 });
 
 describe("rolleadministrasjon", () => {
@@ -143,6 +157,59 @@ describe("rolleadministrasjon", () => {
     );
     expect(mocks.prisma.role.delete).toHaveBeenCalledWith({
       where: { key: "SERVICELEDER" },
+    });
+  });
+
+  it("logger rettigheter som ble lagt til og fjernet, i samme transaksjon", async () => {
+    mocks.prisma.role.findUnique.mockResolvedValue({
+      key: "SERVICELEDER",
+      label: "Serviceleder",
+      description: null,
+      permissions: ["workorders.view", "customers.manage"],
+      isSystem: false,
+    });
+
+    await expect(
+      updateRole(
+        formData({ key: "SERVICELEDER", label: "Serviceleder" }, [
+          "workorders.view",
+          "reports.view",
+        ]),
+      ),
+    ).rejects.toThrow("REDIRECT:/innstillinger?tab=roller&role=updated");
+
+    const entry = mocks.prisma.auditLog.create.mock.calls[0][0].data;
+    expect(entry).toMatchObject({
+      entityType: "Role",
+      entityId: "SERVICELEDER",
+      actionCode: "role.updated",
+      outcome: "SUCCESS",
+      actorId: "admin-1",
+      departmentId: "dep-a",
+    });
+    expect(entry.metadata.permissionsAdded).toEqual(["reports.view"]);
+    expect(entry.metadata.permissionsRemoved).toEqual(["customers.manage"]);
+  });
+
+  it("logger avvist sletting av systemrolle som DENIED", async () => {
+    mocks.prisma.role.findUnique.mockResolvedValue({
+      key: "TECHNICIAN",
+      label: "Montør",
+      permissions: [],
+      isSystem: true,
+    });
+
+    await expect(deleteRole(formData({ key: "TECHNICIAN" }))).rejects.toThrow(
+      "REDIRECT:/innstillinger?tab=roller&error=systemrolle",
+    );
+
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Role",
+        entityId: "TECHNICIAN",
+        actionCode: "role.deleted",
+        outcome: "DENIED",
+      }),
     });
   });
 });

@@ -1,4 +1,6 @@
 import type { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { clientIpFrom } from "@/lib/client-ip";
 import { auditHashesForRow } from "@/lib/audit-chain";
 import {
   publishRealtime,
@@ -14,6 +16,16 @@ export type AuditActor = {
   departmentId?: string | null;
 };
 
+export type AuditOutcome = "SUCCESS" | "DENIED" | "ERROR";
+
+export type AuditRetentionClass = "ACCOUNTING_5Y" | "SECURITY_1Y" | "OPS_90D";
+
+export type AuditRequestContext = {
+  ip?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+};
+
 export type AuditEntry = {
   entityType: string;
   entityId: string;
@@ -22,6 +34,15 @@ export type AuditEntry = {
   metadata?: Prisma.InputJsonValue;
   /** Overstyrer aktørens avdeling når hendelsen gjelder en annen avdeling. */
   departmentId?: string | null;
+  /** Stabil kode for filtrering, f.eks. `workorder.status.changed`. */
+  actionCode?: string;
+  /** Avviste og feilede handlinger er også hendelser. Standard: SUCCESS. */
+  outcome?: AuditOutcome;
+  retentionClass?: AuditRetentionClass | null;
+  /** Brukeren handlingen gjaldt, når den er en annen enn aktøren. */
+  targetUserId?: string | null;
+  /** Hvor forespørselen kom fra. Fylles med `auditRequestContext()`. */
+  context?: AuditRequestContext;
 };
 
 /** Låsen serialiserer hash-kjedens hale innenfor transaksjonen. */
@@ -82,6 +103,13 @@ export async function audit(
     departmentId:
       entry.departmentId ?? entry.actor.departmentId ?? null,
     metadata: entry.metadata ?? null,
+    actionCode: entry.actionCode ?? null,
+    outcome: entry.outcome ?? "SUCCESS",
+    retentionClass: entry.retentionClass ?? null,
+    targetUserId: entry.targetUserId ?? null,
+    ip: entry.context?.ip ?? null,
+    userAgent: entry.context?.userAgent ?? null,
+    requestId: entry.context?.requestId ?? null,
     createdAt,
   };
   const hashes = auditHashesForRow(fields, previous?.hash ?? null);
@@ -101,4 +129,38 @@ export async function audit(
     realtimeKindForEntity(entry.entityType),
     tx as RealtimeSqlClient,
   );
+}
+
+/**
+ * Skriver en revisjonsrad utenfor en eksisterende transaksjon.
+ *
+ * Brukes der handlingen ikke selv skriver forretningsdata – innlogging,
+ * utlogging, avviste kall – men fortsatt skal ligge i den hash-kjedede loggen.
+ * Raden skrives i egen transaksjon, så låsen holdes kort.
+ */
+export async function auditStandalone(entry: AuditEntry): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await audit(tx, entry);
+  });
+}
+
+/**
+ * Henter IP, brukeragent og request-id fra den aktive forespørselen.
+ *
+ * `next/headers` importeres dynamisk fordi `audit.ts` også brukes av skript og
+ * jobber utenfor Next-konteksten. Der returneres et tomt sett i stedet for å
+ * kaste, slik at logging aldri velter selve handlingen.
+ */
+export async function auditRequestContext(): Promise<AuditRequestContext> {
+  try {
+    const { headers } = await import("next/headers");
+    const requestHeaders = await headers();
+    return {
+      ip: clientIpFrom(requestHeaders),
+      userAgent: requestHeaders.get("user-agent")?.slice(0, 512) ?? null,
+      requestId: requestHeaders.get("x-request-id")?.slice(0, 128) ?? null,
+    };
+  } catch {
+    return {};
+  }
 }

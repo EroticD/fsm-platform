@@ -10,6 +10,7 @@ import {
   requestedWindow,
 } from "@/lib/booking-time";
 import { statusKeysByCategory } from "@/lib/work-order-status";
+import { closeWorkOrderState } from "@/lib/work-order-status-action";
 import { notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
 import { enqueueBookingEmail } from "./email-outbox";
@@ -620,20 +621,25 @@ export async function cancelBookingFromOffice(
         booking.workOrder.status,
       );
       if (cancellable) {
-        await tx.workOrder.update({
-          where: { id: booking.workOrder.id },
+        // Betinget oppdatering: statusen kan ha endret seg siden den ble lest
+        // i denne transaksjonen. Bare den som faktisk kansellerer, rydder.
+        const cancelled = await tx.workOrder.updateMany({
+          where: {
+            id: booking.workOrder.id,
+            status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING"] },
+          },
           data: { status: "CANCELLED" },
         });
-        if (booking.visitId) {
-          await tx.visit.updateMany({
-            where: {
-              id: booking.visitId,
-              status: { in: ["PLANNED", "ASSIGNED"] },
-            },
-            data: { status: "CANCELLED" },
+        if (cancelled.count === 1) {
+          // Samme rydding som ved manuell kansellering: visiter, returkjøring,
+          // sporingslenker og SLA-klokke. Uten den blir oppdraget stående som
+          // aktivt i kalender, kart og sporing.
+          await closeWorkOrderState(tx, {
+            workOrderId: booking.workOrder.id,
+            cancelled: true,
           });
+          await recomputeWorkOrderSchedule(tx, booking.workOrder.id);
         }
-        await recomputeWorkOrderSchedule(tx, booking.workOrder.id);
       }
       await tx.bookingRequestEvent.create({
         data: {
