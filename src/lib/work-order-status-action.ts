@@ -1,7 +1,7 @@
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit, type AuditActor } from "@/lib/audit";
-import { canTransition } from "@/lib/work-order-status";
+import { canTransition, isClosedStatus } from "@/lib/work-order-status";
 import { cancelClocks, markResolved } from "@/server/sla";
 
 export type StatusTransitionResult =
@@ -45,6 +45,72 @@ export async function transitionWorkOrderStatus(params: {
       await markResolved(tx, params.workOrderId);
     } else if (params.to === "CANCELLED") {
       await cancelClocks(tx, params.workOrderId);
+    }
+
+    // Et lukket oppdrag skal ikke fortsette å se ut som en aktiv reise. Vi
+    // lukker visittene og returkjøringen i samme transaksjon som statusen, slik
+    // at verken dashbordet, kartet eller sporingslenken blir hengende igjen.
+    // Statuskategoriene er konfigurerbare; derfor brukes `isClosedStatus` i
+    // stedet for å hardkode COMPLETED/CANCELLED.
+    if (isClosedStatus(params.to)) {
+      const closedAt = new Date();
+
+      if (params.to === "CANCELLED") {
+        // Aktiv returkjøring må avsluttes før visittene blir CANCELLED, ellers
+        // mister vi muligheten til å skille dem fra allerede kansellerte rader.
+        await tx.visit.updateMany({
+          where: {
+            workOrderId: params.workOrderId,
+            status: { in: ["EN_ROUTE", "ON_SITE"] },
+            travelFromEndedAt: null,
+          },
+          data: { travelFromEndedAt: closedAt },
+        });
+        await tx.visit.updateMany({
+          where: {
+            workOrderId: params.workOrderId,
+            status: { in: ["PLANNED", "ASSIGNED", "EN_ROUTE", "ON_SITE"] },
+          },
+          data: { status: "CANCELLED" },
+        });
+      } else {
+        // Fullført (eller en annen lukket status som ikke er kansellert):
+        // pågående visiter er i praksis ferdige. `doneAt` bevares hvis det
+        // allerede finnes, og settes ellers i samme UPDATE som statusen.
+        await tx.visit.updateMany({
+          where: {
+            workOrderId: params.workOrderId,
+            status: { in: ["EN_ROUTE", "ON_SITE"] },
+            doneAt: null,
+          },
+          data: { status: "DONE", doneAt: closedAt },
+        });
+        await tx.visit.updateMany({
+          where: {
+            workOrderId: params.workOrderId,
+            status: { in: ["EN_ROUTE", "ON_SITE"] },
+          },
+          data: { status: "DONE" },
+        });
+      }
+
+      // Også DONE-visiter kan ha returkjøring som aldri ble avsluttet. Dette
+      // rydder opp i gamle rader samtidig som det beskytter nye.
+      await tx.visit.updateMany({
+        where: {
+          workOrderId: params.workOrderId,
+          status: "DONE",
+          travelFromEndedAt: null,
+        },
+        data: { travelFromEndedAt: closedAt },
+      });
+
+      // En offentlig sporingslenke skal slutte å svare umiddelbart når
+      // oppdraget lukkes, uavhengig av visittens status.
+      await tx.trackingLink.updateMany({
+        where: { workOrderId: params.workOrderId, revokedAt: null },
+        data: { revokedAt: closedAt },
+      });
     }
 
     await audit(tx, {

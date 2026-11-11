@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { readPendingTwoFactor } from "@/lib/session-token";
+import { safeLoginCallbackTarget } from "@/lib/safe-redirect";
 import { verifyRecoveryCodeAction, verifyTwoFactorAction } from "../actions";
 import SubmitButton from "../SubmitButton";
 import Icon from "@/components/icons";
@@ -43,12 +44,18 @@ export default async function TwoFactorPage({
     callbackUrl = "/",
     recovery,
   } = await searchParams;
+  // 2FA-steget kan få callback fra NextAuth eller en beskyttet side. Vask den
+  // før den havner i skjulte felt eller i en feilomdirigering, slik at en
+  // utløpt økt ikke sender brukeren tilbake til /logg-inn eller /api/auth.
+  const safeCallbackUrl = safeLoginCallbackTarget(callbackUrl);
 
   const userId = await readPendingTwoFactor();
   if (!userId) {
     if (errorParam === "TwoFactorExpired") {
       const params = new URLSearchParams({ error: "TwoFactorExpired" });
-      if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);
+      if (safeCallbackUrl !== "/") {
+        params.set("callbackUrl", safeCallbackUrl);
+      }
       redirect(`/logg-inn?${params.toString()}`);
     }
     redirect("/logg-inn");
@@ -76,7 +83,7 @@ export default async function TwoFactorPage({
       <AuthAlert message={error ?? ""} />
 
       <form action={verifyTwoFactorAction} className="space-y-4">
-        <input type="hidden" name="callbackUrl" value={callbackUrl} />
+        <input type="hidden" name="callbackUrl" value={safeCallbackUrl} />
         <Field label={t("auth.twoFactor.codeLabel")} required>
           <Input
             type="text"
@@ -109,7 +116,7 @@ export default async function TwoFactorPage({
             />
           </summary>
           <form action={verifyRecoveryCodeAction} className="mt-3 space-y-3">
-            <input type="hidden" name="callbackUrl" value={callbackUrl} />
+            <input type="hidden" name="callbackUrl" value={safeCallbackUrl} />
             <Field
               label={t("auth.twoFactor.recovery.label")}
               hint={t("auth.twoFactor.recovery.hint")}

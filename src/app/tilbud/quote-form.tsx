@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import SubmitButton from "@/components/SubmitButton";
 import LineItemsEditor, { type EditableLine } from "@/components/billing/LineItemsEditor";
 import CustomerContactSelect from "@/components/billing/CustomerContactSelect";
@@ -52,7 +53,7 @@ export default async function QuoteForm({
   const t = await getTranslations("common");
 
   return (
-    <form action={action} className="space-y-4">
+    <ValidatedForm action={action} className="space-y-4">
       {defaults.id ? <input type="hidden" name="id" value={defaults.id} /> : null}
       <section className={CARD}>
         <h2 className="border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em]">
@@ -186,6 +187,6 @@ export default async function QuoteForm({
           {t("cancel")}
         </Link>
       </div>
-    </form>
+    </ValidatedForm>
   );
 }

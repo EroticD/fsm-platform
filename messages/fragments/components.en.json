@@ -18,6 +18,18 @@
       "deleteDocumentTag": "Delete the document tag “{name}”? It will be removed from all documents it is used on.",
       "deleteDocumentTagLabel": "Delete document tag"
     },
+    "formErrors": {
+      "summary": "The form has {count} errors. Fix the marked fields.",
+      "required": "{field} is required.",
+      "email": "{field} must be a valid email address.",
+      "date": "{field} must be a valid date.",
+      "invalid": "{field} has an invalid value.",
+      "min": "{field} must be at least {min}.",
+      "max": "{field} cannot be greater than {max}.",
+      "minLength": "{field} must have at least {min} characters.",
+      "maxLength": "{field} cannot have more than {max} characters.",
+      "pattern": "{field} has the wrong format."
+    },
     "pagination": {
       "label": "Pagination",
       "first": "First",

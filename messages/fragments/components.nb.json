@@ -18,6 +18,18 @@
       "deleteDocumentTag": "Slette dokumenttaggen «{name}»? Den fjernes fra alle dokumenter den er brukt på.",
       "deleteDocumentTagLabel": "Slett dokument-tag"
     },
+    "formErrors": {
+      "summary": "Skjemaet har {count} feil. Rett opp feltene som er merket.",
+      "required": "{field} er påkrevd.",
+      "email": "{field} må være en gyldig e-postadresse.",
+      "date": "{field} må være en gyldig dato.",
+      "invalid": "{field} har en ugyldig verdi.",
+      "min": "{field} må være minst {min}.",
+      "max": "{field} kan ikke være mer enn {max}.",
+      "minLength": "{field} må ha minst {min} tegn.",
+      "maxLength": "{field} kan ikke ha mer enn {max} tegn.",
+      "pattern": "{field} har feil format."
+    },
     "pagination": {
       "label": "Paginering",
       "first": "Første",

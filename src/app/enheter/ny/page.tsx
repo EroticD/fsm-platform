@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/permissions";
 import { EQUIPMENT_ERROR_KEYS } from "@/lib/equipment-feedback";
 import { getEquipmentFormOptions } from "@/server/equipment";
 import ErrorBanner from "@/components/ErrorBanner";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import SubmitButton from "@/components/SubmitButton";
@@ -64,7 +65,7 @@ export default async function NewEquipmentPage({
       {errorMessage && <ErrorBanner message={errorMessage} />}
 
       <Card as="section" className="p-4 sm:p-5">
-        <form action={createEquipmentAction} className="space-y-4">
+        <ValidatedForm action={createEquipmentAction} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <EquipmentCustomerFields customers={result.data.customers} />
             <Field id="model" label={t("assets.form.model")} required>
@@ -154,7 +155,7 @@ export default async function NewEquipmentPage({
               {t("assets.form.submit")}
             </SubmitButton>
           </div>
-        </form>
+        </ValidatedForm>
       </Card>
     </PageShell>
   );

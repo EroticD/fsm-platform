@@ -20,7 +20,7 @@ har blitt liggende fra tidligere dager.
 2. Skriv **E-post** og **Passord**.
 3. Trykk **Logg inn**.
 
-Du kommer til **I dag**. Feil passord gir «Feil e-post eller passord.» En konto som ikke er aktivert, gir «Kontoen din er ikke aktivert ennå. En administrator må aktivere den før du kan logge inn.»
+Du kommer til **I dag** på mobil. På datamaskin kommer du til kontordashbordet. Feil passord gir «Feil e-post eller passord.» En konto som ikke er aktivert, gir «Kontoen din er ikke aktivert ennå. En administrator må aktivere den før du kan logge inn.»
 
 Økten varer normalt i 12 timer. Lokale kladder beholdes når økten utløper, men sendes ikke før du er innlogget igjen.
 
@@ -46,7 +46,7 @@ Valget lagres i `NEXT_LOCALE`-cookien og slår inn uten at URL-en endres. Datoer
 
 ### Installer feltappen (PWA)
 
-Feltappen er en installérbar nettapp. Den åpnes i eget vindu, starter på `/mine-oppdrag` og er låst til stående skjermretning.
+Feltappen er en installérbar nettapp. Den åpnes i eget vindu, starter på `/mine-oppdrag` på mobil (på datamaskin åpnes kontordashbordet) og er låst til stående skjermretning.
 
 - **Android/Chrome:** Nettlesermenyen → **Installer app** eller **Legg til på startskjermen**.
 - **iPhone/iPad/Safari:** Delikonet → **Legg til på Hjem-skjermen**.
@@ -134,7 +134,7 @@ Side-, API- og filcachen varer i **sju døgn per bruker**. Cacheene slettes ved 
 
 ## Mine oppdrag / I dag
 
-`/mine-oppdrag` er startsiden. Øverst ser du navnet ditt, **På vakt**, **På nett** eller **Frakoblet**, dagens dato, antall jobber i dag, antall **Forfalt**, og en beregnet rutedistanse når dagens oppdrag har koordinater. Mangler koordinatene, står det **Rute beregnes** eller ingenting – appen dikter ikke opp en avstand.
+`/mine-oppdrag` er startsiden på mobil. På datamaskin starter montøren på kontordashbordet. Øverst ser du navnet ditt, **På vakt**, **På nett** eller **Frakoblet**, dagens dato, antall jobber i dag, antall **Forfalt**, og en beregnet rutedistanse når dagens oppdrag har koordinater. Mangler koordinatene, står det **Rute beregnes** eller ingenting – appen dikter ikke opp en avstand.
 
 ### Neste jobb
 

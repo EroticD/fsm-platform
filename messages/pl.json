@@ -20,6 +20,19 @@
       }
     },
     "components": {
+      "formErrors": {
+        "summary": "Formularz zawiera {count} błędów. Popraw oznaczone pola.",
+        "required": "Pole {field} jest wymagane.",
+        "email": "Pole {field} musi zawierać prawidłowy adres e-mail.",
+        "date": "Pole {field} musi zawierać prawidłową datę.",
+        "invalid": "Pole {field} ma nieprawidłową wartość.",
+        "min": "Pole {field} musi wynosić co najmniej {min}.",
+        "max": "Pole {field} nie może być większe niż {max}.",
+        "minLength": "Pole {field} musi mieć co najmniej {min} znaków.",
+        "maxLength": "Pole {field} nie może mieć więcej niż {max} znaków.",
+        "pattern": "Pole {field} ma nieprawidłowy format."
+      },
+
       "search": {
         "subtitles": {
           "customerNumber": "#{number}",

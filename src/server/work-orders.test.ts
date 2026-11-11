@@ -126,8 +126,10 @@ function txClient() {
       ),
       create: vi.fn(async () => ({ id: "visit-new" })),
       update: vi.fn(async () => ({})),
+      updateMany: vi.fn(async () => ({ count: 0 })),
       delete: vi.fn(async () => ({})),
     },
+    trackingLink: { updateMany: vi.fn(async () => ({ count: 0 })) },
     visitTechnician: {
       createMany: vi.fn(async () => ({ count: 0 })),
       deleteMany: vi.fn(async () => ({ count: 0 })),

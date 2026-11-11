@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import { buttonClassName } from "@/components/ui/Button";
 import ErrorBanner from "@/components/ErrorBanner";
+import { invoiceErrorKey } from "../../feedback";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -86,7 +87,9 @@ export default async function EditInvoicePage({
           </Link>
         }
       />
-      {search.error ? <ErrorBanner message={t("invoicing.errors.generic")} /> : null}
+      {search.error ? (
+        <ErrorBanner message={t(invoiceErrorKey(search.error) ?? "invoicing.errors.generic")} />
+      ) : null}
       <InvoiceForm
         action={updateInvoiceAction}
         submitLabel={t("invoicing.edit.submit")}

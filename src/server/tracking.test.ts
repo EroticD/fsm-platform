@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import type { ServiceActor } from "./actor";
 
 const mocks = vi.hoisted(() => ({
@@ -75,6 +76,7 @@ function visit(overrides: Record<string, unknown> = {}) {
     status: "ASSIGNED",
     workOrder: {
       title: "Årlig service",
+      status: "OPEN",
       department: { trackingEnabled: true },
     },
     ...overrides,
@@ -92,6 +94,7 @@ function link(overrides: Record<string, unknown> = {}) {
       startsAt: new Date("2026-10-30T13:00:00.000Z"),
       technicians: [{ user: { name: "Kari Nordmann" } }],
       workOrder: {
+        status: "OPEN",
         latitude: 60.3913,
         longitude: 5.3221,
         site: null,
@@ -195,6 +198,28 @@ describe("sporingslenke", () => {
       reason: "conflict",
       details: { code: "tracking.errors.visitLocked" },
     });
+  });
+
+  it("nekter lenker når oppdraget er lukket, selv om visitten er aktiv", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visit({
+        status: "EN_ROUTE",
+        workOrder: {
+          title: "Årlig service",
+          status: "COMPLETED",
+          department: { trackingEnabled: true },
+        },
+      }),
+    );
+
+    const result = await createTrackingLink(actor(), "visit-1");
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "conflict",
+      details: { code: "tracking.errors.visitLocked" },
+    });
+    expect(mocks.prisma.trackingLink.create).not.toHaveBeenCalled();
   });
 
   it("tilbakekalling er idempotent", async () => {
@@ -423,6 +448,27 @@ describe("offentlig sporing", () => {
     expect(mocks.prisma.visitLocationPing.findFirst).not.toHaveBeenCalled();
   });
 
+  it("gir 404 når oppdraget er lukket, selv om visitten er EN_ROUTE", async () => {
+    mocks.prisma.trackingLink.findUnique.mockResolvedValue(
+      link({
+        visit: {
+          ...link().visit,
+          status: "EN_ROUTE",
+          workOrder: {
+            ...link().visit.workOrder,
+            status: "COMPLETED",
+          },
+        },
+      }),
+    );
+
+    await expect(getPublicTracking(TOKEN, NOW)).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(mocks.prisma.visitLocationPing.findFirst).not.toHaveBeenCalled();
+  });
+
   it("avviser ugyldig tokenformat før databasen", async () => {
     await expect(getPublicTracking("abc", NOW)).resolves.toEqual({
       ok: false,
@@ -473,7 +519,10 @@ describe("offentlig sporing", () => {
 
 describe("posisjonsping", () => {
   it("lagrer ping for tildelt montør på EN_ROUTE-visitt", async () => {
-    mocks.prisma.visit.findFirst.mockResolvedValue({ id: "visit-1" });
+    mocks.prisma.visit.findFirst.mockResolvedValue({
+      id: "visit-1",
+      workOrder: { status: "OPEN" },
+    });
 
     const result = await recordLocationPing(actor(), {
       visitId: "visit-1",
@@ -493,6 +542,7 @@ describe("posisjonsping", () => {
           technicians: { some: { userId: "tech-1" } },
           workOrder: {
             deletedAt: null,
+            status: { notIn: statusKeysByCategory("CLOSED") },
             department: { isActive: true, trackingEnabled: true },
           },
         }),
@@ -508,6 +558,22 @@ describe("posisjonsping", () => {
         }),
       }),
     );
+  });
+
+  it("avviser ping når oppdraget er lukket, selv om visitten er EN_ROUTE", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue({
+      id: "visit-1",
+      workOrder: { status: "COMPLETED" },
+    });
+
+    const result = await recordLocationPing(actor(), {
+      visitId: "visit-1",
+      latitude: 59.9139,
+      longitude: 10.7522,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.visitLocationPing.create).not.toHaveBeenCalled();
   });
 
   it("avviser ugyldige koordinater før oppslag", async () => {

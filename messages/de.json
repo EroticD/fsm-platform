@@ -20,6 +20,19 @@
       }
     },
     "components": {
+      "formErrors": {
+        "summary": "Das Formular enthält {count} Fehler. Korrigieren Sie die markierten Felder.",
+        "required": "{field} ist erforderlich.",
+        "email": "{field} muss eine gültige E-Mail-Adresse sein.",
+        "date": "{field} muss ein gültiges Datum sein.",
+        "invalid": "{field} hat einen ungültigen Wert.",
+        "min": "{field} muss mindestens {min} sein.",
+        "max": "{field} darf nicht größer als {max} sein.",
+        "minLength": "{field} muss mindestens {min} Zeichen haben.",
+        "maxLength": "{field} darf nicht mehr als {max} Zeichen haben.",
+        "pattern": "{field} hat das falsche Format."
+      },
+
       "search": {
         "subtitles": {
           "customerNumber": "#{number}",

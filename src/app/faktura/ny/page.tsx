@@ -15,6 +15,7 @@ import { addDaysUtc, todayUtc, toDateOnly } from "@/lib/dates";
 import { getBillingSettings } from "@/server/invoices";
 import InvoiceForm from "../invoice-form";
 import { createInvoiceAction } from "../actions";
+import { invoiceErrorKey } from "../feedback";
 
 export default async function NewInvoicePage({
   searchParams,
@@ -84,7 +85,9 @@ export default async function NewInvoicePage({
           </Link>
         }
       />
-      {params.error ? <ErrorBanner message={t("invoicing.errors.generic")} /> : null}
+      {params.error ? (
+        <ErrorBanner message={t(invoiceErrorKey(params.error) ?? "invoicing.errors.generic")} />
+      ) : null}
       <InvoiceForm
         action={createInvoiceAction}
         submitLabel={t("invoicing.new.submit")}

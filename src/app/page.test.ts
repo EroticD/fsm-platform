@@ -5,9 +5,11 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`REDIRECT:${url}`);
   }),
   getCurrentUser: vi.fn(),
+  headers: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next-intl/server", () => ({
   getLocale: vi.fn(async () => "nb"),
   getTranslations: vi.fn(async () => (key: string) => key),
@@ -59,17 +61,39 @@ function order(id: string) {
   };
 }
 
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+
+function withUserAgent(userAgent: string | null): void {
+  mocks.headers.mockResolvedValue(
+    new Headers(userAgent ? { "user-agent": userAgent } : {}),
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  withUserAgent(null);
 });
 
 describe("felles inngang /", () => {
-  it("sender montøren videre til I dag", async () => {
+  it("sender montøren videre til I dag på mobil", async () => {
+    withUserAgent(IPHONE_UA);
     mocks.getCurrentUser.mockResolvedValue(technician);
 
     await expect(AdminDashboard()).rejects.toThrow(
       "REDIRECT:/mine-oppdrag",
     );
+  });
+
+  it("lar montøren bli på dashbordet på desktop", async () => {
+    withUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    );
+    mocks.getCurrentUser.mockResolvedValue(technician);
+
+    await AdminDashboard();
+
+    expect(mocks.redirect).not.toHaveBeenCalledWith("/mine-oppdrag");
   });
 
   it("sender kundeportalbrukere til portalen", async () => {

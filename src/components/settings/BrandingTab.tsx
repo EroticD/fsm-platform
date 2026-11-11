@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import BrandingLogoUpload from "@/components/BrandingLogoUpload";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { controlClassName } from "@/components/ui/controlStyles";
 import type { SettingsOverviewData } from "@/server/settings";
 
@@ -35,7 +36,7 @@ export default async function BrandingTab({
           {t("settings.branding.logoError")}
         </div>
       )}
-      <form action={saveBranding} className="max-w-md space-y-5">
+      <ValidatedForm action={saveBranding} className="max-w-md space-y-5">
         <div>
           <label htmlFor="branding-company-name" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
             {t("settings.branding.companyName")}
@@ -84,7 +85,7 @@ export default async function BrandingTab({
         <button type="submit" className={SIGNAL_BUTTON}>
           {t("settings.branding.save")}
         </button>
-      </form>
+      </ValidatedForm>
     </section>
   );
 }

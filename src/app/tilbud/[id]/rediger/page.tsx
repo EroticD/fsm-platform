@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import { buttonClassName } from "@/components/ui/Button";
 import ErrorBanner from "@/components/ErrorBanner";
+import { quoteErrorKey } from "../../feedback";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -87,7 +88,9 @@ export default async function EditQuotePage({
           </Link>
         }
       />
-      {search.error ? <ErrorBanner message={t("quotes.errors.generic")} /> : null}
+      {search.error ? (
+        <ErrorBanner message={t(quoteErrorKey(search.error) ?? "quotes.errors.generic")} />
+      ) : null}
       <QuoteForm
         action={updateQuoteAction}
         submitLabel={t("quotes.edit.submit")}

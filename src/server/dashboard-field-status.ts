@@ -16,6 +16,7 @@ import {
   type FieldStatusRow,
   type FieldVisitInput,
 } from "@/lib/dashboard-field-status";
+import { isClosedStatus } from "@/lib/work-order-status";
 import { LOCATION_PING_RETENTION_MS } from "@/server/tracking";
 
 export type DashboardFieldStatus = {
@@ -104,6 +105,7 @@ export async function loadDashboardFieldStatus(
           select: {
             id: true,
             title: true,
+            status: true,
             customer: { select: { name: true } },
             department: { select: { trackingEnabled: true } },
           },
@@ -125,20 +127,33 @@ export async function loadDashboardFieldStatus(
 
   const visitsByUser = new Map<string, FieldVisitInput[]>();
   for (const visit of visits) {
+    const workOrderClosed = isClosedStatus(visit.workOrder.status);
+    // Eldre rader kan ha en aktiv visitt på et oppdrag som allerede er lukket.
+    // Vi stoler derfor ikke på visittstatusen alene: en lukket arbeidsordre
+    // vises som DONE (eller CANCELLED), aldri som «på vei» eller «på stedet».
+    const status: VisitStatus =
+      workOrderClosed && visit.status !== "DONE" && visit.status !== "CANCELLED"
+        ? visit.workOrder.status === "CANCELLED"
+          ? "CANCELLED"
+          : "DONE"
+        : (visit.status as VisitStatus);
     const trackingEnabled = visit.workOrder.department.trackingEnabled;
     for (const technician of visit.technicians) {
-      const ping = trackingEnabled
-        ? visit.locationPings.find(
-            (candidate) => candidate.userId === technician.userId,
-          )
-        : undefined;
+      // En gammel posisjon skal ikke fortsette å se levende ut etter at
+      // oppdraget er lukket.
+      const ping =
+        trackingEnabled && !workOrderClosed
+          ? visit.locationPings.find(
+              (candidate) => candidate.userId === technician.userId,
+            )
+          : undefined;
       const rows = visitsByUser.get(technician.userId) ?? [];
       rows.push({
         id: visit.id,
         workOrderId: visit.workOrderId,
         title: visit.workOrder.title,
         customerName: visit.workOrder.customer?.name ?? null,
-        status: visit.status as VisitStatus,
+        status,
         startsAt: visit.startsAt,
         endsAt: visit.endsAt,
         allDay: visit.allDay,

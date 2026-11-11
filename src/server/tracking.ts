@@ -10,6 +10,10 @@ import type { RoutingProvider, RoutingProviderName } from "@/lib/routing/types";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import {
+  isClosedStatus,
+  statusKeysByCategory,
+} from "@/lib/work-order-status";
+import {
   can,
   fail,
   ok,
@@ -117,6 +121,7 @@ export async function createTrackingLink(
         workOrder: {
           select: {
             title: true,
+            status: true,
             department: { select: { trackingEnabled: true } },
           },
         },
@@ -127,7 +132,11 @@ export async function createTrackingLink(
     if (!visit.workOrder.department.trackingEnabled) {
       return fail("forbidden", { code: "tracking.errors.disabled" });
     }
-    if (visit.status === "DONE" || visit.status === "CANCELLED") {
+    if (
+      isClosedStatus(visit.workOrder.status) ||
+      visit.status === "DONE" ||
+      visit.status === "CANCELLED"
+    ) {
       return fail("conflict", { code: "tracking.errors.visitLocked" });
     }
 
@@ -291,6 +300,7 @@ const publicTrackingLinkSelect = {
       },
       workOrder: {
         select: {
+          status: true,
           latitude: true,
           longitude: true,
           site: { select: { latitude: true, longitude: true } },
@@ -367,6 +377,7 @@ async function loadPublicTrackingLink(
     link.revokedAt ||
     link.expiresAt.getTime() <= now.getTime() ||
     !link.visit.workOrder.department.trackingEnabled ||
+    isClosedStatus(link.visit.workOrder.status) ||
     !PUBLIC_TRACKING_STATUSES.includes(link.visit.status)
   ) {
     return null;
@@ -640,12 +651,18 @@ export async function recordLocationPing(
       technicians: { some: { userId: actor.id } },
       workOrder: {
         deletedAt: null,
+        status: { notIn: statusKeysByCategory("CLOSED") },
         department: { isActive: true, trackingEnabled: true },
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      workOrder: { select: { status: true } },
+    },
   });
-  if (!visit) return fail("not_found");
+  if (!visit || isClosedStatus(visit.workOrder.status)) {
+    return fail("not_found");
+  }
 
   const recordedAt = new Date();
   const ping = await prisma.visitLocationPing.create({

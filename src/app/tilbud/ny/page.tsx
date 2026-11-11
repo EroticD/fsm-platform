@@ -15,6 +15,7 @@ import { addDaysUtc, todayUtc, toDateOnly } from "@/lib/dates";
 import { getBillingSettings } from "@/server/invoices";
 import QuoteForm from "../quote-form";
 import { createQuoteAction } from "../actions";
+import { quoteErrorKey } from "../feedback";
 
 export default async function NewQuotePage({
   searchParams,
@@ -56,7 +57,7 @@ export default async function NewQuotePage({
   ]);
 
   const validUntil = toDateOnly(addDaysUtc(todayUtc(), settings.quoteValidityDays));
-  const errorMessage = params.error ? t("quotes.errors.generic") : null;
+  const errorMessage = params.error ? t(quoteErrorKey(params.error) ?? "quotes.errors.generic") : null;
 
   return (
     <PageShell size="narrow">
