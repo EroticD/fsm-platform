@@ -1413,6 +1413,18 @@ export async function updateBillingSettings(
   const creditNotePrefix = cleanText(input.creditNotePrefix, { maxLength: 20 }) || "K";
 
   await prisma.$transaction(async (tx) => {
+    const before = await tx.billingSettings.findUnique({
+      where: { id: "default" },
+      select: {
+        vatRate: true,
+        invoiceDueDays: true,
+        quoteValidityDays: true,
+        approvalTokenTtlHours: true,
+        invoicePrefix: true,
+        creditNotePrefix: true,
+      },
+    });
+
     await tx.billingSettings.upsert({
       where: { id: "default" },
       update: {
@@ -1435,12 +1447,47 @@ export async function updateBillingSettings(
         updatedById: actor.id,
       },
     });
+    // Nummerseriene er lovpålagte, så de logges alltid – også når de er
+    // uendret – og endringene vises med før/etter.
+    const previousValues: Record<string, string | number> | null = before
+      ? {
+          vatRate: Number(before.vatRate),
+          invoiceDueDays: before.invoiceDueDays,
+          quoteValidityDays: before.quoteValidityDays,
+          approvalTokenTtlHours: before.approvalTokenTtlHours,
+          invoicePrefix: before.invoicePrefix,
+          creditNotePrefix: before.creditNotePrefix,
+        }
+      : null;
+    const currentValues: Record<string, string | number> = {
+      // vatRate er en desimalstreng («25.00»); sammenlign som tall.
+      vatRate: Number(vatRate),
+      invoiceDueDays,
+      quoteValidityDays,
+      approvalTokenTtlHours,
+      invoicePrefix,
+      creditNotePrefix,
+    };
+    const changes: Record<string, { from: string | number; to: string | number }> = {};
+    if (previousValues) {
+      for (const [field, to] of Object.entries(currentValues)) {
+        const from = previousValues[field];
+        if (from !== to) changes[field] = { from, to };
+      }
+    }
+
     await audit(tx, {
       entityType: "BillingSettings",
       entityId: "default",
       action: "Oppdaterte faktureringsinnstillingene",
       actor: toAuditActor(actor),
-      metadata: { vatRate, invoiceDueDays, quoteValidityDays, approvalTokenTtlHours },
+      actionCode: "billing.settings.updated",
+      retentionClass: "ACCOUNTING_5Y",
+      metadata: {
+        invoicePrefix,
+        creditNotePrefix,
+        ...(Object.keys(changes).length > 0 ? { changes } : {}),
+      },
     });
   });
   return ok({ updated: true });

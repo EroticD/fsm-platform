@@ -313,12 +313,15 @@ describe("innstillingstjenesten – maler", () => {
       details: { reports: 2, activeContracts: 1, workOrders: 3 },
     });
     expect(mocks.prisma.template.delete).not.toHaveBeenCalled();
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
-    // Det blokkerte forsøket logges med bruken som stoppet det.
+    // Det blokkerte forsøket logges med bruken som stoppet det. Raden skrives
+    // i egen transaksjon (ingen forretningsendring å binde den til) og merkes
+    // som avvist.
     expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entityType: "Template",
         entityId: "template-1",
+        actionCode: "settings.template.delete_blocked",
+        outcome: "DENIED",
         metadata: { reports: 2, activeContracts: 1, workOrders: 3 },
       }),
     });

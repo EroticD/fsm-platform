@@ -1,6 +1,11 @@
 // i18n-ignore-file: tjenestelaget bruker stabile feilkoder, ikke UI-tekst.
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { audit } from "@/lib/audit";
+import {
+  audit,
+  auditStandalone,
+  type AuditOutcome,
+} from "@/lib/audit";
 import { sha256Hex } from "@/lib/zip";
 import {
   DEFAULT_POLICIES,
@@ -80,6 +85,63 @@ function notFound(): TransferFailure {
 
 function assertAdmin(actor: ServiceActor): TransferFailure | null {
   return canUseCustomerTransfer(actor) ? null : forbidden();
+}
+
+type TransferAuditOptions = ReturnType<typeof normaliseExportOptions>;
+
+/**
+ * Valgene som følger eksporten, aldri kundenavn eller kunde-id-er. Størrelsen
+ * på kundesettet er nok til å se hva som ble hentet ut.
+ */
+function exportAuditMetadata(
+  options: TransferAuditOptions,
+  stage: string,
+): Prisma.InputJsonObject {
+  return {
+    stage,
+    customerCount: options.customerIds.length,
+    includeFiles: options.includeFiles,
+    includeDeleted: options.includeDeleted,
+    includeLegalHold: options.includeLegalHold,
+    includeAudit: options.includeAudit,
+    includeSignatures: options.includeSignatures,
+    modules: [...(options.modules ?? [])],
+  };
+}
+
+/**
+ * Revisjonsrad for kundeoverføring, skrevet utenfor forretningstransaksjonen.
+ *
+ * En feil her skal ikke velte en eksport eller import; avviket logges til
+ * operatøren med handlingens kode slik at en manglende rad ikke er stille.
+ */
+async function logTransferEvent(
+  actor: ServiceActor,
+  input: {
+    actionCode: "transfer.export.built" | "transfer.import.decrypted";
+    entityId: string;
+    action: string;
+    outcome?: AuditOutcome;
+    metadata?: Prisma.InputJsonObject;
+  },
+): Promise<void> {
+  try {
+    await auditStandalone({
+      entityType: "CustomerTransfer",
+      entityId: input.entityId,
+      action: input.action,
+      actor: toAuditActor(actor),
+      actionCode: input.actionCode,
+      outcome: input.outcome ?? "SUCCESS",
+      metadata: input.metadata,
+    });
+  } catch (error) {
+    console.error(`[audit] kunne ikke logge ${input.actionCode}`, {
+      entityId: input.entityId,
+      outcome: input.outcome ?? "SUCCESS",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export type JobView = {
@@ -350,6 +412,12 @@ export async function exportCustomerPackage(
 
   if (mode.mode === "queue") {
     if (reused) return resolveReusableExport(actor, job);
+    await logTransferEvent(actor, {
+      actionCode: "transfer.export.built",
+      entityId: job.id,
+      action: `Startet kundeeksport for ${customerIds.length} kunder`,
+      metadata: exportAuditMetadata(options, "queued"),
+    });
     const fresh = await findJobForActor(job.id, actor.id);
     const view = exportJobView(fresh, false);
     return view ? { ok: true, data: view } : notFound();
@@ -399,6 +467,20 @@ export async function exportCustomerPackage(
     const fresh = await findJobForActor(job.id, actor.id);
     const view = exportJobView(fresh, false);
     if (!view) return notFound();
+
+    await logTransferEvent(actor, {
+      actionCode: "transfer.export.built",
+      entityId: job.id,
+      action: `Bygde kundeeksport for ${built.customerIds.length} kunder`,
+      metadata: {
+        ...exportAuditMetadata(options, "ready"),
+        customerCount: built.customerIds.length,
+        files: built.counts.files ?? 0,
+        bytes: built.buffer.length,
+        warnings: built.warnings.length,
+      },
+    });
+
     return { ok: true, data: view };
   } catch (error) {
     // Den rå feilen logges uten kundedata, men med nok kontekst til at en
@@ -412,6 +494,16 @@ export async function exportCustomerPackage(
         error instanceof Error
           ? error.message.slice(0, 500)
           : String(error).slice(0, 500),
+    });
+    await logTransferEvent(actor, {
+      actionCode: "transfer.export.built",
+      entityId: job.id,
+      action: "Kundeeksport feilet",
+      outcome: "ERROR",
+      metadata: {
+        ...exportAuditMetadata(options, stage),
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      },
     });
     await failsafeJob(job.id, {
       code: TRANSFER_ERROR.export_failed,
@@ -494,6 +586,7 @@ export async function downloadExportPackage(
       entityId: job.id,
       action: `Lastet ned kundepakke: ${job.packageChecksum?.slice(0, 12)}`,
       actor: toAuditActor(actor),
+      actionCode: "transfer.export.downloaded",
       metadata: {
         kind: "EXPORT_DOWNLOAD",
         jobId: job.id,
@@ -582,6 +675,18 @@ export async function createImportJob(
         cryptoError === "passphrase_too_short"
           ? TRANSFER_ERROR.passphrase_required
           : TRANSFER_ERROR.decryption_failed;
+      // Feil passfrase er en sikkerhetshendelse, ikke bare en 422.
+      await logTransferEvent(actor, {
+        actionCode: "transfer.import.decrypted",
+        entityId: `import:${sha256Hex(buffer).slice(0, 24)}`,
+        action: "Kunne ikke dekryptere importpakke",
+        outcome: "ERROR",
+        metadata: {
+          reason: cryptoError,
+          encrypted: true,
+          bytes: buffer.length,
+        },
+      });
       return failure(
         422,
         code,
@@ -610,6 +715,20 @@ export async function createImportJob(
     packageChecksum: checksum,
     expiresAt: new Date(Date.now() + TRANSFER_LIMITS.exportTtlMs),
   });
+  if (encrypted) {
+    // Vellykket dekryptering betyr at passfrasen ble brukt – logg det uten
+    // å lagre passfrasen eller filnavnet.
+    await logTransferEvent(actor, {
+      actionCode: "transfer.import.decrypted",
+      entityId: job.id,
+      action: "Dekrypterte importpakke",
+      metadata: {
+        encrypted: true,
+        bytes: payload.length,
+        checksumPrefix: checksum.slice(0, 16),
+      },
+    });
+  }
   try {
     const stagingPath = await writeStagedPackage(job.id, payload);
     await prisma.customerTransferJob.update({

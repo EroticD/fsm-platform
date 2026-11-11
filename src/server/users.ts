@@ -369,6 +369,21 @@ export async function changeRole(
       entityId: id,
       action: `Endret rolle for ${userToUpdate.name || "Ukjent"} til ${newRole.label}`,
       actor: toAuditActor(actor),
+      targetUserId: id,
+      actionCode: "user.role.changed",
+      retentionClass: "SECURITY_1Y",
+      metadata: {
+        changes: {
+          role: { from: userToUpdate.role, to: newRole.key },
+          // Rollen overstyrer en eventuell tilpasset liste, så den logges med.
+          ...((userToUpdate.permissions ?? []).length > 0
+            ? { permissions: { from: userToUpdate.permissions ?? [], to: [] } }
+            : {}),
+          ...(newRole.key === "CUSTOMER" && userToUpdate.departmentId
+            ? { departmentId: { from: userToUpdate.departmentId, to: null } }
+            : {}),
+        },
+      },
     });
   });
   return ok(undefined);
@@ -487,6 +502,13 @@ export async function changeDepartment(
       entityId: id,
       action: `Endret avdeling for ${target.name || target.email || "Ukjent"} til ${departmentName}`,
       actor: toAuditActor(actor),
+      departmentId,
+      targetUserId: id,
+      actionCode: "user.department.changed",
+      metadata: {
+        changes: { departmentId: { from: target.departmentId ?? null, to: departmentId } },
+        departmentName,
+      },
     });
   });
   return ok(undefined);
@@ -533,6 +555,13 @@ export async function changePhone(
       entityId: id,
       action: `Endret telefonnummer for ${target.name || target.email || "Ukjent"}`,
       actor: toAuditActor(actor),
+      targetUserId: id,
+      actionCode: "user.phone.changed",
+      // Telefonnummeret er persondata. Loggen sier hva som skjedde – satt
+      // eller fjernet – uten å kopiere nummeret.
+      metadata: {
+        changes: { phone: { from: target.phone ? "satt" : "tom", to: phone ? "satt" : "tom" } },
+      },
     });
   });
   return ok(undefined);
@@ -574,6 +603,15 @@ export async function resetTwoFactor(
       entityId: id,
       action: `Tilbaketstilte to-trinns verifisering for ${target.name || target.email || "Ukjent"}`,
       actor: toAuditActor(actor),
+      targetUserId: id,
+      actionCode: "user.twofactor.reset",
+      retentionClass: "SECURITY_1Y",
+      metadata: {
+        changes: { twoFactorEnabled: { from: target.isTwoFactorEnabled, to: false } },
+        // Engangskodene slettes samtidig; det er en sikkerhetshendelse i seg selv.
+        recoveryCodesRevoked: true,
+        sessionsInvalidated: true,
+      },
     });
   });
   return ok(undefined);
@@ -613,6 +651,14 @@ export async function changePermissions(
   const rolePermissions = target.roleDefinition?.permissions ?? [];
   const customized = !samePermissions(permissions, rolePermissions);
 
+  // Rettighetene som gjaldt før, og de som gjelder etter. Når listen ikke er
+  // tilpasset, arver brukeren rollens liste – derfor sammenlignes den.
+  const before = target.permissionsCustomized ? (target.permissions ?? []) : rolePermissions;
+  const beforeSet = new Set(before);
+  const afterSet = new Set<string>(permissions);
+  const added = permissions.filter((permission) => !beforeSet.has(permission));
+  const removed = before.filter((permission) => !afterSet.has(permission));
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id },
@@ -630,6 +676,18 @@ export async function changePermissions(
         ? `Endret tilpassede rettigheter for ${target.name || target.email || "Ukjent"}`
         : `Tilbakestilte rettigheter til rollen for ${target.name || target.email || "Ukjent"}`,
       actor: toAuditActor(actor),
+      targetUserId: id,
+      actionCode: customized ? "user.permissions.changed" : "user.permissions.reset",
+      retentionClass: "SECURITY_1Y",
+      metadata: {
+        changes: {
+          permissions: { from: before, to: permissions },
+          permissionsCustomized: { from: target.permissionsCustomized, to: customized },
+        },
+        added,
+        removed,
+        role: target.role,
+      },
     });
   });
   return ok(undefined);
@@ -648,8 +706,20 @@ export async function resetPermissions(
   if (!parsed.success) return fail("invalid");
   const id = parsed.data.id;
 
-  const target = await prisma.user.findUnique({ where: { id } });
+  const target = await prisma.user.findUnique({
+    where: { id },
+    include: { roleDefinition: true },
+  });
   if (!target) return fail("not_found");
+
+  // Rettighetene som forsvinner (den tilpassede listen) og de som overtar
+  // (rollens liste). Loggen skal vise begge uten å gjette.
+  const rolePermissions = target.roleDefinition?.permissions ?? [];
+  const before = target.permissionsCustomized ? (target.permissions ?? []) : [];
+  const beforeSet = new Set(before);
+  const roleSet = new Set<string>(rolePermissions);
+  const restored = rolePermissions.filter((permission) => !beforeSet.has(permission));
+  const removed = before.filter((permission) => !roleSet.has(permission));
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -666,6 +736,18 @@ export async function resetPermissions(
       entityId: id,
       action: `Tilbakestilte rettigheter til rollen for ${target.name || target.email || "Ukjent"}`,
       actor: toAuditActor(actor),
+      targetUserId: id,
+      actionCode: "user.permissions.reset",
+      retentionClass: "SECURITY_1Y",
+      metadata: {
+        changes: {
+          permissions: { from: before, to: [] },
+          permissionsCustomized: { from: target.permissionsCustomized, to: false },
+        },
+        added: restored,
+        removed,
+        role: target.role,
+      },
     });
   });
   return ok(undefined);

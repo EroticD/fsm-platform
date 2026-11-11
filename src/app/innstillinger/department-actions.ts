@@ -2,13 +2,49 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { actorName, requireAdmin } from "@/lib/session";
+import {
+  audit,
+  auditRequestContext,
+  auditStandalone,
+  type AuditActor,
+} from "@/lib/audit";
+import { getCurrentUser, requireAdmin } from "@/lib/session";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 
 function revalidateDepartments() {
   revalidatePath("/innstillinger");
   revalidatePath("/brukere");
   revalidatePath("/oppdrag");
+}
+
+/**
+ * Aktøren slik revisjonsloggen trenger den. `getCurrentUser` er cachet per
+ * forespørsel, så dette gir ikke et ekstra brukeroppslag.
+ */
+async function currentAuditActor(): Promise<AuditActor> {
+  const user = await getCurrentUser();
+  return {
+    id: user?.id ?? "",
+    name: user?.name ?? null,
+    email: user?.email ?? null,
+    departmentId: user?.departmentId ?? null,
+  };
+}
+
+type FieldValue = string | boolean | null;
+
+/** Før/etter for feltene som faktisk endret seg. */
+function buildChanges(
+  before: Record<string, FieldValue>,
+  after: Record<string, FieldValue>,
+): Record<string, { from: FieldValue; to: FieldValue }> {
+  const changes: Record<string, { from: FieldValue; to: FieldValue }> = {};
+  for (const field of Object.keys(after)) {
+    const from = before[field] ?? null;
+    const to = after[field] ?? null;
+    if (from !== to) changes[field] = { from, to };
+  }
+  return changes;
 }
 
 export async function createDepartment(formData: FormData) {
@@ -24,26 +60,39 @@ export async function createDepartment(formData: FormData) {
   const trackingEnabled = formData.get("trackingEnabled") === "on";
   if (!name) return;
 
+  const actor = await currentAuditActor();
+  const context = await auditRequestContext();
+
+  // Avdelingen og revisjonsraden skrives i samme transaksjon, slik at en
+  // opprettet avdeling alltid har en loggført opprinnelse.
   try {
-    const department = await prisma.department.create({
-      data: {
-        name,
-        description: description || null,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        city: city || null,
-        postalCode: postalCode || null,
-        trackingEnabled,
-      },
-    });
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      const department = await tx.department.create({
+        data: {
+          name,
+          description: description || null,
+          phone: phone || null,
+          email: email || null,
+          address: address || null,
+          city: city || null,
+          postalCode: postalCode || null,
+          trackingEnabled,
+        },
+      });
+      await audit(tx, {
         entityType: "Department",
         entityId: department.id,
         action: `Opprettet avdeling: ${name}`,
-        userName: await actorName(),
-      },
+        actionCode: "department.created",
+        actor,
+        // Hendelsen gjelder avdelingen selv, ikke aktørens egen avdeling.
+        departmentId: department.id,
+        context,
+        metadata: {
+          name,
+          trackingEnabled,
+        },
+      });
     });
   } catch (error) {
     console.error("Kunne ikke opprette avdeling", error);
@@ -68,27 +117,65 @@ export async function updateDepartment(formData: FormData) {
   const existing = await prisma.department.findUnique({ where: { id } });
   if (!existing) return;
 
+  const actor = await currentAuditActor();
+  const context = await auditRequestContext();
+
+  const changes = buildChanges(
+    {
+      name: existing.name,
+      description: existing.description ?? null,
+      phone: existing.phone ?? null,
+      email: existing.email ?? null,
+      address: existing.address ?? null,
+      city: existing.city ?? null,
+      postalCode: existing.postalCode ?? null,
+      trackingEnabled: existing.trackingEnabled,
+    },
+    {
+      name,
+      description: description || null,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      city: city || null,
+      postalCode: postalCode || null,
+      trackingEnabled,
+    },
+  );
+
   try {
-    await prisma.department.update({
-      where: { id },
-      data: {
-        name,
-        description: description || null,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        city: city || null,
-        postalCode: postalCode || null,
-        trackingEnabled,
-      },
-    });
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.department.update({
+        where: { id },
+        data: {
+          name,
+          description: description || null,
+          phone: phone || null,
+          email: email || null,
+          address: address || null,
+          city: city || null,
+          postalCode: postalCode || null,
+          trackingEnabled,
+        },
+      });
+      await audit(tx, {
         entityType: "Department",
         entityId: id,
         action: `Oppdaterte avdeling: ${existing.name} → ${name}`,
-        userName: await actorName(),
-      },
+        actionCode: "department.updated",
+        actor,
+        departmentId: id,
+        context,
+        // Feltene som endret seg, med før/etter. Sporing av montør er et
+        // personvernvalg, så den vises alltid – også når den ikke endres.
+        metadata: {
+          changes,
+          trackingEnabled: {
+            from: existing.trackingEnabled,
+            to: trackingEnabled,
+          },
+        },
+      });
     });
   } catch (error) {
     console.error("Kunne ikke oppdatere avdeling", error);
@@ -106,10 +193,25 @@ export async function toggleDepartment(formData: FormData) {
   const department = await prisma.department.findUnique({ where: { id } });
   if (!department) return;
 
-  // Standardavdelingen kan ikke deaktiveres uten at en annen er valgt først.
-  if (!active && department.isDefault) return;
+  const actor = await currentAuditActor();
+  const context = await auditRequestContext();
 
-  const actor = await actorName();
+  // Standardavdelingen kan ikke deaktiveres uten at en annen er valgt først.
+  // Det avviste forsøket logges, så det er synlig hvem som prøvde.
+  if (!active && department.isDefault) {
+    await auditStandalone({
+      entityType: "Department",
+      entityId: id,
+      action: `Avviste deaktivering av standardavdelingen: ${department.name}`,
+      actionCode: "department.updated",
+      outcome: "DENIED",
+      actor,
+      departmentId: id,
+      context,
+      metadata: { reason: "standardavdeling", isActive: { from: true, to: false } },
+    });
+    return;
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.department.update({ where: { id }, data: { isActive: active } });
@@ -132,13 +234,17 @@ export async function toggleDepartment(formData: FormData) {
       deactivatedUsers = result.count;
     }
 
-    await tx.auditLog.create({
-      data: {
-        entityType: "Department",
-        entityId: id,
-        action: `${active ? "Aktiverte" : "Deaktiverte"} avdeling: ${department.name}`,
-        userName: actor,
-        metadata: active ? undefined : { deactivatedUsers },
+    await audit(tx, {
+      entityType: "Department",
+      entityId: id,
+      action: `${active ? "Aktiverte" : "Deaktiverte"} avdeling: ${department.name}`,
+      actionCode: "department.updated",
+      actor,
+      departmentId: id,
+      context,
+      metadata: {
+        isActive: { from: department.isActive, to: active },
+        ...(active ? {} : { deactivatedUsers }),
       },
     });
   });
@@ -154,24 +260,40 @@ export async function setDefaultDepartment(formData: FormData) {
   const department = await prisma.department.findUnique({ where: { id } });
   if (!department || !department.isActive) return;
 
-  await prisma.$transaction([
-    prisma.department.updateMany({
+  const actor = await currentAuditActor();
+  const context = await auditRequestContext();
+
+  // Standardavdelingen og loggen byttes i samme transaksjon, så det aldri
+  // finnes en periode uten loggført standardavdeling.
+  await prisma.$transaction(async (tx) => {
+    const previous = await tx.department.findFirst({
+      where: { isDefault: true, id: { not: id } },
+      select: { id: true, name: true },
+    });
+
+    await tx.department.updateMany({
       where: { isDefault: true, id: { not: id } },
       data: { isDefault: false },
-    }),
-    prisma.department.update({
+    });
+    await tx.department.update({
       where: { id },
       data: { isDefault: true, isActive: true },
-    }),
-  ]);
+    });
 
-  await prisma.auditLog.create({
-    data: {
+    await audit(tx, {
       entityType: "Department",
       entityId: id,
       action: `Satte ${department.name} som standardavdeling`,
-      userName: await actorName(),
-    },
+      actionCode: "department.default_changed",
+      actor,
+      departmentId: id,
+      context,
+      metadata: {
+        name: department.name,
+        previousDefaultId: previous?.id ?? null,
+        previousDefaultName: previous?.name ?? null,
+      },
+    });
   });
   revalidateDepartments();
 }

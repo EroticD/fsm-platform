@@ -3,6 +3,11 @@ import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/credentials";
+import {
+  auditRequestContext,
+  auditStandalone,
+  type AuditEntry,
+} from "@/lib/audit";
 import { clientIpFrom } from "@/lib/client-ip";
 import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
 import {
@@ -23,6 +28,25 @@ import { resolveSsoUser, recordSsoLogin } from "@/server/sso";
  * kunne leve evig. Verdien lagres i tokenet ved innlogging.
  */
 export const SESSION_ABSOLUTE_MAX_AGE = 7 * 24 * 60 * 60;
+
+/** Aktøren for avviste forsøk der vi ikke vet hvilken konto det gjaldt. */
+const UNKNOWN_ACTOR = { id: "", name: null, email: null };
+
+/**
+ * Revisjonsrad for en identitets- eller økthendelse.
+ *
+ * NextAuth-callbackene må aldri feile fordi revisjonsloggen ikke kan skrives:
+ * da ville en databasefeil logget ut brukeren eller avvist en gyldig
+ * innlogging. Feilen svelges, og den rå feilmeldingen logges aldri fordi raden
+ * kan inneholde brukerens e-post.
+ */
+async function auditAuth(entry: Omit<AuditEntry, "context">): Promise<void> {
+  try {
+    await auditStandalone({ ...entry, context: await auditRequestContext() });
+  } catch {
+    logger.warn("Kunne ikke skrive revisjonsrad for identitetshendelse");
+  }
+}
 
 /**
  * NextAuth-provider for én OIDC-leverandør.
@@ -97,20 +121,17 @@ async function ssoTwoFactorRedirect(user: {
   await setPendingTwoFactor(user.id);
 
   if (gate === "enroll") {
-    try {
-      const prisma = (await import("@/lib/prisma")).default;
-      await prisma.auditLog.create({
-        data: {
-          entityType: "User",
-          entityId: user.id,
-          action: "2FA: påkrevd oppsett startet",
-          userName: user.name || user.email || "Ukjent",
-          actorId: user.id,
-        },
-      });
-    } catch {
-      // Revisjonsraden er best effort, som for passordinnlogging.
-    }
+    await auditAuth({
+      entityType: "User",
+      entityId: user.id,
+      action: "2FA: påkrevd oppsett startet",
+      actionCode: "user.2fa.enrollment.required",
+      outcome: "SUCCESS",
+      retentionClass: "SECURITY_1Y",
+      actor: { id: user.id, name: user.name, email: user.email },
+      targetUserId: user.id,
+      metadata: { reason: "policy", method: "sso" },
+    });
     return "/logg-inn/2fa/oppsett";
   }
 
@@ -175,14 +196,50 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (result.status === "locked") {
+          await auditAuth({
+            entityType: "User",
+            entityId: "unknown",
+            action: "Innlogging avvist: for mange forsøk",
+            actionCode: "auth.login.locked",
+            outcome: "DENIED",
+            retentionClass: "SECURITY_1Y",
+            actor: UNKNOWN_ACTOR,
+            metadata: {
+              reason: "locked",
+              retryAfterSeconds: result.retryAfterSeconds,
+              method: "password",
+            },
+          });
           throw new Error("TooManyAttempts");
         }
 
-        if (result.status === "invalid") return null;
+        if (result.status === "invalid") {
+          await auditAuth({
+            entityType: "User",
+            entityId: "unknown",
+            action: "Innlogging avvist: feil legitimasjon",
+            actionCode: "auth.login.failed",
+            outcome: "DENIED",
+            retentionClass: "SECURITY_1Y",
+            actor: UNKNOWN_ACTOR,
+            metadata: { reason: "invalid", method: "password" },
+          });
+          return null;
+        }
 
         // Kontoen må være manuelt aktivert av en administrator.
         // Feilen fanges opp av innloggingssiden og vises som en tydelig melding.
         if (result.status === "inactive") {
+          await auditAuth({
+            entityType: "User",
+            entityId: "unknown",
+            action: "Innlogging avvist: kontoen er ikke aktivert",
+            actionCode: "auth.login.inactive",
+            outcome: "DENIED",
+            retentionClass: "SECURITY_1Y",
+            actor: UNKNOWN_ACTOR,
+            metadata: { reason: "inactive", method: "password" },
+          });
           throw new Error("AccountNotActivated");
         }
 
@@ -248,6 +305,24 @@ export const authOptions: NextAuthOptions = {
         } catch {
           // Utloggingen skal fullføres selv om databasen ikke svarer.
         }
+
+        // Utlogging er en sikkerhetshendelse og skal stå i den hash-kjedede
+        // loggen. `auditAuth` svelger feil, så en treg database kan aldri
+        // hindre brukeren i å logge ut.
+        await auditAuth({
+          entityType: "User",
+          entityId: userId,
+          action: "Logget ut",
+          actionCode: "auth.logout",
+          outcome: "SUCCESS",
+          retentionClass: "SECURITY_1Y",
+          actor: {
+            id: userId,
+            name: typeof token?.name === "string" ? token.name : null,
+            email: typeof token?.email === "string" ? token.email : null,
+          },
+          metadata: { method: "signout" },
+        });
       }
 
       try {
@@ -272,11 +347,39 @@ export const authOptions: NextAuthOptions = {
 
       const { moduleEnabled } = await import("@/server/modules");
       if (!(await moduleEnabled("sso"))) {
+        await auditAuth({
+          entityType: "User",
+          entityId: "unknown",
+          action: "SSO-innlogging avvist: modulen er slått av",
+          actionCode: "auth.sso.rejected",
+          outcome: "DENIED",
+          retentionClass: "SECURITY_1Y",
+          actor: UNKNOWN_ACTOR,
+          metadata: {
+            reason: "module_disabled",
+            provider: account?.provider ?? null,
+          },
+        });
         return "/logg-inn?error=SsoDisabled";
       }
 
       const provider = ssoProviderById(account?.provider ?? "");
-      if (!provider) return "/logg-inn?error=SsoConfiguration";
+      if (!provider) {
+        await auditAuth({
+          entityType: "User",
+          entityId: "unknown",
+          action: "SSO-innlogging avvist: ukjent leverandør",
+          actionCode: "auth.sso.rejected",
+          outcome: "DENIED",
+          retentionClass: "SECURITY_1Y",
+          actor: UNKNOWN_ACTOR,
+          metadata: {
+            reason: "unknown_provider",
+            provider: account?.provider ?? null,
+          },
+        });
+        return "/logg-inn?error=SsoConfiguration";
+      }
 
       const claims = (profile ?? {}) as SsoClaims;
       const result = await resolveSsoUser(provider, claims);
@@ -284,6 +387,18 @@ export const authOptions: NextAuthOptions = {
         logger.warn("SSO-innlogging avvist", {
           provider: provider.slug,
           reason: result.reason,
+        });
+        // Avvisningen er en sikkerhetshendelse. Claims, e-post og tokens
+        // lagres aldri – bare leverandøren og den stabile årsakskoden.
+        await auditAuth({
+          entityType: "User",
+          entityId: "unknown",
+          action: `SSO: innlogging avvist (${result.reason})`,
+          actionCode: "auth.sso.rejected",
+          outcome: "DENIED",
+          retentionClass: "SECURITY_1Y",
+          actor: UNKNOWN_ACTOR,
+          metadata: { provider: provider.slug, reason: result.reason },
         });
         return ssoErrorRedirect(result.reason);
       }
@@ -329,6 +444,26 @@ export const authOptions: NextAuthOptions = {
       const issuedAt = token.sessionIssuedAt as number;
       const age = Math.floor(Date.now() / 1000) - issuedAt;
       if (age > SESSION_ABSOLUTE_MAX_AGE) {
+        // En utløpt økt er en sikkerhetshendelse: brukeren må logge inn på
+        // nytt. Loggingen er best effort og påvirker aldri avvisningen.
+        await auditAuth({
+          entityType: "User",
+          entityId: typeof token.id === "string" ? token.id : "unknown",
+          action: "Sesjon utløpt",
+          actionCode: "auth.session.expired",
+          outcome: "SUCCESS",
+          retentionClass: "SECURITY_1Y",
+          actor: {
+            id: typeof token.id === "string" ? token.id : "",
+            name: typeof token.name === "string" ? token.name : null,
+            email: typeof token.email === "string" ? token.email : null,
+          },
+          metadata: {
+            reason: "absolute_max_age",
+            absoluteMaxAgeSeconds: SESSION_ABSOLUTE_MAX_AGE,
+            ageSeconds: age,
+          },
+        });
         // Null gjør at NextAuth avviser sesjonen og sletter cookien. Typen i
         // NextAuth 4 tillater ikke null, men runtime håndterer det.
         return null as unknown as JWT;

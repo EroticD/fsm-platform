@@ -4,6 +4,7 @@
 
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { auditRequestContext, auditStandalone } from "@/lib/audit";
 import {
   clearPendingTwoFactor,
   createSessionCookie,
@@ -72,6 +73,7 @@ export async function confirmRequiredEnrollmentAction(
       role: true,
       isActive: true,
       sessionVersion: true,
+      departmentId: true,
     },
   });
   if (!user?.isActive) {
@@ -90,14 +92,21 @@ export async function confirmRequiredEnrollmentAction(
   await clearPendingTwoFactor();
 
   try {
-    await prisma.auditLog.create({
-      data: {
-        entityType: "User",
-        entityId: user.id,
-        action: "Logget inn med påkrevd 2FA",
-        userName: user.name || user.email || "Ukjent",
-        actorId: user.id,
+    await auditStandalone({
+      entityType: "User",
+      entityId: user.id,
+      action: "Logget inn med påkrevd 2FA",
+      actionCode: "auth.login.success",
+      outcome: "SUCCESS",
+      retentionClass: "SECURITY_1Y",
+      actor: { id: user.id, name: user.name, email: user.email },
+      departmentId: user.departmentId,
+      metadata: {
+        method: "totp",
+        enrollment: "required",
+        recoveryCodesIssued: result.data.recoveryCodes.length,
       },
+      context: await auditRequestContext(),
     });
   } catch {
     // Revisjonslogging skal ikke hindre innloggingen.

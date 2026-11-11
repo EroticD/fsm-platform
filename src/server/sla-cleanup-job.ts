@@ -150,6 +150,7 @@ export async function runSlaCleanupJob(
         scanned: result.scanned,
         kept: result.kept,
         cancelled: result.cancelled,
+        replaced: result.replaced,
       });
     } else {
       logger.info("SLA cleanup: nothing to cancel", {

@@ -147,8 +147,11 @@ describe("generateDueRecurringWorkOrders", () => {
     expect(results).toEqual([
       expect.objectContaining({ contractId: "contract-1", workOrderId: "wo-new" }),
     ]);
-    // Bare låsekallet – opplåsing skjer implisitt ved commit.
-    expect(queryRaw).toHaveBeenCalledTimes(1);
+    // Låsekallet for kravet pluss kjedeslåsen revisjonsloggen tar. Opplåsing
+    // skjer implisitt ved commit.
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(rawSql(queryRaw)).toContain("pg_try_advisory_xact_lock");
+    expect(rawSql(queryRaw, 1)).toContain("hashtext");
     expect(rawSql(queryRaw)).not.toContain("pg_advisory_unlock");
   });
 

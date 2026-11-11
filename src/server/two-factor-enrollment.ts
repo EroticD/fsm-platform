@@ -1,7 +1,7 @@
 // i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
 // oversettes ved visning i audit-actions.ts.
 import prisma from "@/lib/prisma";
-import { audit, type AuditActor } from "@/lib/audit";
+import { audit, auditRequestContext, auditStandalone, type AuditActor } from "@/lib/audit";
 import { cleanText } from "@/lib/sanitize";
 import {
   acceptTotpTimeStep,
@@ -40,10 +40,16 @@ type EnrollmentUser = {
   role: string;
   isActive: boolean;
   isTwoFactorEnabled: boolean;
+  departmentId: string | null;
 };
 
 function actorFor(user: EnrollmentUser): AuditActor {
-  return { id: user.id, name: user.name, email: user.email };
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    departmentId: user.departmentId,
+  };
 }
 
 function isRecordNotFound(error: unknown): boolean {
@@ -65,6 +71,7 @@ async function loadUser(userId: string): Promise<EnrollmentUser | null> {
       role: true,
       isActive: true,
       isTwoFactorEnabled: true,
+      departmentId: true,
     },
   });
 }
@@ -96,6 +103,8 @@ export async function startRequiredEnrollment(
         entityType: "User",
         entityId: user.id,
         action: "2FA: startet påkrevd oppsett",
+        actionCode: "user.2fa.setup.started",
+        retentionClass: "SECURITY_1Y",
         actor: actorFor(user),
       });
     });
@@ -149,6 +158,8 @@ export async function confirmRequiredEnrollment(
         entityType: "User",
         entityId: user.id,
         action: "2FA: oppsett utløpt",
+        actionCode: "user.2fa.setup.expired",
+        retentionClass: "SECURITY_1Y",
         actor: actorFor(user),
       });
     });
@@ -163,15 +174,19 @@ export async function confirmRequiredEnrollment(
   );
   if (!verification.valid) {
     try {
-      await prisma.auditLog.create({
-        data: {
-          entityType: "User",
-          entityId: user.id,
-          action: "2FA: feilet verifisering",
-          userName: user.name || user.email || "Ukjent",
-          actorId: user.id,
-          metadata: { step: "required_enrollment" },
-        },
+      // Feil engangskode i den påkrevde innloggingsflyten er en avvist
+      // innlogging, ikke bare en feilet innstilling.
+      await auditStandalone({
+        entityType: "User",
+        entityId: user.id,
+        action: "2FA: feilet verifisering",
+        actionCode: "auth.2fa.failed",
+        outcome: "DENIED",
+        retentionClass: "SECURITY_1Y",
+        actor: actorFor(user),
+        targetUserId: user.id,
+        metadata: { step: "required_enrollment" },
+        context: await auditRequestContext(),
       });
     } catch {
       // Revisjonslogging skal ikke endre svaret.
@@ -199,6 +214,8 @@ export async function confirmRequiredEnrollment(
         entityType: "User",
         entityId: user.id,
         action: "2FA: fullførte påkrevd oppsett",
+        actionCode: "user.2fa.enrolled",
+        retentionClass: "SECURITY_1Y",
         actor: actorFor(user),
       });
       return { sessionVersion: updated.sessionVersion, recoveryCodes };

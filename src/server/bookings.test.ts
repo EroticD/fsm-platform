@@ -18,13 +18,22 @@ const mocks = vi.hoisted(() => ({
     visit: {
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+      count: vi.fn(async () => 1),
+      findFirst: vi.fn(async () => null),
+      aggregate: vi.fn(async () => ({
+        _min: { startsAt: null },
+        _max: { endsAt: null },
+      })),
       create: vi.fn(),
     },
+    trackingLink: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    slaClock: { findMany: vi.fn(async () => []), updateMany: vi.fn(async () => ({ count: 0 })) },
     visitTechnician: {
       deleteMany: vi.fn(),
       create: vi.fn(),
     },
-    workOrder: { updateMany: vi.fn() },
+    workOrder: { updateMany: vi.fn(), update: vi.fn() },
     bookingRequestEvent: { create: vi.fn() },
   },
   runSerializable: vi.fn(),
@@ -59,7 +68,7 @@ vi.mock("./email-outbox", () => ({
   enqueueBookingEmail: mocks.enqueueBookingEmail,
 }));
 
-import { confirmBooking, listBookingQueue } from "./bookings";
+import { cancelBookingFromOffice, confirmBooking, listBookingQueue } from "./bookings";
 
 const office = (overrides: Partial<ServiceActor> = {}): ServiceActor => ({
   id: "office-1",
@@ -135,6 +144,29 @@ beforeEach(() => {
     reason: "queued",
   });
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+});
+
+describe("cancelBookingFromOffice", () => {
+  it("avlyser oppdraget og rydder livssyklusen, ikke bare statusen", async () => {
+    const result = await cancelBookingFromOffice(office(), { bookingId: "br-1" });
+
+    expect(result).toEqual({ ok: true, data: { reference: "B-TEST-1" } });
+    expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "wo-1",
+        status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING"] },
+      },
+      data: { status: "CANCELLED" },
+    });
+    expect(mocks.prisma.slaClock.updateMany).toHaveBeenCalled();
+    expect(mocks.prisma.trackingLink.updateMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: "CANCELLED" }),
+    });
+  });
 });
 
 describe("confirmBooking", () => {

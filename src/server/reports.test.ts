@@ -18,9 +18,15 @@ const mocks = vi.hoisted(() => ({
   deleteUploadIfOwned: vi.fn(),
   getOrRenderReportPdf: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
+  markResolved: vi.fn(async () => undefined),
+  cancelClocks: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("@/server/sla", () => ({
+  markResolved: mocks.markResolved,
+  cancelClocks: mocks.cancelClocks,
+}));
 vi.mock("@/lib/access", () => ({
   workOrderScope: vi.fn(() => ({})),
   canAccessWorkOrder: (
@@ -162,7 +168,11 @@ function txClient(overrides: Record<string, unknown> = {}) {
       updateMany: vi.fn(async () => ({ count: 1 })),
       create: vi.fn(async () => ({ id: "wo-rem" })),
     },
-    visit: { create: vi.fn(async () => ({ id: "visit-rem" })) },
+    visit: {
+      create: vi.fn(async () => ({ id: "visit-rem" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
+    trackingLink: { updateMany: vi.fn(async () => ({ count: 1 })) },
     auditLog: { create: vi.fn(async () => ({})) },
     ...overrides,
   };
@@ -887,6 +897,42 @@ describe("reports-tjenesten", () => {
     });
   });
 
+  it("rydder visiter, returkjøring, sporing og SLA når rapporten fullfører oppdraget", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+    const data = formData();
+    data.set("completeWorkOrder", "1");
+
+    await submitReport(actor(), data);
+
+    // Rapporten er den vanlige veien til fullføring i felt. Uten denne
+    // ryddingen blir oppdraget stående som aktivt i lister, kalender og
+    // sporing selv om det er lukket.
+    expect(mocks.markResolved).toHaveBeenCalledWith(tx, "wo1", expect.any(Date));
+    expect(mocks.cancelClocks).not.toHaveBeenCalled();
+    expect(tx.visit.updateMany).toHaveBeenCalledWith({
+      where: {
+        workOrderId: "wo1",
+        status: { in: ["EN_ROUTE", "ON_SITE"] },
+        doneAt: null,
+      },
+      data: { status: "DONE", doneAt: expect.any(Date), autoClosedAt: expect.any(Date) },
+    });
+    expect(tx.visit.updateMany).toHaveBeenCalledWith({
+      where: {
+        workOrderId: "wo1",
+        status: "DONE",
+        travelFromEndedAt: null,
+      },
+      data: { travelFromEndedAt: expect.any(Date) },
+    });
+    expect(tx.trackingLink.updateMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
   it("endrer ikke oppdragets status når valget ikke er krysset av", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue(null);
@@ -983,6 +1029,9 @@ describe("reports-tjenesten", () => {
         action: expect.stringContaining("endret status"),
       }),
     });
+    // Allerede lukket oppdrag skal ikke ryddes på nytt.
+    expect(mocks.markResolved).not.toHaveBeenCalled();
+    expect(tx.trackingLink.updateMany).not.toHaveBeenCalled();
   });
 
   it("oppretter ikke nye enheter når et påkrevd bilde mangler", async () => {

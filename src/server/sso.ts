@@ -1,7 +1,7 @@
 // i18n-ignore-file: revisjons- og loggtekst er stabile driftsdata.
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { audit } from "@/lib/audit";
+import { audit, auditRequestContext, auditStandalone } from "@/lib/audit";
 import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 import {
@@ -190,6 +190,8 @@ async function applyGroupSync(
       entityType: "User",
       entityId: user.id,
       action,
+      actionCode: "sso.groups.synced",
+      retentionClass: "SECURITY_1Y",
       actor: {
         id: user.id,
         name: user.name,
@@ -320,6 +322,8 @@ export async function resolveSsoUser(
             entityType: "User",
             entityId: existing.id,
             action: `SSO: koblet konto til ${config.slug}`,
+            actionCode: "sso.identity.linked",
+            retentionClass: "SECURITY_1Y",
             actor: {
               id: existing.id,
               name: existing.name,
@@ -404,6 +408,8 @@ export async function resolveSsoUser(
         entityType: "User",
         entityId: user.id,
         action: `SSO: opprettet bruker via ${config.slug}`,
+        actionCode: "sso.user.provisioned",
+        retentionClass: "SECURITY_1Y",
         actor: {
           id: user.id,
           name: user.name,
@@ -461,21 +467,26 @@ export async function recordSsoLogin(
   outcome: { provisioned: boolean; linked: boolean; roleChanged: boolean },
 ): Promise<void> {
   try {
-    await prisma.auditLog.create({
-      data: {
-        entityType: "User",
-        entityId: user.id,
-        action: `Logget inn via SSO: ${config.slug}`,
-        userName: user.name || user.email || "Ukjent",
-        actorId: user.id,
-        departmentId: user.departmentId,
-        metadata: {
-          provider: config.slug,
-          provisioned: outcome.provisioned,
-          linked: outcome.linked,
-          roleChanged: outcome.roleChanged,
-        },
+    // SSO-innlogging er en identitetshendelse uten en forretningsendring å
+    // binde den til, så raden skrives i egen transaksjon – fortsatt gjennom
+    // hash-kjeden.
+    await auditStandalone({
+      entityType: "User",
+      entityId: user.id,
+      action: `Logget inn via SSO: ${config.slug}`,
+      actionCode: "auth.sso.login",
+      outcome: "SUCCESS",
+      retentionClass: "SECURITY_1Y",
+      actor: { id: user.id, name: user.name, email: user.email },
+      departmentId: user.departmentId,
+      targetUserId: user.id,
+      metadata: {
+        provider: config.slug,
+        provisioned: outcome.provisioned,
+        linked: outcome.linked,
+        roleChanged: outcome.roleChanged,
       },
+      context: await auditRequestContext(),
     });
   } catch {
     // Revisjonsraden kan inneholde e-post. Logg aldri den rå feilen.

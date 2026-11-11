@@ -104,6 +104,44 @@ function parseNoticeDays(value: unknown): number {
   return Number.isFinite(number) ? Math.max(0, Math.round(number)) : 30;
 }
 
+/**
+ * Verdier i revisjonsloggen må være JSON-skalarer. Datoer skrives som
+ * `YYYY-MM-DD` og Decimal som tall, slik at før/etter kan sammenlignes uten å
+ * avhenge av Prisma-typene.
+ */
+type DiffValue = string | number | boolean | null;
+
+function toDiffValue(value: unknown): DiffValue {
+  if (value === undefined || value === null) return null;
+  if (value instanceof Date) return toDateOnly(value);
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "object" && "toNumber" in value) {
+    const number = (value as { toNumber: () => number }).toNumber();
+    return Number.isFinite(number) ? number : null;
+  }
+  return String(value);
+}
+
+/**
+ * Før/etter for feltene som faktisk endret seg. Felter som ikke er nevnt i
+ * `after` hoppes over, slik at en PATCH bare logger det den rørte.
+ */
+function fieldDiff(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): Record<string, { from: DiffValue; to: DiffValue }> | undefined {
+  const changes: Record<string, { from: DiffValue; to: DiffValue }> = {};
+  for (const [field, next] of Object.entries(after)) {
+    const from = toDiffValue(before[field]);
+    const to = toDiffValue(next);
+    if (from !== to) changes[field] = { from, to };
+  }
+  return Object.keys(changes).length > 0 ? changes : undefined;
+}
+
 type DepartmentRow = { id: string; name: string };
 
 async function resolveDepartment(
@@ -336,14 +374,21 @@ export async function createContract(
       });
 
       await audit(tx, {
-        entityType: "Customer",
-        entityId: customerId,
+        entityType: "Contract",
+        entityId: created.id,
         action: `Opprettet serviceavtale: ${title} (${contractIntervalLabel(intervalMonths)})`,
         actor: toAuditActor(actor),
+        departmentId: department.id,
+        actionCode: "contract.created",
+        retentionClass: "ACCOUNTING_5Y",
         metadata: {
-          contractId: created.id,
+          customerId,
           contractNumber: contractNumber || null,
           status,
+          intervalMonths,
+          startDate: toDateOnly(startDate),
+          endDate: endDate ? toDateOnly(endDate) : null,
+          departmentId: department.id,
         },
       });
       return created.id;
@@ -452,6 +497,24 @@ export async function updateContract(
       ? firstOccurrenceOnOrAfter(startDate, intervalMonths, todayUtc())
       : undefined;
 
+  // Bare feltene som faktisk endret seg logges, med før/etter.
+  const changes = fieldDiff(current as unknown as Record<string, unknown>, {
+    title,
+    contractNumber: contractNumber || null,
+    startDate,
+    endDate,
+    intervalMonths,
+    status,
+    renewalMode: parsed.data.renewalMode ?? "MANUAL",
+    noticeDays: parseNoticeDays(parsed.data.noticeDays),
+    indexationPercent: parseOptionalPercent(parsed.data.indexationPercent),
+    departmentId: department.id,
+    contactId,
+    templateId,
+    slaPolicyId,
+    priceListId,
+  });
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.contract.update({
@@ -478,11 +541,18 @@ export async function updateContract(
         },
       });
       await audit(tx, {
-        entityType: "Customer",
-        entityId: current.customerId,
+        entityType: "Contract",
+        entityId: current.id,
         action: `Oppdaterte serviceavtale: ${title}`,
         actor: toAuditActor(actor),
-        metadata: { contractId: current.id, status },
+        departmentId: department.id,
+        actionCode: "contract.updated",
+        retentionClass: "ACCOUNTING_5Y",
+        metadata: {
+          customerId: current.customerId,
+          status,
+          ...(changes ? { changes } : {}),
+        },
       });
     });
   } catch (error) {
@@ -498,6 +568,7 @@ async function setStatus(
   contractId: string,
   status: "ACTIVE" | "PAUSED" | "TERMINATED" | "DRAFT",
   action: string,
+  actionCode: string,
 ): Promise<ServiceResult> {
   if (!can(actor, "contracts.manage")) return fail("forbidden");
   const contract = await contractAccess(actor, contractId);
@@ -509,11 +580,18 @@ async function setStatus(
       data: { status, isActive: status === "ACTIVE" },
     });
     await audit(tx, {
-      entityType: "Customer",
-      entityId: contract.customerId,
+      entityType: "Contract",
+      entityId: contract.id,
       action: `${action}: ${contract.title}`,
       actor: toAuditActor(actor),
-      metadata: { contractId: contract.id, from: contract.status, to: status },
+      departmentId: contract.departmentId,
+      actionCode,
+      // Avslutning binder opp avtaleforholdet og lagres som regnskapsdata.
+      retentionClass: status === "TERMINATED" ? "ACCOUNTING_5Y" : null,
+      metadata: {
+        customerId: contract.customerId,
+        changes: { status: { from: contract.status, to: status } },
+      },
     });
   });
 
@@ -528,11 +606,11 @@ async function setStatus(
 }
 
 export function pauseContract(actor: ServiceActor, contractId: string) {
-  return setStatus(actor, contractId, "PAUSED", "Pauset serviceavtale");
+  return setStatus(actor, contractId, "PAUSED", "Pauset serviceavtale", "contract.paused");
 }
 
 export function resumeContract(actor: ServiceActor, contractId: string) {
-  return setStatus(actor, contractId, "ACTIVE", "Aktiverte serviceavtale");
+  return setStatus(actor, contractId, "ACTIVE", "Aktiverte serviceavtale", "contract.resumed");
 }
 
 export function terminateContract(actor: ServiceActor, contractId: string) {
@@ -541,6 +619,7 @@ export function terminateContract(actor: ServiceActor, contractId: string) {
     contractId,
     "TERMINATED",
     "Avsluttet serviceavtale",
+    "contract.cancelled",
   );
 }
 
@@ -581,14 +660,22 @@ export async function renewContract(
       },
     });
     await audit(tx, {
-      entityType: "Customer",
-      entityId: contract.customerId,
+      entityType: "Contract",
+      entityId: contract.id,
       action: `Fornyet serviceavtale: ${contract.title}`,
       actor: toAuditActor(actor),
+      departmentId: contract.departmentId,
+      actionCode: "contract.renewed",
+      retentionClass: "ACCOUNTING_5Y",
       metadata: {
-        contractId: contract.id,
-        previousEndDate: contract.endDate ? toDateOnly(contract.endDate) : null,
-        endDate: toDateOnly(endDate),
+        customerId: contract.customerId,
+        changes: {
+          endDate: {
+            from: contract.endDate ? toDateOnly(contract.endDate) : null,
+            to: toDateOnly(endDate),
+          },
+          status: { from: contract.status, to: "ACTIVE" },
+        },
       },
     });
   });
@@ -637,18 +724,24 @@ export async function deleteContract(
 
   const contract = await prisma.contract.findFirst({
     where: { id, customerId },
-    select: { id: true, title: true },
+    select: { id: true, title: true, status: true, departmentId: true },
   });
   if (!contract) return fail("not_found");
 
   await prisma.$transaction(async (tx) => {
     await tx.contract.delete({ where: { id } });
     await audit(tx, {
-      entityType: "Customer",
-      entityId: customerId,
+      entityType: "Contract",
+      entityId: id,
       action: `Slettet serviceavtale: ${contract.title}`,
       actor: toAuditActor(actor),
-      metadata: { contractId: id },
+      departmentId: contract.departmentId,
+      actionCode: "contract.deleted",
+      retentionClass: "ACCOUNTING_5Y",
+      metadata: {
+        customerId,
+        removed: { title: contract.title, status: contract.status },
+      },
     });
   });
   return ok(undefined);
@@ -989,11 +1082,22 @@ export async function addContractLine(
       select: { id: true },
     });
     await audit(tx, {
-      entityType: "Customer",
-      entityId: contract.customerId,
+      entityType: "Contract",
+      entityId: contract.id,
       action: `La til avtalelinje på ${contract.title}`,
       actor: toAuditActor(actor),
-      metadata: { contractId: contract.id, lineId: created.id, productId },
+      departmentId: contract.departmentId,
+      actionCode: "contract.line.added",
+      retentionClass: "ACCOUNTING_5Y",
+      metadata: {
+        customerId: contract.customerId,
+        lineId: created.id,
+        productId,
+        scope: parsed.data.scope ?? null,
+        visitsPerYear: parsed.data.visitsPerYear ?? null,
+        responseMinutes: parsed.data.responseMinutes ?? null,
+        resolutionMinutes: parsed.data.resolutionMinutes ?? null,
+      },
     });
     return created;
   });
@@ -1017,18 +1121,38 @@ export async function deleteContractLine(
 
   const line = await prisma.contractLine.findFirst({
     where: { id: parsed.data.id, contractId: contract.id },
-    select: { id: true },
+    select: {
+      id: true,
+      productId: true,
+      scope: true,
+      visitsPerYear: true,
+      responseMinutes: true,
+      resolutionMinutes: true,
+    },
   });
   if (!line) return fail("not_found");
 
   await prisma.$transaction(async (tx) => {
     await tx.contractLine.delete({ where: { id: line.id } });
     await audit(tx, {
-      entityType: "Customer",
-      entityId: contract.customerId,
+      entityType: "Contract",
+      entityId: contract.id,
       action: `Fjernet avtalelinje fra ${contract.title}`,
       actor: toAuditActor(actor),
-      metadata: { contractId: contract.id, lineId: line.id },
+      departmentId: contract.departmentId,
+      actionCode: "contract.line.removed",
+      retentionClass: "ACCOUNTING_5Y",
+      metadata: {
+        customerId: contract.customerId,
+        lineId: line.id,
+        removed: {
+          productId: line.productId,
+          scope: line.scope,
+          visitsPerYear: line.visitsPerYear,
+          responseMinutes: line.responseMinutes,
+          resolutionMinutes: line.resolutionMinutes,
+        },
+      },
     });
   });
   return ok(undefined);
@@ -1077,6 +1201,11 @@ export async function createPriceList(
       entityId: created.id,
       action: `Opprettet prisliste: ${parsed.data.name}`,
       actor: toAuditActor(actor),
+      actionCode: "pricelist.created",
+      metadata: {
+        name: parsed.data.name,
+        isActive: parsed.data.isActive !== "false",
+      },
     });
     return created;
   });
@@ -1126,7 +1255,15 @@ export async function addPriceListItem(
         entityId: list.id,
         action: `La til prislistelinje ${parsed.data.code} i ${list.name}`,
         actor: toAuditActor(actor),
-        metadata: { itemId: created.id, amount: parsed.data.amount },
+        actionCode: "pricelist.item.added",
+        retentionClass: "ACCOUNTING_5Y",
+        metadata: {
+          itemId: created.id,
+          code: parsed.data.code,
+          label: parsed.data.label,
+          unit: parsed.data.unit,
+          amount: parsed.data.amount,
+        },
       });
       return created;
     });
@@ -1150,7 +1287,7 @@ export async function deletePriceListItem(
 
   const item = await prisma.priceListItem.findFirst({
     where: { id: parsed.data.id, priceListId: parsed.data.priceListId },
-    select: { id: true, code: true },
+    select: { id: true, code: true, label: true, unit: true, amount: true },
   });
   if (!item) return fail("not_found");
 
@@ -1161,7 +1298,17 @@ export async function deletePriceListItem(
       entityId: parsed.data.priceListId,
       action: `Fjernet prislistelinje ${item.code}`,
       actor: toAuditActor(actor),
-      metadata: { itemId: item.id },
+      actionCode: "pricelist.item.removed",
+      retentionClass: "ACCOUNTING_5Y",
+      metadata: {
+        itemId: item.id,
+        removed: {
+          code: item.code,
+          label: item.label,
+          unit: item.unit,
+          amount: item.amount?.toString() ?? null,
+        },
+      },
     });
   });
   return ok(undefined);
@@ -1236,16 +1383,24 @@ export async function runContractLifecycle(
       if (updated.count !== 1) return false;
 
       await audit(tx, {
-        entityType: "Customer",
-        entityId: contract.customerId,
+        entityType: "Contract",
+        entityId: contract.id,
         action: `Fornyet serviceavtale automatisk: ${contract.title}`,
         actor: { id: "", name: "Serviceavtale", email: null },
+        actionCode: "contract.lifecycle.renewed",
+        retentionClass: "ACCOUNTING_5Y",
         metadata: {
-          contractId: contract.id,
-          previousEndDate: contract.endDate
-            ? toDateOnly(contract.endDate)
-            : null,
-          endDate: toDateOnly(newEndDate),
+          customerId: contract.customerId,
+          changes: {
+            endDate: {
+              from: contract.endDate ? toDateOnly(contract.endDate) : null,
+              to: toDateOnly(newEndDate),
+            },
+            nextServiceDate: {
+              from: contract.nextServiceDate ? toDateOnly(contract.nextServiceDate) : null,
+              to: toDateOnly(nextServiceDate),
+            },
+          },
         },
       });
       return true;
@@ -1276,6 +1431,7 @@ export async function runContractLifecycle(
       id: true,
       customerId: true,
       title: true,
+      status: true,
       endDate: true,
     },
   });
@@ -1293,12 +1449,15 @@ export async function runContractLifecycle(
       });
       if (updated.count !== 1) return false;
       await audit(tx, {
-        entityType: "Customer",
-        entityId: contract.customerId,
+        entityType: "Contract",
+        entityId: contract.id,
         action: `Serviceavtalen utløp: ${contract.title}`,
         actor: { id: "", name: "Serviceavtale", email: null },
+        actionCode: "contract.lifecycle.expired",
+        retentionClass: "ACCOUNTING_5Y",
         metadata: {
-          contractId: contract.id,
+          customerId: contract.customerId,
+          changes: { status: { from: contract.status, to: "EXPIRED" } },
           endDate: contract.endDate ? toDateOnly(contract.endDate) : null,
         },
       });

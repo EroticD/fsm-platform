@@ -1,8 +1,8 @@
 # ISO/IEC 27001:2022 and SOC 2 Readiness Package
 
 **Status:** readiness draft, not certified and not audited.
-**Version:** 0.9.2 (2026-11-11); package revision 0.1.
-**Baseline:** `master`/`dev` @ `v0.9.2`, 2026-11-11.
+**Version:** 0.9.3 (2026-11-12); package revision 0.1.
+**Baseline:** `master`/`dev` @ `v0.9.3`, 2026-11-12.
 **Product:** FSM Platform (`fsm-platform`).
 **Owner:** Platform Lead (document owner), with the role owners listed below.
 

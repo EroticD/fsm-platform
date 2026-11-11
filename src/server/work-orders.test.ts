@@ -124,6 +124,8 @@ function txClient() {
       findMany: vi.fn(
         async (): Promise<Array<{ id: string; status: string }>> => [],
       ),
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async (): Promise<{ id: string } | null> => null),
       create: vi.fn(async () => ({ id: "visit-new" })),
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 0 })),

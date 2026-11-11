@@ -9,14 +9,14 @@
 
 | Felt | Verdi |
 | --- | --- |
-| Dato | 2026-11-11 |
-| Kodegren | `master` og `dev` @ `v0.9.2` |
-| Versjon | 0.9.2 (`v0.9.2`) |
+| Dato | 2026-11-12 |
+| Kodegren | `master` og `dev` @ `v0.9.3` |
+| Versjon | 0.9.3 (`v0.9.3`) |
 | Repository | 116 Prisma-modeller, 27 enums, 91 `page.tsx`, 94 API-ruter, 22 moduler |
 | Tester | 405 testfiler, 3 346 enhetstester, 41 integrasjonsfiler / 226 tester, 14 E2E-spesifikasjoner |
 | P0 | Ingen åpne P0 |
 | P1 | 7 produksjons-/governanceoppgaver |
-| P2 | 17 produkt-/integrasjons-/plattformoppgaver |
+| P2 | 18 produkt-/integrasjons-/plattformoppgaver |
 | P3 | 5 strategiske valg som krever eiergodkjenning |
 
 **Kort status.** Kjerne, sikkerhet, GDPR, revisjon, arbeidsdager, SMS,
@@ -136,6 +136,7 @@ for kunder med reelle krav.
 | **PLAT-10** · Supply chain | Trivy, SHA-pinnede actions og digest-skanning finnes. Base image er tagget, ikke digest-pinnet; SBOM, SAST og secret-scanning mangler. | **Åpen** | M | Digest-pinning av base image/Prisma CLI, SBOM, SAST/secret-scanning, signert provenance og policy for oppdateringer. |
 | **PLAT-11** · Maintenance mode og helseflate | Request-ID finnes. Maintenance mode mangler, og `/api/health` eksponerer `uptimeSeconds`. | **Åpen** | S | Maintenance mode med kontrollert 503 og unntak for helse/metrics; fjern eller begrens uptime; test av proxy/helse. |
 | **PLAT-12** · Performance-budsjett og skjermbildemanifest | Lighthouse a11y-terskel er i CI. Performance-budsjett og skjermbildemanifest i CI mangler. | **Åpen** | S | Konkrete budsjettester i CI; skjermbildemanifest verifiseres; regresjoner fanges. |
+| **QUOTA-01** · Atomisk kvote i alle opplastingsveier | Den atomiske reservasjonen ligger bare i `/api/upload`. `src/lib/upload-store.ts:113-136` har en egen, ikke-atomisk 24-timerskvote for kladdesignaturer, og `src/lib/report-pdf-store.ts` skriver `Upload`-rader uten reservasjon. `checkUploadQuota` står fortsatt eksportert som ikke-atomisk alternativ. | **Åpen** | M | Alle skriveveier går gjennom `reserveUploadQuota`, kvotene er additive og samtidighetstestet, og `checkUploadQuota` er fjernet eller merket som test-only. |
 
 ### P3 — strategiske valg (krever eiergodkjenning)
 

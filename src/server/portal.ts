@@ -2,6 +2,7 @@
 // data. Varselmaler lokaliseres i Phase 5B (C-23).
 import type { Prisma } from "@prisma/client";
 import { statusKeysByCategory } from "@/lib/work-order-status";
+import { closeWorkOrderState } from "@/lib/work-order-status-action";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import {
@@ -1083,6 +1084,15 @@ export async function cancelBooking(
           data: { status: "CANCELLED" },
         });
         workOrderCancelled = cancelledWorkOrder.count === 1;
+        if (workOrderCancelled) {
+          // Kunden avlyser via portalen. Da må oppdraget ryddes på samme måte
+          // som når kontoret kansellerer: visiter, returkjøring, sporing og
+          // SLA-klokke. Ellers blir det stående som aktivt for montørene.
+          await closeWorkOrderState(tx, {
+            workOrderId: booking.data.workOrder.id,
+            cancelled: true,
+          });
+        }
       }
 
       // En bekreftet booking eier en konkret visitt. Når oppdraget avlyses,

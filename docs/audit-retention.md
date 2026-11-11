@@ -58,12 +58,32 @@ DATABASE_URL=... npm run audit:verify
 Skriptet godtar tombstones fra retensjonen som kontrollerte hull, og gir
 exit-kode 1 ved manglende hash eller manipulert innhold.
 
+### Når kjeden er forgrenet
+
+En rad som skrives utenom `audit()` får ingen hash, og radene etter den kan ha
+kjedet seg til feil hale. Da hjelper ikke vanlig backfill: den avbryter på
+`prev_hash_mismatch`. Regn hele kjeden på nytt:
+
+```bash
+DATABASE_MIGRATION_URL=... npm run audit:backfill -- --rebuild
+```
+
+`--rebuild` skriver nye `prevHash`/`hash` for alle rader i `seq`-rekkefølge.
+Eksporterte bevis som er tatt før ombygging må tas på nytt, fordi hash-verdiene
+endres. Ta backup først. Kilden til forgreningen må være lukket (se
+`src/lib/audit-write-paths.test.ts`), ellers gjentar den seg.
+
 ## Skriveveien
 
 `src/lib/audit.ts` tar en PostgreSQL-transaksjonslås
 (`pg_advisory_xact_lock`) før den leser forrige hash. Låsen gjør at samtidige
 transaksjoner ikke kan forgrene kjeden. Hash og revisjonsrad skrives i samme
 transaksjon som mutasjonen, så en rullet tilbake endring gir ingen logg.
+
+Rader som ikke har en forretningsmutasjon å henge på – innlogging, utlogging,
+avviste kall, filnedlasting – skrives med `auditStandalone()`, som bruker egen
+transaksjon og samme lås. Testen `src/lib/audit-write-paths.test.ts` feiler
+dersom noen skriver `auditLog` direkte utenom `audit.ts`.
 
 ## Retensjon og bevaringsplikt
 
@@ -82,6 +102,21 @@ Purringen krever `DELETE` på `"AuditLog"`. Når runtime-rollen er låst, må de
 kjøres med vedlikeholdsrollen. Sett `AUDIT_RETENTION_DATABASE_URL` til en slik
 rolle; uten variabelen brukes `DATABASE_URL`. Jobben feiler trygt (logger) hvis
 rollen mangler rettighet, og sletter ingenting.
+
+### Retensjonsklasser
+
+`AuditLog.retentionClass` lar strengere krav overstyre den globale fristen:
+
+| Klasse | Frist | Brukes til |
+| --- | --- | --- |
+| `ACCOUNTING_5Y` | 5 år | faktura, betaling, kreditnota, avtale |
+| `SECURITY_1Y` | 1 år | innlogging, 2FA, tilgangs- og rettighetsendringer |
+| `OPS_90D` | 90 dager | jobber, opprydding, drift |
+| `null` | Global `AUDIT_RETENTION_DAYS` | alt annet |
+
+Den globale verdien er et gulv: en klasse kan bare forlenge oppbevaringen, ikke
+forkorte den. Regnskapsmateriale skal ifølge bokføringsloven § 13 bevares i fem
+år, uavhengig av hva den globale innstillingen sier.
 
 ## Anbefalt databaseoppdeling
 

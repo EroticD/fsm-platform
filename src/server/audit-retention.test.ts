@@ -148,7 +148,13 @@ describe("retensjon for revisjonsloggen", () => {
     const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60_000);
     expect(client.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { createdAt: { lt: cutoff } },
+        // Raden uten retensjonsklasse følger den globale fristen. Klassene har
+        // egne, lengre frister (regnskap fem år), så spørringen er en OR.
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { retentionClass: null, createdAt: { lt: cutoff } },
+          ]),
+        }),
       }),
     );
     expect(result).toMatchObject({
@@ -159,6 +165,26 @@ describe("retensjon for revisjonsloggen", () => {
     });
     expect(deleted).toEqual([["a"]]);
     expect(tombstones).toEqual(["hash-a"]);
+  });
+
+  it("beholder regnskapsklassen i fem år selv når global frist er kortere", async () => {
+    const now = new Date("2026-11-02T12:00:00.000Z");
+    const { client } = cleanupClient([], { retentionDays: 30 });
+
+    await cleanupExpiredAuditLogs(now, client as never);
+
+    const calls = client.auditLog.findMany.mock.calls as unknown as Array<
+      [unknown]
+    >;
+    const call = calls[0]?.[0] as {
+      where: { OR: Array<{ retentionClass: string | null; createdAt: { lt: Date } }> };
+    };
+    const accounting = call.where.OR.find(
+      (entry) => entry.retentionClass === "ACCOUNTING_5Y",
+    );
+    expect(accounting?.createdAt.lt).toEqual(
+      new Date(now.getTime() - 5 * 365 * 24 * 60 * 60_000),
+    );
   });
 
   it("respekterer hold på logg, entitet og oppdrag/rapport", async () => {

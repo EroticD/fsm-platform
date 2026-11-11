@@ -852,6 +852,20 @@ export async function createInventoryItem(
   }
 }
 
+type InventoryDiffValue = string | number | boolean | null;
+
+function inventoryDiffValue(value: unknown): InventoryDiffValue {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "object" && "toNumber" in value) {
+    const number = (value as { toNumber: () => number }).toNumber();
+    return Number.isFinite(number) ? number : null;
+  }
+  return String(value);
+}
+
 export async function updateInventoryItem(
   actor: ServiceActor,
   input: {
@@ -899,16 +913,44 @@ export async function updateInventoryItem(
     return await prisma.$transaction(async (tx) => {
       const existing = await tx.inventoryItem.findUnique({
         where: { id },
-        select: { id: true, sku: true, name: true },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          unit: true,
+          minLevel: true,
+          description: true,
+          active: true,
+        },
       });
       if (!existing) return fail("not_found");
       await tx.inventoryItem.update({ where: { id }, data });
+
+      const before = existing as unknown as Record<string, unknown>;
+      const changes: Record<string, { from: InventoryDiffValue; to: InventoryDiffValue }> = {};
+      for (const [field, next] of Object.entries(data as unknown as Record<string, unknown>)) {
+        const from = inventoryDiffValue(before[field]);
+        const to = inventoryDiffValue(next);
+        if (from !== to) changes[field] = { from, to };
+      }
+      // Arkivering er en egen hendelse: varen forsvinner fra lister og
+      // bestillingsforslag, og skal kunne gjenfinnes i loggen som nettopp det.
+      const archived = data.active === false && existing.active;
+
       await audit(tx, {
         entityType: "InventoryItem",
         entityId: id,
-        action: `Endret vare ${existing.sku} ${existing.name}`,
+        action: archived
+          ? `Arkiverte vare ${existing.sku} ${existing.name}`
+          : `Endret vare ${existing.sku} ${existing.name}`,
         actor: toAuditActor(actor),
-        metadata: { changed: Object.keys(data) },
+        actionCode: archived ? "inventory.item.archived" : "inventory.item.updated",
+        metadata: {
+          sku: existing.sku,
+          archived,
+          changes,
+          changedFields: Object.keys(changes),
+        },
       });
       return ok({ id });
     });

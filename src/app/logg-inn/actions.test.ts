@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   createSessionCookie: vi.fn(),
   allowRequestDb: vi.fn(),
   resetRateLimitDb: vi.fn(),
+  auditStandalone: vi.fn(),
+  auditRequestContext: vi.fn(),
   headers: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -23,6 +25,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("@/lib/audit", () => ({
+  auditStandalone: mocks.auditStandalone,
+  auditRequestContext: mocks.auditRequestContext,
+}));
 vi.mock("@/lib/credentials", () => ({
   verifyCredentials: mocks.verifyCredentials,
 }));
@@ -79,6 +85,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.headers.mockResolvedValue(new Headers());
   mocks.prisma.auditLog.create.mockResolvedValue({});
+  mocks.auditStandalone.mockResolvedValue(undefined);
+  mocks.auditRequestContext.mockResolvedValue({ ip: "203.0.113.9" });
   mocks.prisma.$transaction.mockImplementation(
     async (callback: (tx: unknown) => unknown) => callback({}),
   );
@@ -463,6 +471,178 @@ describe("verifyRecoveryCodeAction – enhetshjem", () => {
         }),
       ),
     ).rejects.toThrow("REDIRECT:/mine-oppdrag");
+  });
+});
+
+describe("loginAction – revisjonslogg for avviste forsøk", () => {
+  it("logger feil passord uten å skrive e-post eller passord", async () => {
+    const forsoktPassord = "HemmeligPassord-123";
+    mocks.verifyCredentials.mockResolvedValue({ status: "invalid" });
+
+    await expect(
+      loginAction(
+        formData({ email: credentialUser.email, password: forsoktPassord }),
+      ),
+    ).rejects.toThrow("REDIRECT:/logg-inn?error=CredentialsSignin");
+
+    const entry = mocks.auditStandalone.mock.calls[0][0];
+    expect(entry).toMatchObject({
+      entityType: "User",
+      entityId: "unknown",
+      actionCode: "auth.login.failed",
+      outcome: "DENIED",
+      retentionClass: "SECURITY_1Y",
+    });
+    expect(entry.context).toEqual({ ip: "203.0.113.9" });
+
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toContain(credentialUser.email);
+    expect(serialized).not.toContain(forsoktPassord);
+  });
+
+  it("logger låst og inaktiv konto med egne koder", async () => {
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "locked",
+      retryAfterSeconds: 120,
+    });
+    await expect(
+      loginAction(formData({ email: credentialUser.email, password: "x" })),
+    ).rejects.toThrow("REDIRECT:/logg-inn?error=TooManyAttempts");
+
+    mocks.verifyCredentials.mockResolvedValue({ status: "inactive" });
+    await expect(
+      loginAction(formData({ email: credentialUser.email, password: "x" })),
+    ).rejects.toThrow("REDIRECT:/logg-inn?error=AccountNotActivated");
+
+    expect(
+      mocks.auditStandalone.mock.calls.map((call) => call[0].actionCode),
+    ).toEqual(["auth.login.locked", "auth.login.inactive"]);
+  });
+
+  it("logger vellykket innlogging med avdeling", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+      departmentId: "dep-a",
+    });
+
+    await expect(
+      loginAction(formData({ email: credentialUser.email, password: "x" })),
+    ).rejects.toThrow("REDIRECT:/");
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: "user-1",
+        actionCode: "auth.login.success",
+        outcome: "SUCCESS",
+        departmentId: "dep-a",
+      }),
+    );
+  });
+
+  it("logger påkrevd 2FA-oppsett før brukeren sendes til enrollment", async () => {
+    const original = process.env.REQUIRE_2FA_ROLES;
+    process.env.REQUIRE_2FA_ROLES = "ADMIN,OFFICE";
+    try {
+      mocks.verifyCredentials.mockResolvedValue({
+        status: "ok",
+        user: { ...credentialUser, isTwoFactorEnabled: false },
+      });
+      mocks.prisma.user.findUnique.mockResolvedValue({
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null,
+        departmentId: "dep-a",
+      });
+
+      await expect(
+        loginAction(formData({ email: credentialUser.email, password: "x" })),
+      ).rejects.toThrow("REDIRECT:/logg-inn/2fa/oppsett");
+
+      expect(mocks.auditStandalone).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actionCode: "user.2fa.enrollment.required",
+          departmentId: "dep-a",
+        }),
+      );
+    } finally {
+      if (original === undefined) delete process.env.REQUIRE_2FA_ROLES;
+      else process.env.REQUIRE_2FA_ROLES = original;
+    }
+  });
+});
+
+describe("2FA-innlogging – revisjonslogg", () => {
+  beforeEach(() => {
+    mocks.readPendingTwoFactor.mockResolvedValue("user-1");
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+      lastTotpTimeStep: 100,
+      departmentId: "dep-a",
+    });
+  });
+
+  it("logger feil engangskode som avvist auth.2fa.failed", async () => {
+    mocks.verifyTotpStep.mockReturnValue({ valid: false });
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "000000" })),
+    ).rejects.toThrow("REDIRECT:/logg-inn/2fa?error=InvalidTwoFactor");
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: "user-1",
+        actionCode: "auth.2fa.failed",
+        outcome: "DENIED",
+        departmentId: "dep-a",
+      }),
+    );
+    expect(JSON.stringify(mocks.auditStandalone.mock.calls)).not.toContain(
+      "000000",
+    );
+  });
+
+  it("logger vellykket 2FA-innlogging", async () => {
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 101 });
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "123456" })),
+    ).rejects.toThrow("REDIRECT:/");
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionCode: "auth.login.success",
+        outcome: "SUCCESS",
+        metadata: { method: "totp" },
+      }),
+    );
+  });
+
+  it("logger avvist gjenopprettingskode", async () => {
+    mocks.consumeRecoveryCode.mockResolvedValue(false);
+
+    await expect(
+      verifyRecoveryCodeAction(formData({ recoveryCode: "ABCD-EFGH" })),
+    ).rejects.toThrow(
+      "REDIRECT:/logg-inn/2fa?error=InvalidRecoveryCode&recovery=1",
+    );
+
+    expect(mocks.auditStandalone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionCode: "auth.2fa.failed",
+        outcome: "DENIED",
+        metadata: { method: "recovery_code", step: "login" },
+      }),
+    );
+    expect(JSON.stringify(mocks.auditStandalone.mock.calls)).not.toContain(
+      "ABCD-EFGH",
+    );
   });
 });
 

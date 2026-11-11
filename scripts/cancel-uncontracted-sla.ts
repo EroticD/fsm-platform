@@ -63,7 +63,10 @@ try {
   if (result.dryRun) {
     console.log("Tørrkjøring. Bruk --apply for å skrive endringene.");
   } else {
-    console.log(`Skrev ${result.cancelled} kansellering(er) med revisjonslogg.`);
+    console.log(
+      `Skrev ${result.cancelled} kansellering(er) med revisjonslogg, ` +
+        `hvorav ${result.replaced} fikk ny klokke for gjeldende policy.`,
+    );
   }
 } catch (error) {
   console.error("Opprydding av SLA-klokker feilet:", error);

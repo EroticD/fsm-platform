@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { audit, type AuditActor } from "@/lib/audit";
+import { audit, auditRequestContext, auditStandalone, type AuditActor } from "@/lib/audit";
 import { cleanText, LIMITS } from "@/lib/sanitize";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import {
@@ -196,6 +196,53 @@ function auditActorFor(actor: ServiceActor): AuditActor {
   return toAuditActor(actor);
 }
 
+/** Aktøren revisjonsraden bruker for handlinger utført med et SCIM-token. */
+function scimAuditActor(createdById: string | null): AuditActor {
+  return { id: createdById ?? "", name: "SCIM", email: null };
+}
+
+type ScimAuthFailureReason =
+  | "missing_token"
+  | "invalid_token_format"
+  | "unknown_or_revoked"
+  | "expired"
+  | "creator_inactive"
+  | "rate_limited"
+  | "server_error";
+
+/**
+ * Revisjonsrad for en avvist SCIM-autentisering (401/403/429).
+ *
+ * Kalles før svaret returneres, men svelger alle feil: et svar til klienten må
+ * være identisk uansett om revisjonsloggen kan skrives. Verken tokenet eller
+ * hashen havner i raden – bare id, navn, prefiks og årsak.
+ */
+async function auditScimAuthFailure(
+  reason: ScimAuthFailureReason,
+  row?: {
+    id: string;
+    name: string;
+    prefix: string;
+    createdById: string | null;
+  } | null,
+): Promise<void> {
+  try {
+    await auditStandalone({
+      entityType: "ScimToken",
+      entityId: row?.id ?? "unknown",
+      action: `SCIM: autentisering avvist (${reason})`,
+      actionCode: "scim.auth.failed",
+      outcome: "DENIED",
+      retentionClass: "SECURITY_1Y",
+      actor: scimAuditActor(row?.createdById ?? null),
+      metadata: { reason, prefix: row?.prefix ?? null },
+      context: await auditRequestContext(),
+    });
+  } catch {
+    // Autentiseringssvaret skal ikke avhenge av revisjonsloggen.
+  }
+}
+
 /**
  * Oppretter et token for en administrator og returnerer klarteksttokenet.
  * Funksjonen gjør autorisasjonen selv, slik at skript og UI deler samme regel.
@@ -237,6 +284,8 @@ export async function createScimToken(
         entityType: "ScimToken",
         entityId: created.id,
         action: `Opprettet SCIM-token: ${parsed.name} (${prefix}…)`,
+        actionCode: "scim.token.created",
+        retentionClass: "SECURITY_1Y",
         actor: auditActorFor(actor),
         metadata: {
           expiresAt: parsed.expiresAt.toISOString(),
@@ -299,6 +348,8 @@ export async function revokeScimToken(
         entityType: "ScimToken",
         entityId: tokenId,
         action: `Tilbakekalte SCIM-token: ${existing.name} (${existing.prefix}…)`,
+        actionCode: "scim.token.revoked",
+        retentionClass: "SECURITY_1Y",
         actor: auditActorFor(actor),
       });
       return "ok" as const;
@@ -372,6 +423,8 @@ export async function rotateScimToken(
         entityType: "ScimToken",
         entityId: existing.id,
         action: `Rotert SCIM-token: ${existing.name} (${existing.prefix}… → ${prefix}…)`,
+        actionCode: "scim.token.rotated",
+        retentionClass: "SECURITY_1Y",
         actor: auditActor,
         metadata: { newTokenId: row.id },
       });
@@ -379,6 +432,8 @@ export async function rotateScimToken(
         entityType: "ScimToken",
         entityId: row.id,
         action: `Opprettet SCIM-token: ${parsed.name} (${prefix}…)`,
+        actionCode: "scim.token.created",
+        retentionClass: "SECURITY_1Y",
         actor: auditActor,
         metadata: {
           expiresAt: parsed.expiresAt.toISOString(),
@@ -453,8 +508,14 @@ export async function authenticateScimRequest(
   request: Request,
 ): Promise<ScimAuthResult> {
   const token = scimBearerToken(request);
-  if (!token) return unauthorized();
-  if (!isScimToken(token)) return unauthorized();
+  if (!token) {
+    await auditScimAuthFailure("missing_token");
+    return unauthorized();
+  }
+  if (!isScimToken(token)) {
+    await auditScimAuthFailure("invalid_token_format");
+    return unauthorized();
+  }
 
   try {
     const row = await prisma.scimToken.findUnique({
@@ -471,8 +532,12 @@ export async function authenticateScimRequest(
     });
 
     const now = new Date();
-    if (!row || row.revokedAt) return unauthorized();
+    if (!row || row.revokedAt) {
+      await auditScimAuthFailure("unknown_or_revoked", row);
+      return unauthorized();
+    }
     if (row.expiresAt && new Date(row.expiresAt).getTime() <= now.getTime()) {
+      await auditScimAuthFailure("expired", row);
       return unauthorized("SCIM-tokenet er utløpt.");
     }
 
@@ -482,6 +547,7 @@ export async function authenticateScimRequest(
         select: { isActive: true },
       });
       if (!creator?.isActive) {
+        await auditScimAuthFailure("creator_inactive", row);
         return forbidden("Administratoren som opprettet SCIM-tokenet er inaktiv.");
       }
     }
@@ -492,6 +558,7 @@ export async function authenticateScimRequest(
       SCIM_RATE_WINDOW_MS,
     );
     if (!limit.allowed) {
+      await auditScimAuthFailure("rate_limited", row);
       const retryAfter = Number.isFinite(limit.retryAfterSeconds)
         ? Math.max(0, Math.ceil(limit.retryAfterSeconds))
         : 60;
@@ -517,15 +584,16 @@ export async function authenticateScimRequest(
 
     if (shouldAuditUse) {
       try {
-        await prisma.auditLog.create({
-          data: {
-            entityType: "ScimToken",
-            entityId: row.id,
-            action: `SCIM-token brukt: ${row.name} (${row.prefix}…)`,
-            userName: "SCIM",
-            actorId: row.createdById,
-            metadata: { prefix: row.prefix },
-          },
+        await auditStandalone({
+          entityType: "ScimToken",
+          entityId: row.id,
+          action: `SCIM-token brukt: ${row.name} (${row.prefix}…)`,
+          actionCode: "scim.token.used",
+          outcome: "SUCCESS",
+          retentionClass: "OPS_90D",
+          actor: scimAuditActor(row.createdById),
+          metadata: { prefix: row.prefix },
+          context: await auditRequestContext(),
         });
       } catch {
         // Bruk skal ikke feile fordi revisjonsloggen ikke kan skrives.
@@ -542,6 +610,7 @@ export async function authenticateScimRequest(
       },
     };
   } catch {
+    await auditScimAuthFailure("server_error");
     return {
       ok: false,
       response: scimResponse(

@@ -232,6 +232,34 @@ describeIntegration("Opprydding av SLA-klokker uten aktiv avtale", () => {
     expect(stored?.state).toBe("CANCELLED");
   });
 
+  it("erstatter klokken med riktig policy når avtalen gir en annen", async () => {
+    const contract = await createContract({ policyId: activePolicyId });
+    const { workOrder, clock } = await createOrderWithClock({
+      policyId: otherPolicyId,
+      contractId: contract.id,
+      customerId: contractedCustomerId,
+    });
+
+    const result = await cancelUncontractedSlaClocks(prisma, { now: NOW });
+
+    expect(result.replaced).toBeGreaterThanOrEqual(1);
+    const clocks = await prisma.slaClock.findMany({
+      where: { workOrderId: workOrder.id },
+      select: { id: true, policyId: true, state: true, startedAt: true },
+    });
+    // Den gamle klokken er kansellert, og oppdraget har fått en klokke for
+    // policyen avtalen faktisk gir – ikke stått uten SLA-dekning.
+    expect(clocks).toEqual(
+      expect.arrayContaining([
+        { id: clock.id, policyId: otherPolicyId, state: "CANCELLED", startedAt: NOW },
+        expect.objectContaining({ policyId: activePolicyId, state: "ON_TRACK" }),
+      ]),
+    );
+    // Erstatningsklokken beholder starttidspunktet, så fristene ikke nullstilles.
+    const replacement = clocks.find((row) => row.policyId === activePolicyId);
+    expect(replacement?.startedAt).toEqual(NOW);
+  });
+
   it("rører ikke klokker som allerede er kansellert", async () => {
     const { clock } = await createOrderWithClock({
       policyId: activePolicyId,

@@ -12,6 +12,9 @@ vi.mock("@/server/sla", () => ({
   markResolved: vi.fn(async () => undefined),
   cancelClocks: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/work-order-schedule", () => ({
+  recomputeWorkOrderSchedule: vi.fn(async () => undefined),
+}));
 
 import { transitionWorkOrderStatus } from "./work-order-status-action";
 import { cancelClocks, markResolved } from "@/server/sla";
@@ -36,7 +39,13 @@ function call(from: WorkStatus, to: WorkStatus, isAdmin = false) {
 function makeTx() {
   return {
     workOrder: { updateMany: vi.fn(async () => ({ count: 1 })) },
-    visit: { updateMany: vi.fn(async () => ({ count: 1 })) },
+    visit: {
+      updateMany: vi.fn(async () => ({ count: 1 })),
+      count: vi.fn(async () => 1),
+      findFirst: vi.fn(async (): Promise<{ id: string } | null> => null),
+      findMany: vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
+      update: vi.fn(async () => ({})),
+    },
     trackingLink: { updateMany: vi.fn(async () => ({ count: 1 })) },
     auditLog: { create: vi.fn(async () => ({})) },
   };
@@ -75,7 +84,7 @@ describe("transitionWorkOrderStatus", () => {
       where: { id: "wo-1", status: "OPEN" },
       data: { status: "COMPLETED" },
     });
-    expect(markResolved).toHaveBeenCalledWith(tx, "wo-1");
+    expect(markResolved).toHaveBeenCalledWith(tx, "wo-1", expect.any(Date));
   });
 
   it("lukker aktive visiter og returkjøring når oppdraget fullføres", async () => {
@@ -91,14 +100,14 @@ describe("transitionWorkOrderStatus", () => {
         status: { in: ["EN_ROUTE", "ON_SITE"] },
         doneAt: null,
       },
-      data: { status: "DONE", doneAt: expect.any(Date) },
+      data: { status: "DONE", doneAt: expect.any(Date), autoClosedAt: expect.any(Date) },
     });
     expect(tx.visit.updateMany).toHaveBeenNthCalledWith(2, {
       where: {
         workOrderId: "wo-1",
         status: { in: ["EN_ROUTE", "ON_SITE"] },
       },
-      data: { status: "DONE" },
+      data: { status: "DONE", autoClosedAt: expect.any(Date) },
     });
     expect(tx.visit.updateMany).toHaveBeenNthCalledWith(3, {
       where: {
@@ -121,7 +130,7 @@ describe("transitionWorkOrderStatus", () => {
     const result = await call("OPEN", "CANCELLED");
 
     expect(result).toEqual({ ok: true });
-    expect(cancelClocks).toHaveBeenCalledWith(tx, "wo-1");
+    expect(cancelClocks).toHaveBeenCalledWith(tx, "wo-1", expect.any(Date));
     expect(tx.visit.updateMany).toHaveBeenNthCalledWith(1, {
       where: {
         workOrderId: "wo-1",
@@ -135,7 +144,7 @@ describe("transitionWorkOrderStatus", () => {
         workOrderId: "wo-1",
         status: { in: ["PLANNED", "ASSIGNED", "EN_ROUTE", "ON_SITE"] },
       },
-      data: { status: "CANCELLED" },
+      data: { status: "CANCELLED", autoClosedAt: expect.any(Date) },
     });
     expect(tx.visit.updateMany).toHaveBeenNthCalledWith(3, {
       where: {
@@ -178,7 +187,7 @@ describe("transitionWorkOrderStatus", () => {
         status: { in: ["EN_ROUTE", "ON_SITE"] },
         doneAt: null,
       },
-      data: { status: "DONE", doneAt: expect.any(Date) },
+      data: { status: "DONE", doneAt: expect.any(Date), autoClosedAt: expect.any(Date) },
     });
     expect(tx.trackingLink.updateMany).toHaveBeenCalledWith({
       where: { workOrderId: "wo-1", revokedAt: null },
@@ -195,8 +204,77 @@ describe("transitionWorkOrderStatus", () => {
 
     const admin = await call("COMPLETED", "IN_PROGRESS", true);
     expect(admin).toEqual({ ok: true });
-    expect(tx.visit.updateMany).not.toHaveBeenCalled();
+    // Gjenåpning skal ikke tilbakekalle sporingslenker på nytt.
     expect(tx.trackingLink.updateMany).not.toHaveBeenCalled();
+    // Bare visiter lukkingen selv markerte skal vurderes.
+    expect(tx.visit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workOrderId: "wo-1", autoClosedAt: { not: null } },
+      }),
+    );
+  });
+
+  it("gjenoppretter bare visiter lukkingen selv lukket", async () => {
+    const tx = makeTx();
+    tx.visit.findMany.mockResolvedValue([
+      {
+        id: "visit-1",
+        status: "DONE",
+        enRouteAt: new Date("2026-11-01T07:00:00Z"),
+        onSiteAt: new Date("2026-11-01T07:30:00Z"),
+        doneAt: new Date("2026-11-01T09:00:00Z"),
+        travelFromEndedAt: new Date("2026-11-01T09:20:00Z"),
+        technicians: [],
+      },
+      {
+        id: "visit-2",
+        status: "CANCELLED",
+        enRouteAt: null,
+        onSiteAt: null,
+        doneAt: null,
+        travelFromEndedAt: null,
+        technicians: [{ userId: "tech-1" }],
+      },
+    ]);
+    useTx(tx);
+
+    const admin = await call("COMPLETED", "IN_PROGRESS", true);
+
+    expect(admin).toEqual({ ok: true });
+    // Uten montør blir visitten planlagt; med montør beholder den tildelingen.
+    expect(tx.visit.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "visit-1" },
+      data: {
+        status: "PLANNED",
+        autoClosedAt: null,
+        enRouteAt: null,
+        onSiteAt: null,
+        doneAt: null,
+        travelFromEndedAt: null,
+      },
+    });
+    expect(tx.visit.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "visit-2" },
+      data: {
+        status: "ASSIGNED",
+        autoClosedAt: null,
+        enRouteAt: null,
+        onSiteAt: null,
+        doneAt: null,
+        travelFromEndedAt: null,
+      },
+    });
+    // Revisjonssporet skal vise hva som ble gjenopprettet og hva det var.
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({
+          restoredVisits: 2,
+          reopenedVisits: expect.arrayContaining([
+            expect.objectContaining({ id: "visit-1", previousStatus: "DONE" }),
+          ]),
+        }),
+      }),
+    });
   });
 
   it("oppdaterer bare fra riktig status og logger med oppdragets id", async () => {

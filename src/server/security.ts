@@ -2,7 +2,7 @@
 // oversettes ved visning i audit-actions.ts.
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-import { audit } from "@/lib/audit";
+import { audit, auditRequestContext, auditStandalone } from "@/lib/audit";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { cleanText } from "@/lib/sanitize";
 import {
@@ -83,17 +83,24 @@ async function resetRateLimit(userId: string, ip?: string): Promise<void> {
 /**
  * Revisjonslogger en mislykket 2FA-verifisering. `step` er en fast kode for
  * hvilket trinn som feilet – aldri selve TOTP-koden eller passordet.
+ *
+ * Raden skrives i egen transaksjon fordi det ikke finnes noen
+ * forretningsendring å binde den til, og går gjennom hash-kjeden som alle
+ * andre revisjonsrader.
  */
 async function auditFailure(actor: ServiceActor, step: string): Promise<void> {
-  await prisma.auditLog.create({
-    data: {
-      entityType: "User",
-      entityId: actor.id,
-      action: "2FA: feilet verifisering",
-      userName: actor.name || actor.email || "Ukjent",
-      actorId: actor.id || null,
-      metadata: { step },
-    },
+  await auditStandalone({
+    entityType: "User",
+    entityId: actor.id,
+    action: "2FA: feilet verifisering",
+    actionCode: "security.2fa.failed",
+    outcome: "DENIED",
+    retentionClass: "SECURITY_1Y",
+    actor: toAuditActor(actor),
+    departmentId: actor.departmentId,
+    targetUserId: actor.id,
+    metadata: { step },
+    context: await auditRequestContext(),
   });
 }
 
@@ -180,6 +187,8 @@ export async function startTwoFactorSetup(
         entityType: "User",
         entityId: actor.id,
         action: "Startet oppsett av to-trinns verifisering",
+        actionCode: "user.2fa.setup.started",
+        retentionClass: "SECURITY_1Y",
         actor: toAuditActor(actor),
       });
     });
@@ -242,6 +251,8 @@ export async function confirmTwoFactorSetup(
         entityType: "User",
         entityId: actor.id,
         action: "2FA: oppsett utløpt",
+        actionCode: "user.2fa.setup.expired",
+        retentionClass: "SECURITY_1Y",
         actor: toAuditActor(actor),
       });
     });
@@ -283,6 +294,8 @@ export async function confirmTwoFactorSetup(
       entityType: "User",
       entityId: actor.id,
       action: "Slå på to-trinns verifisering",
+      actionCode: "user.2fa.enrolled",
+      retentionClass: "SECURITY_1Y",
       actor: toAuditActor(actor),
     });
     return { user, recoveryCodes };
@@ -338,6 +351,8 @@ export async function cancelTwoFactorSetup(
         entityType: "User",
         entityId: actor.id,
         action: "Avbrøt oppsett av to-trinns verifisering",
+        actionCode: "user.2fa.setup.cancelled",
+        retentionClass: "SECURITY_1Y",
         actor: toAuditActor(actor),
       });
       return user;
@@ -407,6 +422,8 @@ export async function disableTwoFactor(
       entityType: "User",
       entityId: actor.id,
       action: "Slå av to-trinns verifisering",
+      actionCode: "user.2fa.disabled",
+      retentionClass: "SECURITY_1Y",
       actor: toAuditActor(actor),
     });
     return user;
@@ -469,6 +486,8 @@ export async function regenerateRecoveryCodes(
       entityType: "User",
       entityId: actor.id,
       action: "Genererte nye gjenopprettingskoder for to-trinns verifisering",
+      actionCode: "user.2fa.recovery_regenerated",
+      retentionClass: "SECURITY_1Y",
       actor: toAuditActor(actor),
     });
     return codes;

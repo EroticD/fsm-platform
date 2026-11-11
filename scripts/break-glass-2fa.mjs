@@ -7,7 +7,12 @@
  * databasepassordet. Hver kjøring skriver en revisjonsrad.
  *
  * Bruk:
- *   DATABASE_URL=... node scripts/break-glass-2fa.mjs --email admin@example.com --confirm
+ *   DATABASE_URL=... npx tsx scripts/break-glass-2fa.mjs --email admin@example.com --confirm
+ *
+ * Skriptet må kjøres med `tsx` fordi revisjonsraden skrives gjennom
+ * `audit()` i `src/lib/audit.ts`, slik at den havner i den hash-kjedede
+ * loggen. En direkte skriving til AuditLog ville gitt en rad uten hash, og da
+ * underkjennes hele beviskjeden av `verifyAuditChain`.
  *
  * Etterpå må brukeren logge inn med passordet og fullføre påkrevd 2FA-oppsett.
  * Skriptet endrer ikke passord, rolle eller andre rettigheter.
@@ -15,6 +20,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { audit } from "../src/lib/audit";
 
 function arg(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -27,7 +33,7 @@ const confirmed = process.argv.includes("--confirm");
 
 if (!email || !confirmed) {
   console.error(
-    "Bruk: node scripts/break-glass-2fa.mjs --email <bruker> --confirm [--reason \"...\"]",
+    "Bruk: npx tsx scripts/break-glass-2fa.mjs --email <bruker> --confirm [--reason \"...\"]",
   );
   process.exit(1);
 }
@@ -54,6 +60,7 @@ try {
       email: true,
       role: true,
       isTwoFactorEnabled: true,
+      departmentId: true,
     },
   });
 
@@ -74,15 +81,19 @@ try {
       },
     });
     await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: user.id } });
-    await tx.auditLog.create({
-      data: {
-        entityType: "User",
-        entityId: user.id,
-        action: "2FA: break-glass nullstilte to-trinns verifisering",
-        userName: user.name || user.email || "Ukjent",
-        actorId: null,
-        metadata: { reason, method: "scripts/break-glass-2fa.mjs" },
-      },
+    // Samme transaksjon som endringen: en vellykket nullstilling kan ikke
+    // stå uten revisjonsrad, og raden kan ikke overleve en rollback.
+    await audit(tx, {
+      entityType: "User",
+      entityId: user.id,
+      action: "2FA: break-glass nullstilte to-trinns verifisering",
+      actionCode: "user.2fa.break_glass",
+      outcome: "SUCCESS",
+      retentionClass: "SECURITY_1Y",
+      actor: { id: "", name: "break-glass", email: null },
+      departmentId: user.departmentId,
+      targetUserId: user.id,
+      metadata: { reason, method: "scripts/break-glass-2fa.mjs" },
     });
   });
 

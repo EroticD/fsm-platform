@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { internalApiError } from "@/lib/api-errors";
+import { auditRequestContext, auditStandalone } from "@/lib/audit";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { csvCell } from "@/lib/csv";
@@ -14,6 +15,43 @@ const EXPORT_RATE_LIMIT = 5;
 const EXPORT_RATE_WINDOW_MS = 60 * 60_000;
 /** Fast filnavn; selve innholdet er lokalisert via kundenes språk. */
 const PORTAL_EXPORT_FILENAME = "mine-oppdrag.csv";
+
+/**
+ * Logger innsynseksporten etter GDPR art. 15. Bare antall rader og format
+ * lagres – ikke innholdet. En loggfeil skal ikke stoppe eksporten.
+ */
+async function logPortalExport(input: {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    departmentId?: string | null;
+  };
+  customerId: string;
+  rows: number;
+}): Promise<void> {
+  try {
+    await auditStandalone({
+      entityType: "Customer",
+      entityId: input.customerId,
+      action: `Eksporterte egne oppdrag (${input.rows} rader) etter innsynsrett`,
+      actor: {
+        id: input.user.id,
+        name: input.user.name ?? null,
+        email: input.user.email ?? null,
+        departmentId: input.user.departmentId ?? null,
+      },
+      actionCode: "portal.data_exported",
+      metadata: { rows: input.rows, format: "csv", legalBasis: "gdpr_art_15" },
+      context: await auditRequestContext(),
+    });
+  } catch (error) {
+    console.error("[audit] kunne ikke logge portal.data_exported", {
+      customerId: input.customerId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * Eksporterer kundens egne oppdrag som CSV. Bare kundeportalbrukere med en
@@ -83,6 +121,12 @@ export async function GET() {
   );
 
   const csv = "\uFEFF" + [header.map(csvCell).join(";"), ...rows].join("\r\n");
+
+  await logPortalExport({
+    user,
+    customerId: access.data.customerId,
+    rows: workOrders.length,
+  });
 
   return new NextResponse(csv, {
     headers: {

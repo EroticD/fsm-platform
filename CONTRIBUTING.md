@@ -5,7 +5,7 @@ Takk for at du vil bidra til FSM-plattformen. Prosjektet er kildeåpent under
 
 ## Kom i gang
 
-Forutsetninger: Node.js 22+, Docker og npm.
+Forutsetninger: Node.js 24+ (26 brukes i produksjon), Docker og npm.
 
 ```bash
 git clone <repo-url> fsm-platform

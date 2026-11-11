@@ -85,7 +85,7 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterp√• ‚Ä
    APP_URL=https://fsm.example.com
 
    # Pinn til en publisert versjon, ikke latest.
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.2
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3
    POSTGRES_IMAGE=postgres:15.13
    ```
 
@@ -272,7 +272,7 @@ Backup, kryptering, restore-test og rollback er beskrevet i
 2. Bytt `APP_IMAGE` til den nye, pinnede taggen i `.env`:
 
    ```dotenv
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.2
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3
    ```
 
 3. Kontroller hvilke images som faktisk brukes, hent og recreate:
@@ -311,7 +311,7 @@ pinning til digest.
 
 ## Lokal utvikling
 
-Forutsetninger: Node.js 22+, Docker og npm.
+Forutsetninger: Node.js 24+ (26 brukes i produksjon), Docker og npm.
 
 ```bash
 npm ci

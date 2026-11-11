@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { audit } from "@/lib/audit";
 import { notifyWorkOrderEvent } from "@/server/notifications";
 import { contractIntervalLabel } from "@/lib/contracts";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
@@ -214,13 +215,20 @@ export async function generateRecurringWorkOrderForContract(
           now,
         });
 
-        await tx.auditLog.create({
-          data: {
-            entityType: "WorkOrder",
-            entityId: workOrder.id,
-            action: `Opprettet gjentagende oppdrag fra serviceavtalen «${contract.title}»`,
-            userName: "Serviceavtale",
-            metadata: { customerId: contract.customerId, contractId: contract.id },
+        await audit(tx, {
+          entityType: "WorkOrder",
+          entityId: workOrder.id,
+          action: `Opprettet gjentagende oppdrag fra serviceavtalen «${contract.title}»`,
+          actionCode: "workorder.recurring.created",
+          retentionClass: "OPS_90D",
+          // Generert av jobben, ikke av en innlogget bruker. Avdelingen er
+          // avtalens, slik at raden havner i riktig avdelingsspor.
+          actor: { id: "", name: "Serviceavtale", email: null },
+          departmentId: contract.departmentId,
+          metadata: {
+            customerId: contract.customerId,
+            contractId: contract.id,
+            scheduledFor: due.toISOString(),
           },
         });
 

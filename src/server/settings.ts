@@ -2,7 +2,7 @@
 // revisjonsloggen oversettes ved visning i audit-actions.ts.
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { audit } from "@/lib/audit";
+import { audit, auditRequestContext, auditStandalone } from "@/lib/audit";
 import { isSafeLogoUrl } from "@/lib/logo";
 import { isBrandingLogoForActor } from "@/lib/upload-ownership";
 import { LIMITS, cleanColor, cleanStatus, cleanText, cleanUrl } from "@/lib/sanitize";
@@ -562,15 +562,19 @@ export async function deleteTemplate(
 
   if (reports > 0 || activeContracts > 0 || workOrders > 0) {
     const usage = { reports, activeContracts, workOrders };
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Template",
-        entityId: id,
-        action: `Blokkerte sletting av sjekklisten «${template.title}» fordi den er i bruk`,
-        userName: actor.name || actor.email || "Ukjent",
-        actorId: actor.id,
-        metadata: usage,
-      },
+    // Avvisningen skrives utenfor en forretningstransaksjon: ingenting endres,
+    // men forsøket skal likevel ligge i den hash-kjedede loggen med bruken som
+    // stoppet det. `auditStandalone` gir raden sin egen transaksjon.
+    await auditStandalone({
+      entityType: "Template",
+      entityId: id,
+      action: `Blokkerte sletting av sjekklisten «${template.title}» fordi den er i bruk`,
+      actionCode: "settings.template.delete_blocked",
+      outcome: "DENIED",
+      retentionClass: "OPS_90D",
+      actor: toAuditActor(actor),
+      context: await auditRequestContext(),
+      metadata: usage,
     });
     return fail("in_use", usage);
   }
