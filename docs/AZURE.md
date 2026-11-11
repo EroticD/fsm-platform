@@ -223,7 +223,7 @@ export DOMAIN="fsm.example.no"
 export PG_NAME="pg-fsm-prod"
 export KV_NAME="kv-fsm-prod-$RANDOM"
 export ST_NAME="stfsmprod$RANDOM"
-export APP_IMAGE="ghcr.io/eroticd/fsm-platform:v0.9.1"
+export APP_IMAGE="ghcr.io/eroticd/fsm-platform:v0.9.2"
 ```
 
 > `ADMIN_CIDR` er eksempelet `203.0.113.10/32` fra dokumentasjonsblokken
@@ -1217,7 +1217,7 @@ unset GHCR_TOKEN
 sudo git clone <repo-url> /opt/fsm-platform
 sudo chown -R "$USER":"$USER" /opt/fsm-platform
 cd /opt/fsm-platform
-git checkout <release-tag>   # f.eks. v0.9.1, eller master
+git checkout <release-tag>   # f.eks. v0.9.2, eller master
 ```
 
 > `deploy/azure/` må finnes i revisjonen dere checker ut. Er Azure-assetene
@@ -1251,7 +1251,7 @@ sudoedit /etc/fsm/azure.env
 Fyll inn minst:
 
 ```dotenv
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.1
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.2
 CADDY_IMAGE=caddy:2.10-alpine
 FSM_DOMAIN=fsm.example.no
 KEY_VAULT_URL=https://<vault>.vault.azure.net/

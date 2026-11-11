@@ -5,6 +5,16 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.9.2 — 2026-11-11
+
+**Utgivelsessammendrag:** 0.9.2 retter innloggingsredirecten, stopper
+enroute, returkjøring og offentlig sporing når et oppdrag fullføres eller
+lukkes, gir teknikeren kontordashbord på datamaskin og «I dag» på mobil, og
+innfører feltspesifikke skjemafeil med oppsummering, fokus og inline-melding.
+Ingen datamigreringer er nødvendige.
+
 ### Skjemafeil
 - Ny felles skjemavalidator viser en oppsummering øverst med antall feil,
   hvilket felt som er feil og hva som må rettes. Første feil får fokus, og
