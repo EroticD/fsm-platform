@@ -1,5 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { formatDateLocalized } from "@/lib/dates";
 
 type Policy = {
@@ -171,7 +172,7 @@ export default async function SlaSettingsTab({
           </p>
         </div>
 
-        <form action={savePolicy} className="grid gap-3 sm:grid-cols-2">
+        <ValidatedForm action={savePolicy} className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="sla-name" className={LABEL}>
               {t("settings.sla.policy.name")}
@@ -259,7 +260,7 @@ export default async function SlaSettingsTab({
               {t("settings.sla.policy.create")}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
 
         {policies.length === 0 ? (
           <p className={MUTED}>{t("settings.sla.policy.empty")}</p>
@@ -290,7 +291,7 @@ export default async function SlaSettingsTab({
                     })}
                   </span>
                 </summary>
-                <form
+                <ValidatedForm
                   action={savePolicy}
                   className="mt-3 grid gap-3 sm:grid-cols-2"
                 >
@@ -406,7 +407,7 @@ export default async function SlaSettingsTab({
                       </button>
                     ) : null}
                   </div>
-                </form>
+                </ValidatedForm>
               </details>
             ))}
           </div>
@@ -452,7 +453,7 @@ export default async function SlaSettingsTab({
         </form>
 
         {departmentId ? (
-          <form action={saveHours} className="space-y-2">
+          <ValidatedForm action={saveHours} className="space-y-2">
             <input type="hidden" name="departmentId" value={departmentId} />
             {Array.from({ length: 7 }, (_, weekday) => {
               const row = hoursByWeekday.get(weekday);
@@ -521,7 +522,7 @@ export default async function SlaSettingsTab({
                 })}
               </p>
             ) : null}
-          </form>
+          </ValidatedForm>
         ) : null}
       </section>
 
@@ -539,7 +540,7 @@ export default async function SlaSettingsTab({
           </p>
         </div>
 
-        <form
+        <ValidatedForm
           action={saveHoliday}
           className="grid gap-3 sm:grid-cols-[1fr_1.5fr_1fr_auto]"
         >
@@ -591,7 +592,7 @@ export default async function SlaSettingsTab({
               {t("settings.sla.holidays.add")}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
 
         {holidays.length === 0 ? (
           <p className={MUTED}>{t("settings.sla.holidays.empty")}</p>
@@ -647,7 +648,7 @@ export default async function SlaSettingsTab({
             </p>
           </div>
 
-          <form action={createPriceList} className="flex flex-wrap items-end gap-2">
+          <ValidatedForm action={createPriceList} className="flex flex-wrap items-end gap-2">
             <div className="min-w-56 flex-1">
               <label htmlFor="price-list-name" className={LABEL}>
                 {t("settings.sla.priceLists.name")}
@@ -664,7 +665,7 @@ export default async function SlaSettingsTab({
               <Icon name="plus" className="h-4 w-4" />
               {t("settings.sla.priceLists.create")}
             </button>
-          </form>
+          </ValidatedForm>
 
           {priceLists.length === 0 ? (
             <p className={MUTED}>{t("settings.sla.priceLists.empty")}</p>
@@ -750,7 +751,7 @@ export default async function SlaSettingsTab({
                     </div>
                   )}
 
-                  <form
+                  <ValidatedForm
                     action={addPriceItem}
                     className="mt-3 grid gap-2 sm:grid-cols-[0.7fr_1.6fr_0.7fr_0.7fr_auto]"
                   >
@@ -823,7 +824,7 @@ export default async function SlaSettingsTab({
                         {t("settings.sla.priceLists.addItem")}
                       </button>
                     </div>
-                  </form>
+                  </ValidatedForm>
                 </details>
               ))}
             </div>

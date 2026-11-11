@@ -6,6 +6,7 @@ import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import EmptyState from "@/components/EmptyState";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { formatDateLocalized } from "@/lib/dates";
 import { hasPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
@@ -254,7 +255,7 @@ export default async function BookingsPage({
                       {t("portal.bookingQueue.noStaff")}
                     </p>
                   ) : (
-                    <form action={confirmBookingAction} className="space-y-3">
+                    <ValidatedForm action={confirmBookingAction} className="space-y-3">
                       <input type="hidden" name="bookingId" value={booking.id} />
                       <input
                         type="hidden"
@@ -339,7 +340,7 @@ export default async function BookingsPage({
                           {t("portal.bookingQueue.planAndConfirm")}
                         </button>
                       </div>
-                    </form>
+                    </ValidatedForm>
                   )}
 
                   <form action={cancelBookingOfficeAction}>

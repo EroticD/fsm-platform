@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { WORK_ORDER_STATUS_LABEL_KEYS } from "@/lib/work-order-status-colors";
 import type { WorkOrderStatusSettingsView } from "@/server/work-order-status-settings";
 import type { WorkOrderStatusCategory } from "@/lib/work-order-status";
@@ -38,7 +39,7 @@ export default async function WorkOrderStatusSettingsTab({
         </p>
       ) : null}
 
-      <form action={save} className="office-card space-y-4 p-4 sm:p-5">
+      <ValidatedForm action={save} className="office-card space-y-4 p-4 sm:p-5">
         <div className="flex items-start gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
           <Icon name="settings" className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
@@ -139,7 +140,7 @@ export default async function WorkOrderStatusSettingsTab({
             {t("settings.workOrderStatus.reset")}
           </button>
         </div>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

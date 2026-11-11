@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import type {
   DispatchPolicyView,
   TerritoryView,
@@ -88,7 +89,7 @@ export default async function DispatchSettingsTab({
     heading: string,
     submitLabel: string,
   ) => (
-    <form action={onSave} className="space-y-4">
+    <ValidatedForm action={onSave} className="space-y-4">
       <input type="hidden" name="id" value={policy?.id ?? ""} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block">
@@ -142,7 +143,7 @@ export default async function DispatchSettingsTab({
         <Icon name="check" className="h-4 w-4" />
         {submitLabel}
       </button>
-    </form>
+    </ValidatedForm>
   );
 
   return (
@@ -260,7 +261,7 @@ export default async function DispatchSettingsTab({
                     </span>
                     {activeBadge(territory.isActive, t)}
                   </summary>
-                  <form action={saveTerritory} className="mt-3 space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                  <ValidatedForm action={saveTerritory} className="mt-3 space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
                     <input type="hidden" name="id" value={territory.id} />
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <label className="block">
@@ -346,7 +347,7 @@ export default async function DispatchSettingsTab({
                       <Icon name="check" className="h-4 w-4" />
                       {t("settings.dispatch.saveTerritoryChanges")}
                     </button>
-                  </form>
+                  </ValidatedForm>
                   <ConfirmSubmitForm
                     action={deleteTerritory}
                     confirmMessage={t("settings.dispatch.deleteTerritoryConfirm")}
@@ -378,7 +379,7 @@ export default async function DispatchSettingsTab({
           <summary className="min-h-11 cursor-pointer list-none text-sm font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
             {t("settings.dispatch.newTerritory")}
           </summary>
-          <form action={saveTerritory} className="mt-3 space-y-3">
+          <ValidatedForm action={saveTerritory} className="mt-3 space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={LABEL}>{t("settings.dispatch.department")}</span>
@@ -452,7 +453,7 @@ export default async function DispatchSettingsTab({
               <Icon name="plus" className="h-4 w-4" />
               {t("settings.dispatch.saveTerritory")}
             </button>
-          </form>
+          </ValidatedForm>
         </details>
       </section>
     </div>

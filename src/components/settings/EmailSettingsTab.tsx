@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { EMAIL_EVENT_KEYS, type EmailEventKey } from "@/lib/email-events";
 import type { EmailSettingsView } from "@/server/email-outbox";
 
@@ -99,7 +100,7 @@ export default async function EmailSettingsTab({
         </p>
         <p className={MUTED}>{t("email.settings.smtpHint")}</p>
 
-        <form action={saveSettings} className="space-y-4">
+        <ValidatedForm action={saveSettings} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="email-from-name" className={LABEL}>
@@ -171,7 +172,7 @@ export default async function EmailSettingsTab({
           <button type="submit" className={BUTTON}>
             {t("email.settings.save")}
           </button>
-        </form>
+        </ValidatedForm>
       </section>
 
       <section className={CARD}>
@@ -181,7 +182,7 @@ export default async function EmailSettingsTab({
         <p className="text-sm text-[var(--muted,#62685f)]">
           {t("email.settings.testHint")}
         </p>
-        <form action={sendTest} className="grid gap-4 sm:grid-cols-2">
+        <ValidatedForm action={sendTest} className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="email-test-to" className={LABEL}>
               {t("email.settings.testRecipient")}
@@ -200,7 +201,7 @@ export default async function EmailSettingsTab({
               {t("email.settings.testSend")}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
         <p className={MUTED}>{t("email.settings.testPrivacy")}</p>
       </section>
     </div>

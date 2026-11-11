@@ -1,5 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import type { SmsProviderInfo } from "@/lib/sms/provider";
 import { SMS_EVENT_KEYS, SMS_LOCALES } from "@/lib/sms/templates";
 import { formatDateTimeLocalized } from "@/lib/dates";
@@ -174,7 +175,7 @@ export default async function SmsSettingsTab({
             : t("sms.settings.dryRunOff")}
         </p>
 
-        <form action={saveSettings} className="grid gap-4 sm:grid-cols-2">
+        <ValidatedForm action={saveSettings} className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="sms-default-locale" className={LABEL}>
               {t("sms.settings.defaultLocale")}
@@ -241,7 +242,7 @@ export default async function SmsSettingsTab({
               {t("sms.settings.save")}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
       </section>
 
       <section className="space-y-4">
@@ -260,7 +261,7 @@ export default async function SmsSettingsTab({
             {t("sms.reminders.noDepartments")}
           </p>
         ) : (
-          <form action={saveReminder} className={CARD}>
+          <ValidatedForm action={saveReminder} className={CARD}>
             <h3 className="font-extrabold text-[var(--ink,#101310)]">
               {t("sms.reminders.create")}
             </h3>
@@ -392,7 +393,7 @@ export default async function SmsSettingsTab({
             <button type="submit" className={BUTTON}>
               {t("sms.reminders.createButton")}
             </button>
-          </form>
+          </ValidatedForm>
         )}
 
         {reminders.rules.length === 0 ? (
@@ -402,7 +403,7 @@ export default async function SmsSettingsTab({
         ) : (
           reminders.rules.map((rule) => (
             <div key={rule.id} className="space-y-2">
-              <form action={saveReminder} className={CARD}>
+              <ValidatedForm action={saveReminder} className={CARD}>
                 <input type="hidden" name="id" value={rule.id} />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-extrabold text-[var(--ink,#101310)]">
@@ -569,7 +570,7 @@ export default async function SmsSettingsTab({
                 <button type="submit" className={BUTTON}>
                   {t("sms.reminders.save")}
                 </button>
-              </form>
+              </ValidatedForm>
               <form action={deleteReminder} className="px-1">
                 <input type="hidden" name="id" value={rule.id} />
                 <button type="submit" className={INK_BUTTON}>
@@ -659,7 +660,7 @@ export default async function SmsSettingsTab({
             {templates
               .filter((template) => template.eventKey === eventKey)
               .map((template) => (
-                <form
+                <ValidatedForm
                   key={template.id}
                   action={saveTemplate}
                   className={CARD}
@@ -715,7 +716,7 @@ export default async function SmsSettingsTab({
                   <button type="submit" className={BUTTON}>
                     {t("sms.settings.saveTemplate")}
                   </button>
-                </form>
+                </ValidatedForm>
               ))}
           </div>
         ))}

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import { controlClassName } from "@/components/ui/controlStyles";
 import type { MapLayer, MapProvider, MapSettingsView } from "@/server/map-settings";
 
@@ -62,7 +63,7 @@ export default async function MapSettingsTab({
         </p>
       )}
 
-      <form action={action} className="mt-6 max-w-2xl space-y-5">
+      <ValidatedForm action={action} className="mt-6 max-w-2xl space-y-5">
         <label className="block">
           <span className={LABEL}>{t("settings.map.provider")}</span>
           <select
@@ -164,7 +165,7 @@ export default async function MapSettingsTab({
         <button type="submit" className={SIGNAL_BUTTON}>
           {t("settings.map.save")}
         </button>
-      </form>
+      </ValidatedForm>
     </section>
   );
 }

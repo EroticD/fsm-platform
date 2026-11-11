@@ -26,6 +26,7 @@ import CustomerToast from "@/components/customer/CustomerToast";
 import { CUSTOMER_CONTROL, LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import Card from "@/components/ui/Card";
@@ -351,7 +352,7 @@ export default async function KunderPage({
                 <Icon name="plus" className="h-4 w-4 shrink-0" />
                 {t("customers.list.newCustomer")}
               </summary>
-              <form
+              <ValidatedForm
                 action={addCustomer}
                 className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
               >
@@ -393,7 +394,7 @@ export default async function KunderPage({
                 >
                   {t("customers.list.save")}
                 </SubmitButton>
-              </form>
+              </ValidatedForm>
             </details>
           )}
         </div>

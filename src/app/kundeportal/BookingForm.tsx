@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDateLocalized } from "@/lib/dates";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import Button from "@/components/ui/Button";
 import { controlClassName } from "@/components/ui/controlStyles";
@@ -59,7 +60,6 @@ export default function BookingForm({
 }) {
   const t = useTranslations("common");
   const locale = useLocale();
-  const formRef = useRef<HTMLFormElement>(null);
   const [title, setTitle] = useState(() =>
     t("portal.bookingWizard.services.general"),
   );
@@ -80,7 +80,8 @@ export default function BookingForm({
     async (previous: BookingActionState, formData: FormData) => {
       const result = await bookWorkOrderAction(previous, formData);
       if (result.status === "success") {
-        formRef.current?.reset();
+        const form = document.getElementById("booking-form");
+        if (form instanceof HTMLFormElement) form.reset();
         setTitle(t("portal.bookingWizard.services.general"));
         setTitleTouched(false);
         setServiceType("general");
@@ -118,8 +119,7 @@ export default function BookingForm({
   };
 
   return (
-    <form
-      ref={formRef}
+    <ValidatedForm
       id="booking-form"
       action={formAction}
       className="scroll-mt-24 space-y-5"
@@ -458,6 +458,6 @@ export default function BookingForm({
           ? t("portal.bookingWizard.confirming")
           : t("portal.bookingWizard.confirm")}
       </Button>
-    </form>
+    </ValidatedForm>
   );
 }

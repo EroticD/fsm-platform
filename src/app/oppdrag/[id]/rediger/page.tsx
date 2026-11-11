@@ -11,6 +11,7 @@ import FormValuePersistence from "@/components/FormValuePersistence";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import SubmitButton from "@/components/SubmitButton";
 import SectionCard from "@/components/SectionCard";
 import { brandInset } from "@/components/ui/brandStyles";
@@ -161,6 +162,10 @@ export default async function EditWorkOrderPage({
       : error === "ugyldig-sluttdato"
         ? t("orders.errors.invalidEndDate")
         : undefined;
+  const orderNumberError =
+    error === "duplikat-ordrenummer"
+      ? t("orders.errors.duplicateOrderNumber")
+      : undefined;
 
   return (
     <PageShell size="narrow">
@@ -178,7 +183,7 @@ export default async function EditWorkOrderPage({
 
       <ErrorBanner message={errorMessage} />
 
-      <form
+      <ValidatedForm
         id="office-edit-work-order"
         action={updateWorkOrder}
         className="space-y-4"
@@ -211,6 +216,7 @@ export default async function EditWorkOrderPage({
             <Field
               id="office-edit-order-number"
               label={t("orders.edit.orderNumber")}
+              error={orderNumberError}
             >
               <Input
                 id="office-edit-order-number"
@@ -218,6 +224,7 @@ export default async function EditWorkOrderPage({
                 name="orderNumber"
                 defaultValue={workOrder.orderNumber ?? ""}
                 maxLength={200}
+                aria-invalid={orderNumberError ? true : undefined}
               />
             </Field>
 
@@ -495,7 +502,7 @@ export default async function EditWorkOrderPage({
         >
           {withoutLeadingSymbol(t("orders.edit.submit"))}
         </SubmitButton>
-      </form>
+      </ValidatedForm>
     </PageShell>
   );
 }

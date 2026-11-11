@@ -5,6 +5,18 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Skjemafeil
+- Ny felles skjemavalidator viser en oppsummering øverst med antall feil,
+  hvilket felt som er feil og hva som må rettes. Første feil får fokus, og
+  meldingen vises også rett under feltet.
+- Validatoren er tatt i bruk på oppdrag (kontor og felt), kunde, utstyr,
+  faktura, tilbud, booking, bookinger og de viktigste innstillingsskjemaene.
+- Serverfeil for faktura og tilbud viser nå den konkrete årsaken (låst,
+  ikke kladd, beløp over utestående, duplikatnummer, utløpt lenke osv.) i
+  stedet for en generisk «Handlingen kunne ikke fullføres».
+- Duplikat ordrenummer og ugyldig sluttdato vises direkte på riktig felt i
+  oppdragsskjemaet.
+
 ### Feilrettinger
 - Innlogging havner ikke lenger tilbake på `/logg-inn` når NextAuth eller en
   beskyttet side sender en `callbackUrl` som peker på login- eller

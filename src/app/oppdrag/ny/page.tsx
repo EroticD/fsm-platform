@@ -8,6 +8,7 @@ import IsoDateInput from "@/components/IsoDateInput";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SubmitButton from "@/components/SubmitButton";
@@ -133,6 +134,10 @@ export default async function AdminCreateWorkOrderPage({
       : error === "ugyldig-sluttdato"
         ? t("orders.errors.invalidEndDate")
         : undefined;
+  const orderNumberError =
+    error === "duplikat-ordrenummer"
+      ? t("orders.errors.duplicateOrderNumber")
+      : undefined;
 
   return (
     <PageShell size="narrow">
@@ -150,7 +155,7 @@ export default async function AdminCreateWorkOrderPage({
 
       <ErrorBanner message={errorMessage} />
 
-      <form
+      <ValidatedForm
         id="office-create-work-order"
         action={createWorkOrder}
         className="space-y-4"
@@ -182,6 +187,7 @@ export default async function AdminCreateWorkOrderPage({
             <Field
               id="office-new-order-number"
               label={t("orders.new.orderNumber")}
+              error={orderNumberError}
             >
               <Input
                 id="office-new-order-number"
@@ -189,6 +195,7 @@ export default async function AdminCreateWorkOrderPage({
                 name="orderNumber"
                 placeholder={t("orders.new.orderNumberPlaceholder")}
                 maxLength={200}
+                aria-invalid={orderNumberError ? true : undefined}
               />
             </Field>
 
@@ -517,7 +524,7 @@ export default async function AdminCreateWorkOrderPage({
         >
           {t("orders.new.submit")}
         </SubmitButton>
-      </form>
+      </ValidatedForm>
     </PageShell>
   );
 }

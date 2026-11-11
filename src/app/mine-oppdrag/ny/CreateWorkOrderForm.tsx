@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import CustomerSelect from "@/app/oppdrag/ny/CustomerSelect";
 import ErrorBanner from "@/components/ErrorBanner";
+import ValidatedForm from "@/components/forms/ValidatedForm";
 import IsoDateInput from "@/components/IsoDateInput";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import Icon from "@/components/icons";
@@ -75,7 +76,7 @@ export default function CreateWorkOrderForm({
 
         <ErrorBanner message={errorMessage} />
 
-        <form
+        <ValidatedForm
           id="field-create-work-order"
           action="/api/technician/workorders/create"
           method="POST"
@@ -286,7 +287,7 @@ export default function CreateWorkOrderForm({
           >
             {t("orders.fieldNew.submit")}
           </SubmitButton>
-        </form>
+        </ValidatedForm>
       </div>
     </div>
   );
