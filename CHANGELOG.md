@@ -5,6 +5,18 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.9.3 — 2026-11-12
+
+**Utgivelsessammendrag:** 0.9.3 lukker feilen der et oppdrag fullført via
+rapport ble stående som aktiv reise, gir gjenåpning en presis gjenoppretting av
+visiter, og gjør revisjonsloggen til en sammenhengende beviskjede. Alle
+skriveveier går nå gjennom hash-kjeden, avviste og feilede handlinger logges, og
+utlevering av filer, PDF-er og CSV spores. Ingen datamigreringer er påkrevd utover
+nye kolonner; kjeden bør likevel verifiseres med `npm run audit:verify` etter
+oppgradering.
+
 ### Revisjonslogg
 - Alle 22 direkte skrivinger til `AuditLog` går nå gjennom `audit()` eller
   `auditStandalone()`. Rader fra innlogging, 2FA, SSO, SAML, SCIM, roller,

@@ -9,9 +9,9 @@
 
 | Felt | Verdi |
 | --- | --- |
-| Dato | 2026-11-11 |
-| Kodegren | `master` og `dev` @ `v0.9.2` |
-| Versjon | 0.9.2 (`v0.9.2`) |
+| Dato | 2026-11-12 |
+| Kodegren | `master` og `dev` @ `v0.9.3` |
+| Versjon | 0.9.3 (`v0.9.3`) |
 | Repository | 116 Prisma-modeller, 27 enums, 91 `page.tsx`, 94 API-ruter, 22 moduler |
 | Tester | 405 testfiler, 3 346 enhetstester, 41 integrasjonsfiler / 226 tester, 14 E2E-spesifikasjoner |
 | P0 | Ingen åpne P0 |

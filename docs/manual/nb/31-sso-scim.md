@@ -4,7 +4,7 @@ Dette kapitlet gjelder administratorer som skal koble FSM til en ekstern
 identitetsleverandør (IdP) og automatisere oppretting og deaktivering av
 brukere. Oppsettet gjøres med miljøvariabler og krever ny appstart. Passord-
 innlogging blir alltid stående som nødvei. Kapitlet gjelder FSM-plattformen
-0.9.2 (8. november 2026).
+0.9.3 (8. november 2026).
 
 ## 1. Før du begynner
 

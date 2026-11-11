@@ -1,6 +1,6 @@
 # Introduksjon og systemoversikt
 
-*Gjelder FSM-plattformen versjon 0.9.2, 8. november 2026.*
+*Gjelder FSM-plattformen versjon 0.9.3, 8. november 2026.*
 
 ## Hva FSM-plattformen er
 
@@ -19,9 +19,9 @@ Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne j
 
 > **Merk:** «Kontor» er en rolle, ikke en fysisk plass. Administrator kan lage egne roller og gi enkeltbrukere tilpassede rettigheter.
 
-## Hva er nytt i 0.9.2
+## Hva er nytt i 0.9.3
 
-0.9.2 retter innloggingsredirect, stopper enroute, returkjøring og sporing når et oppdrag lukkes, gir teknikeren kontordashbord på datamaskin og «I dag» på mobil, og viser feltspesifikke skjemafeil. Funksjonslista under oppsummerer plattformen fra 0.9.0.
+0.9.3 retter innloggingsredirect, stopper enroute, returkjøring og sporing når et oppdrag lukkes, gir teknikeren kontordashbord på datamaskin og «I dag» på mobil, og viser feltspesifikke skjemafeil. Funksjonslista under oppsummerer plattformen fra 0.9.0.
 
 - **Tilbud, faktura og betalingslenker.** Tilbud har versjoner, utskrift og
   engangs godkjenningslenke. Fakturaer har delbetaling, kreditnota, forfall og
@@ -180,7 +180,7 @@ Rollekapitlene beskriver hvert skritt i detalj. Her ser du hvordan rollene og da
 1. **Administrator** slår på live-sporing for avdelingen. Det er av som standard og gjelder bare visiter i den avdelingen.
 2. **Montøren** setter visitten til «På vei» og kan dele posisjon. Kunden åpner sporingslenken fra «Besøk» eller får den tilsendt.
 3. **Kundeportalbrukeren** ser fornavn, status og estimert ankomst. Posisjonen vises aldri som kart eller koordinater, og lenken utløper når visitten er ferdig eller etter to timer.
-4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.9.2.
+4. **Kunden** kan gi intern omtale etter fullført visitt. Omtalen er intern og publiseres ikke; den er ikke vist som eget dashboard i 0.9.3.
 
 ### 5. Rettigheter, varsler og aktivitetslogg gjennom alle flytene
 
@@ -244,7 +244,7 @@ Manualen har en introduksjonsdel, tre rollekapitler, et kapittel om SSO og SCIM,
 - Menyvalg vises som **Innstillinger → API-nøkler**.
 - **Merk** forklarer noe som er lett å misforstå. **Tips** er en snarvei eller et godt råd. **Advarsel** betyr at handlingen kan føre til datatap eller feil.
 - Datoer og klokkeslett vises i Europe/Oslo med 24-timers klokke. Mangler en tid eller dato, viser systemet «Tid ikke satt» eller «Ingen dato»; det betyr ikke at verdien er midnatt.
-- Rapport-PDF-er har norske etiketter i 0.9.2, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
+- Rapport-PDF-er har norske etiketter i 0.9.3, også når grensesnittet er engelsk. Avtale-PDF kan genereres på valgt språk.
 
 > **Advarsel:** En innsendt og låst rapport skal ikke endres uten en god grunn. Opplåsing krever administrator og begrunnelse, og alle endringer havner i aktivitetsloggen.
 

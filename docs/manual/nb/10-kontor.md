@@ -3,7 +3,7 @@
 Dette kapitlet er for deg som jobber på kontoret: du tar imot henvendelser,
 oppretter og planlegger oppdrag, fordeler montører, følger opp rapporter og
 holder kunde-, utstyrs- og avtaledata oppdatert. Det gjelder FSM-plattformen
-0.9.2 (08.11.2026).
+0.9.3 (08.11.2026).
 
 Oppdrag og serviceavtaler tilhører en avdeling: du ser normalt bare egen
 avdeling, mens administrator ser alt. Kunder, utstyr og dokumenter er felles,
@@ -520,7 +520,7 @@ Dispatch**. Der velger du **Modus**, justerer **Vektene** for **Kompetanse**,
 **Avstand**, **Reisetid**, **Ledig tid**, **SLA** og **Belastning**, og legger
 inn territorier med **Postnummerprefikser**, **Kommunekoder** og **Radius (km)**.
 **Kapasitetsplaner** vises i kapasitetsvisningen, men redigeres ikke i
-**Innstillinger** i 0.9.2. Det samme gjelder kompetanse, fravær og arbeidstid:
+**Innstillinger** i 0.9.3. Det samme gjelder kompetanse, fravær og arbeidstid:
 de brukes av dispatch og booking, men har ikke eget skjema i **Innstillinger**.
 
 ## Avtaler, SLA og prislister
@@ -832,7 +832,7 @@ dato.
 > PDF-en igjen. Driftsloggen viser `report_pdf_images_missing` med antall, uten
 > filnavn eller personopplysninger.
 
-> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.9.2, også når
+> **Merk:** Tittelen på utbedringsoppdraget er norsk i 0.9.3, også når
 > grensesnittet er engelsk. Det er samme språkbegrensning som i rapport-PDF-en.
 
 ### Status og låsing

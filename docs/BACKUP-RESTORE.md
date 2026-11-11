@@ -1434,7 +1434,7 @@ Gjenopprett opplastingsvolumet fra sikkerhetsbackupen hvis det ble endret.
 Start deretter med gammelt image:
 
 ```bash
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.2 $COMPOSE up -d app
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3 $COMPOSE up -d app
 ```
 
 Rollback av database er **destruktivt** for data skrevet etter at den gamle

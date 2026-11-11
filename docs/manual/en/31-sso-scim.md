@@ -3,7 +3,7 @@
 This chapter is for administrators who will connect FSM to an external identity
 provider (IdP) and automate user creation and deactivation. Configuration is done
 with environment variables and requires an app restart. Password sign-in always
-remains as the break-glass path. It applies to FSM Platform 0.9.2
+remains as the break-glass path. It applies to FSM Platform 0.9.3
 (8 November 2026).
 
 ## 1. Before you begin
