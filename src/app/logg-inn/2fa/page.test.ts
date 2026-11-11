@@ -52,4 +52,20 @@ describe("2FA-siden – utløpt økt", () => {
       TwoFactorPage({ searchParams: Promise.resolve({}) }),
     ).rejects.toThrow("REDIRECT:/logg-inn");
   });
+
+  it.each(["/api/auth/signin", "/logg-inn", "/logg-inn/2fa"])(
+    "vasker utrygg callback %s før feilomdirigeringen",
+    async (callbackUrl) => {
+      mocks.readPendingTwoFactor.mockResolvedValue(null);
+
+      await expect(
+        TwoFactorPage({
+          searchParams: Promise.resolve({
+            error: "TwoFactorExpired",
+            callbackUrl,
+          }),
+        }),
+      ).rejects.toThrow("REDIRECT:/logg-inn?error=TwoFactorExpired");
+    },
+  );
 });

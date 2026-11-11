@@ -17,6 +17,7 @@ import {
   submitReview,
 } from "@/server/reviews";
 import { setVisitStatus } from "@/server/visits";
+import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
 
@@ -46,6 +47,7 @@ describeIntegration("Live sporing og omtaler", () => {
   let visitId = "";
   let offWorkOrderId = "";
   let offVisitId = "";
+  const extraWorkOrderIds: string[] = [];
 
   beforeAll(async () => {
     const [department, departmentOff] = await Promise.all([
@@ -165,7 +167,15 @@ describeIntegration("Live sporing og omtaler", () => {
 
   afterAll(async () => {
     await prisma.workOrder.deleteMany({
-      where: { id: { in: [workOrderId, offWorkOrderId].filter(Boolean) } },
+      where: {
+        id: {
+          in: [
+            workOrderId,
+            offWorkOrderId,
+            ...extraWorkOrderIds,
+          ].filter(Boolean),
+        },
+      },
     });
     await prisma.customer.deleteMany({ where: { id: customerId } });
     await prisma.user.deleteMany({
@@ -274,6 +284,85 @@ describeIntegration("Live sporing og omtaler", () => {
     await expect(
       prisma.visitLocationPing.count({ where: { visitId } }),
     ).resolves.toBe(0);
+  });
+
+  it("tilbakekaller sporing og lukker visitten når oppdraget fullføres", async () => {
+    const now = Date.now();
+    const order = await prisma.workOrder.create({
+      data: {
+        reference: unique("REF"),
+        title: unique("IT-sporing-lukk-oppdrag"),
+        departmentId,
+        customerId,
+        status: "OPEN",
+        latitude: 60.3913,
+        longitude: 5.3221,
+        technicians: { connect: { id: office.id } },
+      },
+    });
+    extraWorkOrderIds.push(order.id);
+
+    const visit = await prisma.visit.create({
+      data: {
+        workOrderId: order.id,
+        startsAt: new Date(now - 10 * 60_000),
+        endsAt: new Date(now + 30 * 60_000),
+        status: "EN_ROUTE",
+        enRouteAt: new Date(now - 5 * 60_000),
+        technicians: { create: { userId: office.id } },
+      },
+    });
+
+    const created = await createTrackingLink(office, visit.id);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await expect(
+      transitionWorkOrderStatus({
+        workOrderId: order.id,
+        from: "OPEN",
+        to: "COMPLETED",
+        isAdmin: false,
+        actor: office,
+        action: "Fullførte oppdraget",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const closedVisit = await prisma.visit.findUnique({
+      where: { id: visit.id },
+      select: { status: true, doneAt: true, travelFromEndedAt: true },
+    });
+    expect(closedVisit?.status).toBe("DONE");
+    expect(closedVisit?.doneAt).toBeInstanceOf(Date);
+    expect(closedVisit?.travelFromEndedAt).toBeInstanceOf(Date);
+
+    const link = await prisma.trackingLink.findUnique({
+      where: { id: created.data.id },
+      select: { revokedAt: true },
+    });
+    expect(link?.revokedAt).toBeInstanceOf(Date);
+
+    await expect(getPublicTracking(created.data.token)).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+
+    // Simulerer en gammel rad der lenken aldri ble tilbakekalt. Lesesiden må
+    // fortsatt avvise den fordi oppdraget er lukket.
+    await prisma.trackingLink.update({
+      where: { id: created.data.id },
+      data: { revokedAt: null },
+    });
+    await expect(getPublicTracking(created.data.token)).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+
+    await expect(createTrackingLink(office, visit.id)).resolves.toMatchObject({
+      ok: false,
+      reason: "conflict",
+      details: { code: "tracking.errors.visitLocked" },
+    });
   });
 
   it("ber om omtale idempotent og tillater bare én innsending", async () => {

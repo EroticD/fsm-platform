@@ -270,12 +270,27 @@ describe("toppnavigasjon", () => {
 });
 
 describe("rollehjem", () => {
-  it("sender montører til I dag, kunder til portalen og kontoret til dashbordet", () => {
-    expect(homePathForRole("TECHNICIAN")).toBe("/mine-oppdrag");
+  it("sender montører til dashbordet på desktop som standard", () => {
+    expect(homePathForRole("TECHNICIAN")).toBe("/");
+    expect(homePathForRole("TECHNICIAN", {})).toBe("/");
+    expect(homePathForRole("TECHNICIAN", { mobile: false })).toBe("/");
+  });
+
+  it("sender montører til I dag på mobil", () => {
+    expect(homePathForRole("TECHNICIAN", { mobile: true })).toBe(
+      "/mine-oppdrag",
+    );
+  });
+
+  it("sender kunder til portalen og kontoret til dashbordet", () => {
     expect(homePathForRole("CUSTOMER")).toBe("/kundeportal");
+    expect(homePathForRole("CUSTOMER", { mobile: true })).toBe("/kundeportal");
     expect(homePathForRole("OFFICE")).toBe("/");
+    expect(homePathForRole("OFFICE", { mobile: true })).toBe("/");
     expect(homePathForRole("ADMIN")).toBe("/");
+    expect(homePathForRole("ADMIN", { mobile: true })).toBe("/");
     expect(homePathForRole(undefined)).toBe("/");
+    expect(homePathForRole(null, { mobile: true })).toBe("/");
   });
 });
 

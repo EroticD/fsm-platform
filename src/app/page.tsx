@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { scheduledTodayWhere } from "@/lib/work-order-date-where";
@@ -30,6 +31,7 @@ import { getMapSettings } from "@/server/map-settings";
 import { moduleIsOn } from "@/lib/modules";
 import { readModuleStates } from "@/server/modules";
 import type { ServiceActor } from "@/server/actor";
+import { isMobileUserAgent } from "@/lib/device";
 import { homePathForRole } from "@/lib/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardMetricCards, {
@@ -1001,9 +1003,11 @@ export default async function AdminDashboard({
     redirect("/kundeportal");
   }
 
-  // Montører har «I dag» som hjem. Kontor og administrator beholder
-  // dashbordet; kundeportalbrukere er allerede sendt videre over.
-  const home = homePathForRole(user.role);
+  // Montører har «I dag» som hjem på mobil og dashbordet på desktop. Kontor og
+  // administrator beholder dashbordet; kundeportalbrukere er allerede sendt
+  // videre over. Dette fanger også opp SSO/SAML-innlogginger som lander på /.
+  const mobile = isMobileUserAgent((await headers()).get("user-agent"));
+  const home = homePathForRole(user.role, { mobile });
   if (home !== "/") redirect(home);
 
   // Dashbordet er kontorets flate. Montører er allerede sendt til «I dag»

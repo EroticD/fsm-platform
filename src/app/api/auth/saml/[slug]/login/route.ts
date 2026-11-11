@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { safeLoginCallbackTarget } from "@/lib/safe-redirect";
 import { moduleEnabled } from "@/server/modules";
 import {
   SamlConfigError,
@@ -32,7 +32,7 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   const url = new URL(request.url);
-  const callbackUrl = safeRelativeTarget(
+  const callbackUrl = safeLoginCallbackTarget(
     url.searchParams.get("callbackUrl") ?? "/",
   );
 

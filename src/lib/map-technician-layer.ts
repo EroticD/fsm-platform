@@ -1,6 +1,10 @@
 import prisma from "@/lib/prisma";
 import { workOrderScope, type AccessUser } from "@/lib/access";
 import type { Coordinates } from "@/lib/geo";
+import {
+  isClosedStatus,
+  statusKeysByCategory,
+} from "@/lib/work-order-status";
 import { LOCATION_PING_RETENTION_MS } from "@/server/tracking";
 
 /**
@@ -36,13 +40,14 @@ export async function loadTechnicianMapLayer(
 ): Promise<TechnicianMapLayer> {
   const cutoff = new Date(Date.now() - TECHNICIAN_MAP_PING_MAX_AGE_MS);
   const scope = workOrderScope(user);
+  const closedStatuses = statusKeysByCategory("CLOSED");
 
   const [visits, enabledDepartments] = await Promise.all([
     prisma.visit.findMany({
       where: {
         status: { in: ["EN_ROUTE", "ON_SITE"] },
         workOrder: {
-          AND: [scope],
+          AND: [scope, { status: { notIn: closedStatuses } }],
           department: { trackingEnabled: true },
         },
         locationPings: { some: { recordedAt: { gte: cutoff } } },
@@ -54,6 +59,7 @@ export async function loadTechnicianMapLayer(
           select: {
             id: true,
             title: true,
+            status: true,
             customer: { select: { name: true } },
           },
         },
@@ -94,6 +100,9 @@ export async function loadTechnicianMapLayer(
   ]);
 
   const markers = visits.flatMap((visit) => {
+    // Forsvar i dybden: spørringen filtrerer bort lukkede oppdrag, men en
+    // gammel/konfigurert status skal aldri gi et «på vei»-markør på kartet.
+    if (isClosedStatus(visit.workOrder.status)) return [];
     const ping = visit.locationPings[0];
     if (!ping) return [];
     const technician =

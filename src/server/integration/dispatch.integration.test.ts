@@ -435,6 +435,57 @@ describeIntegration("dispatch-intelligens", () => {
     );
   });
 
+  it("kartlaget skjuler aktive visiter på et lukket oppdrag", async () => {
+    const department = await prisma.department.create({
+      data: { name: unique("IT-kart-lukket-avd"), trackingEnabled: true },
+    });
+    const technician = await prisma.user.create({
+      data: {
+        name: unique("IT-kart-lukket-tekniker"),
+        email: `${unique("kart-lukket-tech")}@example.test`,
+        role: "TECHNICIAN",
+        isActive: true,
+        departmentId: department.id,
+      },
+    });
+    const workOrder = await prisma.workOrder.create({
+      data: {
+        reference: unique("REF"),
+        title: unique("IT-kart-lukket-oppdrag"),
+        departmentId: department.id,
+        status: "COMPLETED",
+      },
+    });
+    const visit = await prisma.visit.create({
+      data: {
+        workOrderId: workOrder.id,
+        startsAt: new Date("2026-11-02T09:00:00.000Z"),
+        endsAt: new Date("2026-11-02T11:00:00.000Z"),
+        status: "EN_ROUTE",
+        enRouteAt: new Date(),
+        technicians: { create: [{ userId: technician.id }] },
+        locationPings: {
+          create: [
+            {
+              userId: technician.id,
+              latitude: 59.91,
+              longitude: 10.75,
+              recordedAt: new Date(),
+            },
+          ],
+        },
+      },
+    });
+
+    const layer = await loadTechnicianMapLayer(
+      actor({ departmentId: department.id }) as unknown as AccessUser,
+    );
+
+    expect(layer.markers.map((marker) => marker.visitId)).not.toContain(
+      visit.id,
+    );
+  });
+
   it("kartlaget skjuler avdelinger uten sporing", async () => {
     const department = await prisma.department.create({
       data: { name: unique("IT-kart-av-avd"), trackingEnabled: false },

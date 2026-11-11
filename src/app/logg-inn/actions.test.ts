@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   verifyCredentials: vi.fn(),
   verifyTotpStep: vi.fn(),
   acceptTotpTimeStep: vi.fn(),
+  consumeRecoveryCode: vi.fn(),
   setPendingTwoFactor: vi.fn(),
   readPendingTwoFactor: vi.fn(),
   clearPendingTwoFactor: vi.fn(),
@@ -29,6 +30,9 @@ vi.mock("@/lib/two-factor", () => ({
   verifyTotpStep: mocks.verifyTotpStep,
   acceptTotpTimeStep: mocks.acceptTotpTimeStep,
 }));
+vi.mock("@/lib/two-factor-recovery", () => ({
+  consumeRecoveryCode: mocks.consumeRecoveryCode,
+}));
 vi.mock("@/lib/session-token", () => ({
   setPendingTwoFactor: mocks.setPendingTwoFactor,
   readPendingTwoFactor: mocks.readPendingTwoFactor,
@@ -42,8 +46,19 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { loginAction, verifyTwoFactorAction } from "./actions";
+import { loginAction, verifyRecoveryCodeAction, verifyTwoFactorAction } from "./actions";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
+
+const DESKTOP_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+const MOBILE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+
+function withUserAgent(userAgent: string | null): void {
+  mocks.headers.mockResolvedValue(
+    new Headers(userAgent ? { "user-agent": userAgent } : {}),
+  );
+}
 
 function formData(values: Record<string, string>): FormData {
   const form = new FormData();
@@ -68,6 +83,7 @@ beforeEach(() => {
     async (callback: (tx: unknown) => unknown) => callback({}),
   );
   mocks.acceptTotpTimeStep.mockResolvedValue(true);
+  mocks.consumeRecoveryCode.mockResolvedValue(true);
   mocks.allowRequestDb.mockResolvedValue({
     allowed: true,
     retryAfterSeconds: 0,
@@ -156,28 +172,33 @@ describe("loginAction – rollehjem", () => {
   });
 
   it.each([
-    ["TECHNICIAN", "/mine-oppdrag"],
+    ["TECHNICIAN", "/"],
     ["OFFICE", "/"],
     ["ADMIN", "/"],
     ["CUSTOMER", "/kundeportal"],
-  ])("sender %s hjem uten eksplisitt callback", async (role, target) => {
-    mocks.verifyCredentials.mockResolvedValue({
-      status: "ok",
-      user: { ...credentialUser, role },
-    });
+  ])(
+    "sender %s hjem uten eksplisitt callback (desktop)",
+    async (role, target) => {
+      withUserAgent(DESKTOP_UA);
+      mocks.verifyCredentials.mockResolvedValue({
+        status: "ok",
+        user: { ...credentialUser, role },
+      });
 
-    await expect(
-      loginAction(
-        formData({
-          email: credentialUser.email,
-          password: "passord",
-          callbackUrl: "/",
-        }),
-      ),
-    ).rejects.toThrow(`REDIRECT:${target}`);
-  });
+      await expect(
+        loginAction(
+          formData({
+            email: credentialUser.email,
+            password: "passord",
+            callbackUrl: "/",
+          }),
+        ),
+      ).rejects.toThrow(`REDIRECT:${target}`);
+    },
+  );
 
-  it("respekterer en eksplisitt trygg callback for montører", async () => {
+  it("sender montør til I dag på mobil", async () => {
+    withUserAgent(MOBILE_UA);
     mocks.verifyCredentials.mockResolvedValue({
       status: "ok",
       user: { ...credentialUser, role: "TECHNICIAN" },
@@ -188,10 +209,96 @@ describe("loginAction – rollehjem", () => {
         formData({
           email: credentialUser.email,
           password: "passord",
-          callbackUrl: "/kunder",
+          callbackUrl: "/",
         }),
       ),
-    ).rejects.toThrow("REDIRECT:/kunder");
+    ).rejects.toThrow("REDIRECT:/mine-oppdrag");
+  });
+
+  it("sender kontor til dashbordet også på mobil", async () => {
+    withUserAgent(MOBILE_UA);
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "ok",
+      user: { ...credentialUser, role: "OFFICE" },
+    });
+
+    await expect(
+      loginAction(
+        formData({
+          email: credentialUser.email,
+          password: "passord",
+          callbackUrl: "/",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/");
+  });
+
+  it.each([
+    ["desktop", DESKTOP_UA],
+    ["mobil", MOBILE_UA],
+  ])(
+    "lar en eksplisitt trygg callback vinne for montør på %s",
+    async (_label, userAgent) => {
+      withUserAgent(userAgent);
+      mocks.verifyCredentials.mockResolvedValue({
+        status: "ok",
+        user: { ...credentialUser, role: "TECHNICIAN" },
+      });
+
+      await expect(
+        loginAction(
+          formData({
+            email: credentialUser.email,
+            password: "passord",
+            callbackUrl: "/kunder",
+          }),
+        ),
+      ).rejects.toThrow("REDIRECT:/kunder");
+    },
+  );
+
+  it.each([
+    "/api/auth/signin",
+    "/api/auth/signin?callbackUrl=%2Fkunder",
+    "/logg-inn",
+    "/logg-inn/2fa",
+  ])(
+    "faller tilbake til enhetens hjem for utrygg callback: %s",
+    async (callbackUrl) => {
+      withUserAgent(MOBILE_UA);
+      mocks.verifyCredentials.mockResolvedValue({
+        status: "ok",
+        user: { ...credentialUser, role: "TECHNICIAN" },
+      });
+
+      await expect(
+        loginAction(
+          formData({
+            email: credentialUser.email,
+            password: "passord",
+            callbackUrl,
+          }),
+        ),
+      ).rejects.toThrow("REDIRECT:/mine-oppdrag");
+    },
+  );
+
+  it("sender montør på desktop til dashbordet når NextAuth-callback avvises", async () => {
+    withUserAgent(DESKTOP_UA);
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "ok",
+      user: { ...credentialUser, role: "TECHNICIAN" },
+    });
+
+    await expect(
+      loginAction(
+        formData({
+          email: credentialUser.email,
+          password: "passord",
+          callbackUrl: "/api/auth/signin",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/");
   });
 });
 
@@ -229,7 +336,8 @@ describe("verifyTwoFactorAction – replay-vern", () => {
     );
   });
 
-  it("sender en montør til I dag når callback mangler", async () => {
+  it("sender en montør til I dag på mobil når callback mangler", async () => {
+    withUserAgent(MOBILE_UA);
     mocks.prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
       email: "montor@example.test",
@@ -248,6 +356,48 @@ describe("verifyTwoFactorAction – replay-vern", () => {
     ).rejects.toThrow("REDIRECT:/mine-oppdrag");
   });
 
+  it("sender en montør til dashbordet på desktop når callback mangler", async () => {
+    withUserAgent(DESKTOP_UA);
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "montor@example.test",
+      name: "Montør",
+      role: "TECHNICIAN",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+      lastTotpTimeStep: 100,
+    });
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 101 });
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "123456", callbackUrl: "/" })),
+    ).rejects.toThrow("REDIRECT:/");
+  });
+
+  it("lar eksplisitt callback vinne over enhetshjemmet", async () => {
+    withUserAgent(MOBILE_UA);
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "montor@example.test",
+      name: "Montør",
+      role: "TECHNICIAN",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+      lastTotpTimeStep: 100,
+    });
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 101 });
+
+    await expect(
+      verifyTwoFactorAction(
+        formData({ code: "123456", callbackUrl: "/kunder" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/kunder");
+  });
+
   it("avviser en kode som allerede er brukt", async () => {
     mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 100 });
     mocks.acceptTotpTimeStep.mockResolvedValue(false);
@@ -258,6 +408,61 @@ describe("verifyTwoFactorAction – replay-vern", () => {
 
     expect(mocks.createSessionCookie).not.toHaveBeenCalled();
     expect(mocks.resetRateLimitDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifyRecoveryCodeAction – enhetshjem", () => {
+  beforeEach(() => {
+    mocks.readPendingTwoFactor.mockResolvedValue("user-1");
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "montor@example.test",
+      name: "Montør",
+      role: "TECHNICIAN",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+    });
+  });
+
+  it("sender montør til I dag på mobil uten callback", async () => {
+    withUserAgent(MOBILE_UA);
+
+    await expect(
+      verifyRecoveryCodeAction(
+        formData({ recoveryCode: "ABCD-EFGH", callbackUrl: "/" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/mine-oppdrag");
+  });
+
+  it("sender montør til dashbordet på desktop uten callback", async () => {
+    withUserAgent(DESKTOP_UA);
+
+    await expect(
+      verifyRecoveryCodeAction(
+        formData({ recoveryCode: "ABCD-EFGH", callbackUrl: "/" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/");
+  });
+
+  it("lar eksplisitt callback vinne og avviser /api/auth", async () => {
+    withUserAgent(MOBILE_UA);
+
+    await expect(
+      verifyRecoveryCodeAction(
+        formData({ recoveryCode: "ABCD-EFGH", callbackUrl: "/kunder" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/kunder");
+
+    await expect(
+      verifyRecoveryCodeAction(
+        formData({
+          recoveryCode: "ABCD-EFGH",
+          callbackUrl: "/api/auth/signin",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/mine-oppdrag");
   });
 });
 

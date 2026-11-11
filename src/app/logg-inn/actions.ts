@@ -15,7 +15,8 @@ import {
   setPendingTwoFactor,
 } from "@/lib/session-token";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
-import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { safeLoginCallbackTarget } from "@/lib/safe-redirect";
+import { isMobileUserAgent } from "@/lib/device";
 import { homePathForRole } from "@/lib/navigation";
 import { clientIpFrom } from "@/lib/client-ip";
 import { cleanEmail } from "@/lib/sanitize";
@@ -30,7 +31,7 @@ import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
 export async function loginAction(formData: FormData): Promise<never> {
   const email = cleanEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
-  const callbackUrl = safeRelativeTarget(
+  const callbackUrl = safeLoginCallbackTarget(
     typeof formData.get("callbackUrl") === "string"
       ? (formData.get("callbackUrl") as string)
       : null
@@ -49,6 +50,9 @@ export async function loginAction(formData: FormData): Promise<never> {
   // Bruk den felles, proxy-bevisste hjelperen. Uten TRUST_PROXY ignoreres
   // X-Forwarded-For, slik at en klient ikke kan omgå IP-sperren.
   const ip = clientIpFrom(requestHeaders);
+  // Montører starter i feltportalen på mobil og på dashbordet på desktop.
+  // En eksplisitt, trygg callback nedenfor overstyrer alltid dette.
+  const mobile = isMobileUserAgent(requestHeaders.get("user-agent"));
 
   const result = await verifyCredentials(email, password, ip);
   if (result.status !== "ok") {
@@ -130,7 +134,9 @@ export async function loginAction(formData: FormData): Promise<never> {
 
   await createSessionCookie(result.user);
   redirect(
-    hasExplicitCallback ? callbackUrl : homePathForRole(result.user.role)
+    hasExplicitCallback
+      ? callbackUrl
+      : homePathForRole(result.user.role, { mobile })
   );
 }
 
@@ -139,12 +145,13 @@ export async function loginAction(formData: FormData): Promise<never> {
  */
 export async function verifyTwoFactorAction(formData: FormData): Promise<never> {
   const code = String(formData.get("code") ?? "");
-  const callbackUrl = safeRelativeTarget(
+  const callbackUrl = safeLoginCallbackTarget(
     typeof formData.get("callbackUrl") === "string"
       ? (formData.get("callbackUrl") as string)
       : null
   );
   const hasExplicitCallback = callbackUrl !== "/";
+  const mobile = isMobileUserAgent((await headers()).get("user-agent"));
 
   const fail = (error: string): string => {
     const params = new URLSearchParams({ error });
@@ -211,7 +218,9 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
     sessionVersion: user.sessionVersion,
   });
 
-  redirect(hasExplicitCallback ? callbackUrl : homePathForRole(user.role));
+  redirect(
+    hasExplicitCallback ? callbackUrl : homePathForRole(user.role, { mobile }),
+  );
 }
 
 /**
@@ -222,12 +231,13 @@ export async function verifyRecoveryCodeAction(
   formData: FormData,
 ): Promise<never> {
   const code = String(formData.get("recoveryCode") ?? "");
-  const callbackUrl = safeRelativeTarget(
+  const callbackUrl = safeLoginCallbackTarget(
     typeof formData.get("callbackUrl") === "string"
       ? (formData.get("callbackUrl") as string)
       : null,
   );
   const hasExplicitCallback = callbackUrl !== "/";
+  const mobile = isMobileUserAgent((await headers()).get("user-agent"));
 
   const fail = (error: string, recovery = false): string => {
     const params = new URLSearchParams({ error });
@@ -297,5 +307,7 @@ export async function verifyRecoveryCodeAction(
     sessionVersion: user.sessionVersion,
   });
 
-  redirect(hasExplicitCallback ? callbackUrl : homePathForRole(user.role));
+  redirect(
+    hasExplicitCallback ? callbackUrl : homePathForRole(user.role, { mobile }),
+  );
 }

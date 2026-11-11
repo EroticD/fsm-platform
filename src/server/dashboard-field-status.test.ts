@@ -66,6 +66,7 @@ function visitRow(overrides: Record<string, unknown> = {}) {
     workOrder: {
       id: "wo-1",
       title: "Service heis",
+      status: "OPEN",
       customer: { name: "Testkunde" },
       department: { trackingEnabled: true },
     },
@@ -118,11 +119,55 @@ describe("dashbordets feltstatus-tjeneste", () => {
     });
   });
 
+  it("viser fullført oppdrag som DONE uten posisjon selv om visitten er EN_ROUTE", async () => {
+    const row = visitRow({
+      status: "EN_ROUTE",
+      workOrder: {
+        id: "wo-1",
+        title: "Service heis",
+        status: "COMPLETED",
+        customer: { name: "Testkunde" },
+        department: { trackingEnabled: true },
+      },
+    });
+    mocks.visitFindMany.mockResolvedValue([row]);
+
+    const status = await loadDashboardFieldStatus(office, { now });
+
+    expect(status.rows[0]).toMatchObject({
+      status: "DONE",
+      lastPositionAt: null,
+    });
+  });
+
+  it("viser ikke en aktiv visitt på et kansellert oppdrag", async () => {
+    const row = visitRow({
+      status: "ON_SITE",
+      workOrder: {
+        id: "wo-1",
+        title: "Service heis",
+        status: "CANCELLED",
+        customer: { name: "Testkunde" },
+        department: { trackingEnabled: true },
+      },
+    });
+    mocks.visitFindMany.mockResolvedValue([row]);
+
+    const status = await loadDashboardFieldStatus(office, { now });
+
+    expect(status.rows[0]).toMatchObject({
+      status: "AVAILABLE",
+      visit: null,
+      lastPositionAt: null,
+    });
+  });
+
   it("skjuler posisjon når avdelingen har slått av sporing", async () => {
     const row = visitRow({
       workOrder: {
         id: "wo-1",
         title: "Service heis",
+        status: "OPEN",
         customer: { name: "Testkunde" },
         department: { trackingEnabled: false },
       },

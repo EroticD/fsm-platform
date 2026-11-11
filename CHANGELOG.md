@@ -5,7 +5,16 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Feilrettinger
+- Innlogging havner ikke lenger tilbake på `/logg-inn` når NextAuth eller en
+  beskyttet side sender en `callbackUrl` som peker på login- eller
+  auth-endepunktet. Slike mål avvises, og brukeren sendes til rollens hjem.
+- Montører får kontordashbordet på datamaskin og `/mine-oppdrag` på mobil.
+  En eksplisitt, trygg `callbackUrl` overstyrer fortsatt enhetsvalget.
+- Når et oppdrag fullføres eller lukkes, avsluttes aktive visiter og
+  returkjøring i samme transaksjon. Offentlige sporingslenker tilbakekalles,
+  og dashbord, kart og sporing ignorerer gamle «på vei»-rader på lukkede
+  oppdrag.
 
 ## 0.9.1 — 2026-11-08
 

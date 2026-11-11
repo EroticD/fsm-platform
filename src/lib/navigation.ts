@@ -277,11 +277,22 @@ export function hasAnyPermission(
 }
 
 /**
- * Hjemmet til en rolle. Montører starter i feltportalen «I dag», kunder i
- * kundeportalen, mens kontor og administrator beholder dashbordet.
+ * Hjemmet til en rolle. Montører starter i feltportalen «I dag» på mobil og på
+ * kontordashbordet på desktop, kunder i kundeportalen, mens kontor og
+ * administrator alltid beholder dashbordet.
+ *
+ * Uten `options` regnes enheten som desktop. Det holder eksisterende kall
+ * uendret og gir montører dashbordet når vi ikke vet hvilken enhet de bruker.
  */
-export function homePathForRole(role?: string | null): string {
-  if (role === "TECHNICIAN") return "/mine-oppdrag";
+export type HomePathOptions = {
+  mobile?: boolean;
+};
+
+export function homePathForRole(
+  role?: string | null,
+  { mobile = false }: HomePathOptions = {},
+): string {
+  if (role === "TECHNICIAN") return mobile ? "/mine-oppdrag" : "/";
   if (role === "CUSTOMER") return "/kundeportal";
   return "/";
 }

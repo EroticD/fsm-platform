@@ -20,7 +20,7 @@ available work, and whether anything has been left from earlier days.
 2. Enter **Email** and **Password**.
 3. Select **Log in**.
 
-You land on **Today**. A wrong password gives “Wrong email or password.” An account that has not been activated gives “Your account has not been activated yet. An administrator must activate it before you can log in.”
+You land on **Today** on mobile. On a computer you land on the office dashboard. A wrong password gives “Wrong email or password.” An account that has not been activated gives “Your account has not been activated yet. An administrator must activate it before you can log in.”
 
 The session normally lasts 12 hours. Local drafts remain when the session expires, but are not sent until you sign in again.
 
@@ -46,7 +46,7 @@ The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changi
 
 ### Install the field app (PWA)
 
-The field app is installable. It opens in its own window, starts at `/mine-oppdrag` and is locked to portrait orientation.
+The field app is installable. It opens in its own window, starts at `/mine-oppdrag` on mobile (on a computer the office dashboard opens) and is locked to portrait orientation.
 
 - **Android/Chrome:** Browser menu → **Install app** or **Add to Home screen**.
 - **iPhone/iPad/Safari:** Share icon → **Add to Home Screen**.
@@ -137,7 +137,7 @@ full. Local drafts last seven days.
 
 ## My work orders / Today
 
-`/mine-oppdrag` is the home screen. At the top you see your name, **On duty**, **Online** or **Offline**, today's date, the number of jobs today, the number of **Overdue** jobs, and an estimated route distance when today's work orders have coordinates. If coordinates are missing, it says **Calculating route** or nothing – the app does not invent a distance.
+`/mine-oppdrag` is the home screen on mobile. On a computer the technician starts on the office dashboard. At the top you see your name, **On duty**, **Online** or **Offline**, today's date, the number of jobs today, the number of **Overdue** jobs, and an estimated route distance when today's work orders have coordinates. If coordinates are missing, it says **Calculating route** or nothing – the app does not invent a distance.
 
 The search field searches title, description, order number, customer name, city, address and contact person. **Search** runs it; **Reset** clears it.
 

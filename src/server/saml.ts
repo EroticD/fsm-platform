@@ -10,7 +10,7 @@ import {
 
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { safeLoginCallbackTarget } from "@/lib/safe-redirect";
 import {
   normalizeSamlCertificate,
   samlClaimsFromProfile,
@@ -255,7 +255,7 @@ export async function createSamlRelayState(
   await prisma.samlCacheEntry.create({
     data: {
       key: `${RELAY_KEY_PREFIX}${slug}:${nonce}`,
-      value: safeRelativeTarget(callbackUrl),
+      value: safeLoginCallbackTarget(callbackUrl),
       expiresAt: new Date(Date.now() + RELAY_MAX_AGE_SECONDS * 1000),
     },
   });
@@ -273,7 +273,7 @@ export async function readSamlRelayState(
     if (!row) return "/";
     await prisma.samlCacheEntry.deleteMany({ where: { key } });
     if (row.expiresAt.getTime() <= Date.now()) return "/";
-    return safeRelativeTarget(row.value);
+    return safeLoginCallbackTarget(row.value);
   } catch {
     return "/";
   }

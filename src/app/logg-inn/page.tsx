@@ -12,7 +12,7 @@ import {
 } from "@/components/auth/AuthShell";
 import Field from "@/components/ui/Field";
 import Input from "@/components/ui/Input";
-import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { safeLoginCallbackTarget } from "@/lib/safe-redirect";
 import { readSsoConfig } from "@/lib/sso";
 import { samlProviderConfigs } from "@/lib/saml";
 import { moduleEnabled } from "@/server/modules";
@@ -48,7 +48,7 @@ export default async function LoginPage({
 }) {
   const { error: errorParam, callbackUrl = "/" } = await searchParams;
   const t = await getTranslations("common");
-  const safeCallbackUrl = safeRelativeTarget(callbackUrl);
+  const safeCallbackUrl = safeLoginCallbackTarget(callbackUrl);
   const ssoEnabled = await moduleEnabled("sso");
   const sso = readSsoConfig();
   const ssoProviders = ssoEnabled

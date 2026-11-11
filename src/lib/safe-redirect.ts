@@ -21,3 +21,30 @@ export function safeRelativeTarget(value: string | null): string {
     return "/";
   }
 }
+
+/**
+ * Som `safeRelativeTarget`, men avviser også tilbakeføring til innloggings-
+ * eller auth-endepunkter. NextAuth kan sende `callbackUrl=/api/auth/signin`
+ * eller `/logg-inn` når en beskyttet side videresender til innlogging. Uten
+ * denne vakten havner brukeren på innloggingssiden igjen etter vellykket
+ * innlogging i stedet for på rollens hjem.
+ *
+ * Returen er alltid en relativ sti. Når målet er login/NextAuth returneres
+ * "/", slik at kalleren faller tilbake til rollens (og enhetens) hjem.
+ */
+export function safeLoginCallbackTarget(
+  value: string | null | undefined,
+): string {
+  const target = safeRelativeTarget(value ?? null);
+  if (target === "/") return "/";
+  const path = target.split(/[?#]/, 1)[0];
+  if (
+    path === "/logg-inn" ||
+    path.startsWith("/logg-inn/") ||
+    path === "/api/auth" ||
+    path.startsWith("/api/auth/")
+  ) {
+    return "/";
+  }
+  return target;
+}
