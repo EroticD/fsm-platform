@@ -70,7 +70,7 @@ function userAgent(): string {
   return (
     process.env.GEOCODE_USER_AGENT ??
     process.env.APP_URL ??
-    "FSM-platform/0.8.9"
+    "FSM-platform (https://github.com/EroticD/fsm-platform)"
   );
 }
 

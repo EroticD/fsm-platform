@@ -42,7 +42,7 @@ bare bevisst, og dokumenter hvorfor.
 | --- | --- |
 | Rapporter på tvers av avdelinger | **Av** for alle roller unntatt `ADMIN`. Roller som skal se alle avdelinger, må få `reports.viewAllDepartments` eksplisitt. |
 | To-trinns verifisering | Valgfritt som standard. Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for å kreve oppsett før innlogging. Administrasjonsroller kan nullstilles med den dokumenterte break-glass-prosedyren. |
-| Offline | Sidecache i 8 timer og lokale rapportkladder i 7 dager. Brukeren kan forkaste kladdene eksplisitt. |
+| Offline | Sidecache og lokale rapportkladder i 7 døgn; kladdene kan forkastes eksplisitt. Brukeren kan forkaste kladdene eksplisitt. |
 | Bookinger | Forespørsler, ikke reservasjoner; kontoret bekrefter. Serveren håndhever eierskap, frister og rate limits. Ledig tid er veiledende. |
 | PDF | Direkte lenker leveres som vedlegg. Appens PDF-viser ber eksplisitt om `inline`, og får det bare etter at `/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFile` og `/RichMedia` er sanert med qpdf; filen avvises med 422 hvis sanering ikke er mulig. |
 | Opplasting | Multipart strømmes til midlertidig fil med hard grense, maks 4 samtidige kropper per instans og 50 MB per PDF. Per-bruker (24 t) og per-kunde kvote håndheves; 413/507 returneres. Proxyen må også begrense kropp, tilkoblinger og tidsavbrudd. |

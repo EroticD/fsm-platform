@@ -53,7 +53,7 @@ services:
       retries: 10
 
   app:
-    image: ${APP_IMAGE:?Sett APP_IMAGE til en publisert versjon, f.eks. ghcr.io/eroticd/fsm-platform:v0.7.6}
+    image: ${APP_IMAGE:?Sett APP_IMAGE til en publisert versjon, f.eks. ghcr.io/eroticd/fsm-platform:<release-tag>}
     restart: unless-stopped
     depends_on:
       postgres:

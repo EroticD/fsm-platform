@@ -42,7 +42,7 @@ E2E-testene for de fire rollene krever `E2E_ADMIN_EMAIL/PASSWORD`,
 `.env.e2e.local`, opprett den isolerte databasen `fsm_ui_e2e`, kjør
 migrasjonene mot den og deretter `npm run seed:e2e`. Skriptet er destruktivt
 bare for demodataene i E2E-databasen og skal **aldri** kjøres mot produksjon.
-Se «E2E og skjermbilder» i [README.md](README.md) for hele flyten.
+Se [docs/TESTING.md](docs/TESTING.md) for hele flyten, og `npm run screenshots:verify` for skjermbildedekningen.
 
 Integrasjonstestene hoppes over med mindre `TEST_DATABASE_URL` er satt (eller
 `CI=true`). Lag en egen database og kjør migrasjonene først:

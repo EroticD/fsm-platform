@@ -1,7 +1,7 @@
 # Azure-drift av FSM-plattformen
 
 Denne guiden beskriver en produksjonsnær Azure-topologi for FSM-plattformen
-versjon **0.8.10**:
+versjon **0.9.3**:
 
 - én Ubuntu 24.04 LTS VM med Docker Compose
 - appen og Caddy på samme VM, uten lokal PostgreSQL

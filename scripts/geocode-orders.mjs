@@ -36,7 +36,7 @@ const endpoint =
 const userAgent =
   process.env.GEOCODE_USER_AGENT ??
   process.env.APP_URL ??
-  "FSM-platform/0.8.5";
+  "FSM-platform (https://github.com/EroticD/fsm-platform)";
 const timeoutMs = Number(process.env.GEOCODE_TIMEOUT_MS ?? 5000);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

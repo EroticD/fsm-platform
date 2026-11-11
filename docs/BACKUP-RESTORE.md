@@ -1,6 +1,6 @@
 # Backup og gjenoppretting (runbook)
 
-> **Gjelder:** FSM-plattformen **0.8.10**.
+> **Gjelder:** FSM-plattformen **0.9.3**.
 > **Målgruppe:** driftsoperatører som skal kunne sikkerhetskopiere, verifisere
 > og gjenopprette under tidspress.
 > **Status:** skriptene og miljøvariablene er kontrollert mot kilden i denne
@@ -1824,7 +1824,7 @@ for the age identity, but keep an offline key copy. Azure-native database
 backup does **not** include the uploads volume.
 
 **Validation.** The repo scripts, paths and variable names in this document were
-checked against the 0.8.10 source. Azure CLI/portal steps are examples and must
+checked against the 0.9.3 source. Azure CLI/portal steps are examples and must
 be verified in the target subscription; they were not executed here.
 
 ---

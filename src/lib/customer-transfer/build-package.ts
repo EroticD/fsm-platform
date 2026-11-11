@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { APP_VERSION } from "@/lib/app-version";
 import { createZip, sha256Hex, type ZipEntryInput } from "@/lib/zip";
 import {
   DATA_FILES,
@@ -52,7 +53,7 @@ export function instanceId(): string {
 }
 
 function appVersion(): string {
-  return process.env.npm_package_version ?? "0.8.5";
+  return process.env.npm_package_version ?? APP_VERSION;
 }
 
 function baseUrl(): string | undefined {

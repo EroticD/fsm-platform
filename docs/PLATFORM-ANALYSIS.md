@@ -67,7 +67,7 @@ ikke en enterprise-suite.
 | Moduler | 22 nøkler: kjerne + 21 av-/påslåbare, med avhengigheter og presets |
 | Datamodell | 116 Prisma-modeller, 27 enums, additive migreringer |
 | Flater | 91 `page.tsx`, 94 API-ruter |
-| Tester | 405 testfiler / 3 346 enhetstester + 41 filer / 226 integrasjonstester mot ekte PostgreSQL, 14 E2E-spesifikasjoner |
+| Tester | 407 testfiler / 3 364 enhetstester + 42 integrasjonsfiler mot ekte PostgreSQL, 14 E2E-spesifikasjoner |
 | CI | Typesjekk, lint, i18n, enhet, integrasjon, Playwright E2E, axe/Lighthouse, Docker, Trivy |
 | Sikkerhet | 2FA, OIDC SSO, SAML 2.0 SP, SCIM 2.0 Users+Groups, feltnivå-RBAC, API-nøkler med scopes, rate limits, hash-kjedet revisjon, legal hold, GDPR-sletting, PDF-sanering, opplastingskvoter |
 | Multi-tenant | Nei – én installasjon per kunde/organisasjon; avdelinger gir intern isolasjon |
