@@ -1,3 +1,4 @@
+// i18n-ignore-file: feilmeldingen er en utviklerfeil som logges, ikke UI-tekst.
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit, type AuditActor } from "@/lib/audit";

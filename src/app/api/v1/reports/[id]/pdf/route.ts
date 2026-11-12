@@ -1,3 +1,4 @@
+// i18n-ignore-file: revisjonshandlinger er stabile driftsdata, ikke UI-tekst.
 import { NextResponse } from "next/server";
 import type { AccessUser } from "@/lib/access";
 import { authenticateApiRequest } from "@/lib/api-auth";

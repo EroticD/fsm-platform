@@ -1,3 +1,4 @@
+// i18n-ignore-file: revisjonshandlinger er stabile driftsdata, ikke UI-tekst.
 import { NextResponse } from "next/server";
 import { internalApiError } from "@/lib/api-errors";
 import { auditRequestContext, auditStandalone } from "@/lib/audit";
