@@ -6,6 +6,7 @@ import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
+import SubUnitPicker from "./SubUnitPicker";
 import {
   CUSTOMER_CONTROL,
   CUSTOMER_INK_BUTTON,
@@ -23,6 +24,8 @@ type SitesTabProps = {
   siteQuery: string;
   siteTotal: number;
   office: boolean;
+  /** Kundens organisasjonsnummer, brukt til oppslag av underenheter. */
+  orgNumber: string | null;
   createSite: (formData: FormData) => Promise<void>;
   updateSite: (formData: FormData) => Promise<void>;
   deleteSite: (formData: FormData) => Promise<void>;
@@ -35,6 +38,7 @@ export default async function CustomerSitesTab({
   siteQuery,
   siteTotal,
   office,
+  orgNumber,
   createSite,
   updateSite,
   deleteSite,
@@ -91,6 +95,8 @@ export default async function CustomerSitesTab({
           action={createSite}
           className={`${CUSTOMER_INSET} space-y-3 p-3 sm:p-4`}
         >
+          {/* Underenhetene listes bare når vi har et org.nummer å slå opp. */}
+          {orgNumber && <SubUnitPicker orgNumber={orgNumber} />}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="site-name" className={CUSTOMER_LABEL}>

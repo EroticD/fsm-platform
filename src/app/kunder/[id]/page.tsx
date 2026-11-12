@@ -21,6 +21,7 @@ import CustomerContractsTab from "@/components/customer/CustomerContractsTab";
 import CustomerUnitsTab from "@/components/customer/CustomerUnitsTab";
 import CustomerContactsTab from "@/components/customer/CustomerContactsTab";
 import CustomerSitesTab from "@/components/customer/CustomerSitesTab";
+import RegistryStatusBadge from "@/components/customer/RegistryStatusBadge";
 import CustomerPortalTab from "@/components/customer/CustomerPortalTab";
 import CustomerActivityTab from "@/components/customer/CustomerActivityTab";
 import CustomerAttachments from "@/components/CustomerAttachments";
@@ -315,9 +316,17 @@ export default async function CustomerDetailPage({
         <PageHeader
           title={customer.name}
           icon={<Icon name="building" className="h-5 w-5" />}
-          subtitle={`${t("customers.detail.customerNumber", {
-            number: customer.customerNumber || "–",
-          })}${customer.orgNumber ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}` : ""}`}
+          subtitle={
+            <span className="flex flex-wrap items-center gap-2">
+              <span>{`${t("customers.detail.customerNumber", {
+                number: customer.customerNumber || "–",
+              })}${customer.orgNumber ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}` : ""}`}</span>
+              <RegistryStatusBadge
+                status={customer.registryStatus}
+                checkedAt={customer.registryCheckedAt}
+              />
+            </span>
+          }
           actions={
             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               {canCreateWorkOrders && (
@@ -509,6 +518,7 @@ export default async function CustomerDetailPage({
                   siteQuery={siteQuery}
                   siteTotal={data.siteTotal}
                   office={office}
+                  orgNumber={customer.orgNumber}
                   createSite={createSite}
                   updateSite={updateSite}
                   deleteSite={deleteSite}

@@ -38,6 +38,8 @@ export const CUSTOMER_ERROR_MESSAGE_KEYS: Record<string, string> = {
   forbidden: "customers.feedback.error.forbidden",
   "ikke-funnet": "customers.feedback.error.notFound",
   konflikt: "customers.feedback.error.conflict",
+  "ugyldig-orgnummer": "customers.feedback.error.invalidOrgNumber",
+  "duplikat-orgnummer": "customers.feedback.error.duplicateOrgNumber",
   ukjent: "customers.feedback.error.unknown",
 };
 
@@ -62,6 +64,10 @@ export function customerErrorParam(reason: ServiceError): string {
       return "ikke-funnet";
     case "conflict":
       return "konflikt";
+    case "invalid_org_number":
+      return "ugyldig-orgnummer";
+    case "duplicate_org_number":
+      return "duplikat-orgnummer";
     default:
       return "ukjent";
   }

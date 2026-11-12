@@ -25,6 +25,7 @@ import {
   cleanUrl,
 } from "@/lib/sanitize";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { isValidOrgNumber, normalizeOrgNumber } from "@/lib/brreg";
 import { searchNormalizedIds } from "@/lib/search-sql";
 import { claimUpload } from "@/lib/upload-access";
 import { statUploadFile } from "@/lib/uploads";
@@ -853,6 +854,35 @@ export type CustomerInput = {
   responsibleTechnicianId?: unknown;
 };
 
+type OrgNumberCheck =
+  | { valid: true; value: string | null }
+  | { valid: false };
+
+/**
+ * Normaliserer og kontrollregner organisasjonsnummeret.
+ *
+ * Tomt felt er lov – mange kunder registreres før org.nr. er kjent. Er feltet
+ * fylt ut, må det være ni siffer med riktig mod11-kontrollsiffer, ellers
+ * avvises hele skjemaet i stedet for at et feilskrevet nummer lagres.
+ *
+ * `previous` gjør at en gammel, ugyldig verdi kan stå urørt: da skal ikke en
+ * helt annen endring (telefon, notat) blokkeres fordi nummeret ble lagret før
+ * valideringen fantes. Nye eller endrede verdier valideres alltid.
+ */
+function checkOrgNumber(raw: string, previous?: string | null): OrgNumberCheck {
+  if (!raw.trim()) return { valid: true, value: null };
+
+  const normalized = normalizeOrgNumber(raw);
+  if (!normalized || !isValidOrgNumber(normalized)) {
+    if (previous && raw.trim() === previous.trim()) {
+      return { valid: true, value: previous.trim() };
+    }
+    return { valid: false };
+  }
+
+  return { valid: true, value: normalized };
+}
+
 /** Registrerer en ny kunde i katalogen. */
 export async function createCustomer(
   actor: ServiceActor,
@@ -884,6 +914,21 @@ export async function createCustomer(
     responsibleTechnicianId,
   } = parsed.data;
 
+  const orgNumberCheck = checkOrgNumber(orgNumber);
+  if (!orgNumberCheck.valid) return fail("invalid_org_number");
+  const normalizedOrgNumber = orgNumberCheck.value;
+
+  // Samme org.nr. på to kunder gjør katalogen, fakturaene og
+  // registervakten tvetydig. Sjekken er myk sletting bevisst: en slettet
+  // kunde skal ikke blokkere at nummeret tas i bruk igjen.
+  if (normalizedOrgNumber) {
+    const duplicate = await prisma.customer.findFirst({
+      where: { orgNumber: normalizedOrgNumber, deletedAt: null },
+      select: { id: true },
+    });
+    if (duplicate) return fail("duplicate_org_number");
+  }
+
   if (
     !(await validCustomerReferences(departmentId, responsibleTechnicianId))
   ) {
@@ -895,7 +940,7 @@ export async function createCustomer(
       const created = await tx.customer.create({
         data: {
           name,
-          orgNumber: orgNumber || null,
+          orgNumber: normalizedOrgNumber,
           address: address || null,
           postalCode: postalCode || null,
           city: city || null,
@@ -997,6 +1042,27 @@ export async function updateCustomer(
     responsibleTechnicianId,
   } = parsed.data;
 
+  // Kunden selv er ikke et duplikat av seg selv; bare andre aktive kunder
+  // med samme nummer blokkerer lagringen.
+  const current = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { orgNumber: true },
+  });
+  const orgNumberCheck = checkOrgNumber(orgNumber, current?.orgNumber ?? null);
+  if (!orgNumberCheck.valid) return fail("invalid_org_number");
+  const normalizedOrgNumber = orgNumberCheck.value;
+  if (normalizedOrgNumber) {
+    const duplicate = await prisma.customer.findFirst({
+      where: {
+        orgNumber: normalizedOrgNumber,
+        deletedAt: null,
+        id: { not: customerId },
+      },
+      select: { id: true },
+    });
+    if (duplicate) return fail("duplicate_org_number");
+  }
+
   if (
     !(await validCustomerReferences(departmentId, responsibleTechnicianId))
   ) {
@@ -1043,7 +1109,7 @@ export async function updateCustomer(
         data: {
           name,
           customerNumber: customerNumber || null,
-          orgNumber: orgNumber || null,
+          orgNumber: normalizedOrgNumber,
           brandColor: brandColor || "#2563eb",
           logoUrl: logoUrl || null,
           address: address || null,
@@ -1060,7 +1126,7 @@ export async function updateCustomer(
         ? customerFieldChanges(before as unknown as Record<string, unknown>, {
             name,
             customerNumber: customerNumber || null,
-            orgNumber: orgNumber || null,
+            orgNumber: normalizedOrgNumber,
             address: address || null,
             postalCode: postalCode || null,
             city: city || null,

@@ -331,6 +331,11 @@ model Customer {
   email      String?
   notes      String?
 
+  /// Sist kjente registerstatus fra Enhetsregisteret. Oppdateres av
+  /// registervakten (`npm run registry:check`), ikke av skjemaet.
+  registryStatus    String?
+  registryCheckedAt DateTime?
+
   /// Myk sletting: raden beholdes for historikk/revisjon.
   deletedAt DateTime?
   deletedBy String?
@@ -374,6 +379,7 @@ model Customer {
   @@index([responsibleTechnicianId])
   @@index([email])
   @@index([orgNumber])
+  @@index([registryStatus])
   @@index([name])
   @@index([customerNumber])
   @@index([deletedAt])

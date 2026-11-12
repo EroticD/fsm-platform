@@ -9,6 +9,9 @@
 const ENHETER_ENDPOINT =
   "https://data.brreg.no/enhetsregisteret/api/enheter";
 
+const UNDERENHETER_ENDPOINT =
+  "https://data.brreg.no/enhetsregisteret/api/underenheter";
+
 /**
  * Brreg ber om en identifiserbar User-Agent med kontaktinformasjon. Vi bruker
  * applikasjonsnavn pluss en URL de kan nå oss på, og lar miljøet overstyre
@@ -43,6 +46,40 @@ export type CompanyLookup =
   | { status: "found"; company: CompanyRecord }
   | { status: "not_found" }
   | { status: "removed" }
+  | { status: "unavailable" };
+
+/**
+ * Lettvektstreff fra navnesøk. Bevisst et subset av `CompanyRecord`: listen
+ * viser bare det man trenger for å velge riktig firma, og detaljene hentes med
+ * `lookupCompany` når brukeren har valgt.
+ */
+export type CompanySummary = {
+  orgNumber: string;
+  name: string;
+  organisationForm: string | null;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  bankrupt: boolean;
+  underLiquidation: boolean;
+};
+
+export type CompanySearch =
+  | { status: "ok"; companies: CompanySummary[]; total: number }
+  | { status: "unavailable" };
+
+/** Underenhet (avdeling/filial) tilknyttet en hovedenhet. */
+export type SubUnit = {
+  orgNumber: string;
+  name: string;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+};
+
+export type SubUnitList =
+  | { status: "ok"; units: SubUnit[] }
+  | { status: "not_found" }
   | { status: "unavailable" };
 
 function userAgent(): string {
@@ -204,6 +241,197 @@ export async function lookupCompany(orgNumber: unknown): Promise<CompanyLookup> 
   } catch {
     // Nettverksfeil, timeout eller ugyldig JSON. Vi logger ikke kroppen:
     // den kan inneholde mer enn vi trenger, og feilen er ikke handlingsbar.
+    return { status: "unavailable" };
+  }
+}
+
+/** Standard og maksimal sidestørrelse i navnesøket. */
+const DEFAULT_SEARCH_LIMIT = 10;
+const MAX_SEARCH_LIMIT = 20;
+
+/**
+ * Klemmer limit til 1..20. `undefined`, NaN, 0 og negative verdier faller
+ * tilbake til standarden, slik at et uheldig kall aldri ber om 0 treff eller
+ * en uendelig side.
+ */
+function clampSearchLimit(limit: unknown): number {
+  if (typeof limit !== "number" || !Number.isFinite(limit)) {
+    return DEFAULT_SEARCH_LIMIT;
+  }
+  const floored = Math.floor(limit);
+  if (floored < 1) return DEFAULT_SEARCH_LIMIT;
+  return Math.min(floored, MAX_SEARCH_LIMIT);
+}
+
+/**
+ * Adressen til en underenhet.
+ *
+ * Underenheter har ikke `forretningsadresse` slik hovedenheter har; den reelle
+ * driftsadressen ligger i `beliggenhetsadresse`. `postadresse` er ofte
+ * hovedkontorets postadresse og brukes derfor bare når ingen av de andre
+ * finnes. Vi tar første kilde som faktisk har innhold, slik at et tomt objekt
+ * ikke skygger for en brukbar adresse lenger ned.
+ */
+function readSubUnitLocation(unit: JsonObject): {
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+} {
+  for (const key of ["forretningsadresse", "beliggenhetsadresse", "postadresse"]) {
+    const candidate = asObject(unit[key]);
+    if (!candidate) continue;
+
+    const location = {
+      address: readAddressLines(candidate),
+      postalCode: readString(candidate, "postnummer"),
+      city: readString(candidate, "poststed"),
+    };
+    if (location.address || location.postalCode || location.city) return location;
+  }
+
+  return { address: null, postalCode: null, city: null };
+}
+
+function toCompanySummary(enhet: JsonObject): CompanySummary {
+  const location = readLocation(enhet);
+  const organisasjonsform = asObject(enhet.organisasjonsform);
+
+  return {
+    orgNumber: readString(enhet, "organisasjonsnummer") ?? "",
+    name: readString(enhet, "navn") ?? "",
+    organisationForm: readString(organisasjonsform, "beskrivelse"),
+    address: location.address,
+    postalCode: location.postalCode,
+    city: location.city,
+    bankrupt: readBoolean(enhet, "konkurs"),
+    underLiquidation:
+      readBoolean(enhet, "underAvvikling") ||
+      readBoolean(enhet, "underTvangsavviklingEllerTvangsopplosning"),
+  };
+}
+
+/**
+ * Søker etter enheter på navn.
+ *
+ * `total` er antall treff i hele registeret (fra `page.totalElements`), ikke
+ * antall rader vi returnerte, slik at UI kan si «viser 10 av 1 375 treff».
+ * Søk på under to tegn gir tomt resultat uten nettverkskall – Brreg ville
+ * uansett avvist det, og vi vil ikke spamme tjenesten mens brukeren skriver.
+ */
+export async function searchCompaniesByName(
+  query: string,
+  limit?: number,
+): Promise<CompanySearch> {
+  const trimmed = typeof query === "string" ? query.trim() : "";
+  if (trimmed.length < 2) return { status: "ok", companies: [], total: 0 };
+
+  const size = clampSearchLimit(limit);
+
+  try {
+    const response = await fetch(
+      `${ENHETER_ENDPOINT}?navn=${encodeURIComponent(trimmed)}&size=${size}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": userAgent(),
+        },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        next: { revalidate: REVALIDATE_SECONDS },
+      },
+    );
+
+    if (response.status !== 200) return { status: "unavailable" };
+
+    const data = asObject(await response.json());
+    if (!data) return { status: "unavailable" };
+
+    const enheter = asObject(data._embedded)?.enheter;
+    const companies: CompanySummary[] = [];
+
+    if (Array.isArray(enheter)) {
+      for (const raw of enheter) {
+        const enhet = asObject(raw);
+        if (!enhet) continue;
+
+        // Treff uten navn kan ikke vises i en valgliste. Vi hopper over dem
+        // framfor å vise en tom rad brukeren ikke kan skille fra de andre.
+        const summary = toCompanySummary(enhet);
+        if (!summary.name) continue;
+
+        companies.push(summary);
+      }
+    }
+
+    // Mangler `page`, er svaret ikke det vi forventer; da er antallet ukjent og
+    // vi rapporterer det vi faktisk har.
+    const totalElements = asObject(data.page)?.totalElements;
+    const total =
+      typeof totalElements === "number" && Number.isFinite(totalElements)
+        ? Math.max(0, Math.trunc(totalElements))
+        : companies.length;
+
+    return { status: "ok", companies, total };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+/**
+ * Lister underenhetene til en hovedenhet.
+ *
+ * Brreg svarer 200 med tom liste for organisasjonsnumre som ikke finnes, så
+ * `not_found` kommer i praksis bare fra 404 eller ugyldig inndata. Vi beholder
+ * begge, slik at kallstedet ikke trenger å kjenne den detaljen.
+ */
+export async function listSubUnits(orgNumber: unknown): Promise<SubUnitList> {
+  const normalized = normalizeOrgNumber(orgNumber);
+  if (!normalized) return { status: "not_found" };
+
+  try {
+    const response = await fetch(
+      `${UNDERENHETER_ENDPOINT}?overordnetEnhet=${normalized}&size=100`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": userAgent(),
+        },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        next: { revalidate: REVALIDATE_SECONDS },
+      },
+    );
+
+    if (response.status === 404) return { status: "not_found" };
+    if (response.status !== 200) return { status: "unavailable" };
+
+    const data = asObject(await response.json());
+    if (!data) return { status: "unavailable" };
+
+    const underenheter = asObject(data._embedded)?.underenheter;
+    const units: SubUnit[] = [];
+
+    if (Array.isArray(underenheter)) {
+      for (const raw of underenheter) {
+        const unit = asObject(raw);
+        if (!unit) continue;
+
+        const unitOrgNumber = readString(unit, "organisasjonsnummer");
+        if (!unitOrgNumber) continue;
+
+        const location = readSubUnitLocation(unit);
+        units.push({
+          orgNumber: unitOrgNumber,
+          // Underenheter kan mangle navn i registeret; tom streng gjør at UI
+          // kan vise orgnummeret i stedet uten å håndtere null.
+          name: readString(unit, "navn") ?? "",
+          address: location.address,
+          postalCode: location.postalCode,
+          city: location.city,
+        });
+      }
+    }
+
+    return { status: "ok", units };
+  } catch {
     return { status: "unavailable" };
   }
 }

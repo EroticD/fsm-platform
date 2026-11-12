@@ -42,6 +42,7 @@
     "storage:migrate": "tsx scripts/migrate-uploads-to-s3.ts",
     "visits:backfill:daily": "tsx scripts/backfill-daily-visits.ts",
     "sla:cleanup": "tsx scripts/cancel-uncontracted-sla.ts",
+    "registry:check": "tsx scripts/check-customer-registry.ts",
     "repair:closed-work-orders": "tsx scripts/repair-closed-work-order-state.ts",
     "manual:build": "node scripts/build-manual.mjs",
     "manual:verify": "node scripts/verify-manual-screenshots.mjs",

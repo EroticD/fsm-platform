@@ -41,6 +41,10 @@ bevisste produktvalg** – ikke manglende kjernefunksjonalitet.
   postnummer, poststed og telefon hentes på organisasjonsnummer fra
   Brønnøysundregistrene (NLOD 1.0). Oppslaget er valgfritt, cachet i 24 timer
   og feiler mykt – feltene kan alltid fylles ut manuelt.
+- **Firma- og adressehjelp i kundeskjemaet (2026-11-12):** navnesøk i
+  Enhetsregisteret, underenheter som avdelingsvelger, adressesøk mot Kartverket
+  (Geonorge), mod11-validering og duplikatsperre på organisasjonsnummer, og
+  registervakt som merker konkurs/avvikling (`npm run registry:check`).
 - **Sikkerhet:** 2FA, API-nøkler med scopes/rotasjon, kunde-/kontaktisolasjon,
   feltnivå-RBAC for kundekontakt, fakturabeløp, rapportsignaturer og
   lønnsbeløp, atomisk opplastingskvote, PDF-sanering og krypterte

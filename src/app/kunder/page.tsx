@@ -22,7 +22,9 @@ import {
   customerStatusMessageKey,
 } from "./feedback";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import AddressLookup from "@/components/customer/AddressLookup";
 import CompanyLookup from "@/components/customer/CompanyLookup";
+import RegistryStatusBadge from "@/components/customer/RegistryStatusBadge";
 import CustomerToast from "@/components/customer/CustomerToast";
 import { CUSTOMER_CONTROL, LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
@@ -144,6 +146,9 @@ export default async function KunderPage({
       orgNumber: true,
       city: true,
       phone: true,
+      // Registerstatus fra Enhetsregisteret, vist som merke når den avviker.
+      registryStatus: true,
+      registryCheckedAt: true,
       contacts: {
         orderBy: { name: "asc" },
         take: 1,
@@ -416,6 +421,10 @@ export default async function KunderPage({
                       autoComplete="street-address"
                       className={CUSTOMER_CONTROL}
                     />
+                    {/* Adressesøket fyller adresse, postnummer og poststed. */}
+                    <div className="mt-1.5">
+                      <AddressLookup />
+                    </div>
                   </div>
                   <div>
                     <label
@@ -580,6 +589,15 @@ export default async function KunderPage({
                           <span className="relative z-10 mt-0.5 block text-xs text-[var(--muted,#62685f)]">
                             {customer.orgNumber || "–"}
                           </span>
+                          {customer.registryStatus &&
+                            customer.registryStatus !== "ACTIVE" && (
+                              <span className="relative z-10 mt-1 flex">
+                                <RegistryStatusBadge
+                                  status={customer.registryStatus}
+                                  checkedAt={customer.registryCheckedAt}
+                                />
+                              </span>
+                            )}
                         </td>
                         <td className="px-3 py-2 align-top text-xs text-[var(--muted,#62685f)]">
                           {customer.city || "–"}
@@ -772,6 +790,15 @@ export default async function KunderPage({
                     <p className="mt-0.5 break-words text-xs text-[var(--muted,#62685f)]">
                       {customer.orgNumber || "–"}
                     </p>
+                    {customer.registryStatus &&
+                      customer.registryStatus !== "ACTIVE" && (
+                        <p className="mt-1">
+                          <RegistryStatusBadge
+                            status={customer.registryStatus}
+                            checkedAt={customer.registryCheckedAt}
+                          />
+                        </p>
+                      )}
                   </div>
                   <span
                     className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${

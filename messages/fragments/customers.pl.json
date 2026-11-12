@@ -12,7 +12,41 @@
       "forbidden": "Nie masz dostępu do wyszukiwania firm.",
       "rateLimited": "Zbyt wiele zapytań w krótkim czasie. Spróbuj ponownie za chwilę.",
       "bankrupt": "Podmiot jest zarejestrowany jako upadły.",
-      "underLiquidation": "Podmiot jest w likwidacji."
+      "underLiquidation": "Podmiot jest w likwidacji.",
+      "searchPlaceholder": "Szukaj po nazwie firmy",
+      "searchButton": "Szukaj",
+      "searchEmpty": "Brak wyników. Spróbuj innej nazwy.",
+      "searchUnavailable": "Wyszukiwanie jest teraz niedostępne. Spróbuj ponownie później.",
+      "searchTooShort": "Wpisz co najmniej dwa znaki.",
+      "pick": "Użyj"
+    },
+    "address": {
+      "button": "Szukaj adresu",
+      "placeholder": "Adres ulicy",
+      "empty": "Żaden adres nie pasuje do wyszukiwania.",
+      "unavailable": "Wyszukiwanie adresów jest teraz niedostępne.",
+      "tooShort": "Wpisz co najmniej trzy znaki.",
+      "pick": "Użyj"
+    },
+    "subunits": {
+      "button": "Pobierz oddziały",
+      "title": "Oddziały z Rejestru Jednostek Organizacyjnych",
+      "empty": "Nie znaleziono oddziałów.",
+      "unavailable": "Nie udało się teraz pobrać oddziałów.",
+      "pick": "Użyj tego adresu"
+    },
+    "registry": {
+      "bankrupt": "Upadłość",
+      "underLiquidation": "W likwidacji",
+      "notFound": "Brak w Rejestrze Jednostek Organizacyjnych",
+      "unknown": "Nieznany status rejestrowy",
+      "checked": "Sprawdzono {date}"
+    },
+    "feedback": {
+      "error": {
+        "invalidOrgNumber": "Numer organizacyjny jest nieprawidłowy. Popraw go lub wyczyść pole.",
+        "duplicateOrgNumber": "Inny klient ma już ten numer organizacyjny."
+      }
     },
     "privacy": {
       "link": "Prywatność",

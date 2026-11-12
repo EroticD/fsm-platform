@@ -13,6 +13,8 @@ const EQUIPMENT_ERROR_FALLBACKS: Record<ServiceError, string> = {
   invalid_contact: "assets.errors.invalidInput",
   duplicate_email: "assets.errors.invalidInput",
   invalid_logo: "assets.errors.invalidInput",
+  invalid_org_number: "assets.errors.invalidInput",
+  duplicate_org_number: "assets.errors.generic",
   file_not_found: "assets.errors.notFound",
   customer_not_found: "assets.errors.notFound",
   deadline_passed: "assets.errors.generic",

@@ -403,6 +403,22 @@ Bekreft at meldingen faktisk kommer fram i kanalen. Systemd-enhetene i
 | `FsmSlaCleanupStale` | utdatert i 30 min | `SlaCleanupRun`, `SLA_CLEANUP_*`, scheduler |
 | `FsmSlaCleanupFailed` | > 0 feilede siste 24 t | `SlaCleanupRun.error`, logger |
 
+### Registervakt (Enhetsregisteret)
+
+Aktive kunder med organisasjonsnummer kontrolleres mot Enhetsregisteret, og
+kundekortet merkes når enheten er konkurs, under avvikling eller ikke lenger
+finnes. Endringer skrives i revisjonsloggen med `customer.registry.changed`.
+`unavailable` overskriver aldri en kjent status.
+
+```cron
+30 6 * * * cd /opt/fsm-platform && npm run registry:check >> /var/log/fsm-registry.log 2>&1
+```
+
+`npm run registry:check -- --dry-run` viser hva som ville blitt endret, og
+`--limit N` begrenser antall kunder per kjøring. Jobben tar kundene med eldste
+kontrolltidspunkt først, slik at alle kommer rundt, og oppslagene caches i
+24 timer.
+
 ## Logger
 
 Loggene er JSON-linjer:

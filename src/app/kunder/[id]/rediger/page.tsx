@@ -11,6 +11,7 @@ import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import SubmitButton from "@/components/SubmitButton";
 import BrandColorField from "@/components/customer/BrandColorField";
+import AddressLookup from "@/components/customer/AddressLookup";
 import CompanyLookup from "@/components/customer/CompanyLookup";
 import BrandingLogoUpload from "@/components/BrandingLogoUpload";
 import Card from "@/components/ui/Card";
@@ -183,6 +184,11 @@ export default async function EditCustomerPage({
                   defaultValue={customer.address || ""}
                   placeholder={t("customers.edit.addressPlaceholder")}
                 />
+                {/* Adressesøket fyller adresse, postnummer og poststed i
+                    samme skjema. */}
+                <div className="mt-1.5">
+                  <AddressLookup />
+                </div>
               </Field>
             </div>
           </div>

@@ -12,7 +12,41 @@
       "forbidden": "Sie haben keinen Zugriff auf Unternehmensabfragen.",
       "rateLimited": "Zu viele Abfragen in kurzer Zeit. Versuchen Sie es gleich noch einmal.",
       "bankrupt": "Die Einheit ist als insolvent registriert.",
-      "underLiquidation": "Die Einheit befindet sich in Liquidation."
+      "underLiquidation": "Die Einheit befindet sich in Liquidation.",
+      "searchPlaceholder": "Nach Firmennamen suchen",
+      "searchButton": "Suchen",
+      "searchEmpty": "Keine Treffer. Versuchen Sie einen anderen Namen.",
+      "searchUnavailable": "Die Suche ist derzeit nicht verfügbar. Versuchen Sie es später erneut.",
+      "searchTooShort": "Geben Sie mindestens zwei Zeichen ein.",
+      "pick": "Übernehmen"
+    },
+    "address": {
+      "button": "Adresse suchen",
+      "placeholder": "Straßenadresse",
+      "empty": "Keine Adresse passt zur Suche.",
+      "unavailable": "Die Adresssuche ist derzeit nicht verfügbar.",
+      "tooShort": "Geben Sie mindestens drei Zeichen ein.",
+      "pick": "Übernehmen"
+    },
+    "subunits": {
+      "button": "Abteilungen abrufen",
+      "title": "Abteilungen aus dem Einheitenregister",
+      "empty": "Keine Abteilungen gefunden.",
+      "unavailable": "Abteilungen konnten gerade nicht abgerufen werden.",
+      "pick": "Diese Adresse übernehmen"
+    },
+    "registry": {
+      "bankrupt": "Insolvent",
+      "underLiquidation": "In Liquidation",
+      "notFound": "Nicht im Einheitenregister",
+      "unknown": "Unbekannter Registerstatus",
+      "checked": "Geprüft am {date}"
+    },
+    "feedback": {
+      "error": {
+        "invalidOrgNumber": "Die Organisationsnummer ist ungültig. Korrigieren Sie sie oder leeren Sie das Feld.",
+        "duplicateOrgNumber": "Ein anderer Kunde hat bereits diese Organisationsnummer."
+      }
     },
     "privacy": {
       "link": "Datenschutz",

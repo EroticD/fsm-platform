@@ -11,6 +11,19 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
   Oppslaget er valgfritt, caches i 24 timer og feiler mykt, så skjemaet kan
   fylles ut manuelt når registeret ikke svarer. Kilde: Brønnøysundregistrene,
   NLOD 1.0.
+- Navnesøk i Enhetsregisteret: skriv firmanavnet, velg treff, og org.nummer og
+  adresse fylles ut automatisk.
+- Adressesøk mot Kartverket (Geonorge) i kunde- og stedsskjemaet. Treffene
+  rangeres etter postnummeret som allerede er skrevet, slik at riktig kommune
+  havner øverst.
+- Avdelingsvelger i «nytt sted»: hent underenhetene til kundens
+  organisasjonsnummer og bruk adressen deres.
+- Organisasjonsnummer valideres med mod11 ved oppretting og redigering, og
+  lagres normalisert. To aktive kunder kan ikke ha samme nummer.
+- Registervakt: `npm run registry:check` sjekker aktive kunders
+  organisasjonsnumre og merker kundekortet ved konkurs, avvikling eller når
+  enheten er slettet. Endringer logges i revisjonsloggen. Kjøres som egen jobb,
+  ikke i webprosessen.
 
 ### Dokumentasjon
 - README er kortet fra 375 til 273 linjer: Caddy-oppsettet, dataflyttingen og

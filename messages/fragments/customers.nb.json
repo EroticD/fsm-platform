@@ -358,7 +358,9 @@
         "invalid": "Skjemaet inneholder ugyldige eller manglende felt.",
         "forbidden": "Du har ikke tilgang til denne handlingen.",
         "notFound": "Fant ikke det du prøvde å endre. Det kan være slettet.",
-        "unknown": "Noe gikk galt. Prøv igjen."
+        "unknown": "Noe gikk galt. Prøv igjen.",
+        "invalidOrgNumber": "Organisasjonsnummeret er ikke gyldig. Rett det eller tøm feltet.",
+        "duplicateOrgNumber": "En annen kunde har allerede dette organisasjonsnummeret."
       }
     },
     "sites": {
@@ -398,7 +400,35 @@
       "forbidden": "Du har ikke tilgang til å slå opp foretak.",
       "rateLimited": "For mange oppslag på kort tid. Prøv igjen om litt.",
       "bankrupt": "Enheten er registrert konkurs.",
-      "underLiquidation": "Enheten er under avvikling."
+      "underLiquidation": "Enheten er under avvikling.",
+      "searchPlaceholder": "Søk på firmanavn",
+      "searchButton": "Søk",
+      "searchEmpty": "Ingen treff. Prøv et annet navn.",
+      "searchUnavailable": "Søket er utilgjengelig nå. Prøv igjen senere.",
+      "searchTooShort": "Skriv minst to tegn.",
+      "pick": "Bruk"
+    },
+    "address": {
+      "button": "Søk adresse",
+      "placeholder": "Gateadresse",
+      "empty": "Ingen adresse passer søket.",
+      "unavailable": "Adressesøket er utilgjengelig nå.",
+      "tooShort": "Skriv minst tre tegn.",
+      "pick": "Bruk"
+    },
+    "subunits": {
+      "button": "Hent avdelinger",
+      "title": "Avdelinger fra Enhetsregisteret",
+      "empty": "Fant ingen avdelinger.",
+      "unavailable": "Kunne ikke hente avdelinger nå.",
+      "pick": "Bruk denne adressen"
+    },
+    "registry": {
+      "bankrupt": "Konkurs",
+      "underLiquidation": "Under avvikling",
+      "notFound": "Ikke i Enhetsregisteret",
+      "unknown": "Ukjent registerstatus",
+      "checked": "Sjekket {date}"
     },
     "privacy": {
       "link": "Personvern",

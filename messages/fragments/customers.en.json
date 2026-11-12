@@ -358,7 +358,9 @@
         "invalid": "The form contains invalid or missing fields.",
         "forbidden": "You do not have access to this action.",
         "notFound": "Could not find what you tried to change. It may have been deleted.",
-        "unknown": "Something went wrong. Try again."
+        "unknown": "Something went wrong. Try again.",
+        "invalidOrgNumber": "The organisation number is not valid. Correct it or clear the field.",
+        "duplicateOrgNumber": "Another customer already has this organisation number."
       }
     },
     "sites": {
@@ -398,7 +400,35 @@
       "forbidden": "You do not have access to look up companies.",
       "rateLimited": "Too many lookups in a short time. Try again in a moment.",
       "bankrupt": "The entity is registered as bankrupt.",
-      "underLiquidation": "The entity is under liquidation."
+      "underLiquidation": "The entity is under liquidation.",
+      "searchPlaceholder": "Search by company name",
+      "searchButton": "Search",
+      "searchEmpty": "No matches. Try a different name.",
+      "searchUnavailable": "Search is unavailable right now. Try again later.",
+      "searchTooShort": "Type at least two characters.",
+      "pick": "Use"
+    },
+    "address": {
+      "button": "Search address",
+      "placeholder": "Street address",
+      "empty": "No address matches the search.",
+      "unavailable": "Address search is unavailable right now.",
+      "tooShort": "Type at least three characters.",
+      "pick": "Use"
+    },
+    "subunits": {
+      "button": "Fetch departments",
+      "title": "Departments from the Register of Legal Entities",
+      "empty": "No departments found.",
+      "unavailable": "Could not fetch departments right now.",
+      "pick": "Use this address"
+    },
+    "registry": {
+      "bankrupt": "Bankrupt",
+      "underLiquidation": "Under liquidation",
+      "notFound": "Not in the Register of Legal Entities",
+      "unknown": "Unknown register status",
+      "checked": "Checked {date}"
     },
     "privacy": {
       "link": "Privacy",

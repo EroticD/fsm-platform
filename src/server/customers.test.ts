@@ -279,6 +279,138 @@ describe("kundetjenesten – revisjon og transaksjon", () => {
   });
 });
 
+describe("kundetjenesten – organisasjonsnummer", () => {
+  const validOrgNumber = "923609016";
+  const otherValidOrgNumber = "974760673";
+
+  it("avviser org.nr. med feil kontrollsiffer", async () => {
+    const result = await createCustomer(admin(), {
+      name: "Kunde AS",
+      orgNumber: "123456789",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_org_number" });
+    expect(mocks.prisma.customer.findFirst).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser org.nr. som ikke kan normaliseres til ni siffer", async () => {
+    const result = await createCustomer(admin(), {
+      name: "Kunde AS",
+      orgNumber: "12 34",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_org_number" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lagrer normalisert org.nr. uten mellomrom, prefiks og MVA-suffiks", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue(null);
+    mocks.prisma.customer.create.mockResolvedValue({ id: "kunde-1" });
+
+    const result = await createCustomer(admin(), {
+      name: "Kunde AS",
+      orgNumber: "NO 923 609 016 MVA",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "kunde-1" } });
+    expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
+      where: { orgNumber: validOrgNumber, deletedAt: null },
+      select: { id: true },
+    });
+    expect(mocks.prisma.customer.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ orgNumber: validOrgNumber }),
+    });
+  });
+
+  it("avviser ny kunde med org.nr. som allerede finnes", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue({ id: "kunde-2" });
+
+    const result = await createCustomer(admin(), {
+      name: "Kunde AS",
+      orgNumber: validOrgNumber,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "duplicate_org_number" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("tillater kunde uten org.nr. uten duplikatsjekk", async () => {
+    mocks.prisma.customer.create.mockResolvedValue({ id: "kunde-1" });
+
+    const result = await createCustomer(admin(), { name: "Kunde AS" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customer.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("avviser ugyldig org.nr. ved redigering", async () => {
+    const result = await updateCustomer(admin(), "kunde-1", {
+      name: "Kunde AS",
+      orgNumber: "123456789",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_org_number" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar en gammel, ugyldig org.nr.-verdi stå urørt ved andre endringer", async () => {
+    // Kunder registrert før valideringen fantes skal fortsatt kunne redigeres.
+    mocks.prisma.customer.findUnique.mockResolvedValue({ orgNumber: "123456789" });
+    mocks.prisma.customer.findFirst.mockResolvedValue(null);
+    mocks.prisma.customer.update.mockResolvedValue({});
+
+    const result = await updateCustomer(admin(), "kunde-1", {
+      name: "Kunde AS",
+      orgNumber: "123456789",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customer.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orgNumber: "123456789" }),
+      }),
+    );
+  });
+
+  it("ser bort fra kunden selv i duplikatsjekken ved redigering", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue(null);
+    mocks.prisma.customer.findUnique.mockResolvedValue(null);
+    mocks.prisma.customer.update.mockResolvedValue({});
+
+    const result = await updateCustomer(admin(), "kunde-1", {
+      name: "Kunde AS",
+      orgNumber: otherValidOrgNumber,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
+      where: {
+        orgNumber: otherValidOrgNumber,
+        deletedAt: null,
+        id: { not: "kunde-1" },
+      },
+      select: { id: true },
+    });
+    expect(mocks.prisma.customer.update).toHaveBeenCalledWith({
+      where: { id: "kunde-1" },
+      data: expect.objectContaining({ orgNumber: otherValidOrgNumber }),
+    });
+  });
+
+  it("avviser redigering som ville gitt to kunder samme org.nr.", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue({ id: "kunde-2" });
+
+    const result = await updateCustomer(admin(), "kunde-1", {
+      name: "Kunde AS",
+      orgNumber: validOrgNumber,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "duplicate_org_number" });
+    expect(mocks.prisma.customer.update).not.toHaveBeenCalled();
+  });
+});
+
 function detailCustomer() {
   return {
     id: "kunde-1",

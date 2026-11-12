@@ -38,6 +38,8 @@ export type ServiceError =
   | "invalid_contact"
   | "duplicate_email"
   | "invalid_logo"
+  | "invalid_org_number"
+  | "duplicate_org_number"
   | "file_not_found"
   | "customer_not_found"
   | "deadline_passed"
