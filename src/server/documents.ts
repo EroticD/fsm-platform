@@ -25,6 +25,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /** Dokumentlisten pagineres; versjoner hentes bare for detaljvisningen. */
 export const DOCUMENT_PAGE_SIZE = 30;
@@ -1113,7 +1114,9 @@ export async function bulkCreateDocuments(
         folderMap.set(dirRel, created.id);
       }
     } catch (error) {
-      console.error(`Kunne ikke opprette mappen «${dirRel}»:`, error);
+      await logServerError("Kunne ikke opprette dokumentmappe", error, {
+        path: dirRel,
+      });
       failedDirs.add(dirRel);
     }
   }
@@ -1159,7 +1162,9 @@ export async function bulkCreateDocuments(
       try {
         await removeOrphanedUpload(actor.id, item.fileUrl);
       } catch (error) {
-        console.error("Kunne ikke rydde ikke-PDF-opplasting:", error);
+        await logServerError("Kunne ikke rydde ikke-PDF-opplasting", error, {
+          fileName,
+        });
       }
       addResult({
         fileName,
@@ -1188,7 +1193,9 @@ export async function bulkCreateDocuments(
         try {
           await removeOrphanedUpload(actor.id, item.fileUrl);
         } catch (error) {
-          console.error("Kunne ikke rydde duplikatopplasting:", error);
+          await logServerError("Kunne ikke rydde duplikatopplasting", error, {
+            fileName,
+          });
         }
         addResult({
           fileName,
@@ -1259,7 +1266,9 @@ export async function bulkCreateDocuments(
       try {
         enqueuePdfText(newDoc.id, item.fileUrl);
       } catch (error) {
-        console.error("Kunne ikke legge PDF-tekst i kø:", error);
+        await logServerError("Kunne ikke legge PDF-tekst i kø", error, {
+          documentId: newDoc.id,
+        });
       }
 
       addResult({
@@ -1270,7 +1279,7 @@ export async function bulkCreateDocuments(
         status: "created",
       });
     } catch (error) {
-      console.error(`Bulk-import feilet for «${relativePath}»:`, error);
+      await logServerError("Bulk-import feilet", error, { path: relativePath });
       addResult({
         fileName,
         relativePath,
@@ -1367,7 +1376,7 @@ export async function bulkMoveDocuments(
       results.push({ id, title: doc.title, status: "ok" });
       succeeded++;
     } catch (error) {
-      console.error(`Kunne ikke flytte dokument ${id}:`, error);
+      await logServerError("Kunne ikke flytte dokument", error, { documentId: id });
       results.push({
         id,
         title: doc.title,
@@ -1421,7 +1430,7 @@ export async function bulkDeleteDocuments(
       results.push({ id, title: doc.title, status: "ok" });
       succeeded++;
     } catch (error) {
-      console.error(`Kunne ikke slette dokument ${id}:`, error);
+      await logServerError("Kunne ikke slette dokument", error, { documentId: id });
       results.push({
         id,
         title: doc.title,
@@ -1490,7 +1499,7 @@ export async function bulkTagDocuments(
       results.push({ id, title: doc.title, status: "ok" });
       succeeded++;
     } catch (error) {
-      console.error(`Kunne ikke tagge dokument ${id}:`, error);
+      await logServerError("Kunne ikke tagge dokument", error, { documentId: id });
       results.push({
         id,
         title: doc.title,
@@ -1530,7 +1539,7 @@ export async function discardDocumentUploads(
     try {
       if (await removeOrphanedUpload(actor.id, fileUrl)) deleted++;
     } catch (error) {
-      console.error(`Kunne ikke rydde opplastingen ${fileUrl}:`, error);
+      await logServerError("Kunne ikke rydde opplastet fil", error, { fileUrl });
     }
   }
 

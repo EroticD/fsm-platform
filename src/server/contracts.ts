@@ -42,6 +42,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /** Avdelingssperren for avtaler. Administrator ser alt, kunden bare sitt. */
 export function contractScopeFor(actor: ServiceActor): Prisma.ContractWhereInput {
@@ -402,7 +403,9 @@ export async function createContract(
     try {
       await generateRecurringWorkOrderForContract(contractId);
     } catch (error) {
-      console.error("Kunne ikke opprette første serviceavtale-oppdrag:", error);
+      await logServerError("Kunne ikke opprette første serviceavtale-oppdrag", error, {
+        customerId,
+      });
     }
   }
 
@@ -599,7 +602,10 @@ async function setStatus(
     try {
       await generateRecurringWorkOrderForContract(contract.id);
     } catch (error) {
-      console.error("Kunne ikke gjenoppta serviceavtale:", error);
+      await logServerError("Kunne ikke gjenoppta serviceavtale", error, {
+        contractId,
+        status,
+      });
     }
   }
   return ok(undefined);
@@ -686,7 +692,9 @@ export async function renewContract(
     try {
       await generateRecurringWorkOrderForContract(contract.id, now);
     } catch (error) {
-      console.error("Kunne ikke lage oppdrag etter fornyelse:", error);
+      await logServerError("Kunne ikke lage oppdrag etter fornyelse", error, {
+        contractId,
+      });
     }
   }
 
@@ -1415,7 +1423,9 @@ export async function runContractLifecycle(
       );
       if (generated.workOrderId) result.generated += 1;
     } catch (error) {
-      console.error("Kunne ikke lage oppdrag etter automatisk fornyelse:", error);
+      await logServerError("Kunne ikke lage oppdrag etter automatisk fornyelse", error, {
+        contractId: contract.id,
+      });
     }
   }
 

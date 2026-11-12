@@ -16,6 +16,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { equipmentScopeFor } from "./equipment";
+import { logServerError } from "@/lib/log-context";
 
 /**
  * Flytting av en enhet med hele servicehistorikken til en annen kunde.
@@ -860,7 +861,10 @@ export async function moveEquipmentToCustomer(
       );
     });
   } catch (error) {
-    console.error("Feil ved flytting av utstyr til annen kunde:", error);
+    await logServerError("Feil ved flytting av utstyr til annen kunde", error, {
+      equipmentId: productId,
+      targetCustomerId,
+    });
     return fail("error");
   }
 }

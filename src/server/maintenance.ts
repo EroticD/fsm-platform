@@ -29,6 +29,7 @@ import {
   type ServiceFailure,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /** Fast nøkkel for den globale vedlikeholdskjøringen. Per-plan-låsen under er
  * den som gir idempotens når to kjøringer treffer samme plan. */
@@ -374,7 +375,10 @@ export async function createMaintenancePlan(
       return ok({ id: plan.id });
     });
   } catch (error) {
-    console.error("Feil ved opprettelse av vedlikeholdsplan:", error);
+    await logServerError("Feil ved opprettelse av vedlikeholdsplan", error, {
+      customerId: data.customerId,
+      productId: data.productId ?? null,
+    });
     return fail("error");
   }
 }
@@ -492,7 +496,9 @@ export async function updateMaintenancePlan(
       return ok({ id: current.id });
     });
   } catch (error) {
-    console.error("Feil ved oppdatering av vedlikeholdsplan:", error);
+    await logServerError("Feil ved oppdatering av vedlikeholdsplan", error, {
+      planId: data.id,
+    });
     return fail("error");
   }
 }
@@ -536,7 +542,7 @@ export async function deleteMaintenancePlan(
       return ok(undefined);
     });
   } catch (error) {
-    console.error("Feil ved sletting av vedlikeholdsplan:", error);
+    await logServerError("Feil ved sletting av vedlikeholdsplan", error, { planId });
     return fail("error");
   }
 }

@@ -34,6 +34,7 @@
     "test:e2e": "playwright test",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:i18n:strict": "node scripts/check-i18n.mjs --strict",
+    "i18n:add": "node scripts/i18n-add.mjs",
     "audit:backfill": "tsx scripts/backfill-audit-chain.ts",
     "audit:verify": "tsx scripts/verify-audit-chain.ts",
     "compliance:evidence": "node scripts/compliance/collect-evidence.mjs",

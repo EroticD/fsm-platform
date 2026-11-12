@@ -35,6 +35,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /** Hvor lenge en valgt time holdes mens kunden fyller ut skjemaet. */
 export const BOOKING_HOLD_MINUTES = 5;
@@ -758,7 +759,10 @@ export async function holdBookingSlot(
     });
     return result;
   } catch (error) {
-    console.error("Databasefeil ved reservasjon av bookingtime:", error);
+    await logServerError("Databasefeil ved reservasjon av bookingtime", error, {
+      technicianId,
+      siteId,
+    });
     return fail("error");
   }
 }

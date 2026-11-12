@@ -59,6 +59,7 @@ import {
   setVisitStatus,
   updateStatus,
 } from "./actions";
+import VisitStatusButton from "./visit-status-button";
 
 /** Field Pulse-flater. Samme verdier som app-skallet, skrevet direkte. */
 const FIELD_APP = "field-app";
@@ -79,7 +80,8 @@ const QUICK_ACTION =
 /** Montørens lovlige vei gjennom visitten. Kansellering hører til kontoret. */
 const FIELD_VISIT_FLOW: ReadonlyArray<{
   from: readonly VisitStatus[];
-  to: VisitStatus;
+  /** Bare avreise og ankomst kan tidfestes uten nett. */
+  to: "EN_ROUTE" | "ON_SITE" | "DONE";
   labelKey: string;
 }> = [
   {
@@ -1264,21 +1266,42 @@ export default async function TechnicianWorkOrderPage({
 
               <div className="flex flex-wrap items-center gap-2">
                 {canUpdate && !isClosed && currentVisitNextStep ? (
-                  <form action={setVisitStatus}>
-                    <input type="hidden" name="workOrderId" value={workOrderId} />
-                    <input type="hidden" name="visitId" value={currentVisit.id} />
-                    <input
-                      type="hidden"
-                      name="status"
-                      value={currentVisitNextStep.to}
+                  currentVisitNextStep.to === "DONE" ? (
+                    // Fullføring krever rapport og PDF og er derfor alltid en
+                    // vanlig serverhandling – den kan ikke køes offline.
+                    <form action={setVisitStatus}>
+                      <input
+                        type="hidden"
+                        name="workOrderId"
+                        value={workOrderId}
+                      />
+                      <input
+                        type="hidden"
+                        name="visitId"
+                        value={currentVisit.id}
+                      />
+                      <input
+                        type="hidden"
+                        name="status"
+                        value={currentVisitNextStep.to}
+                      />
+                      <SubmitButton
+                        pendingLabel={t("orders.fieldDetail.updating")}
+                        className="signal-button min-h-11 text-sm shadow-sm"
+                      >
+                        {t(currentVisitNextStep.labelKey)}
+                      </SubmitButton>
+                    </form>
+                  ) : (
+                    // Avreise og ankomst kan tidfestes uten nett: knappen
+                    // køer handlingen med montørens eget tidspunkt.
+                    <VisitStatusButton
+                      workOrderId={workOrderId}
+                      visitId={currentVisit.id}
+                      status={currentVisitNextStep.to}
+                      label={t(currentVisitNextStep.labelKey)}
                     />
-                    <SubmitButton
-                      pendingLabel={t("orders.fieldDetail.updating")}
-                      className="signal-button min-h-11 text-sm shadow-sm"
-                    >
-                      {t(currentVisitNextStep.labelKey)}
-                    </SubmitButton>
-                  </form>
+                  )
                 ) : currentVisitCanFinishTravel && canUpdate && !isClosed ? (
                   <form action={finishVisitTravelFrom}>
                     <input type="hidden" name="workOrderId" value={workOrderId} />

@@ -70,13 +70,15 @@ describe("searchDocuments", () => {
     const sql = lastSql();
 
     expect(sql.text).toContain('d."fileName"');
-    expect(sql.text).toContain("unaccent");
-    expect(sql.text).toContain("replace(");
-    expect(sql.text).toContain("strpos(");
+    // Normaliseringen ligger i fsm_search_norm, som har uttrykksindeks.
+    expect(sql.text).toContain("fsm_search_norm(");
+    expect(sql.text).toContain("replace(fsm_search_norm(");
+    expect(sql.text).toContain("LIKE");
+    expect(sql.text).not.toContain("strpos(");
     // Både normalisert («faktura 123 kunde pdf») og kompakt
-    // («faktura123kundepdf») form sendes som parametre.
-    expect(sql.values).toContain("faktura 123 kunde pdf");
-    expect(sql.values).toContain("faktura123kundepdf");
+    // («faktura123kundepdf») form sendes som LIKE-mønstre.
+    expect(sql.values).toContain("%faktura 123 kunde pdf%");
+    expect(sql.values).toContain("%faktura123kundepdf%");
     expect(sql.text).not.toContain("Faktura #123");
   });
 
@@ -149,12 +151,13 @@ describe("searchBySubstring", () => {
     const sql = lastSql();
 
     expect(sql.text).toContain('"WorkOrder"."orderNumber"');
-    expect(sql.text).toContain("unaccent");
-    expect(sql.text).toContain("regexp_replace");
-    expect(sql.text).toContain("strpos");
+    expect(sql.text).toContain('fsm_search_norm("WorkOrder"."orderNumber")');
+    expect(sql.text).toContain("LIKE");
+    expect(sql.text).not.toContain("strpos");
     expect(sql.text).toContain('"WorkOrder"."deletedAt" IS NULL');
-    // Bindestreken er blitt mellomrom før den sendes til databasen.
-    expect(sql.values).toContain("2026 1042");
+    // Bindestreken er blitt mellomrom før den sendes til databasen, og
+    // mønsteret bygges i JS slik at planleggeren ser en konstant.
+    expect(sql.values).toContain("%2026 1042%");
     expect(sql.text).not.toContain("2026-1042");
   });
 
@@ -192,10 +195,14 @@ describe("searchWorkOrderIds", () => {
     const sql = lastSql();
 
     expect(sql.text).toContain('w."orderNumber"');
+    expect(sql.text).toContain('replace(fsm_search_norm(w."orderNumber"), \' \', \'\')');
     expect(sql.text).toContain('"_WorkOrderTags"');
     expect(sql.text).toContain('"Tag"');
     expect(sql.text).toContain('w."deletedAt" IS NULL');
-    expect(sql.values).toContain("2026 1042");
+    expect(sql.values).toContain("%2026 1042%");
+    // Tall-suffikser gjør at et kortere lagret ordrenummer fortsatt treffer,
+    // uten den ikke-indekserbare `strpos(term, kolonne)`.
+    expect(sql.values).toContain("%20261042%");
   });
 
   it("returnerer ingen id-er for tomt søk", async () => {
@@ -215,13 +222,15 @@ describe("searchNormalizedIds", () => {
     const sql = lastSql();
     expect(sql.text).toContain('"Contact"."name"');
     expect(sql.text).toContain('"Contact"."email"');
-    expect(sql.text).toContain("unaccent");
-    expect(sql.text).toContain("regexp_replace");
-    expect(sql.text).toContain("strpos");
-    // Trigram-operatoren bruker de nye GIN-indeksene der de finnes.
+    expect(sql.text).toContain('fsm_search_norm("Contact"."name")');
+    expect(sql.text).toContain("LIKE");
+    expect(sql.text).not.toContain("strpos");
+    // Trigram-likheten sammenligner normaliserte former og bruker samme
+    // uttrykksindeks som LIKE.
     expect(sql.text).toContain(" % ");
+    expect(sql.values).toContain("%arlig service%");
     expect(sql.values).toContain("arlig service");
-    expect(sql.values).toContain("Årlig Service");
+    expect(sql.values).not.toContain("Årlig Service");
     expect(sql.text).not.toContain("Årlig Service");
   });
 
@@ -294,17 +303,20 @@ describe("searchNormalizedIds", () => {
     const phoneSql = lastSql();
 
     // Normalisert form bevarer mellomrom, kompakt form fjerner dem.
-    expect(phoneSql.values).toContain("47 123 45 678");
-    expect(phoneSql.values).toContain("4712345678");
-    expect(phoneSql.text).toContain("replace(");
-    // Kort kolonneverdi kan ligge inni et lengre søk (telefon uten landkode).
-    expect(phoneSql.text).toContain("length(");
+    expect(phoneSql.values).toContain("%47 123 45 678%");
+    expect(phoneSql.values).toContain("%4712345678%");
+    expect(phoneSql.text).toContain('replace(fsm_search_norm("Customer"."phone"), \' \', \'\')');
+    // Kolonneverdien kan være kortere enn søket (telefon uten landkode). Det
+    // dekkes av indekserbare tall-suffikser, ikke av en `length()`-sjekk som
+    // tvinger frem sekvensskanning.
+    expect(phoneSql.values).toContain("%12345678%");
+    expect(phoneSql.text).not.toContain("length(");
 
     mocks.queryRaw.mockClear();
     await searchNormalizedIds("Customer", "123 456 789", 10);
     const orgSql = lastSql();
-    expect(orgSql.values).toContain("123 456 789");
-    expect(orgSql.values).toContain("123456789");
+    expect(orgSql.values).toContain("%123 456 789%");
+    expect(orgSql.values).toContain("%123456789%");
   });
 
   it("kan bevisst ta med slettede rader for kundelisten", async () => {
@@ -341,6 +353,44 @@ describe("searchNormalizedIds", () => {
     expect(sql.text).toContain('"User"."name"');
     expect(sql.text).not.toContain('"User"."email"');
     expect(sql.text).not.toContain('"User"."phone"');
+  });
+});
+
+describe("indeksvennlig normalisert søk", () => {
+  it("bruker fsm_search_norm i stedet for inline normalisering", async () => {
+    await searchNormalizedIds("Customer", "gardshol", 10);
+    const sql = lastSql();
+
+    expect(sql.text).toContain('fsm_search_norm("Customer"."name")');
+    expect(sql.text).toContain('fsm_search_norm("Customer"."notes")');
+    // Uttrykket må være funksjonskallet, ellers matcher det ikke
+    // uttrykksindeksen i migreringen.
+    expect(sql.text).not.toContain("unaccent");
+    expect(sql.text).not.toContain("regexp_replace");
+    expect(sql.text).not.toContain("strpos(");
+    expect(sql.text).not.toContain("length(");
+  });
+
+  it("sender LIKE-mønsteret som parameter, ikke som SQL-tekst", async () => {
+    await searchNormalizedIds("Customer", "gardshol", 10);
+    const sql = lastSql();
+
+    expect(sql.values).toContain("%gardshol%");
+    expect(sql.text).not.toContain("gardshol");
+  });
+
+  it("lager ikke tall-suffikser for søk uten tall", async () => {
+    await searchNormalizedIds("Customer", "gardshol", 10);
+    const sql = lastSql();
+
+    // Bare rene tall gir suffiksmønstre, så et navnesøk gir ikke løse
+    // delstrengtreff som «%ardshol%».
+    expect(sql.values).not.toContain("%ardshol%");
+  });
+
+  it("bruker LIKE også i de andre delstrengsveiene", async () => {
+    await searchBySubstring("WorkOrder", "title", "pumpe", 10);
+    expect(lastSql().text).not.toContain("strpos");
   });
 });
 

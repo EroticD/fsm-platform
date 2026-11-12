@@ -45,6 +45,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { assignVisitInTransaction } from "./visits";
+import { logServerError } from "@/lib/log-context";
 
 const MAX_CANDIDATES = 200;
 const MAX_VISITS = 100;
@@ -748,7 +749,10 @@ export async function autoAssign(
         dedupeKey: `dispatch:${plan.visitId}:${plan.technicianId}`,
       });
     } catch (error) {
-      console.error("Kunne ikke varsle montør etter dispatch-tildeling", error);
+      await logServerError("Kunne ikke varsle montør etter dispatch-tildeling", error, {
+        visitId: plan.visitId,
+        technicianId: plan.technicianId,
+      });
     }
   }
 

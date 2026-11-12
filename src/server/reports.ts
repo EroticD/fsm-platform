@@ -25,6 +25,7 @@ import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 import { generateReportNumber } from "@/lib/report-number";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { isTemplateFieldVisible } from "@/lib/template-visibility";
+import { logServerError } from "@/lib/log-context";
 
 /**
  * Tjenestelaget for rapporter.
@@ -871,7 +872,7 @@ export async function saveDraft(
       createdSignatures,
     );
   } catch (error) {
-    console.error("Kunne ikke lagre kladdesignatur:", error);
+    await logServerError("Kunne ikke lagre kladdesignatur", error, { workOrderId });
     await releaseDraftSignatures(createdSignatures, user);
     return { ok: false };
   }
@@ -1321,7 +1322,7 @@ export async function submitReport(
       signatureContext,
     );
   } catch (error) {
-    console.error("Kunne ikke lagre signatur:", error);
+    await logServerError("Kunne ikke lagre signatur", error, { workOrderId });
     return {
       ok: false,
       error: "signatur",

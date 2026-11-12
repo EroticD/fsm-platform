@@ -191,11 +191,29 @@ const sourceFiles = walk(path.join(root, "src"), [".ts", ".tsx"]);
 const hardcoded = [];
 const seenHardcoded = new Set();
 
-function report(file, text, kind) {
-  const value = text.trim();
+/** Posisjon → 1-basert linjenummer, med binærsøk over linjestartene. */
+function createLineLookup(text) {
+  const starts = [0];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === "\n") starts.push(index + 1);
+  }
+  return (position) => {
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (starts[middle] <= position) low = middle;
+      else high = middle - 1;
+    }
+    return low + 1;
+  };
+}
+
+function report(file, text, kind, line) {
+  const value = text.trim().replace(/\s*\n\s*/g, " ");
   if (value.length < 2) return;
   const location = path.relative(root, file);
-  const entry = `${kind}: ${location}: ${value.slice(0, 70)}`;
+  const entry = `${kind}: ${location}:${line}: ${value.slice(0, 70)}`;
   if (seenHardcoded.has(entry)) return;
   seenHardcoded.add(entry);
   hardcoded.push(entry);
@@ -211,12 +229,13 @@ for (const file of sourceFiles) {
   // Bevisste unntak dokumenteres i filen med en i18n-ignore-file-kommentar.
   if (source.includes("i18n-ignore-file")) continue;
   const stripped = stripComments(source);
+  const lineAt = createLineLookup(stripped);
 
   for (const match of stripped.matchAll(norwegianText)) {
     const text = match[0].slice(1, -1).trim();
     if (text.length < 2) continue;
     if (/[;=()]/.test(text)) continue; // hopp over kode som treffer regexen
-    report(file, text, "jsx");
+    report(file, text, "jsx", lineAt(match.index));
   }
 
   for (const match of stripped.matchAll(attributeText)) {
@@ -224,7 +243,7 @@ for (const file of sourceFiles) {
     if (!/[A-Za-zÆØÅæøå]/.test(value)) continue;
     // Formatmasker (YYYY-MM-DD, XXXX-XXXX) er ikke språklig tekst.
     if (/^(?:[Xx]{4}-[Xx]{4}|[Yy]{4}-[Mm]{2}-[Dd]{2})$/.test(value)) continue;
-    report(file, `${match[1]}="${value}"`, "attr");
+    report(file, `${match[1]}="${value}"`, "attr", lineAt(match.index));
   }
 
   for (const match of stripped.matchAll(STRING_LITERAL)) {
@@ -239,14 +258,19 @@ for (const file of sourceFiles) {
     ) {
       continue;
     }
-    report(file, value, "literal");
+    report(file, value, "literal", lineAt(match.index));
   }
 }
 
 if (hardcoded.length > 0) {
+  const LIMIT = 20;
   console.warn(`⚠ i18n: ${hardcoded.length} hardkodede norske strenger`);
-  for (const example of hardcoded.slice(0, 20)) console.warn(`  ${example}`);
-  if (hardcoded.length > 20) console.warn("  …");
+  for (const example of hardcoded.slice(0, LIMIT)) console.warn(`  ${example}`);
+  if (hardcoded.length > LIMIT) {
+    console.warn(
+      `  … ${hardcoded.length - LIMIT} flere (totalt ${hardcoded.length} funn, viser ${LIMIT})`,
+    );
+  }
   if (strict) failed = true;
 }
 

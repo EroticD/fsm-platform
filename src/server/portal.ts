@@ -55,6 +55,7 @@ import {
   requirePortalCapability,
   resolvePortalAccess,
 } from "./portal-access";
+import { logServerError } from "@/lib/log-context";
 
 const PAGE_SIZE = 20;
 
@@ -276,7 +277,10 @@ async function enqueueBookingRequestedEmail(input: {
     });
   } catch (error) {
     // E-post er en sideeffekt. Bookingen er allerede lagret og skal bestå.
-    console.error("Kunne ikke legge bestillings-e-post i utboksen:", error);
+    await logServerError("Kunne ikke legge bestillings-e-post i utboksen", error, {
+      customerId: input.customerId,
+      reference: input.reference,
+    });
   }
 }
 
@@ -698,7 +702,11 @@ export async function createBooking(
       error && typeof error === "object" && "code" in error
         ? String((error as { code?: unknown }).code)
         : "ukjent";
-    console.error(`Databasefeil ved booking av oppdrag (Prisma ${code})`);
+    // Rå Prisma-feil kan inneholde creatorName (kundens e-post), så bare
+    // feilkoden logges – aldri error.message eller feilobjektet.
+    await logServerError("Databasefeil ved booking av oppdrag", `Prisma ${code}`, {
+      customerId,
+    });
     return fail("error");
   }
 
@@ -734,7 +742,9 @@ export async function createBooking(
       `booking:${created.id}`,
     );
   } catch (error) {
-    console.error("Kunne ikke legge bestillingsvarsel i køen:", error);
+    await logServerError("Kunne ikke legge bestillingsvarsel i køen", error, {
+      customerId,
+    });
   }
 
   await enqueueBookingRequestedEmail({
@@ -1140,7 +1150,10 @@ export async function cancelBooking(
       } as const;
     });
   } catch (error) {
-    console.error("Databasefeil ved kansellering av bestilling:", error);
+    await logServerError("Databasefeil ved kansellering av bestilling", error, {
+      bookingId: booking.data.id,
+      customerId: access.data.customerId,
+    });
     return fail("error");
   }
 
@@ -1175,7 +1188,9 @@ export async function cancelBooking(
       `booking-cancel:${booking.data.id}`,
     );
   } catch (error) {
-    console.error("Kunne ikke varsle om kansellert bestilling:", error);
+    await logServerError("Kunne ikke varsle om kansellert bestilling", error, {
+      bookingId: booking.data.id,
+    });
   }
 
   // Kunden får en kanselleringsbekreftelse via utboksen. Idempotensen ligger
@@ -1196,7 +1211,9 @@ export async function cancelBooking(
           : null,
     });
   } catch (error) {
-    console.error("Kunne ikke legge kansellerings-e-post i utboksen:", error);
+    await logServerError("Kunne ikke legge kansellerings-e-post i utboksen", error, {
+      bookingId: booking.data.id,
+    });
   }
 
   return ok({
@@ -1552,7 +1569,10 @@ export async function rescheduleBooking(
       outcome = { kind: "moved" };
     }
   } catch (error) {
-    console.error("Databasefeil ved ny-tid-forespørsel:", error);
+    await logServerError("Databasefeil ved ny-tid-forespørsel", error, {
+      bookingId: booking.data.id,
+      customerId: access.data.customerId,
+    });
     return fail("error");
   }
 
@@ -1571,7 +1591,9 @@ export async function rescheduleBooking(
       `booking-reschedule:${booking.data.id}:${toDateOnly(schedule.data.requestedDate)}:${schedule.data.requestedFrom}:${schedule.data.requestedTo}${technicianId ? `:${technicianId}` : ""}`,
     );
   } catch (error) {
-    console.error("Kunne ikke varsle om ny-tid-forespørsel:", error);
+    await logServerError("Kunne ikke varsle om ny-tid-forespørsel", error, {
+      bookingId: booking.data.id,
+    });
   }
 
   return ok({

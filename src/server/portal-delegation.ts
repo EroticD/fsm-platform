@@ -11,6 +11,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /**
  * Skriver delegerte portaltilganger for en kontaktperson.
@@ -101,7 +102,7 @@ export async function savePortalDelegation(
     });
     return ok(delegation);
   } catch (error) {
-    console.error("Feil ved lagring av portaldelegering:", error);
+    await logServerError("Feil ved lagring av portaldelegering", error, { customerId });
     return fail("error");
   }
 }

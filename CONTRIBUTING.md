@@ -95,6 +95,11 @@ Når du legger til tekst:
   `pl` og `de` er fullstendige kataloger i `messages/pl.json` og
   `messages/de.json`; nye nøkler skal legges i **alle fire** kataloger i samme
   commit. `npm run check:i18n:strict` feiler ved manglende paritet.
+- Bruk `npm run i18n:add <dottet.nokkel> --nb "…" --en "…" --pl "…" --de "…"`
+  når du legger til en nøkkel. Kommandoen velger riktig fil per språk (fragment
+  når `<område>.<språk>.json` finnes og er flettet inn, ellers
+  `messages/<språk>.json`), nekter hvis en oversettelse mangler eller nøkkelen
+  finnes fra før (`--force` overskriver), og viser diff med `--dry-run`.
 - Metadata: bruk `getTranslations("common")` og `metadata.*`-nøklene, ikke
   hardkodede titler i `layout.tsx` eller `page.tsx`.
 - Revisjonsloggen lagrer stabile norske handlingsstrenger. Nye handlinger skal

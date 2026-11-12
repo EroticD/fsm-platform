@@ -28,11 +28,15 @@ import {
   isSealedRecord,
   OfflineTamperError,
 } from "./crypto";
+import type { OfflineVisitStatus } from "./visit-status-rules";
 
 const DB_NAME = "fsm-offline";
-const DB_VERSION = 1;
+// Versjon 2 la til køen for offline-registrerte visittstatusser. Nye stores
+// opprettes i `onupgradeneeded`, så eksisterende kladder og outbox beholdes.
+const DB_VERSION = 2;
 const DRAFT_STORE = "drafts";
 const OUTBOX_STORE = "outbox";
+const VISIT_STATUS_STORE = "visit-statuses";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_OFFLINE_DRAFT_MAX_AGE_DAYS = 7;
@@ -121,6 +125,33 @@ export type EnqueueResult =
   | "locked";
 
 /**
+ * En statusregistrering fra feltportalen som venter på å bli sendt.
+ *
+ * Posten er bevisst ikke kryptert slik kladdene er: den inneholder bare id-er,
+ * status og tidspunkt, og må kunne legges i køen før montøren har låst opp
+ * PIN-nøkkelen. Den er også nødvendig for at en ankomst skal kunne tidfestes
+ * når appen aldri får kontakt med serveren.
+ */
+export type PendingVisitStatus = {
+  /** Idempotensnøkkel fra `visitStatusKey`. */
+  key: string;
+  visitId: string;
+  status: OfflineVisitStatus;
+  /** Montørens tidspunkt for handlingen (epoch ms). */
+  at: number;
+  /** Eieren av køen, eller null når brukeren ikke er kjent i nettleseren. */
+  userId: string | null;
+  /** Når posten ble lagt i køen (epoch ms). */
+  queuedAt: number;
+};
+
+/** Resultat av å legge en statusregistrering i køen. */
+export type EnqueueVisitStatusResult =
+  | "queued"
+  | "duplicate"
+  | "unavailable";
+
+/**
  * Postene som faktisk ligger i IndexedDB. `payload` er ciphertext for alle
  * poster som er skrevet etter at SEC-01 ble innført. Eldre poster uten `enc`
  * er klartekst og migreres ved første opplåsing.
@@ -181,6 +212,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
         db.createObjectStore(OUTBOX_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(VISIT_STATUS_STORE)) {
+        db.createObjectStore(VISIT_STATUS_STORE, { keyPath: "key" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -577,6 +611,71 @@ export async function resetFailedOutbox(userId: string): Promise<number> {
   return result ?? 0;
 }
 
+/** Er feilen IndexedDBs «nøkkelen finnes allerede»? */
+function isConstraintError(error: unknown): boolean {
+  return (
+    Boolean(error) &&
+    typeof error === "object" &&
+    (error as { name?: unknown }).name === "ConstraintError"
+  );
+}
+
+/**
+ * Legger en statusregistrering i køen.
+ *
+ * `add` avviser en nøkkel som allerede finnes. Dermed kan samme
+ * visitt+status+at aldri ligge to ganger, heller ikke når to faner legger inn
+ * den samme handlingen samtidig. Returverdien lar kalleren skille et ekte
+ * duplikat fra en utilgjengelig IndexedDB.
+ */
+export async function putPendingVisitStatus(
+  item: PendingVisitStatus,
+): Promise<EnqueueVisitStatusResult> {
+  try {
+    const result = await withStore(
+      VISIT_STATUS_STORE,
+      "readwrite",
+      async (store) => {
+        store.add(item);
+        return undefined;
+      },
+    );
+    return result === null ? "unavailable" : "queued";
+  } catch (error) {
+    if (isConstraintError(error)) return "duplicate";
+    throw error;
+  }
+}
+
+/**
+ * Alle køede statusregistreringer, uten brukerfilter. Rekkefølgen er
+ * IndexedDBs nøkkelrekkefølge; `visit-status-outbox` sorterer kronologisk før
+ * sending, fordi en ankomst aldri kan sendes før avreisen.
+ */
+export async function listPendingVisitStatuses(): Promise<
+  PendingVisitStatus[]
+> {
+  const result = await withStore(VISIT_STATUS_STORE, "readonly", async (store) =>
+    requestResult<PendingVisitStatus[]>(store.getAll()),
+  );
+  return result ?? [];
+}
+
+export async function removePendingVisitStatus(key: string): Promise<void> {
+  await withStore(VISIT_STATUS_STORE, "readwrite", async (store) => {
+    store.delete(key);
+    return undefined;
+  });
+}
+
+/** Tømmer hele statuskøen. Brukes av tester og ved bevisst opprydding. */
+export async function clearPendingVisitStatuses(): Promise<void> {
+  await withStore(VISIT_STATUS_STORE, "readwrite", async (store) => {
+    store.clear();
+    return undefined;
+  });
+}
+
 export async function countOutbox(): Promise<number> {
   const result = await withStore(OUTBOX_STORE, "readonly", async (store) =>
     requestResult<number>(store.count()),
@@ -756,6 +855,10 @@ export async function clearOfflineData(): Promise<void> {
     return undefined;
   });
   await withStore(OUTBOX_STORE, "readwrite", async (store) => {
+    store.clear();
+    return undefined;
+  });
+  await withStore(VISIT_STATUS_STORE, "readwrite", async (store) => {
     store.clear();
     return undefined;
   });

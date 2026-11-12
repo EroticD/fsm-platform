@@ -34,6 +34,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { clearCalendarToken } from "./calendar-feed";
+import { logServerError } from "@/lib/log-context";
 
 type RoleRecord = {
   key: string;
@@ -233,8 +234,10 @@ export async function createUser(
       return created;
     });
   } catch (error) {
-    console.error(
-      `Feil ved opprettelse av bruker (Prisma ${safePrismaErrorCode(error)})`,
+    // Rå Prisma-feil kan inneholde e-postadressen, så bare feilkoden logges.
+    await logServerError(
+      "Feil ved opprettelse av bruker",
+      `Prisma ${safePrismaErrorCode(error)}`,
     );
     return fail("duplicate_email");
   }
@@ -895,8 +898,11 @@ export async function createPortalUser(
       return user;
     });
   } catch (error) {
-    console.error(
-      `Feil ved opprettelse av kundeportalbruker (Prisma ${safePrismaErrorCode(error)})`,
+    // Rå Prisma-feil kan inneholde e-postadressen, så bare feilkoden logges.
+    await logServerError(
+      "Feil ved opprettelse av kundeportalbruker",
+      `Prisma ${safePrismaErrorCode(error)}`,
+      { customerId },
     );
     return fail("duplicate_email");
   }

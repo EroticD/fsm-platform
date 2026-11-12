@@ -49,9 +49,9 @@ export type NameSearchColumn = "name" | "city" | "model" | "title";
 
 /**
  * Felter som ikke har trigram-indeks, men som fortsatt skal kunne søkes i med
- * en normalisert delstreng. Vi bruker `strpos`/ILIKE-lignende matching i
- * databasen på samme normaliserte form som JS-søket, slik at «arlig-service»
- * matcher «Årlig service» og «2026-1042» matcher «NO-2026-1042».
+ * en normalisert delstreng. Vi matcher med `LIKE` mot `fsm_search_norm(...)`,
+ * som har uttrykksindeks (gin_trgm_ops), slik at «arlig-service» matcher
+ * «Årlig service» og «2026-1042» matcher «NO-2026-1042».
  */
 export const SUBSTRING_SEARCH_FIELDS = {
   "WorkOrder.title": { table: '"WorkOrder"', column: '"title"', hasDeletedAt: true },
@@ -88,6 +88,10 @@ const NORMALIZED_SEARCH_TABLES = {
       "city",
       "notes",
     ],
+    // Bare kolonner der separatorer kan stå i veien for et treff. Hver av dem
+    // får en egen kompakt uttrykksindeks (se migreringen
+    // 20261112230000_search_expression_indexes).
+    compactColumns: ["customerNumber", "orgNumber", "phone", "postalCode"],
     hasDeletedAt: true,
     // Kontaktdata har sin egen gruppe, men kunden skal også dukke opp når
     // telefonnummeret/e-posten står på en kontaktperson.
@@ -96,39 +100,60 @@ const NORMALIZED_SEARCH_TABLES = {
   Product: {
     table: '"Product"',
     columns: ["model", "serialNumber", "location"],
+    compactColumns: ["serialNumber"],
     hasDeletedAt: false,
     customerScoped: true,
   },
   CustomerSite: {
     table: '"CustomerSite"',
     columns: ["name", "address", "postalCode", "city"],
+    compactColumns: ["postalCode"],
     hasDeletedAt: false,
     customerScoped: true,
   },
   Contact: {
     table: '"Contact"',
     columns: ["name", "email", "phone", "role"],
+    compactColumns: ["phone"],
     hasDeletedAt: false,
   },
   WorkOrder: {
     table: '"WorkOrder"',
     columns: ["title", "reference", "description", "orderNumber"],
+    compactColumns: ["reference", "orderNumber"],
     hasDeletedAt: true,
   },
-  Tag: { table: '"Tag"', columns: ["name"], hasDeletedAt: false },
+  Tag: { table: '"Tag"', columns: ["name"], compactColumns: [], hasDeletedAt: false },
   Report: {
     table: '"Report"',
     columns: ["reportNumber", "name", "templateTitle", "comments"],
+    compactColumns: ["reportNumber"],
     hasDeletedAt: true,
   },
-  Comment: { table: '"Comment"', columns: ["content", "authorName"], hasDeletedAt: false },
-  User: { table: '"User"', columns: ["name", "email", "phone"], hasDeletedAt: false },
+  Comment: {
+    table: '"Comment"',
+    columns: ["content", "authorName"],
+    compactColumns: [],
+    hasDeletedAt: false,
+  },
+  User: {
+    table: '"User"',
+    columns: ["name", "email", "phone"],
+    compactColumns: ["phone"],
+    hasDeletedAt: false,
+  },
   Template: {
     table: '"Template"',
     columns: ["title", "reportName", "description"],
+    compactColumns: [],
     hasDeletedAt: false,
   },
-  DocumentFolder: { table: '"DocumentFolder"', columns: ["name"], hasDeletedAt: false },
+  DocumentFolder: {
+    table: '"DocumentFolder"',
+    columns: ["name"],
+    compactColumns: [],
+    hasDeletedAt: false,
+  },
 } as const;
 
 export type NormalizedSearchTable = keyof typeof NORMALIZED_SEARCH_TABLES;
@@ -161,9 +186,11 @@ function normalizedColumnExpression(
  *
  * Søket matcher både normalt (med mellomrom) og kompakt (uten mellomrom), slik
  * at «+47 123 45 678» treffer «12345678», «123 456 789» treffer «123456789»
- * og «K-100» treffer «K100». `includeDeleted` er en bevisst opt-in for lister
- * som skal vise slettede rader (f.eks. kundelisten); standard er at mykt
- * slettede rader aldri kommer med.
+ * og «K-100» treffer «K100». Kompakt form brukes bare der kolonnen er merket
+ * `compactColumns`, fordi det er der separatorer faktisk kan stå i veien.
+ * `includeDeleted` er en bevisst opt-in for lister som skal vise slettede
+ * rader (f.eks. kundelisten); standard er at mykt slettede rader aldri kommer
+ * med.
  */
 export type NormalizedSearchOptions = {
   /**
@@ -189,9 +216,8 @@ export async function searchNormalizedIds(
   if (options.customerId && !("customerScoped" in config)) {
     throw new Error(`Ugyldig kundefilter for tabellen ${table}`);
   }
-  // Kompakt form uten separatorer. For søk som allerede er uten separatorer
-  // er den identisk med `normalizedQuery`, og da er det bare én ekstra,
-  // billig strpos per kolonne.
+  // Kompakt form uten separatorer, for numre der «+47 123 45 678» skal treffe
+  // «4712345678». Brukes bare på kolonnene som er merket `compactColumns`.
   const compactQuery = normalizeSearchCompact(query);
 
   const selected = columns ?? [...config.columns];
@@ -203,60 +229,57 @@ export async function searchNormalizedIds(
   if (selected.length === 0) return [];
 
   const take = takeLimit(limit);
-  const rawQuery = query.trim();
-  const term = Prisma.sql`${normalizedQuery}`;
-  const compactTerm = Prisma.sql`${compactQuery}`;
-  const contains = selected.map(
-    (column) => {
-      const compactColumn = compactNormalizedColumnExpression(table, column);
-      return Prisma.sql`(
-      strpos(${normalizedColumnExpression(table, column)}, ${term}) > 0
-      OR strpos(${compactColumn}, ${compactTerm}) > 0
-      -- Også når kolonnen er kortere enn søket: «+47 123 45 678» skal treffe
-      -- et telefonnummer lagret som «12345678». Korte verdier (< 5 tegn)
-      -- krever full match, så en by som «Os» ikke gir treff på alt.
-      OR (length(${compactColumn}) >= 5 AND strpos(${compactTerm}, ${compactColumn}) > 0)
-      OR ${Prisma.raw(`${config.table}."${column}"`)} % ${rawQuery}
-    )`;
-    },
+  const terms: SearchTerms = {
+    normalized: normalizedQuery,
+    compact: compactQuery,
+    // Tall-suffikser av den kompakte termen dekker tilfellet der kolonnen er
+    // kortere enn søket: «+47 123 45 678» (kompakt «4712345678») skal treffe
+    // et telefonnummer lagret som «12345678». Før ble det løst med
+    // `strpos(term, kolonne) > 0`, som aldri kan bruke en indeks fordi
+    // mønsteret kommer fra kolonnen. Nå matches hvert suffiks med LIKE, som er
+    // indekserbart. Kravet om minst fem tegn gjør at en by som «Os» fortsatt
+    // krever full match.
+    suffixPatterns: compactSuffixPatterns(compactQuery),
+  };
+  const compactColumns = config.compactColumns as readonly string[];
+
+  const contains = selected.map((column) =>
+    columnMatchParts(
+      normalizedColumnExpression(table, column),
+      compactColumns.includes(column)
+        ? compactNormalizedColumnExpression(table, column)
+        : null,
+      terms,
+    ),
   );
-  const exact = selected.map(
-    (column) => Prisma.sql`(
-      ${normalizedColumnExpression(table, column)} = ${term}
-      OR ${compactNormalizedColumnExpression(table, column)} = ${compactTerm}
-    )`,
+  const exact = selected.map((column) =>
+    columnExactParts(
+      normalizedColumnExpression(table, column),
+      compactColumns.includes(column)
+        ? compactNormalizedColumnExpression(table, column)
+        : null,
+      terms,
+    ),
   );
-  const prefix = selected.map(
-    (column) => Prisma.sql`(
-      strpos(${normalizedColumnExpression(table, column)}, ${term}) = 1
-      OR strpos(${compactNormalizedColumnExpression(table, column)}, ${compactTerm}) = 1
-    )`,
+  const prefix = selected.map((column) =>
+    columnPrefixParts(
+      normalizedColumnExpression(table, column),
+      compactColumns.includes(column)
+        ? compactNormalizedColumnExpression(table, column)
+        : null,
+      terms,
+    ),
   );
 
   // Kunder skal også matche når søkeordet står på en kontaktperson. Det gir
   // kundetreff uten at kontaktradene dupliseres i kundegruppen. Bare når
   // kalleren ikke har begrenset kolonnene eksplisitt.
-  const matchContacts =
-    columns === undefined && "matchContacts" in config && config.matchContacts;
-  const contactMatch = matchContacts
-    ? Prisma.sql`EXISTS (
-        SELECT 1
-        FROM "Contact" ct
-        WHERE ct."customerId" = ${Prisma.raw(config.table)}."id"
-          AND (
-            ${Prisma.join(
-              ["name", "email", "phone", "role"].map(
-                (column) => Prisma.sql`(
-                  strpos(${normalizedSql(Prisma.raw(`ct."${column}"`))}, ${term}) > 0
-                  OR strpos(${compactNormalizedSql(Prisma.raw(`ct."${column}"`))}, ${compactTerm}) > 0
-                )`,
-              ),
-              " OR ",
-            )}
-          )
-      )`
-    : Prisma.empty;
-
+  //
+  // Kontaktmatchen ligger i en egen UNION-gren, ikke som `OR EXISTS (...)`, av
+  // ytelsesgrunner: en OR med en subplan gjør at PostgreSQL ikke kan bruke
+  // BitmapOr for de indekserte grenene, og da faller hele søket tilbake til
+  // sekvensskanning. Grupperingen på id slår sammen treff fra begge grenene og
+  // beholder den høyeste scoren, så resultat og rangering er uendret.
   const showDeleted = includeDeleted === true;
   const deletedFilter =
     config.hasDeletedAt && !showDeleted
@@ -266,23 +289,58 @@ export async function searchNormalizedIds(
     ? Prisma.sql`AND ${Prisma.raw(config.table)}."customerId" = ${options.customerId}`
     : Prisma.empty;
 
-  const where = matchContacts
-    ? Prisma.sql`((${Prisma.join(contains, " OR ")}) OR ${contactMatch})`
-    : Prisma.sql`(${Prisma.join(contains, " OR ")})`;
+  const matchContacts =
+    columns === undefined && "matchContacts" in config && config.matchContacts;
+  // `matchContacts` finnes bare på Customer, så joinen kan hardkodes til
+  // "Customer" (Contact.customerId peker dit).
+  const contactCompactColumns = NORMALIZED_SEARCH_TABLES.Contact
+    .compactColumns as readonly string[];
+  const contactBranch = matchContacts
+    ? Prisma.sql`
+      UNION ALL
+      SELECT "Customer"."id" AS "id", 0.8 AS "score"
+      FROM "Contact" ct
+      JOIN "Customer" ON "Customer"."id" = ct."customerId"
+      WHERE (
+        ${Prisma.join(
+          ["name", "email", "phone", "role"].map((column) =>
+            columnMatchParts(
+              normalizedSql(Prisma.raw(`ct."${column}"`)),
+              contactCompactColumns.includes(column)
+                ? compactNormalizedSql(Prisma.raw(`ct."${column}"`))
+                : null,
+              terms,
+              // Kontaktradene er bare en ekstra treffkilde for kunden, så
+              // vi beholder delstrengmatch uten trigram-likhet her.
+              { similarity: false },
+            ),
+          ),
+          " OR ",
+        )}
+      )
+        ${deletedFilter}`
+    : Prisma.empty;
 
   return prisma.$queryRaw<NormalizedSearchRow[]>(Prisma.sql`
     SELECT
       "id",
-      CASE
-        WHEN ${Prisma.join(exact, " OR ")} THEN 1
-        WHEN ${Prisma.join(prefix, " OR ")} THEN 0.9
-        ELSE 0.8
-      END AS "score",
+      MAX("score") AS "score",
       COUNT(*) OVER() AS "total"
-    FROM ${Prisma.raw(config.table)}
-    WHERE ${where}
-      ${customerFilter}
-      ${deletedFilter}
+    FROM (
+      SELECT
+        ${Prisma.raw(config.table)}."id" AS "id",
+        CASE
+          WHEN ${Prisma.join(exact, " OR ")} THEN 1
+          WHEN ${Prisma.join(prefix, " OR ")} THEN 0.9
+          ELSE 0.8
+        END AS "score"
+      FROM ${Prisma.raw(config.table)}
+      WHERE (${Prisma.join(contains, " OR ")})
+        ${customerFilter}
+        ${deletedFilter}
+      ${contactBranch}
+    ) AS "hits"
+    GROUP BY "id"
     ORDER BY "score" DESC, "id" ASC
     LIMIT ${take}
   `);
@@ -335,7 +393,7 @@ export async function searchReports(
     ? Math.max(0, Math.trunc(options.offset as number))
     : 0;
   const filters = options.filters ?? {};
-  const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
+  const termLike = containsLike(normalizedQuery);
 
   const reportText = Prisma.sql`(
     coalesce(r."name", '') || ' ' ||
@@ -360,17 +418,17 @@ export async function searchReports(
   const normalizedCustomerName = normalizedSql(Prisma.raw('c."name"'));
 
   const substringMatch = Prisma.sql`(
-    strpos(${normalizedReportNumber}, ${term}) > 0
-    OR strpos(${normalizedName}, ${term}) > 0
-    OR strpos(${normalizedTemplateTitle}, ${term}) > 0
-    OR strpos(${normalizedComments}, ${term}) > 0
-    OR strpos(${normalizedHmsType}, ${term}) > 0
-    OR strpos(${normalizedWorkOrderTitle}, ${term}) > 0
-    OR strpos(${normalizedCustomerName}, ${term}) > 0
+    ${normalizedReportNumber} LIKE ${termLike}
+    OR ${normalizedName} LIKE ${termLike}
+    OR ${normalizedTemplateTitle} LIKE ${termLike}
+    OR ${normalizedComments} LIKE ${termLike}
+    OR ${normalizedHmsType} LIKE ${termLike}
+    OR ${normalizedWorkOrderTitle} LIKE ${termLike}
+    OR ${normalizedCustomerName} LIKE ${termLike}
     OR EXISTS (
       SELECT 1 FROM "ReportUnit" ru
       WHERE ru."reportId" = r."id"
-        AND strpos(${normalizedSql(Prisma.raw('ru."answersJson"'))}, ${term}) > 0
+        AND ${normalizedSql(Prisma.raw('ru."answersJson"'))} LIKE ${termLike}
     )
   )`;
 
@@ -520,21 +578,125 @@ export function isAllowedSubstringSearchField(table: string, column: string): bo
 }
 
 /**
- * SQL-uttrykk som normaliserer en tekstkolonne på samme måte som
- * `normalizeSearchText` i JS: lower case, unaccent, ikke-alfanumeriske tegn
- * blir mellomrom, og mellomrom trimmes/kollapses.
+ * Normaliserer en tekstkolonne med `fsm_search_norm`, den samme IMMUTABLE
+ * funksjonen som uttrykksindeksene i migreringen
+ * 20261112230000_search_expression_indexes er bygget på. Funksjonen gjør
+ * nøyaktig det samme som `normalizeSearchText` i JS: lower case, unaccent,
+ * ikke-alfanumeriske tegn blir mellomrom, og mellomrom trimmes/kollapses.
+ *
+ * Uttrykket MÅ være tekstlig identisk med indeksuttrykket, ellers kan ikke
+ * PostgreSQL bruke indeksen. Ikke bytt funksjonskallet ut med den inline
+ * varianten igjen.
  */
 function normalizedSql(expression: Prisma.Sql): Prisma.Sql {
-  return Prisma.sql`btrim(regexp_replace(lower(unaccent(coalesce(${expression}, ''))), '[^a-z0-9]+', ' ', 'g'))`;
+  return Prisma.sql`fsm_search_norm(${expression})`;
 }
 
 /**
  * Som `normalizedSql`, men fjerner også mellomrom. Speiler
  * `normalizeSearchCompact` i JS, slik at telefon-, org- og kundenumre matcher
- * uavhengig av separatorer.
+ * uavhengig av separatorer. Uttrykket er skrevet nøyaktig slik
+ * uttrykksindeksene i migreringen er definert (`replace(fsm_search_norm(...),
+ * ' ', '')`), slik at PostgreSQL kan bruke dem.
  */
 function compactNormalizedSql(expression: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`replace(${normalizedSql(expression)}, ' ', '')`;
+}
+
+/** Søketermene i de formene SQL-en trenger dem. */
+type SearchTerms = {
+  /** `normalizeSearchText(query)` – med mellomrom. */
+  normalized: string;
+  /** `normalizeSearchCompact(query)` – uten mellomrom. */
+  compact: string;
+  /** LIKE-mønstre for tall-suffikser, se `compactSuffixPatterns`. */
+  suffixPatterns: string[];
+};
+
+/**
+ * LIKE-mønstre for hvert suffiks av et heltallig søk, med minst fem sifre.
+ *
+ * Brukes der kolonneverdien er kortere enn søket («+47 123 45 678» mot lagret
+ * «12345678»). Suffiksvariantene erstatter den gamle
+ * `strpos(term, kolonne) > 0`, som aldri kunne bruke en indeks fordi mønsteret
+ * kom fra kolonnen. Bare rene tall gir suffikser, så et navnesøk som «gardshol»
+ * aldri gir løse delstrengtreff.
+ */
+function compactSuffixPatterns(compact: string): string[] {
+  if (!/^\d{6,}$/.test(compact)) return [];
+  const patterns: string[] = [];
+  const lastStart = compact.length - 5;
+  for (let start = 1; start <= lastStart && patterns.length < 8; start++) {
+    patterns.push(`%${compact.slice(start)}%`);
+  }
+  return patterns;
+}
+
+/** LIKE-mønster for «inneholder termen». Termen er normalisert i JS og kan
+ *  derfor ikke inneholde jokertegn. */
+function containsLike(term: string): string {
+  return `%${term}%`;
+}
+
+/** LIKE-mønster for «starter med termen». */
+function prefixLike(term: string): string {
+  return `${term}%`;
+}
+
+/**
+ * Delstrengmatch for én kolonne: normalisert form, kompakt form (bare der
+ * separatorer kan stå i veien) og trigram-likhet på normalisert form.
+ *
+ * Alle variantene har en uttrykksindeks, slik at OR-et kan kjøres som BitmapOr
+ * i stedet for sekvensskanning.
+ */
+function columnMatchParts(
+  normalized: Prisma.Sql,
+  compact: Prisma.Sql | null,
+  terms: SearchTerms,
+  options: { similarity?: boolean } = {},
+): Prisma.Sql {
+  const parts: Prisma.Sql[] = [
+    Prisma.sql`${normalized} LIKE ${containsLike(terms.normalized)}`,
+  ];
+  if (compact) {
+    parts.push(Prisma.sql`${compact} LIKE ${containsLike(terms.compact)}`);
+    for (const pattern of terms.suffixPatterns) {
+      parts.push(Prisma.sql`${compact} LIKE ${pattern}`);
+    }
+  }
+  if (options.similarity !== false) {
+    // Trigram-likhet gir skrivefeil-toleranse. Den sammenligner normaliserte
+    // former, så samme indeks som LIKE brukes.
+    parts.push(Prisma.sql`${normalized} % ${terms.normalized}`);
+  }
+  return Prisma.sql`(${Prisma.join(parts, " OR ")})`;
+}
+
+/** Eksakt treff, brukt til score 1 i SELECT-delen. */
+function columnExactParts(
+  normalized: Prisma.Sql,
+  compact: Prisma.Sql | null,
+  terms: SearchTerms,
+): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`${normalized} = ${terms.normalized}`];
+  if (compact) parts.push(Prisma.sql`${compact} = ${terms.compact}`);
+  return Prisma.sql`(${Prisma.join(parts, " OR ")})`;
+}
+
+/** Prefikstreff, brukt til score 0,9 i SELECT-delen. */
+function columnPrefixParts(
+  normalized: Prisma.Sql,
+  compact: Prisma.Sql | null,
+  terms: SearchTerms,
+): Prisma.Sql {
+  const parts: Prisma.Sql[] = [
+    Prisma.sql`${normalized} LIKE ${prefixLike(terms.normalized)}`,
+  ];
+  if (compact) {
+    parts.push(Prisma.sql`${compact} LIKE ${prefixLike(terms.compact)}`);
+  }
+  return Prisma.sql`(${Prisma.join(parts, " OR ")})`;
 }
 
 function compactNormalizedColumnExpression(
@@ -574,18 +736,19 @@ export async function searchDocuments(
   // Bare tegnsetting/whitespace: ingenting kan matche.
   if (!normalizedQuery) return [];
 
-  const normalizedTerm = Prisma.sql`${normalizedQuery}`;
-  const compactTerm = Prisma.sql`${compactQuery}`;
   const normalizedFileName = normalizedSql(Prisma.raw('d."fileName"'));
   const compactFileName = compactNormalizedSql(Prisma.raw('d."fileName"'));
 
-  const filenameMatch = Prisma.sql`(
-    strpos(${normalizedFileName}, ${normalizedTerm}) > 0
-    OR strpos(${compactFileName}, ${compactTerm}) > 0
-    -- Filnavnet kan være kortere enn søket (f.eks. med «(1).pdf»-suffiks).
-    OR (length(${compactFileName}) >= 5 AND strpos(${compactTerm}, ${compactFileName}) > 0)
-    OR d."fileName" % ${rawQuery}
-  )`;
+  // Filnavnet kan være kortere enn søket (f.eks. med «(1).pdf»-suffiks). Det
+  // dekkes av tall-suffiksene i `compactSuffixPatterns`, som er indekserbare;
+  // den gamle `strpos(term, kolonne)`-varianten kunne aldri bruke indeks.
+  // Trigram-likheten sammenligner normaliserte former, så også den bruker
+  // indeksen på fsm_search_norm("fileName").
+  const filenameMatch = columnMatchParts(normalizedFileName, compactFileName, {
+    normalized: normalizedQuery,
+    compact: compactQuery,
+    suffixPatterns: compactSuffixPatterns(compactQuery),
+  });
 
   // `numnode` er 0 for tomme/stopword-only spørringer. Da hopper vi over
   // ts_headline, som ikke skal kjøres med en tom tsquery.
@@ -624,10 +787,10 @@ export async function searchDocuments(
     ts_rank(d."searchTsv", q.tsq) * 4,
     similarity(coalesce(d."fileName", ''), ${rawQuery}),
     CASE
-      WHEN strpos(${normalizedFileName}, ${normalizedTerm}) = 1 THEN 1
-      WHEN strpos(${compactFileName}, ${compactTerm}) = 1 THEN 0.95
-      WHEN strpos(${normalizedFileName}, ${normalizedTerm}) > 0 THEN 0.9
-      WHEN strpos(${compactFileName}, ${compactTerm}) > 0 THEN 0.85
+      WHEN ${normalizedFileName} LIKE ${prefixLike(normalizedQuery)} THEN 1
+      WHEN ${compactFileName} LIKE ${prefixLike(compactQuery)} THEN 0.95
+      WHEN ${normalizedFileName} LIKE ${containsLike(normalizedQuery)} THEN 0.9
+      WHEN ${compactFileName} LIKE ${containsLike(compactQuery)} THEN 0.85
       ELSE 0
     END
   )`;
@@ -724,19 +887,19 @@ export async function searchBySubstring(
   const normalizedColumn = normalizedSql(
     fieldExpression(field.table, field.column),
   );
-  const normalizedTerm = normalizedSql(Prisma.sql`${normalizedQuery}`);
+  const containsTerm = containsLike(normalizedQuery);
 
   return prisma.$queryRaw<NameSearchRow[]>(Prisma.sql`
     SELECT
       "id",
       CASE
-        WHEN ${normalizedColumn} = ${normalizedTerm} THEN 1
-        WHEN strpos(${normalizedColumn}, ${normalizedTerm}) = 1 THEN 0.9
+        WHEN ${normalizedColumn} = ${normalizedQuery} THEN 1
+        WHEN ${normalizedColumn} LIKE ${prefixLike(normalizedQuery)} THEN 0.9
         ELSE 0.8
       END AS "score",
       COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(field.table)}
-    WHERE strpos(${normalizedColumn}, ${normalizedTerm}) > 0
+    WHERE ${normalizedColumn} LIKE ${containsTerm}
       ${deletedFilter}
     ORDER BY "score" DESC, "id" ASC
     LIMIT ${take}
@@ -769,12 +932,22 @@ export async function searchWorkOrderIdsWithTotal(
   if (!normalizedQuery) return { ids: [], total: 0 };
 
   const take = takeLimit(limit);
-  const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
-  const compactTerm = normalizedSql(
-    Prisma.sql`${normalizeSearchCompact(query)}`,
-  );
-  const compactReference = Prisma.sql`replace(${normalizedSql(Prisma.sql`w."reference"`)}, ' ', '')`;
-  const compactOrderNumber = Prisma.sql`replace(${normalizedSql(Prisma.sql`w."orderNumber"`)}, ' ', '')`;
+  const compactQuery = normalizeSearchCompact(query);
+  const containsTerm = containsLike(normalizedQuery);
+  const containsCompact = containsLike(compactQuery);
+  // Samme tall-suffikser som i det normaliserte søket, slik at et ordrenummer
+  // lagret kortere enn søket fortsatt treffer uten `strpos(term, kolonne)`.
+  const suffixPatterns = compactSuffixPatterns(compactQuery);
+  const compactMatch = (expression: Prisma.Sql): Prisma.Sql =>
+    Prisma.sql`(${Prisma.join(
+      [
+        Prisma.sql`${expression} LIKE ${containsCompact}`,
+        ...suffixPatterns.map((pattern) => Prisma.sql`${expression} LIKE ${pattern}`),
+      ],
+      " OR ",
+    )})`;
+  const compactReference = compactNormalizedSql(Prisma.sql`w."reference"`);
+  const compactOrderNumber = compactNormalizedSql(Prisma.sql`w."orderNumber"`);
 
   const rows = await prisma.$queryRaw<{ id: string; total: number | bigint }[]>(Prisma.sql`
     SELECT w."id", COUNT(*) OVER() AS "total"
@@ -782,21 +955,19 @@ export async function searchWorkOrderIdsWithTotal(
     LEFT JOIN "Customer" c ON c."id" = w."customerId"
     WHERE w."deletedAt" IS NULL
       AND (
-        strpos(${normalizedSql(Prisma.sql`w."title"`)}, ${term}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`w."description"`)}, ${term}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`w."reference"`)}, ${term}) > 0
-        OR strpos(${compactReference}, ${compactTerm}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`w."orderNumber"`)}, ${term}) > 0
-        OR strpos(${compactOrderNumber}, ${compactTerm}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`c."name"`)}, ${term}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`c."city"`)}, ${term}) > 0
-        OR strpos(${normalizedSql(Prisma.sql`c."address"`)}, ${term}) > 0
+        ${normalizedSql(Prisma.sql`w."title"`)} LIKE ${containsTerm}
+        OR ${normalizedSql(Prisma.sql`w."description"`)} LIKE ${containsTerm}
+        OR ${compactMatch(compactReference)}
+        OR ${compactMatch(compactOrderNumber)}
+        OR ${normalizedSql(Prisma.sql`c."name"`)} LIKE ${containsTerm}
+        OR ${normalizedSql(Prisma.sql`c."city"`)} LIKE ${containsTerm}
+        OR ${normalizedSql(Prisma.sql`c."address"`)} LIKE ${containsTerm}
         OR EXISTS (
           SELECT 1
           FROM "_WorkOrderTags" wt
           JOIN "Tag" t ON t."id" = wt."A"
           WHERE wt."B" = w."id"
-            AND strpos(${normalizedSql(Prisma.sql`t."name"`)}, ${term}) > 0
+            AND ${normalizedSql(Prisma.sql`t."name"`)} LIKE ${containsTerm}
         )
       )
     ORDER BY w."id" ASC

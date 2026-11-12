@@ -51,6 +51,7 @@ import {
 } from "./visits";
 import { startClock } from "./sla";
 import { getDefaultWorkOrderStatus } from "./work-order-status-settings";
+import { logServerError } from "@/lib/log-context";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -609,7 +610,9 @@ export async function createWorkOrder(
     if (isUniqueViolation(dbError)) {
       return { ok: false, error: "duplikat-ordrenummer" };
     }
-    console.error("Databasefeil ved opprettelse av oppdrag:", dbError);
+    await logServerError("Databasefeil ved opprettelse av oppdrag", dbError, {
+      customerId,
+    });
     throw new Error("Kunne ikke opprette oppdrag");
   }
 
@@ -1905,7 +1908,7 @@ export async function cloneWorkOrder(
 
     return { ok: true, id };
   } catch (error) {
-    console.error("Databasefeil ved kloning av oppdrag:", error);
+    await logServerError("Databasefeil ved kloning av oppdrag", error, { workOrderId });
     return { ok: false, error: "ukjent" };
   }
 }

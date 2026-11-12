@@ -40,6 +40,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 /**
  * GDPR-sletting (DATA-01): anonymiserer kundens direkte identifikatorer uten å
@@ -1255,7 +1256,9 @@ async function cleanupFiles(result: ApplyResult): Promise<{
       }
     } catch (error) {
       failures += 1;
-      console.error("Kunne ikke rydde opplastet fil etter sletting:", error);
+      await logServerError("Kunne ikke rydde opplastet fil etter sletting", error, {
+        fileUrl: url,
+      });
     }
   }
 
@@ -1280,7 +1283,9 @@ async function cleanupFiles(result: ApplyResult): Promise<{
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT") {
         failures += 1;
-        console.error("Kunne ikke slette fil etter sletting:", error);
+        await logServerError("Kunne ikke slette fil etter sletting", error, {
+          storedName: stored,
+        });
       }
     }
   }

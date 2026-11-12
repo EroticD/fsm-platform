@@ -45,6 +45,7 @@ import {
   redactRecord,
 } from "@/lib/field-rbac";
 import { contractScopeFor } from "./contracts";
+import { logServerError } from "@/lib/log-context";
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
@@ -959,7 +960,7 @@ export async function createCustomer(
     });
     return ok({ id: customer.id });
   } catch (error) {
-    console.error("Feil ved opprettelse av kunde:", error);
+    await logServerError("Feil ved opprettelse av kunde", error);
     return fail("error");
   }
 }
@@ -1148,7 +1149,7 @@ export async function updateCustomer(
     });
     return ok(undefined);
   } catch (error) {
-    console.error("Feil ved oppdatering av kunde:", error);
+    await logServerError("Feil ved oppdatering av kunde", error, { customerId });
     return fail("error");
   }
 }
@@ -1203,7 +1204,9 @@ export async function addContact(
     });
     return ok({ id: contact.id });
   } catch (error) {
-    console.error("Feil ved opprettelse av kontaktperson:", error);
+    await logServerError("Feil ved opprettelse av kontaktperson", error, {
+      customerId,
+    });
     return fail("error");
   }
 }
@@ -1252,7 +1255,9 @@ export async function updateContact(
     });
     return ok(undefined);
   } catch (error) {
-    console.error("Feil ved oppdatering av kontaktperson:", error);
+    await logServerError("Feil ved oppdatering av kontaktperson", error, {
+      customerId,
+    });
     return fail("error");
   }
 }
@@ -1303,7 +1308,7 @@ export async function deleteContact(
     });
     return ok(undefined);
   } catch (error) {
-    console.error("Feil ved sletting av kontaktperson:", error);
+    await logServerError("Feil ved sletting av kontaktperson", error, { customerId });
     return fail("error");
   }
 }
@@ -1370,7 +1375,7 @@ export async function createUnit(
     });
     return ok({ id: product.id });
   } catch (error) {
-    console.error("Feil ved opprettelse av enhet:", error);
+    await logServerError("Feil ved opprettelse av enhet", error, { customerId });
     return fail("error");
   }
 }
@@ -1414,7 +1419,10 @@ export async function updateUnit(
     });
     return ok(undefined);
   } catch (error) {
-    console.error("Feil ved oppdatering av enhet:", error);
+    await logServerError("Feil ved oppdatering av enhet", error, {
+      customerId,
+      equipmentId: id,
+    });
     return fail("error");
   }
 }
@@ -1445,7 +1453,10 @@ export async function deleteUnit(
     });
     return ok(undefined);
   } catch (error) {
-    console.error("Feil ved sletting av enhet:", error);
+    await logServerError("Feil ved sletting av enhet", error, {
+      customerId,
+      equipmentId: id,
+    });
     return fail("error");
   }
 }

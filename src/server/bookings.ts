@@ -30,6 +30,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 const QUEUE_PAGE_SIZE = 30;
 
@@ -550,7 +551,10 @@ export async function confirmBooking(
           `/oppdrag/${booking.workOrderId}`,
           `booking-confirm:${bookingId}`,
         ).catch((error) => {
-          console.error("Kunne ikke varsle om bekreftet booking:", error);
+          // Callbacken er ikke async; derfor bevisst uten await.
+          void logServerError("Kunne ikke varsle om bekreftet booking", error, {
+            bookingId,
+          });
         });
 
         await enqueueBookingEmail({
@@ -572,7 +576,9 @@ export async function confirmBooking(
     }
     return result;
   } catch (error) {
-    console.error("Databasefeil ved bekreftelse av booking:", error);
+    await logServerError("Databasefeil ved bekreftelse av booking", error, {
+      bookingId,
+    });
     return fail("error");
   }
 }
@@ -686,7 +692,10 @@ export async function cancelBookingFromOffice(
           `/oppdrag/${booking.workOrderId}`,
           `booking-office-cancel:${bookingId}`,
         ).catch((error) => {
-          console.error("Kunne ikke varsle om avlyst booking:", error);
+          // Callbacken er ikke async; derfor bevisst uten await.
+          void logServerError("Kunne ikke varsle om avlyst booking", error, {
+            bookingId,
+          });
         });
 
         await enqueueBookingEmail({
@@ -707,7 +716,7 @@ export async function cancelBookingFromOffice(
     }
     return result;
   } catch (error) {
-    console.error("Databasefeil ved avlysning av booking:", error);
+    await logServerError("Databasefeil ved avlysning av booking", error, { bookingId });
     return fail("error");
   }
 }

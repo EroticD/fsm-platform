@@ -39,6 +39,7 @@ import {
   type ServiceFailure,
   type ServiceResult,
 } from "./actor";
+import { logServerError } from "@/lib/log-context";
 
 export const EQUIPMENT_PAGE_SIZE = 20;
 export const EQUIPMENT_MAX_PAGE_SIZE = 100;
@@ -882,7 +883,9 @@ export async function createEquipment(
       return ok({ id: created.id });
     });
   } catch (error) {
-    console.error("Feil ved opprettelse av utstyr:", error);
+    await logServerError("Feil ved opprettelse av utstyr", error, {
+      customerId: data.customerId,
+    });
     return fail("error");
   }
 }
@@ -1113,7 +1116,7 @@ export async function updateEquipment(
       return ok({ id });
     });
   } catch (error) {
-    console.error("Feil ved oppdatering av utstyr:", error);
+    await logServerError("Feil ved oppdatering av utstyr", error, { equipmentId: id });
     return fail("error");
   }
 }
@@ -1190,7 +1193,7 @@ export async function deleteEquipment(
       return ok(undefined);
     });
   } catch (error) {
-    console.error("Feil ved sletting av utstyr:", error);
+    await logServerError("Feil ved sletting av utstyr", error, { equipmentId });
     return fail("error");
   }
 }
@@ -1239,7 +1242,7 @@ export async function createEquipmentCategory(
       return ok({ id: created.id });
     });
   } catch (error) {
-    console.error("Feil ved opprettelse av utstyrskategori:", error);
+    await logServerError("Feil ved opprettelse av utstyrskategori", error);
     return fail("error");
   }
 }
@@ -1318,7 +1321,9 @@ export async function updateEquipmentCategory(
       return ok({ id: current.id });
     });
   } catch (error) {
-    console.error("Feil ved oppdatering av utstyrskategori:", error);
+    await logServerError("Feil ved oppdatering av utstyrskategori", error, {
+      categoryId: parsed.data.id,
+    });
     return fail("error");
   }
 }
@@ -1361,7 +1366,7 @@ export async function deleteEquipmentCategory(
       return ok(undefined);
     });
   } catch (error) {
-    console.error("Feil ved sletting av utstyrskategori:", error);
+    await logServerError("Feil ved sletting av utstyrskategori", error, { categoryId });
     return fail("error");
   }
 }
@@ -1399,7 +1404,7 @@ export async function rotateEquipmentQrToken(
       return ok({ qrToken });
     });
   } catch (error) {
-    console.error("Feil ved rotasjon av QR-token:", error);
+    await logServerError("Feil ved rotasjon av QR-token", error, { equipmentId });
     return fail("error");
   }
 }
@@ -1479,7 +1484,9 @@ export async function recordEquipmentQrCodeScan(codeId: string): Promise<void> {
       data: { lastScannedAt: new Date() },
     });
   } catch (error) {
-    console.error("Kunne ikke oppdatere sist skannet for QR-kode:", error);
+    await logServerError("Kunne ikke oppdatere sist skannet for QR-kode", error, {
+      codeId,
+    });
   }
 }
 
@@ -1604,7 +1611,9 @@ export async function addEquipmentQrCode(
       return ok({ id: created.id });
     });
   } catch (error) {
-    console.error("Feil ved registrering av eksisterende QR-kode:", error);
+    await logServerError("Feil ved registrering av eksisterende QR-kode", error, {
+      equipmentId,
+    });
     return fail("error");
   }
 }
@@ -1650,7 +1659,10 @@ export async function deleteEquipmentQrCode(
       return ok(undefined);
     });
   } catch (error) {
-    console.error("Feil ved sletting av eksisterende QR-kode:", error);
+    await logServerError("Feil ved sletting av eksisterende QR-kode", error, {
+      equipmentId,
+      codeId,
+    });
     return fail("error");
   }
 }
@@ -1796,7 +1808,7 @@ export async function addMeterReading(
       return ok({ id: reading.id });
     });
   } catch (error) {
-    console.error("Feil ved registrering av måling:", error);
+    await logServerError("Feil ved registrering av måling", error, { equipmentId });
     return fail("error");
   }
 }

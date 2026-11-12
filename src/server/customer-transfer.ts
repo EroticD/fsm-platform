@@ -55,6 +55,7 @@ import type {
 import { toAuditActor, type ServiceActor } from "./actor";
 import { enabledModulesFor, type ModuleKey } from "@/lib/modules";
 import { readModuleStates } from "./modules";
+import { logServerError } from "@/lib/log-context";
 
 export type TransferFailure = {
   ok: false;
@@ -136,10 +137,9 @@ async function logTransferEvent(
       metadata: input.metadata,
     });
   } catch (error) {
-    console.error(`[audit] kunne ikke logge ${input.actionCode}`, {
+    await logServerError(`[audit] kunne ikke logge ${input.actionCode}`, error, {
       entityId: input.entityId,
       outcome: input.outcome ?? "SUCCESS",
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
@@ -485,15 +485,9 @@ export async function exportCustomerPackage(
   } catch (error) {
     // Den rå feilen logges uten kundedata, men med nok kontekst til at en
     // operatør kan finne årsaken. API/UI får en stabil, oversatt feilkode.
-    console.error("[customer-transfer] eksport feilet", {
+    await logServerError("[customer-transfer] eksport feilet", error, {
       jobId: job.id,
-      actorId: actor.id,
       stage,
-      name: error instanceof Error ? error.name : "UnknownError",
-      message:
-        error instanceof Error
-          ? error.message.slice(0, 500)
-          : String(error).slice(0, 500),
     });
     await logTransferEvent(actor, {
       actionCode: "transfer.export.built",
