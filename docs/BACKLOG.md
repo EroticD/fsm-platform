@@ -9,9 +9,9 @@
 
 | Felt | Verdi |
 | --- | --- |
-| Dato | 2026-11-12 |
-| Kodegren | `master` og `dev` @ `v0.9.3` |
-| Versjon | 0.9.3 (`v0.9.3`) |
+| Dato | 2026-11-13 |
+| Kodegren | `master` og `dev` @ `v0.9.4` |
+| Versjon | 0.9.4 (`v0.9.4`) |
 | Repository | 116 Prisma-modeller, 27 enums, 91 `page.tsx`, 94 API-ruter, 22 moduler |
 | Tester | 407 testfiler (365 enhet, 42 integrasjon), 3 364 enhetstester, 14 E2E-spesifikasjoner |
 | P0 | Ingen åpne P0 |
@@ -37,11 +37,11 @@ bevisste produktvalg** – ikke manglende kjernefunksjonalitet.
   bemanning, kompetanse, kapasitet, dispatch, rapporter, PDF, signaturer,
   avtaler/SLA, utstyr, vedlikeholdsplaner, dokumenter, søk, varsler og
   revisjonslogg.
-- **Kundeoppslag mot Enhetsregisteret (2026-11-12):** navn, adresse,
+- **Kundeoppslag mot Enhetsregisteret (2026-11-13):** navn, adresse,
   postnummer, poststed og telefon hentes på organisasjonsnummer fra
   Brønnøysundregistrene (NLOD 1.0). Oppslaget er valgfritt, cachet i 24 timer
   og feiler mykt – feltene kan alltid fylles ut manuelt.
-- **Firma- og adressehjelp i kundeskjemaet (2026-11-12):** navnesøk i
+- **Firma- og adressehjelp i kundeskjemaet (2026-11-13):** navnesøk i
   Enhetsregisteret, underenheter som avdelingsvelger, adressesøk mot Kartverket
   (Geonorge), mod11-validering og duplikatsperre på organisasjonsnummer, og
   registervakt som merker konkurs/avvikling (`npm run registry:check`).

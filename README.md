@@ -94,7 +94,7 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterp√• ‚Ä
    APP_URL=https://fsm.example.com
 
    # Pinn til en publisert versjon, ikke latest.
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3
+   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.4
    POSTGRES_IMAGE=postgres:15.13
    ```
 

@@ -1,6 +1,6 @@
 # Technician
 
-The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.9.3 (2026-11-08).
+The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.9.4 (2026-11-08).
 
 The bottom bar has **Today** (`/mine-oppdrag`), **Work orders**, **Notifications** and **More**. **More** opens the same menu as the hamburger button at the top. Language, notification sound, reports, customers/equipment and settings are in that menu.
 
@@ -42,7 +42,7 @@ You cannot change your password in the field app. Sign out and use **Forgot pass
 2. Scroll to the bottom. **Change language** is there.
 3. Choose **Norsk**, **English**, **Polski** or **Deutsch**.
 
-The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.9.3.
+The choice is stored in the `NEXT_LOCALE` cookie and takes effect without changing the URL. Dates and numbers follow the language. The fixed labels in the report PDF remain Norwegian in 0.9.4.
 
 ### Install the field app (PWA)
 

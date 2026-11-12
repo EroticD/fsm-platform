@@ -1,7 +1,7 @@
 # Plattformanalyse: FSM-plattformen mot markedet
 
-> **Status:** 2026-11-12, `master` og `dev` @ `v0.9.3`, versjon `0.9.3`
-> (`v0.9.3`). Analysen beskriver funksjonene som faktisk finnes i denne grenen,
+> **Status:** 2026-11-13, `master` og `dev` @ `v0.9.4`, versjon `0.9.4`
+> (`v0.9.4`). Analysen beskriver funksjonene som faktisk finnes i denne grenen,
 > ikke bare det som er planlagt.
 >
 > **Metode:** Kode- og dokumentasjonsgjennomgang av dette repoet, offentlig
