@@ -7,6 +7,22 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 Ingen endringer ennå.
 
+## 0.9.5 — 2026-11-13
+
+**Utgivelsessammendrag:** 0.9.5 er første utgivelse med publisert Docker-image
+etter 0.9.4. Taggen `v0.9.4` ble rød i CI fordi E2E-testen for offline-kladden
+åpnet IndexedDB med hardkodet versjon 1, mens appen har migrert lageret til
+versjon 2 for visittstatuskøen. Det var ingen produktfeil, men bildebyggingen
+krever grønn CI på taggen, så 0.9.4 fikk aldri noe image. 0.9.5 inneholder
+nøyaktig samme produktendringer som 0.9.4, pluss testrettelsen.
+
+### Feilrettinger
+- E2E-testen `outboxCount` åpner IndexedDB uten versjon og tåler at
+  outbox-lageret ikke finnes ennå, slik at den ikke bryter ved neste
+  skjemamigrering.
+- Verifisert lokalt mot produksjonsserver og seedet `fsm_ui_e2e`: offline-testen
+  passerer.
+
 ## 0.9.4 — 2026-11-13
 
 **Utgivelsessammendrag:** 0.9.4 samler kundehjelpen fra Enhetsregisteret og
