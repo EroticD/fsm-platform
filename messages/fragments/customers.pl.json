@@ -1,5 +1,19 @@
 {
   "customers": {
+    "lookup": {
+      "button": "Pobierz z Brønnøysund",
+      "loading": "Pobieranie …",
+      "source": "Źródło: Rejestr Brønnøysund",
+      "found": "Dane zostały pobrane. Sprawdź je przed zapisaniem.",
+      "notFound": "Nie znaleziono podmiotu o tym numerze organizacyjnym.",
+      "removed": "Podmiot został usunięty z Rejestru Jednostek Organizacyjnych.",
+      "unavailable": "Rejestr Brønnøysund nie odpowiedział. Wypełnij pola ręcznie.",
+      "invalid": "Numer organizacyjny jest nieprawidłowy.",
+      "forbidden": "Nie masz dostępu do wyszukiwania firm.",
+      "rateLimited": "Zbyt wiele zapytań w krótkim czasie. Spróbuj ponownie za chwilę.",
+      "bankrupt": "Podmiot jest zarejestrowany jako upadły.",
+      "underLiquidation": "Podmiot jest w likwidacji."
+    },
     "privacy": {
       "link": "Prywatność",
       "sectionTitle": "Prywatność / Usuń dane klienta",

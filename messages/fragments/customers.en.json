@@ -386,6 +386,20 @@
       "noMatches": "No sites match “{query}”.",
       "showing": "Showing {shown} of {total} sites."
     },
+    "lookup": {
+      "button": "Fetch from Brønnøysund",
+      "loading": "Fetching …",
+      "source": "Source: The Brønnøysund Register Centre",
+      "found": "The details have been fetched. Check them before you save.",
+      "notFound": "No entity found with this organisation number.",
+      "removed": "The entity has been deleted from the Register of Legal Entities.",
+      "unavailable": "The Brønnøysund Register Centre did not respond. Fill in the fields manually.",
+      "invalid": "The organisation number is not valid.",
+      "forbidden": "You do not have access to look up companies.",
+      "rateLimited": "Too many lookups in a short time. Try again in a moment.",
+      "bankrupt": "The entity is registered as bankrupt.",
+      "underLiquidation": "The entity is under liquidation."
+    },
     "privacy": {
       "link": "Privacy",
       "sectionTitle": "Privacy / Erase customer data",

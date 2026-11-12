@@ -4,10 +4,17 @@ import { idSchema, limitedText, markdownSchema, optionalIdSchema, requiredText }
 
 const optionalLine = limitedText(LIMITS.line);
 
-/** Ny kunde fra kundekatalogen. */
+/**
+ * Ny kunde fra kundekatalogen. Adresse, postnummer, sted og telefon er
+ * valgfrie og kan fylles ut fra Brønnøysundoppslaget i skjemaet.
+ */
 export const customerCreateSchema = z.object({
   name: requiredText(LIMITS.title),
   orgNumber: optionalLine.default(""),
+  address: optionalLine.default(""),
+  postalCode: limitedText(20).default(""),
+  city: limitedText(LIMITS.short).default(""),
+  phone: limitedText(40).default(""),
   departmentId: optionalIdSchema,
   responsibleTechnicianId: optionalIdSchema,
 });

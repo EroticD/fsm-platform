@@ -22,6 +22,7 @@ import {
   customerStatusMessageKey,
 } from "./feedback";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import CompanyLookup from "@/components/customer/CompanyLookup";
 import CustomerToast from "@/components/customer/CustomerToast";
 import { CUSTOMER_CONTROL, LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
@@ -352,48 +353,116 @@ export default async function KunderPage({
                 <Icon name="plus" className="h-4 w-4 shrink-0" />
                 {t("customers.list.newCustomer")}
               </summary>
-              <ValidatedForm
-                action={addCustomer}
-                className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
-              >
-                <div>
-                  <label
-                    htmlFor="customer-name"
-                    className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+              <ValidatedForm action={addCustomer} className="mt-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <div>
+                    <label
+                      htmlFor="customer-name"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.list.companyName")}
+                    </label>
+                    <input
+                      id="customer-name"
+                      type="text"
+                      name="name"
+                      placeholder={t("customers.list.namePlaceholder")}
+                      required
+                      aria-required="true"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customer-org-number"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.list.orgNumber")}
+                    </label>
+                    <input
+                      id="customer-org-number"
+                      type="text"
+                      name="orgNumber"
+                      placeholder={t("customers.list.orgNumberPlaceholder")}
+                      className={CUSTOMER_CONTROL}
+                    />
+                    {/* Oppslaget fyller feltene under, ikke skjemaet selv. */}
+                    <div className="mt-1.5">
+                      <CompanyLookup />
+                    </div>
+                  </div>
+                  <SubmitButton
+                    pendingLabel={t("customers.list.saving")}
+                    className={`${buttonClassName({ variant: "primary" })} self-end`}
                   >
-                    {t("customers.list.companyName")}
-                  </label>
-                  <input
-                    id="customer-name"
-                    type="text"
-                    name="name"
-                    placeholder={t("customers.list.namePlaceholder")}
-                    required
-                    aria-required="true"
-                    className={CUSTOMER_CONTROL}
-                  />
+                    {t("customers.list.save")}
+                  </SubmitButton>
                 </div>
-                <div>
-                  <label
-                    htmlFor="customer-org-number"
-                    className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
-                  >
-                    {t("customers.list.orgNumber")}
-                  </label>
-                  <input
-                    id="customer-org-number"
-                    type="text"
-                    name="orgNumber"
-                    placeholder={t("customers.list.orgNumberPlaceholder")}
-                    className={CUSTOMER_CONTROL}
-                  />
+
+                {/* Valgfri adresse og telefon. Navnene må matche feltene
+                    CompanyLookup skriver til. */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="customer-address"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.edit.address")}
+                    </label>
+                    <input
+                      id="customer-address"
+                      type="text"
+                      name="address"
+                      autoComplete="street-address"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customer-postal-code"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.edit.postalCode")}
+                    </label>
+                    <input
+                      id="customer-postal-code"
+                      type="text"
+                      name="postalCode"
+                      autoComplete="postal-code"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customer-city"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.edit.city")}
+                    </label>
+                    <input
+                      id="customer-city"
+                      type="text"
+                      name="city"
+                      autoComplete="address-level2"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="customer-phone"
+                      className="type-eyebrow mb-1 block text-[var(--muted,#62685f)]"
+                    >
+                      {t("customers.edit.phone")}
+                    </label>
+                    <input
+                      id="customer-phone"
+                      type="tel"
+                      name="phone"
+                      autoComplete="tel"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
                 </div>
-                <SubmitButton
-                  pendingLabel={t("customers.list.saving")}
-                  className={`${buttonClassName({ variant: "primary" })} self-end`}
-                >
-                  {t("customers.list.save")}
-                </SubmitButton>
               </ValidatedForm>
             </details>
           )}

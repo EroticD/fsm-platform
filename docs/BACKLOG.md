@@ -37,6 +37,10 @@ bevisste produktvalg** – ikke manglende kjernefunksjonalitet.
   bemanning, kompetanse, kapasitet, dispatch, rapporter, PDF, signaturer,
   avtaler/SLA, utstyr, vedlikeholdsplaner, dokumenter, søk, varsler og
   revisjonslogg.
+- **Kundeoppslag mot Enhetsregisteret (2026-11-12):** navn, adresse,
+  postnummer, poststed og telefon hentes på organisasjonsnummer fra
+  Brønnøysundregistrene (NLOD 1.0). Oppslaget er valgfritt, cachet i 24 timer
+  og feiler mykt – feltene kan alltid fylles ut manuelt.
 - **Sikkerhet:** 2FA, API-nøkler med scopes/rotasjon, kunde-/kontaktisolasjon,
   feltnivå-RBAC for kundekontakt, fakturabeløp, rapportsignaturer og
   lønnsbeløp, atomisk opplastingskvote, PDF-sanering og krypterte

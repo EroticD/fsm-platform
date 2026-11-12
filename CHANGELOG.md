@@ -5,6 +5,13 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Kunder
+- Kundeopprettelse og kunderedigering kan hente navn, adresse, postnummer,
+  poststed og telefon fra Enhetsregisteret ut fra organisasjonsnummeret.
+  Oppslaget er valgfritt, caches i 24 timer og feiler mykt, så skjemaet kan
+  fylles ut manuelt når registeret ikke svarer. Kilde: Brønnøysundregistrene,
+  NLOD 1.0.
+
 ### Dokumentasjon
 - README er kortet fra 375 til 273 linjer: Caddy-oppsettet, dataflyttingen og
   oppgraderingsprosedyren peker nå på eierne i `deploy/proxy/` og

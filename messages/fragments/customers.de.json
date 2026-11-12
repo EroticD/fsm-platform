@@ -1,5 +1,19 @@
 {
   "customers": {
+    "lookup": {
+      "button": "Aus Brønnøysund abrufen",
+      "loading": "Wird abgerufen …",
+      "source": "Quelle: Registerzentrum Brønnøysund",
+      "found": "Die Angaben wurden abgerufen. Prüfen Sie sie vor dem Speichern.",
+      "notFound": "Keine Einheit mit dieser Organisationsnummer gefunden.",
+      "removed": "Die Einheit wurde aus dem Einheitenregister gelöscht.",
+      "unavailable": "Das Registerzentrum Brønnøysund hat nicht geantwortet. Füllen Sie die Felder manuell aus.",
+      "invalid": "Die Organisationsnummer ist ungültig.",
+      "forbidden": "Sie haben keinen Zugriff auf Unternehmensabfragen.",
+      "rateLimited": "Zu viele Abfragen in kurzer Zeit. Versuchen Sie es gleich noch einmal.",
+      "bankrupt": "Die Einheit ist als insolvent registriert.",
+      "underLiquidation": "Die Einheit befindet sich in Liquidation."
+    },
     "privacy": {
       "link": "Datenschutz",
       "sectionTitle": "Datenschutz / Kundendaten löschen",

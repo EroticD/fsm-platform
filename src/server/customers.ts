@@ -845,6 +845,10 @@ export async function getCustomerEditOptions(
 export type CustomerInput = {
   name?: unknown;
   orgNumber?: unknown;
+  address?: unknown;
+  postalCode?: unknown;
+  city?: unknown;
+  phone?: unknown;
   departmentId?: unknown;
   responsibleTechnicianId?: unknown;
 };
@@ -859,14 +863,26 @@ export async function createCustomer(
   const parsed = customerCreateSchema.safeParse({
     name: cleanText(input.name, { maxLength: LIMITS.title }),
     orgNumber: cleanText(input.orgNumber, { maxLength: LIMITS.line }),
+    address: cleanText(input.address, { maxLength: LIMITS.line }),
+    postalCode: cleanText(input.postalCode, { maxLength: 20 }),
+    city: cleanText(input.city, { maxLength: LIMITS.short }),
+    phone: cleanPhone(input.phone),
     departmentId: cleanText(input.departmentId, { maxLength: LIMITS.line }),
     responsibleTechnicianId: cleanText(input.responsibleTechnicianId, {
       maxLength: LIMITS.line,
     }),
   });
   if (!parsed.success) return fail("invalid");
-  const { name, orgNumber, departmentId, responsibleTechnicianId } =
-    parsed.data;
+  const {
+    name,
+    orgNumber,
+    address,
+    postalCode,
+    city,
+    phone,
+    departmentId,
+    responsibleTechnicianId,
+  } = parsed.data;
 
   if (
     !(await validCustomerReferences(departmentId, responsibleTechnicianId))
@@ -880,6 +896,10 @@ export async function createCustomer(
         data: {
           name,
           orgNumber: orgNumber || null,
+          address: address || null,
+          postalCode: postalCode || null,
+          city: city || null,
+          phone: phone || null,
           departmentId: departmentId || null,
           responsibleTechnicianId: responsibleTechnicianId || null,
         },

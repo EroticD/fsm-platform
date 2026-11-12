@@ -386,6 +386,20 @@
       "noMatches": "Ingen steder matcher «{query}».",
       "showing": "Viser {shown} av {total} steder."
     },
+    "lookup": {
+      "button": "Hent fra Brønnøysund",
+      "loading": "Henter …",
+      "source": "Kilde: Brønnøysundregistrene",
+      "found": "Opplysningene er hentet. Kontroller dem før du lagrer.",
+      "notFound": "Fant ingen enhet med dette organisasjonsnummeret.",
+      "removed": "Enheten er slettet fra Enhetsregisteret.",
+      "unavailable": "Brønnøysundregistrene svarte ikke. Fyll inn feltene manuelt.",
+      "invalid": "Organisasjonsnummeret er ikke gyldig.",
+      "forbidden": "Du har ikke tilgang til å slå opp foretak.",
+      "rateLimited": "For mange oppslag på kort tid. Prøv igjen om litt.",
+      "bankrupt": "Enheten er registrert konkurs.",
+      "underLiquidation": "Enheten er under avvikling."
+    },
     "privacy": {
       "link": "Personvern",
       "sectionTitle": "Personvern / Slett kundedata",

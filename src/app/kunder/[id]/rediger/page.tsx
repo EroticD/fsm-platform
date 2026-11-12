@@ -11,6 +11,7 @@ import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
 import SubmitButton from "@/components/SubmitButton";
 import BrandColorField from "@/components/customer/BrandColorField";
+import CompanyLookup from "@/components/customer/CompanyLookup";
 import BrandingLogoUpload from "@/components/BrandingLogoUpload";
 import Card from "@/components/ui/Card";
 import { brandInset } from "@/components/ui/brandStyles";
@@ -137,6 +138,11 @@ export default async function EditCustomerPage({
                 name="orgNumber"
                 defaultValue={customer.orgNumber || ""}
               />
+              {/* Oppslaget fyller navn, adresse, postnummer, by og telefon i
+                  samme skjema. */}
+              <div className="mt-1.5">
+                <CompanyLookup />
+              </div>
             </Field>
 
             <Field
