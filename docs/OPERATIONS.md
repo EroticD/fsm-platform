@@ -18,7 +18,7 @@ Katalog, avhengighetsgraf, presets og oppgraderingsløp:
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
 
 ```dotenv
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.4
 POSTGRES_IMAGE=postgres:15.13
 ```
 
@@ -27,9 +27,9 @@ POSTGRES_IMAGE=postgres:15.13
 - Vil du være helt sikker på at taggen ikke flyttes, pinn til digest:
 
   ```bash
-  docker pull ghcr.io/eroticd/fsm-platform:v0.9.3
+  docker pull ghcr.io/eroticd/fsm-platform:v0.9.4
   docker inspect --format='{{index .RepoDigests 0}}' \
-    ghcr.io/eroticd/fsm-platform:v0.9.3
+    ghcr.io/eroticd/fsm-platform:v0.9.4
   # APP_IMAGE=ghcr.io/eroticd/fsm-platform@sha256:<digest>
   ```
 

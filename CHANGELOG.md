@@ -5,6 +5,33 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+Ingen endringer ennå.
+
+## 0.9.4 — 2026-11-13
+
+**Utgivelsessammendrag:** 0.9.4 samler kundehjelpen fra Enhetsregisteret og
+Kartverket, registervakten, offline registrering av ankomst, indekserbart søk,
+kontrollert nedstenging og korrelasjonslogging. Søket bruker nå
+uttrykksindekser, så store installasjoner slipper sekvensskann på hvert
+tastetrykk. Migreringen legger på en SQL-funksjon og nye GIN-indekser; den er
+additiv og krever ingen datakonvertering. Etter oppgradering bør
+`npm run audit:verify` og et søk i kundelisten kjøres som røyktest.
+
+### Søk, offline og logging
+- Søket normaliserer via `fsm_search_norm()` og matcher med `LIKE`, med 51 nye
+  GIN trgm-uttrykksindekser. `EXPLAIN` viser `BitmapOr` over indeksene i stedet
+  for sekvensskann; kontaktsøket er flyttet til `UNION ALL` for at planleggeren
+  skal kunne bruke dem.
+- Ankomst og «start kjøring» kan registreres uten dekning: køen ligger i
+  IndexedDB med klienttidsstempel og idempotensnøkkel, og sendes når nettverket
+  er tilbake. Serveren godtar maks fem minutter fram og 24 timer tilbake, og
+  flytter tidspunktet bare én gang. Fullføring er bevisst ikke offline-købar.
+- `logServerError` leser `x-request-id` og skriver strukturerte feil. Alle 61
+  `console.error` i `src/server` er erstattet, med kontekst i 14 filer.
+- `npm run i18n:add` skriver en nøkkel i riktig fragment eller monolitt for alle
+  fire språk, atomisk og med `--dry-run`; i18n-sjekken rapporterer linjenummer
+  og totalt antall funn.
+
 ### Kvalitet og drift
 - Kontrollert nedstenging: SIGTERM/SIGINT stopper scheduler og job-worker, venter
   på pågående jobb og lukker Prisma-poolen innen en samlet frist. Før ble
