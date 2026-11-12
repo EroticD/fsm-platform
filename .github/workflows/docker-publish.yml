@@ -77,7 +77,9 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
           # Revisjonen skal være commit-en som faktisk bygges, ikke ref-en
           # workflowen ble startet fra. Ved tag-kjøringer er de to forskjellige.
-          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          revision="$(git rev-parse HEAD)"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "short=${revision:0:7}" >> "$GITHUB_OUTPUT"
 
       # workflow_run kan i prinsippet utløses av en branch som heter v1.2.3.
       # Derfor kreves både push-event fra samme repo og en faktisk tag som
@@ -153,7 +155,7 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=raw,value=${{ steps.version.outputs.value }}
-            type=sha
+            type=raw,value=sha-${{ steps.version.outputs.short }}
             type=raw,value=latest,enable=${{ startsWith(steps.version.outputs.value, 'v') }}
           labels: |
             org.opencontainers.image.licenses=BUSL-1.1
