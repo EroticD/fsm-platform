@@ -5,7 +5,18 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Dokumentasjon
+- README er kortet fra 375 til 273 linjer: Caddy-oppsettet, dataflyttingen og
+  oppgraderingsprosedyren peker nå på eierne i `deploy/proxy/` og
+  `docs/BACKUP-RESTORE.md`/`docs/OPERATIONS.md` i stedet for å gjenta dem.
+  Dokumentindeksen dekker alle 28 filer i `docs/`, og funksjonslisten tar med
+  tilbud, fakturering, lager, utlegg, lønnsomhet og regnskap.
+- `docs/OPERATIONS.md` (1516 → 1356) og `docs/AZURE.md` (2346 → 2191) peker på
+  runbooken for backup, rollback og databaseroller; Azure-spesifikke steg er
+  beholdt. `CONTRIBUTING.md` og `docs/DECISIONS.md` peker på `TESTING.md` og
+  `BACKLOG.md`.
+- Manualens README beskriver den faktiske bildekonvensjonen (flate `.jpg` under
+  `screenshots/manual/`), og to døde ankere er rettet.
 
 ## 0.9.3 — 2026-11-12
 

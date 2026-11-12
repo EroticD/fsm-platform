@@ -739,45 +739,32 @@ kravet er privat nettverk uten VNet-injeksjon.
 
 ### 4.4 Databaseroller og migrasjoner
 
-Repoet har en ferdig, idempotent SQL-fil:
-[`deploy/postgres/provision-roles.sql`](../deploy/postgres/provision-roles.sql).
-Den lager:
+Rollmodellen er den samme som ellers i plattformen: `fsm_migrator` eier skjemaet
+og kjører DDL, `fsm_app` bruker appen og har bare DML, og `AuditLog` er
+skrivebeskyttet for runtime-rollen. Roller, rettigheter, vern av revisjonssporet
+og fail-closed readiness er beskrevet i
+[`OPERATIONS.md#databaseroller-minste-privilegium`](OPERATIONS.md#databaseroller-minste-privilegium).
+Azure-avviket er hvem som kan opprette rollene, og hvordan det gjøres:
 
-- `fsm_migrator` – DDL-rolle som eier skjemaet og kjører migrasjonene
-- `fsm_app` – DML-rolle som appen bruker, uten `CREATE`/`ALTER`/`DROP`
-
-På en lokal Compose-database kjøres den via
-`scripts/provision-db-roles.sh`. På Azure finnes ingen `postgres`-tjeneste, så
-kjør SQL-filen med `psql` fra VM-en. Cloud-init installerer
-`postgresql-client`, men SQL-filen ligger i repoet. Klon repoet til
-`/opt/fsm-platform` først (se [6.3](#63-klon-repoet-og-legg-inn-assets)), eller
-kopier filen til VM-en.
-
-**Viktig:** Azure-administratoren er ikke PostgreSQL-superbruker. Den er vanligvis
+**Azure-administratoren er ikke PostgreSQL-superbruker.** Den er vanligvis
 medlem av `azure_pg_admin`. `ALTER DATABASE ... OWNER`, `ALTER SCHEMA ... OWNER`
 og `ALTER DEFAULT PRIVILEGES` kan derfor feile avhengig av plattformversjon.
-Test dette i abonnementet. Se [Migrasjonsrollen](#migrasjonsrollen) for
-fallback.
+Test dette i abonnementet; se [Migrasjonsrollen](#migrasjonsrollen) for fallback.
 
-Sett variabler og kjør første runde. Denne runden oppretter rollene, flytter
-eierskapet og setter default-privilegier for tabeller som migrasjonene lager
-senere.
+Det finnes ingen `postgres`-tjeneste på Flexible Server, så den idempotente
+[`deploy/postgres/provision-roles.sql`](../deploy/postgres/provision-roles.sql)
+kjøres med `psql` fra VM-en (`postgresql-client` kommer med cloud-init). Klon
+repoet til `/opt/fsm-platform` først (se
+[6.3](#63-klon-repoet-og-legg-inn-assets)):
 
 ```bash
 cd /opt/fsm-platform
-
-export PGHOST="$PG_FQDN"
-export PGPORT=5432
-export PGDATABASE=fsm_db
-export PGUSER=fsmadmin
-export PGPASSWORD="$PG_ADMIN_PASSWORD"
-export PGSSLMODE=verify-full
-
+export PGHOST="$PG_FQDN" PGPORT=5432 PGDATABASE=fsm_db PGUSER=fsmadmin
+export PGPASSWORD="$PG_ADMIN_PASSWORD" PGSSLMODE=verify-full
 export FSM_MIGRATION_PASSWORD="$DB_MIGRATION_PASSWORD"
 export FSM_RUNTIME_PASSWORD="$DB_RUNTIME_PASSWORD"
 
-psql \
-  -v ON_ERROR_STOP=1 \
+psql -v ON_ERROR_STOP=1 \
   -v database_name=fsm_db \
   -v migration_role=fsm_migrator \
   -v runtime_role=fsm_app \
@@ -791,47 +778,42 @@ psql \
 
 På enkelte Flexible Server-versjoner eies `public` av `pg_database_owner` eller
 `azure_pg_admin`, og `ALTER SCHEMA public OWNER` kan avvises. Da kan dere la
-eierskapet stå og i stedet gi `fsm_migrator` `CREATE`/`USAGE` på skjemaet og
-sette default-privilegier. Migrasjonene må uansett kjøre som en rolle med
-`CREATE` i `public`. Dokumenter avviket hvis dere ikke får overført eierskapet.
+eierskapet stå og i stedet gi `fsm_migrator` `CREATE`/`USAGE` på skjemaet pluss
+default-privilegier. Migrasjonene må uansett kjøre som en rolle med `CREATE` i
+`public`; dokumenter avviket hvis eierskapet ikke overføres.
 
-Migrasjonene kjøres som et eget steg i
-[7.1](#71-forutsetning-migrasjoner-og-roller), etter at Compose og env-filene er
-på plass. Ikke start appen før begge provisioning-rundene og migrasjonene er
-fullført. Da får `fsm_app` rettigheter på de faktiske tabellene, og
-revisjonssporet `AuditLog` blir beskyttet mot `UPDATE`/`DELETE`/`TRUNCATE`.
+Migreringen kjøres som et eget steg i [7.1](#71-forutsetning-migrasjoner-og-roller),
+etter at Compose og env-filene er på plass. Ikke start appen før begge
+provisioning-rundene og migrasjonene er fullført.
 
-Lag deretter URL-ene og legg dem i Key Vault. Passordene er heksadesimale og
-trenger ikke URL-koding.
+Lag URL-ene og legg dem i Key Vault. Passordene er heksadesimale og trenger
+ikke URL-koding:
 
 ```bash
-DB_RUNTIME_URL="postgresql://fsm_app:${DB_RUNTIME_PASSWORD}@${PG_FQDN}:5432/fsm_db?schema=public&sslmode=verify-full"
-DB_MIGRATION_URL="postgresql://fsm_migrator:${DB_MIGRATION_PASSWORD}@${PG_FQDN}:5432/fsm_db?schema=public&sslmode=verify-full"
+DB_RUNTIME_URL="postgresql://fsm_app:***@${PG_FQDN}:5432/fsm_db?schema=public&sslmode=verify-full"
+DB_MIGRATION_URL="postgresql://fsm_migrator:***@${PG_FQDN}:5432/fsm_db?schema=public&sslmode=verify-full"
 
 set_secret database-runtime-url "$DB_RUNTIME_URL"
 set_secret database-migration-url "$DB_MIGRATION_URL"
 ```
 
-Verifiser at runtime-rollen ikke kan DDL:
-
-```bash
-PGPASSWORD="$DB_RUNTIME_PASSWORD" psql \
-  "host=$PGHOST port=5432 dbname=fsm_db user=fsm_app sslmode=verify-full" \
-  -c 'CREATE TABLE skal_feile (id int);'
-# Forventet: ERROR: permission denied for schema public
-```
+`/api/ready` er fail-closed og svarer 503 hvis runtime-rollen kan DDL, så
+`CREATE TABLE` som `fsm_app` skal gi `permission denied for schema public`.
 
 ### 4.5 Backup og PITR
 
-Flexible Server tar automatiske backuper og støtter point-in-time restore
-(PITR) innenfor `--backup-retention`. Dette dekker **databasen**, ikke
-opplastingsvolumet på VM-en.
+Flexible Server tar automatiske backuper og støtter point-in-time restore (PITR)
+innenfor `--backup-retention` (14 dager i [4.1](#41-opprett-server-med-privat-tilgang),
+maks 35). Dette dekker **databasen**, ikke opplastingsvolumet på VM-en. Strategi,
+RPO/RTO, kryptering og øvelser eies av
+[`BACKUP-RESTORE.md`](BACKUP-RESTORE.md#3-rpo-og-rto).
+
+Med `--geo-redundant-backup Enabled` ligger backupene i en paret region og kan
+gjenopprettes dit om hele regionen faller ut; ellers er PITR bundet til samme
+region.
 
 ```bash
-az postgres flexible-server backup list \
-  --resource-group "$RG" \
-  --name "$PG_NAME" \
-  -o table
+az postgres flexible-server backup list --resource-group "$RG" --name "$PG_NAME" -o table
 
 # Restore til et nytt servernavn på et gitt tidspunkt (UTC).
 # PITR skriver ikke over produksjonsserveren.
@@ -1010,164 +992,68 @@ az storage blob upload \
   --only-show-errors
 ```
 
-### 5.5 Eksempel på backupjobb
+### 5.5 Backupjobb på VM-en
 
-Dette er et **eksempel** som må testes i abonnementet. Det erstatter ikke
-`scripts/backup.sh`, som forutsetter lokal PostgreSQL i Compose. Legg jobben i
-en systemd-timer eller cron på VM-en, og varsle når den feiler.
+Kryptering, sjekksummer, retensjon, statusfil og varslingskanal er beskrevet i
+[`BACKUP-RESTORE.md`](BACKUP-RESTORE.md#4-hvordan-backupen-er-bygget);
+`scripts/backup.sh` forutsetter lokal PostgreSQL i Compose. På Azure gjenstår
+fire ting:
 
-Forutsetninger:
-
-- `age` er installert (cloud-init)
-- en age-mottaker (`age1...`) og en offline kopi av identiteten
-- en dedikert `fsm_backup`-rolle med `pg_read_all_data`
-- `DATABASE_BACKUP_URL` og `BACKUP_AGE_RECIPIENT` i en egen 0600-fil
-
-Generer age-nøkkelparet én gang:
-
-```bash
-age-keygen -o /root/age-identity.txt
-chmod 600 /root/age-identity.txt
-age-keygen -y /root/age-identity.txt   # dette er age1-mottakeren
-```
-
-Flytt den private nøkkelen offline og oppbevar minst to kopier på separate
-medier. En kopi kan legges i en separat Key Vault for gjenoppretting; VM-ens
-managed identity bør ikke ha lesetilgang til den vaulten. Mister dere
-identiteten, kan eksisterende age-backuper ikke gjenopprettes.
-
-Lag backuprollen som admin (ikke som `fsm_migrator`; migrasjonsrollen har
-`NOCREATEROLE`):
+**1. Egen rolle.** `fsm_migrator` har `NOCREATEROLE`, så `fsm_backup` opprettes
+som admin. Den trenger bare lesetilgang:
 
 ```bash
 FSM_BACKUP_PASSWORD="$(openssl rand -hex 24)"
 
 PGPASSWORD="$PG_ADMIN_PASSWORD" psql \
   "host=$PGHOST port=5432 dbname=fsm_db user=fsmadmin sslmode=verify-full" \
-  -v ON_ERROR_STOP=1 \
-  -v backup_password="$FSM_BACKUP_PASSWORD" <<'SQL'
-SELECT format(
-  'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS',
-  'fsm_backup', :'backup_password'
-)
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fsm_backup')
-\gexec
-
-SELECT format(
-  'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS',
-  'fsm_backup', :'backup_password'
-)
-\gexec
-
+  -v ON_ERROR_STOP=1 -v backup_password="$FSM_BACKUP_PASSWORD" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS',
+              'fsm_backup', :'backup_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fsm_backup')\gexec
+SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS',
+              'fsm_backup', :'backup_password')\gexec
 GRANT CONNECT ON DATABASE fsm_db TO fsm_backup;
 GRANT USAGE ON SCHEMA public TO fsm_backup;
 GRANT pg_read_all_data TO fsm_backup;
 SQL
 ```
 
-Hvis `GRANT pg_read_all_data` avvises av plattformens rollemodell, gir dere
-`SELECT` direkte på alle tabeller og sekvenser i stedet, og kjører det på nytt
-etter hver migrering.
+Avvises `GRANT pg_read_all_data` av plattformens rollemodell, gir dere `SELECT`
+direkte på alle tabeller og sekvenser og kjører det på nytt etter hver
+migrering. `DATABASE_BACKUP_URL` bygges med `sslmode=verify-full` og legges i en
+0600-fil, ikke i shell-historikken.
 
-Bygg backup-URL-en og legg den i en egen 0600-fil på VM-en. Ikke skriv
-passordet i shell-historikken; generer det i en variabel og legg det i
-Key Vault eller en root-eid fil.
+**2. Managed identity og container.** Jobben kjører som root på VM-en og
+gjenbruker identiteten fra
+[5.4](#54-gi-vm-en-skrivetilgang-med-managed-identity): `az login --identity`
+(gjøres ved boot av `fsm-fetch-secrets.sh`) og `az storage blob upload
+--auth-mode login` mot containeren `fsm-backups` i kontoen fra
+[5.1](#51-opprett-storage-account-og-container), med prefiksene `db/` og
+`uploads/`. Ingen nøkkel eller SAS i jobben.
 
-```bash
-DATABASE_BACKUP_URL="postgresql://fsm_backup:${FSM_BACKUP_PASSWORD}@${PG_FQDN}:5432/fsm_db?sslmode=verify-full"
-```
+**3. Nøkkelen offline.** Age-identiteten skal ikke ligge på VM-en i klartekst.
+Oppbevar minst to kopier offline; en eventuell kopi i Key Vault skal ligge i en
+egen vault som VM-ens managed identity **ikke** har lesetilgang til. Mister dere
+identiteten, kan eksisterende backuper ikke gjenopprettes.
 
-Eksempel på dump og opplasting:
+**4. Samme tidsrom.** Database og opplastinger må tas fra samme kjøring. PITR
+dekker bare databasen, så opplastingsvolumet trenger arkiv eller disksnapshot.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-umask 077
-
-# Forutsetter at root har en gyldig `az login --identity`
-# (fsm-fetch-secrets.sh gjør dette ved boot), og at age er installert.
-
-# Ikke hemmeligheter i denne filen. Legg variable i en 0600-fil, f.eks.:
-#   /etc/fsm/backup.env med DATABASE_BACKUP_URL, FSM_BACKUP_PASSWORD,
-#   ST_NAME, AGE_RECIPIENT og PATH.
-# shellcheck disable=SC1091
-. /etc/fsm/backup.env
-
-STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-BACKUP_DIR="/var/backups/fsm"
-ST_NAME="<storage-account>"
-AGE_RECIPIENT="age1..."
-
-mkdir -p "$BACKUP_DIR"
-
-# Database: custom-format dump, kryptert i strøm.
-docker run --rm \
-  -e PGPASSWORD="$FSM_BACKUP_PASSWORD" \
-  postgres:16 \
-  pg_dump -d "$DATABASE_BACKUP_URL" -Fc \
-  | age -r "$AGE_RECIPIENT" -o "$BACKUP_DIR/db-$STAMP.dump.age"
-
-# Opplastinger: bruk Compose-volumet, ikke en hardkodet sti.
-UPLOADS_VOLUME="$(docker volume ls --format '{{.Name}}' \
-  | grep -E '_fsm_uploads$' | head -n 1)"
-docker run --rm -v "$UPLOADS_VOLUME:/data:ro" alpine \
-  tar czf - -C /data . \
-  | age -r "$AGE_RECIPIENT" -o "$BACKUP_DIR/uploads-$STAMP.tar.gz.age"
-
-az storage blob upload \
-  --account-name "$ST_NAME" \
-  --container-name fsm-backups \
-  --name "db/db-$STAMP.dump.age" \
-  --file "$BACKUP_DIR/db-$STAMP.dump.age" \
-  --auth-mode login \
-  --only-show-errors
-
-az storage blob upload \
-  --account-name "$ST_NAME" \
-  --container-name fsm-backups \
-  --name "uploads/uploads-$STAMP.tar.gz.age" \
-  --file "$BACKUP_DIR/uploads-$STAMP.tar.gz.age" \
-  --auth-mode login \
-  --only-show-errors
-
-# Lokal opprydding styres av deres egen retensjon.
-find "$BACKUP_DIR" -type f -mtime +7 -delete
-```
-
-Viktig:
-
-- Database og opplastinger må tas fra **samme tidsrom**. En databasekopi uten
-  filene gir vedlegg som peker på filer som mangler.
-- PITR dekker bare databasen. Opplastingsvolumet trenger eget arkiv eller
-  disksnapshot.
-- Test restore jevnlig. En backup som ikke er gjenopprettet, er bare en
-  hypotese. Se [Restore-øvelse](#56-restore-øvelse).
-- Age-identiteten skal ikke ligge på VM-en i klartekst. Oppbevar minst to
-  kopier offline, og eventuelt en strengt tilgangsstyrt kopi i Key Vault.
-
-`/api/metrics` leser `BACKUP_STATUS_FILE` (standard
-`/app/monitoring/backup-status.json`). Eksempelet over skriver ikke denne
-filen. Vil dere bruke `fsm_backup_age_seconds`/`fsm_backup_fresh` og
-Prometheus-reglene i `deploy/monitoring/`, må backupjobben skrive en
-statusfil i samme format som `scripts/backup.sh` (`completedAt`, `stamp`,
-`databaseFile`, `uploadsFile`, `checksumsFile`, `encrypted`, `remote`,
-`databaseBytes`, `uploadsBytes`). Uten filen er backupfeltene tomme, og
-`FsmBackupStale` vil varsle hvis dere aktiverer de reglene. Azure Monitor
-bruker ikke denne filen; der må dere varsle på backupjobben og PITR/Storage.
+Plasseres jobben i en systemd-timer, bruk `OnFailure` for varsling. Vil dere
+bruke `fsm_backup_age_seconds`/`fsm_backup_fresh`, må jobben skrive statusfil i
+samme format som `scripts/backup.sh` (`completedAt`, `stamp`, `databaseFile`,
+`uploadsFile`, `checksumsFile`, `encrypted`, `remote`, `databaseBytes`,
+`uploadsBytes`). Azure Monitor bruker ikke den filen; der varsler dere på
+jobben, PITR og storage.
 
 ### 5.6 Restore-øvelse
 
-Minst hvert kvartal:
-
-1. Velg en backup og et tidspunkt.
-2. Restore databasen til et nytt Flexible Server-navn med
-   `az postgres flexible-server restore`.
-3. Dekrypter opplastingsarkivet til et testvolum.
-4. Start et testmiljø mot den gjenopprettede databasen.
-5. Åpne en kunde, en rapport-PDF og et vedlegg.
-6. Mål tiden. Det er deres reelle RTO.
-
-Ikke overskriv produksjonsdatabasen under en øvelse.
+Kvartalsvis øvelse med reell RTO som mål er beskrevet i
+[`BACKUP-RESTORE.md`](BACKUP-RESTORE.md#6-gjenoppretting--runbook). På Azure:
+restore databasen til et **nytt** servernavn med `az postgres flexible-server
+restore` (se [4.5](#45-backup-og-pitr)) og start et testmiljø mot den.
+Produksjonsserveren skal aldri overskrives i en øvelse.
 
 ## 6. Docker, GHCR, env-filer og Compose
 
@@ -1812,86 +1698,45 @@ dekker forretningsfeil.
 
 ## 10. Skalering og HA
 
-### 10.1 Ikke skaler appen horisontalt uten videre
+### 10.1 Azure-avvik
 
-Appen har in-process workers:
+Arbeidsfordeling, Redis-krav, readiness og når HA **ikke** bør skrus på, er
+beskrevet i [`SCALING.md`](SCALING.md); appens in-process workers tåler ikke to
+instanser uten delt lagring og kø. Azure-spesifikt:
 
-- `RECURRING_SCHEDULER` – serviceavtaler, vedlikeholdsplaner og SLA-opprydding
-- `SMS_WORKER` – utgående SMS og retries
-- `REMINDER_WORKER` – påminnelser
-- `PDF_JOB_WORKER` – PDF/OCR-kø
+- **Database:** Flexible Server har sone-redundant HA med automatisk failover.
+  Det krever støttet SKU/region og koster mer. Etter failover kobler appen til
+  på nytt og readiness er 503 mens det skjer; test at den kommer tilbake uten
+  restart.
 
-Jobbene er idempotente og bruker PostgreSQL-låser/advisory locks, og med
-`STORAGE_DRIVER=s3` + `QUEUE_DRIVER=redis` kan flere replikaer dele arbeid og
-filer. Uten delt lagring gir to instanser likevel minst disse problemene:
+  ```bash
+  az postgres flexible-server update --resource-group "$RG" --name "$PG_NAME" \
+    --zonal-resiliency Enabled --standby-zone 2
+  ```
 
-- opplastinger som havner på feil VM og blir utilgjengelige for den andre
-- dobbeltarbeid eller dupliserte varsler der en jobb ikke er låst
-- SSE-hendelser som bare når brukere på samme instans
-- PDF-semaphore som gir 2 per instans, ikke 2 totalt
+- **Tilkoblinger:** `max_connections` følger SKU-en. Replikaer ×
+  `DATABASE_POOL_MAX` pluss margin må ligge under taket; vurder pgbouncer, og
+  juster tilkoblingsvarselet i [9.2](#92-plattformvarsler).
+- **App-VM:** én VM er et single point of failure. Legg VM og disk i en
+  availability zone, bruk managed disk med snapshots, hold en dokumentert
+  gjenoppbygging fra cloud-init + repo + Key Vault, og overvåk Resource Health.
+- **Proxy:** Azure Load Balancer eller Application Gateway med probe mot
+  `/api/health` og readiness mot `/api/ready`; terminer TLS der eller del Caddy.
 
-### 10.2 Hva som kreves for flere app-instanser
-
-1. Sett `STORAGE_DRIVER=s3` med en S3-kompatibel tjeneste og migrer filene
-   ([`STORAGE.md`](STORAGE.md)). Azure Files (SMB) er ikke testet og anbefales
-   ikke som primærlager.
-2. Sett `QUEUE_DRIVER=redis`, `CACHE_DRIVER=redis` og
-   `RATE_LIMIT_DRIVER=redis` med en managed Redis. Databasen er fallback.
-3. Sett `DATABASE_POOL_MAX` slik at replikaer × pool + margin er under
-   `max_connections`. Vurder pgbouncer.
-4. Sett opp Azure Load Balancer/Application Gateway med health probe mot
-   `/api/health` og readiness mot `/api/ready`.
-5. Terminer TLS i Application Gateway eller del Caddy.
-6. Test failover, opplasting, PDF/OCR og kundeoverføring med minst to
-   replikaer. Se [`SCALING.md`](SCALING.md).
-
-For Compose finnes en ferdig profil i `docker-compose.ha.yml` med app-replikaer,
-Redis, WAL-arkiv og base-backup. Lasttest er ikke kjørt i denne endringen.
-
-### 10.3 Database-HA
-
-Flexible Server støtter sone-redundant HA. Det gir automatisk failover for
-databasen, men ikke for app-VM-en.
-
-```bash
-az postgres flexible-server update \
-  --resource-group "$RG" \
-  --name "$PG_NAME" \
-  --zonal-resiliency Enabled \
-  --standby-zone 2
-```
-
-HA krever støttet SKU/region og koster mer. Etter failover må appen koble til
-på nytt; readiness blir 503 mens dette skjer. Test at appen kommer tilbake uten
-restart.
-
-### 10.4 VM-HA
-
-En enkelt app-VM er et single point of failure. Forbedringer uten å endre
-appen:
-
-- plasser VM og disk i en availability zone
-- bruk managed disk og snapshots
-- ha en dokumentert gjenoppbygging fra cloud-init + repo + Key Vault
-- overvåk VM Resource Health og restart bevisst
-- vurder Azure Backup for hele VM-en
-
-Full app-HA krever arkitekturendringene i [10.2](#102-hva-som-kreves-for-flere-app-instanser).
-
-### 10.5 Azure Files og Blob
+### 10.2 Lagring
 
 - **Azure Files (SMB):** kan monteres på VM-en, men appen forventer et
-  POSIX-filsystem. SMB gir andre låse- og rettighetssemantikker, og ytelsen er
-  dårligere for mange små filer. Ikke bruk det uten en test av opplasting,
-  OCR, PDF og sletting.
-- **S3/MinIO:** støttet førsteklasses driver. Bruk versjonering, kryptering og
-  blokkert offentlig tilgang.
-- **Azure Blob:** brukes til backup/offsite med mindre dere har en
-  S3-kompatibel gateway. Appen har ingen egen Blob-SDK.
+  POSIX-filsystem. SMB gir andre låse- og rettighetssemantikker og svakere
+  ytelse for mange små filer. Ikke bruk det uten test av opplasting, OCR, PDF og
+  sletting.
+- **S3/MinIO:** støttet førsteklasses driver; bruk versjonering, kryptering og
+  blokkert offentlig tilgang ([`STORAGE.md`](STORAGE.md)).
+- **Azure Blob:** brukes til backup/offsite med mindre dere har en S3-kompatibel
+  gateway. Appen har ingen egen Blob-SDK.
 - **Managed disk:** standard og enklest for én instans. Ta snapshot eller
   arkivkopi, og test restore.
 
-### 10.6 Vertikal skalering
+### 10.3 Vertikal skalering
 
 Å øke VM-størrelse eller database-SKU er enklere enn horisontal skalering, men
 gir nedetid. Planlegg:

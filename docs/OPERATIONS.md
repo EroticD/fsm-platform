@@ -5,20 +5,13 @@
 
 ## Moduler og presets
 
-Installasjonsnivåmoduler (kalender, rapporter, utstyr, avtaler, portal,
-dokumenter, SMS, kart, sporing, omtaler, API, SSO, offline med mer) styres i
-**Innstillinger → Moduler** av administrator. Data beholdes når en modul slås
-av; bare sider, handlinger, API-er og arbeidsjobber stenges.
+Moduler på installasjonsnivå styres i **Innstillinger → Moduler**; å slå av en
+modul stenger sider, handlinger, API-er og arbeidsjobber, men sletter ingen
+data. `MODULE_PRESET` (`full` standard, `core` kun kjerne) gjelder bare første
+oppstart uten modulrader – deretter er databasen kilden til sannhet.
 
-Første oppstart uten modulrader bruker `MODULE_PRESET`:
-
-- `full` (standard) – alle leverte moduler på. Eksisterende installasjoner som
-  oppgraderer får denne automatisk når variabelen ikke er satt.
-- `core` – bare kjerne (auth, brukere, avdelinger, kunder, oppdrag,
-  arbeidsdager/tid, revisjon og innstillinger).
-
-Se [`MODULES.md`](MODULES.md) for katalog, avhengighetsgraf, presets,
-oppgraderingsløp og kjente begrensninger.
+Katalog, avhengighetsgraf, presets og oppgraderingsløp:
+[`MODULES.md`](MODULES.md).
 
 ## Produksjonssett: image-pinning
 
@@ -702,233 +695,89 @@ versjonene. Er du i tvil, rull tilbake databasen også.
 Etter rollback: sjekk `/api/health`, `/api/ready`, `docker compose ps` og
 loggene, og gjør en røyktest (innlogging, kundeliste, opplasting, PDF).
 
-### 2. Database
+### 2. Database, opplastinger og rollback-øvelse
 
-Gjenoppretting av database er **destruktivt** for alt som er skrevet etter
-backupen. Stop appen først, slik at ingenting skriver mens du bytter.
+Destruktiv gjenoppretting har egne prosedyrer i
+[BACKUP-RESTORE.md](BACKUP-RESTORE.md):
 
-```bash
-COMPOSE="docker compose -f docker-compose.prod.yml"
-$COMPOSE stop app
-./scripts/backup.sh                       # sikre dagens tilstand først
+- **Database på samme vert:** [§6.3](BACKUP-RESTORE.md#63-database-only-restore--ny-database-på-samme-vert)
+  – ny database ved siden av den gamle, kontroller, bytt.
+- **Full disaster restore på ny vert:** [§6.4](BACKUP-RESTORE.md#64-full-disaster-restore--ny-vert).
+- **Restore gikk galt:** [§6.9](BACKUP-RESTORE.md#69-rollback-etter-feilet-restore)
+  – bytt tilbake til databasen du beholdt.
+- **Opplastinger:** gjenopprettes fra samme tidsstempel som databasen i §6.3/§6.4;
+  enkeltfiler i §6.6.
+- **Øvelse:** kvartalsvis full restore-øvelse, se §7.3.
 
-$COMPOSE exec -T postgres createdb -U admin fsm_db_rollback
-age -d -i ~/.config/age/keys.txt backups/db-20261024-030000.sql.gz.age \
-  | gunzip \
-  | $COMPOSE exec -T postgres psql -v ON_ERROR_STOP=1 -U admin \
-      -d fsm_db_rollback
+Bytt alltid database og opplastinger fra **samme tidsstempel**, ellers kan
+`Upload`-rader peke på filer som mangler. Med `STORAGE_DRIVER=s3` ligger filene
+i bucket og gjenopprettes fra S3-versjonering, ikke fra opplastingsarkivet; se
+[`STORAGE.md`](STORAGE.md).
 
-# Kontroller at rader og migrasjoner er med:
-$COMPOSE exec -T postgres psql -U admin -d fsm_db_rollback -c \
-  'SELECT count(*) FROM "User";'
-
-# Bytt database. Ingen app skal være tilkoblet nå.
-$COMPOSE exec -T postgres psql -U admin -d postgres -c \
-  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='fsm_db';"
-$COMPOSE exec -T postgres dropdb -U admin fsm_db
-$COMPOSE exec -T postgres psql -U admin -d postgres -c \
-  'ALTER DATABASE fsm_db_rollback RENAME TO fsm_db;'
-```
-
-Bruk `POSTGRES_USER`/`POSTGRES_DB` fra `.env` hvis de ikke er `admin`/`fsm_db`.
-Start deretter appen med den **gamle** `APP_IMAGE`-taggen. Sjekk at
-`_prisma_migrations` stemmer med koden før du setter tjenesten i drift.
-
-### 3. Opplastinger
-
-Opplastingsvolumet har egne filer som ikke ligger i databasedumpen. Ta backup
-av begge, og gjenopprett begge ved rollback. Full gjenoppretting fra arkiv:
+Start deretter appen med den **gamle** `APP_IMAGE`-taggen:
 
 ```bash
-VOLUME="$(docker volume ls --format '{{.Name}}' | grep -E '_fsm_uploads$' | head -n 1)"
-
-# Tøm og pakk ut (arkivet kan være kryptert; da dekrypterer du i strøm):
-docker run --rm -v "$VOLUME:/data" postgres:15 \
-  sh -c 'find /data -mindepth 1 -delete'
-age -d -i ~/.config/age/keys.txt backups/uploads-20261024-030000.tar.gz.age \
-  | docker run --rm -i -v "$VOLUME:/data" postgres:15 tar xzf - -C /data
+# I .env: APP_IMAGE=<forrige kjente gode versjon/digest>
+docker compose -f docker-compose.prod.yml up -d app
 ```
-
-Etterpå: åpne et vedlegg i UI, og bekreft at filen finnes med riktig
-tilgangskontroll. `UPLOAD_DIR` må peke på samme sted som i produksjon
-(`/app/uploads` i containeren). Gjenopprett alltid database og opplastinger fra
-**samme tidsstempel**, ellers kan `Upload`-rader peke på filer som mangler.
-
-Med `STORAGE_DRIVER=s3` ligger filene i bucket, ikke i `fsm_uploads`. Da
-gjenopprettes de fra S3-versjonering/bucket-backup, ikke fra
-opplastingsarkivet. Bytt aldri driver uten å ha migrert og verifisert filene
-først; se [`STORAGE.md`](STORAGE.md).
-
-### 4. Rollback-øvelse
-
-Kjør minst hvert kvartal på en kopi: velg en backup, kjør
-`scripts/restore-test.sh`, gjenopprett opplastingsarkivet til et testvolum, og
-start appen mot den gjenopprettede databasen. Noter tiden det tar – det er
-deres reelle RTO.
 
 ## Backup og restore
 
-> **Kortversjon:** `scripts/backup.sh` tar en logisk `pg_dump` av databasen og
-> et tar-arkiv av `fsm_uploads`, krypterer begge med age i strøm, skriver
-> SHA-256-sjekksum og en atomisk statusfil, og kopierer valgfritt til
-> `BACKUP_REMOTE` med rclone. Produksjon nekter å ta backup uten
-> `BACKUP_AGE_RECIPIENT`. Daglig backup, daglig ferskhetskontroll og ukentlig
-> restore-test kjøres av systemd-enhetene i `deploy/systemd/` og varsler via
-> `scripts/ops-alert.sh`.
->
-> **Full runbook:** se [BACKUP-RESTORE.md](BACKUP-RESTORE.md) for RPO/RTO,
-> nøkkelgjenoppretting, full disaster restore, Azure PITR/Azure Backup,
-> enkeltfilgjenoppretting, feilsøking og sjekklister. Denne seksjonen er
-> oppsummeringen og de raske kommandoene.
+> Kortversjonen. Full runbook med steg, kommandoer, Azure PITR, feilsøking og
+> sjekklister: [BACKUP-RESTORE.md](BACKUP-RESTORE.md#backup-og-gjenoppretting-runbook).
 
-Ta backup av database og opplastingsvolum:
+`scripts/backup.sh` tar en logisk `pg_dump` av databasen og et tar-arkiv av
+opplastingsvolumet `fsm_uploads`, krypterer begge med age **i strøm** (aldri
+ukrypterte filer på disk, filene får `0600`), skriver SHA-256-sjekksum og en
+atomisk statusfil, og kopierer valgfritt til `BACKUP_REMOTE` med rclone. I
+`backups/` lander `db-<tid>.sql.gz[.age]`, `uploads-<tid>.tar.gz[.age]`,
+`checksums-<tid>.sha256` og `backup-status.json` (lest av
+`scripts/backup-freshness.sh` og `/api/metrics`). `.env`, age-identiteten,
+image og proxy-konfig er **ikke** med
+([§2.1](BACKUP-RESTORE.md#21-hva-som-må-kunne-gjenopprettes)).
 
-```bash
-NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
-```
+**Produksjonskrav:** `NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml
+./scripts/backup.sh`. Mangler `BACKUP_AGE_RECIPIENT`, avbryter skriptet før det
+dumper noe; `REQUIRE_BACKUP_ENCRYPTION=true` gir samme sperre lokalt. Skriptene
+leser ikke `.env`: avviker `POSTGRES_USER`/`POSTGRES_DB` fra `admin`/`fsm_db`,
+må de eksporteres til jobben – også i cron.
 
-Skriptet gir:
-
-- `backups/db-<tid>.sql.gz` (eller `.sql.gz.age`)
-- `backups/uploads-<tid>.tar.gz` (eller `.tar.gz.age`)
-- `backups/checksums-<tid>.sha256` — SHA-256 for begge filene
-- `backups/backup-status.json` — tidspunkt, filnavn og størrelse for
-  freshness-proben og `/api/metrics`
-
-Med `BACKUP_AGE_RECIPIENT=age1...` krypteres begge i en strøm, slik at
-ukrypterte filer aldri ligger på disk. Filene får `0600`. `BACKUP_REMOTE`
-kopierer til ekstern lagring med rclone **etter** at filene er kryptert (eller
-bevisst ukryptert i lokal utvikling). Kopien verifiseres med `rclone check`
-med mindre `BACKUP_VERIFY_REMOTE=false` er satt bevisst. `RETENTION_DAYS`
-(standard 30 i backupjobben) styrer hvor lenge lokale filer beholdes; ekstern
-lagring bør ha egen, lengre oppbevaring. Merk at appen bruker samme variabelnavn
-med standard 365 for oppdragsretention – hold backupjobbens verdi og appens
-`.env` adskilt.
-
-Sjekk ferskhet, alder og sjekksum uten å røre databasen:
-
-```bash
-./scripts/backup-freshness.sh
-./scripts/backup-freshness.sh --max-age-hours 26 --require-remote
-./scripts/backup-freshness.sh --prometheus-output /var/lib/node_exporter/textfile/fsm-backup.prom
-```
-
-Skriptet feiler når siste backup mangler, er eldre enn grensen, har feil
-sjekksum, eller når `--require-remote` er satt uten verifisert ekstern kopi.
-Det er denne kontrollen systemd-timeren bruker.
-
-I produksjon er kryptering påkrevd: med `NODE_ENV=production` (eller
-`REQUIRE_BACKUP_ENCRYPTION=true`) avbryter skriptet før det dumper noe hvis
-`BACKUP_AGE_RECIPIENT` mangler. Lokal utvikling kan fortsatt kjøre ukryptert.
-Bruk derfor:
-
-```bash
-NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
-```
-
-Skriptene leser ikke `.env` selv. Avviker `POSTGRES_USER` eller `POSTGRES_DB`
-fra standardverdiene (`admin`/`fsm_db`), må de eksporteres til skriptet – også
-i cron. `COMPOSE_FILE` leses av Docker Compose. Sett også `NODE_ENV=production`
-eller `REQUIRE_BACKUP_ENCRYPTION=true` i cron, slik at en glemt
-`BACKUP_AGE_RECIPIENT` stopper jobben i stedet for å lage ukrypterte filer.
-
-Test at backupen kan gjenopprettes (oppretter og sletter en midlertidig
-database, og verifiserer opplastingsarkivet):
-
-```bash
-# Ukryptert:
-BACKUP_FILE=backups/db-20261024-030000.sql.gz ./scripts/restore-test.sh
-
-# age-kryptert – nøkkelen leses fra AGE_IDENTITY (standard
-# ~/.config/age/keys.txt):
-AGE_IDENTITY=/sikker/age/keys.txt \
-  BACKUP_FILE=backups/db-20261024-030000.sql.gz.age \
-  ./scripts/restore-test.sh
-
-# Produksjon:
-COMPOSE_FILE=docker-compose.prod.yml ./scripts/restore-test.sh
-```
-
-`restore-test.sh` finner også nyeste `uploads-*.tar.gz[.age]` automatisk, eller
-du kan peke med `UPLOADS_FILE`. Den dekrypterer i en strøm, sjekker
-tar-arkivet og sletter testdatabasen selv ved feil. Den beviser at arkivet kan
-leses – ikke at alle vedlegg er koblet riktig i databasen. Gjør derfor en
-full restore-øvelse (se over) jevnlig.
-
-Skriptene har egne tester som ikke krever Docker, Postgres eller age:
-
-```bash
-bash scripts/tests/backup.test.sh
-bash scripts/tests/backup-freshness.test.sh
-bash scripts/tests/restore-test.test.sh
-bash scripts/tests/ops-alert.test.sh
-bash scripts/tests/provision-db-roles.test.sh
-```
-
-### Planlegging
-
-Anbefalt oppsett er systemd-enhetene i [`deploy/systemd/`](../deploy/systemd/README.md):
-
-- `fsm-backup.timer` — daglig kl. 03:17, `Persistent=true` (tar igjen en
-  misset kjøring etter reboot).
-- `fsm-backup-check.timer` — daglig kl. 06:10, kontrollerer ferskhet,
-  sjekksum og eventuell ekstern kopi.
-- `fsm-restore-test.timer` — ukentlig søndag kl. 04:30, gjenoppretter til en
-  midlertidig database.
-- Alle har `OnFailure=fsm-alert@%n.service`, som sender varsel via
-  `ALERT_WEBHOOK_URL`.
-
-```bash
-sudo cp deploy/systemd/fsm-*.service deploy/systemd/fsm-*.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now fsm-backup.timer fsm-backup-check.timer fsm-restore-test.timer
-```
-
-Cron er et fullverdig alternativ, men da må dere selv varsle når jobben
-feiler. Eksempel:
+**Tidsplan:** systemd-enhetene i
+[`deploy/systemd/`](../deploy/systemd/README.md) kjører daglig backup 03:17,
+ferskhetskontroll 06:10 og restore-test søndag 04:30, og varsler via
+`OnFailure=fsm-alert@%n.service`. Kontrollen feiler når siste backup mangler,
+er over 26 timer, har feil sjekksum eller mangler verifisert ekstern kopi. Cron
+er et fullverdig alternativ, men da må dere varsle selv:
 
 ```cron
 17 3 * * * cd /opt/fsm-platform && NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml \
-  BACKUP_AGE_RECIPIENT=age1... BACKUP_REMOTE=remote:fsm-backups \
-  ./scripts/backup.sh >> /var/log/fsm-backup.log 2>&1 || \
-  ALERT_WEBHOOK_URL=... ./scripts/ops-alert.sh critical "backup" "Daglig backup feilet"
-
-10 6 * * * cd /opt/fsm-platform && ./scripts/backup-freshness.sh --require-remote \
-  >> /var/log/fsm-backup-check.log 2>&1 || \
-  ALERT_WEBHOOK_URL=... ./scripts/ops-alert.sh critical "backup" "Backup er ikke fersk"
-
-30 4 * * 0 cd /opt/fsm-platform && COMPOSE_FILE=docker-compose.prod.yml \
-  AGE_IDENTITY=/sikker/age/keys.txt ./scripts/restore-test.sh \
-  >> /var/log/fsm-restore-test.log 2>&1 || \
-  ALERT_WEBHOOK_URL=... ./scripts/ops-alert.sh critical "restore" "Restore-test feilet"
+  BACKUP_AGE_RECIPIENT=age1... BACKUP_REMOTE=remote:fsm-backups ./scripts/backup.sh \
+  >> /var/log/fsm-backup.log 2>&1 || ALERT_WEBHOOK_URL=... \
+  ./scripts/ops-alert.sh critical "backup" "Daglig backup feilet"
 ```
 
-Roter `/var/log/fsm-*.log` med logrotate. Poenget er at backup, sjekksum,
-ekstern kopi og restore-test er automatisert og varsler ved feil.
+Roter `/var/log/fsm-*.log` med logrotate. `RETENTION_DAYS` (standard 30 i
+backupjobben) styrer lokale filer, mens appen bruker samme variabelnavn med
+standard 365 for oppdragsretention – hold verdiene adskilt. Ekstern lagring bør
+ha egen, lengre oppbevaring; `rclone check` verifiserer kopien, og lokal backup
+slettes aldri før den er verifisert eksternt.
 
-### RPO, RTO og nøkkelgjenoppretting
+**RPO/RTO:** daglig backup gir RPO inntil 24 timer (≤1 time ved timesbackup) og
+RTO ≤2 timer for full restore; Compose PITR gir RPO ≤60 sekunder og RTO
+≤60 minutter. Tallene er mål – reell RTO er det dere har målt i øvelse
+([§3](BACKUP-RESTORE.md#3-rpo-og-rto)).
 
-- **RPO (hvor mye data kan tapes):** med daglig backup og 30 dagers lokal
-  historikk er RPO inntil 24 timer. `fsm-backup-check` varsler når siste
-  backup er over 26 timer, slik at en misset natt ikke går ubemerket.
-- **RTO (hvor lang tid gjenoppretting tar):** settes av faktisk
-  restore-øvelse, ikke av skriptets teoretiske tid. Mål hvor lang tid
-  `restore-test.sh` bruker på en kopi av produksjonsdatabasen, legg til tid
-  for opplastingsvolumet og DNS/proxy, og skriv tallet her etter hver øvelse.
-  Små installasjoner bør kunne være tilbake innen 1–2 timer; store
-  opplastingsvolum og manglende lokal backup øker tiden.
-- **Nøkkelgjenoppretting:** `BACKUP_AGE_RECIPIENT` er en offentlig nøkkel;
-  `AGE_IDENTITY` er den private nøkkelen som trengs for restore. Oppbevar
-  minst to kopier av identiteten på separate, krypterte medier utenfor
-  serveren, og test dem med `restore-test.sh`. Mister dere identiteten, er
-  eksisterende age-backuper ubrukelige – ingen i appen kan gjenopprette dem.
-  Roter nøkkelpar bevisst: lag nytt par, ta ny backup, verifiser restore, og
-  behold den gamle identiteten til alle gamle backuper er ute av retention.
-  Dokumenter hvem som har kopi, og øv på gjenoppretting uten serveren.
-- **Ekstern kopi:** `BACKUP_REMOTE` må peke til lagring med egen
-  tilgangskontroll. `rclone check` bekrefter innholdet etter hver kjøring.
-  Slett aldri lokal backup før den er verifisert eksternt og
-  `RETENTION_DAYS` er passert.
+**Nøkler:** `BACKUP_AGE_RECIPIENT` er offentlig, `AGE_IDENTITY` er den private
+nøkkelen restore krever. Oppbevar minst to kopier på separate, krypterte medier
+utenfor serveren og test dem med `scripts/restore-test.sh`; mister dere
+identiteten, er eksisterende age-backuper ubrukelige
+([§4.5](BACKUP-RESTORE.md#45-nøkler-og-nøkkelgjenoppretting)).
+
+**Restore:** velg prosedyre etter situasjon
+([§6.1](BACKUP-RESTORE.md#61-velg-riktig-prosedyre)). `scripts/restore-test.sh`
+beviser at arkivet kan leses, ikke at alle vedlegg er koblet riktig. Skriptene
+har tester uten Docker, Postgres og age:
+`bash scripts/tests/{backup,backup-freshness,restore-test,ops-alert,provision-db-roles}.test.sh`.
 
 ## To-trinns verifisering og break-glass
 
@@ -1419,22 +1268,13 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 
 ## Skalering og HA
 
-- Standard: rate limits og jobbkø ligger i databasen og deles mellom instanser.
-  PDF-rendering har en prosesslokal semaphore (maks 2); grensen gjelder per
-  instans.
-- Med `QUEUE_DRIVER=redis` varsles jobber via Redis, men databasen er fortsatt
-  kilden til sannhet og fallback. `CACHE_DRIVER` og `RATE_LIMIT_DRIVER` kan
-  overstyres hver for seg.
-- Flere app-replikaer krever **delt opplastingslager** (`STORAGE_DRIVER=s3`).
-  Uten det får hver replika sin egen disk.
-- `DATABASE_POOL_MAX` (standard 10) ganger antall replikaer må være lavere enn
-  Postgres `max_connections`, med margin til migrasjoner og drift.
-- Bruk `docker-compose.ha.yml` og `deploy/ha/Caddyfile`. Se
-  [`SCALING.md`](SCALING.md) for topologi, utrulling, readiness og
-  kapasitetstesting.
-- For databasen: bruk managed PostgreSQL med replika/failover og PITR, eller
-  Patroni. Compose-profilen har WAL-arkiv og verifisert base-backup, men ingen
-  automatisk primærfailover.
+Flere replikaer, delt opplastingslager (`STORAGE_DRIVER=s3`), Redis-kø/cache
+(`QUEUE_DRIVER`, `CACHE_DRIVER`, `RATE_LIMIT_DRIVER`), `DATABASE_POOL_MAX` mot
+Postgres `max_connections` og Caddy-oppsettet (`docker-compose.ha.yml`,
+`deploy/ha/Caddyfile`) er beskrevet i [`SCALING.md`](SCALING.md). PDF-rendering
+har en prosesslokal semaphore (maks 2) per instans. Compose-profilen har
+WAL-arkiv og verifisert base-backup, men **ingen automatisk primærfailover** –
+bruk managed PostgreSQL med PITR eller Patroni hvis det kreves.
 
 ## CI og publisering
 

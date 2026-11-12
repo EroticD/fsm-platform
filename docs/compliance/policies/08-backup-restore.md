@@ -82,7 +82,7 @@ The authoritative commands are in
 9. Delete the isolated test environment and data after verification.
 
 The detailed runbook, including PITR and uploads-only restore, is in
-[BACKUP-RESTORE.md](../../../docs/BACKUP-RESTORE.md#6-gjenoppretting-runbook).
+[BACKUP-RESTORE.md](../../../docs/BACKUP-RESTORE.md#6-gjenoppretting--runbook).
 
 ## 6. Testing
 

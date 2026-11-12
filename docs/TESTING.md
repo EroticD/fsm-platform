@@ -1,6 +1,7 @@
 # Testing
 
-Repoet har tre nivåer av Vitest-tester og en egen Playwright-suite:
+Repoet har fire nivåer i testoppsettet – tre Vitest-nivåer (enhet, integrasjon
+og dekning) og en egen E2E-suite med Playwright:
 
 | Nivå | Filnavn | Kommando | Kjøres |
 | --- | --- | --- | --- |

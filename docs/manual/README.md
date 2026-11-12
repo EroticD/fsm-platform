@@ -18,11 +18,11 @@ sidebilder fra den generelle skjermbildefangsten ligger under
 `screenshots/pages/`. Referer til bilder med vanlig Markdown-syntaks:
 
 ```markdown
-![Dashbordet med listevisning](../../../screenshots/manual/nb/kontor-dashbord-liste.png)
+![API-oversikten i administratordelen](../../screenshots/manual/api-oversikt.jpg)
 ```
 
 - Stien løses relativt til Markdown-filen som inneholder referansen.
-- Stier som starter med `/`, for eksempel `/screenshots/manual/nb/...`, løses
+- Stier som starter med `/`, for eksempel `/screenshots/manual/...`, løses
   fra repo-roten.
 - Bygget leser bildet og bytter ut kilden med en base64 data-URI før
   `md2html` konverterer filen. Chromium trenger derfor ikke filsystemtilgang
@@ -40,8 +40,8 @@ HTML-referanser:
 
 ```html
 <figure>
-  <img src="../../../screenshots/manual/nb/kontor-dashbord-liste.png" alt="Dashbordet med listevisning" />
-  <figcaption>Dashbordet med listevisning og prioritert kø.</figcaption>
+  <img src="../../screenshots/manual/api-oversikt.jpg" alt="API-oversikten i administratordelen" />
+  <figcaption>API-oversikten med nøkler og scopes.</figcaption>
 </figure>
 ```
 
@@ -54,29 +54,24 @@ blir uleselige.
 ## Filnavn og fokus
 
 Bruk små bokstaver, bindestrek og en kort beskrivelse av **fokuset** i bildet –
-ikke bare sidenavnet. Fokuset skal si hva leseren skal legge merke til.
+ikke bare sidenavnet.
 
 ```text
-screenshots/manual/<locale>/<kapittel>-<fokus>[-<variant>].<ext>
+screenshots/manual/<fokus>-<detalj>.<ext>
 ```
 
 Eksempler:
 
 ```text
-screenshots/manual/nb/kontor-dashbord-liste.png
-screenshots/manual/nb/kontor-oppdrag-tildel-montor.png
-screenshots/manual/nb/tekniker-skjema-signatur.png
-screenshots/manual/en/office-dashboard-board.png
-screenshots/manual/nb/kontor-dashbord-liste-mobil.png
+screenshots/manual/api-oversikt.jpg
+screenshots/manual/faktura-betaling.jpg
+screenshots/manual/oppdrag-rekkefolge.jpg
 ```
 
-- `locale` er `nb` eller `en`.
-- `kapittel` gjenspeiler manualdelen, for eksempel `kontor`, `tekniker`,
-  `administrator` eller `kundeportal`.
+- Bildene ligger flatt i `screenshots/manual/`. `screenshots/manual/manifest.json`
+  registrerer hvilke filer som er tatt, og hvilke sider de dekker.
 - `fokus` er tilstanden eller handlingen bildet viser, for eksempel
-  `tildel-montor`, `signatur` eller `feilmelding`.
-- `variant` brukes bare når samme fokus finnes i flere visninger, for eksempel
-  `mobil`.
+  `betaling`, `rekkefolge` eller `feilmelding`.
 - Unngå mellomrom, store bokstaver, versjonsnumre og generiske navn som
   `bilde1.png`.
 

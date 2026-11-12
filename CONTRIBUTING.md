@@ -23,38 +23,22 @@ Appen svarer på <http://localhost:3000>. OCR krever `poppler-utils` lokalt
 
 ## Før du sender en pull request
 
-Kjør alt lokalt og få det grønt:
+Typesjekk (`npx tsc --noEmit`, eller `npm run typecheck` som kjører
+`next typegen` først), `npm test`, `npm run lint` og `npm run build` skal være
+grønne; `npm run test:coverage` er gaten CI bruker.
 
-```bash
-npm run typecheck        # next typegen + tsc --noEmit
-npm test                 # vitest (enhetstester)
-npm run test:coverage    # enhetstester + dekningskrav (CI bruker denne)
-npm run test:integration # mot en dedikert Postgres-testdatabase
-npm run test:e2e         # Playwright + axe (krever `npx playwright install chromium`)
-npm run test:lighthouse  # Lighthouse mobil a11y (krever kjørende app; >=95)
-npm run lint             # eslint
-npm run build            # produksjonsbygg
-```
+Integrasjonstester krever `TEST_DATABASE_URL` mot en egen, migrert testdatabase
+(uten den og uten `CI=true` hoppes de over). CI kjører de samme stegene, pluss
+Docker-bygg og en sjekk på at migreringen gir samme skjema som
+`prisma/schema.prisma`.
 
-E2E-testene for de fire rollene krever `E2E_ADMIN_EMAIL/PASSWORD`,
-`E2E_OFFICE_EMAIL/PASSWORD`, `E2E_TECHNICIAN_EMAIL/PASSWORD` og
-`E2E_CUSTOMER_EMAIL/PASSWORD`. Kopier [`.env.e2e.example`](.env.e2e.example) til
-`.env.e2e.local`, opprett den isolerte databasen `fsm_ui_e2e`, kjør
-migrasjonene mot den og deretter `npm run seed:e2e`. Skriptet er destruktivt
-bare for demodataene i E2E-databasen og skal **aldri** kjøres mot produksjon.
-Se [docs/TESTING.md](docs/TESTING.md) for hele flyten, og `npm run screenshots:verify` for skjermbildedekningen.
-
-Integrasjonstestene hoppes over med mindre `TEST_DATABASE_URL` er satt (eller
-`CI=true`). Lag en egen database og kjør migrasjonene først:
-
-```bash
-createdb fsm_integration
-DATABASE_URL=postgresql://.../fsm_integration npx prisma migrate deploy
-TEST_DATABASE_URL=postgresql://.../fsm_integration npm run test:integration
-```
-
-CI kjører de samme stegene, i tillegg til Docker-bygg og en sjekk for at
-migrasjonene gir samme skjema som `prisma/schema.prisma`.
+Testnivåene, `test:changed`/`test:module` og E2E-kommandoen står i
+[docs/TESTING.md](docs/TESTING.md). E2E-oppsettet – de fire rollene,
+`fsm_ui_e2e`, migrering og `npm run seed:e2e` (aldri mot produksjon) – er
+beskrevet i [`.env.e2e.example`](.env.e2e.example), og første kjøring trenger
+`npx playwright install chromium`. Skjermbildedekningen sjekkes med
+`npm run screenshots:verify`; `npm run test:lighthouse` krever kjørende app
+(mobil a11y ≥ 95).
 
 ## Retningslinjer
 

@@ -15,18 +15,28 @@ servicerapporten kan vises eller lastes ned som PDF.
   Enheter kan flyttes til en annen kunde med hele servicehistorikken.
 - **Kunder og kundeportal** – kundekort med kontakter, avtaler, steder og egne
   portalbrukere som bare ser sin egen bedrift.
-- **Avdelinger, roller og rettigheter** – oppdrag og serviceavtaler tilhører en
-  avdeling, og administrator kan opprette egne roller og tilpasse rettigheter.
+- **Tilbud** – tilbud med linjer, versjoner og konvertering til oppdrag.
+- **Fakturering og betaling** – fakturaer, kreditnota, CSV og betalingslenke.
+- **Lager og reservedeler** – beholdning, reservasjon, forbruk og innkjøpsordrer.
+- **Kjøring og utlegg** – utlegg per oppdrag med godkjenning og lønnsgrunnlag.
+- **Lønnsomhet** – estimert og faktisk inntekt per avdeling, kunde og montør.
+- **Regnskap** – synk av fakturaer til Fiken, Tripletex og PowerOffice Go.
+- **Kart, sporing og ETA** – kart, posisjonssporing og beregnet ankomsttid.
+- **Omtaler** – offentlig omtaleside og aggregat på dashbordet.
+- **Avdelinger, roller og rettigheter** – oppdrag og avtaler tilhører en avdeling,
+  og administrator kan lage roller og tilpasse rettigheter og felt.
 - **Serviceavtaler, SLA og bookinger** – gjentagende service, frister og
   bookingkø med bekreftelse og varsling.
 - **SMS, kontorinnboks og påminnelser** – toveis SMS med samtykke, samtaler i
   kontorinnboksen og automatiske SMS-/e-postpåminnelser før besøk.
+- **E-post og push** – transaksjons-e-post og pushvarsler fra en varig utboks.
 - **Dokumentbibliotek, OCR, tags og globalt søk** – PDF-er med mapper, tags,
   versjonering og fulltekstsøk.
 - **SSO, SCIM og sikkerhet** – OIDC mot Entra ID, Keycloak, Authentik og Zitadel,
   SCIM-brukerprovisjonering, 2FA og revisjonslogg.
 - **PWA og feltapp** – installerbar feltapp med offline-kladder, kamera/QR,
   strekkodeskanning, navigasjon og manuell kode når kameraet ikke er tilgjengelig.
+- **Moduler** – kapabiliteter slås av og på per installasjon uten å slette data.
 - **REST-API** – egne Bearer-nøkler og samme rettighetskontroll som i appen.
 
 ## Skjermbilder
@@ -57,9 +67,8 @@ servicerapporten kan vises eller lastes ned som PDF.
 </details>
 
 Alle sidevisninger er også fanget i desktop- og mobilformat under
-[`screenshots/pages/`](screenshots/pages/), med rutedekning i
-`manifest.json`. `npm run screenshots:verify` kontrollerer at hver `page.tsx`
-er dekket.
+[`screenshots/pages/`](screenshots/pages/), med rutedekning i `manifest.json`.
+`npm run screenshots:verify` kontrollerer at hver `page.tsx` er dekket.
 
 ## Hurtigstart med Docker
 
@@ -100,10 +109,9 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterpå �
    docker compose -f docker-compose.prod.yml up -d
    ```
 
-   Compose starter Postgres først, venter til databasen er frisk, og appen kjører
+   Compose starter Postgres, venter til databasen er frisk, og appen kjører
    `prisma migrate deploy` ved oppstart. Første gang kan du opprette administrator
-   med `SEED_DATABASE=true` og `SEED_ADMIN_*` mot en tom database. Slå
-   `SEED_DATABASE` av igjen etterpå.
+   med `SEED_DATABASE=true` og `SEED_ADMIN_*` mot en tom database; slå den av etterpå.
 
 4. Kontroller at tjenesten er klar:
 
@@ -114,200 +122,53 @@ et domenenavn og minst 1 GB RAM og 2 GB swap. Sett opp reverse proxy etterpå �
    docker compose -f docker-compose.prod.yml logs -f app
    ```
 
-   `/api/health` er liveness, og `/api/ready` sjekker database. Med
-   `READY_SECRET` eller `CRON_SECRET` sjekker den også opplastingsvolum og
-   jobbkø. Produksjons-Compose bruker readiness som healthcheck uten å
-   restart-loope ved databaseutfall. Appen lytter bare på `127.0.0.1:3000`.
+   `/api/health` er liveness, og `/api/ready` sjekker database – og med
+   `READY_SECRET`/`CRON_SECRET` også opplastingsvolum og jobbkø. Readiness brukes
+   som healthcheck uten restart-loop ved databaseutfall; appen lytter bare på
+   `127.0.0.1:3000`.
 
 ## Caddy reverse proxy
 
-Appen skal ikke eksponeres direkte. Caddy gir HTTPS automatisk, begrenser
-request-body og overskriver videresendingsheadere slik at en klient ikke kan
-spoofe IP eller protokoll. Fullt eksempel ligger i
-[`deploy/proxy/Caddyfile`](deploy/proxy/Caddyfile).
+Appen skal ikke eksponeres direkte. Proxyen terminerer TLS, begrenser
+request-body til litt over appens 50 MB-grense og overskriver
+videresendingsheadere, så klienten ikke kan spoofe IP eller protokoll.
+Klient-IP bak proxyen krever `TRUST_PROXY=true` og riktig `TRUST_PROXY_HOPS`
+(antall proxyer, ikke antall `X-Forwarded-For`-oppføringer); ellers er
+IP-baserte rate limits inaktive.
 
-```caddyfile
-fsm.example.com {
-	encode zstd gzip
-
-	# Litt over appens egen grense (50 MB PDF), slik at appen kan svare 413.
-	request_body {
-		max_size 55MB
-	}
-
-	reverse_proxy 127.0.0.1:3000 {
-		header_up Host {host}
-		header_up X-Forwarded-Host {host}
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Real-IP {remote_host}
-
-		transport http {
-			dial_timeout 5s
-			response_header_timeout 300s
-			read_timeout 300s
-			write_timeout 300s
-		}
-	}
-
-	header {
-		-Server
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-	}
-}
-```
-
-Sett disse i `.env` når appen står bak én proxy:
-
-```dotenv
-TRUST_PROXY=true
-TRUST_PROXY_HOPS=1
-```
-
-`TRUST_PROXY_HOPS` er antallet betrodde proxyer, ikke antallet
-`X-Forwarded-For`-oppføringer. Ved flere hopp må bare kantsonen overskrive
-headeren. Uten `TRUST_PROXY` ignoreres `X-Forwarded-For`, og IP-baserte
-rate limits er inaktive. Sjekk gjerne at en klientstyrt header ikke endrer
-nøkkelen:
-
-```bash
-curl -sS -H 'X-Forwarded-For: 6.6.6.6' https://fsm.example.com/api/health
-```
-
-nginx-eksempel, feilsøking av 502 og flere proxy-detaljer står i
-[`deploy/proxy/README.md`](deploy/proxy/README.md) og
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
-
-Azure-drift med VM, Docker Compose og PostgreSQL Flexible Server: se [`docs/AZURE.md`](docs/AZURE.md).
+Ferdig Caddyfile og nginx-eksempel: [`deploy/proxy/Caddyfile`](deploy/proxy/Caddyfile)
+og [`deploy/proxy/README.md`](deploy/proxy/README.md). Body-grense, tidsavbrudd,
+klient-IP-sjekk og 502-feilsøking: [`docs/OPERATIONS.md`](docs/OPERATIONS.md#proxy-og-klient-ip).
 
 ## Flytte database og data
 
-Produksjons-Compose bruker to navngitte volumer:
+Databasen ligger i Docker-volumet `fsm_postgres_data` og opplastede filer i
+`fsm_uploads`. Begge må sikkerhetskopieres og flyttes fra **samme tidspunkt**;
+`.next`-cachen og `/tmp` er `tmpfs` og kan forkastes. Bruk
+[`scripts/backup.sh`](scripts/backup.sh), og verifiser backupen med
+[`scripts/restore-test.sh`](scripts/restore-test.sh).
 
-| Volum | Innhold | Må sikkerhetskopieres |
-| --- | --- | --- |
-| `fsm_postgres_data` | Selve databasen | Ja, med `pg_dump` eller volumkopi |
-| `fsm_uploads` | Opplastede bilder, PDF-er og vedlegg | Ja, med arkivkopi |
-
-`.next`-cachen er **ikke** et volum. Den ligger i en `tmpfs` i containeren og kan
-trygt forkastes ved nytt image eller ny container. Det samme gjelder
-mellomlagrede PDF-jobber under `/tmp`.
-
-Flytt alltid database og opplastinger fra **samme tidspunkt**. En databasekopi
-uten filene gir vedlegg som peker på filer som mangler.
-
-1. **Ta backup først.** Bruk skriptene når du kan:
-
-   ```bash
-   NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
-   ./scripts/backup-freshness.sh
-   ```
-
-   Manuelt kan du bruke `pg_dump` og en arkivkopi av volumet:
-
-   ```bash
-   COMPOSE="docker compose -f docker-compose.prod.yml"
-   mkdir -p backups
-   $COMPOSE stop app
-
-   $COMPOSE exec -T postgres pg_dump -U admin -d fsm_db -Fc \
-     > backups/fsm-$(date +%Y%m%d-%H%M%S).dump
-
-   VOLUME="$(docker volume ls --format '{{.Name}}' | grep -E '_fsm_uploads$' | head -n 1)"
-   docker run --rm -v "$VOLUME:/data:ro" -v "$PWD/backups:/backup" postgres:15 \
-     tar czf "/backup/uploads-$(date +%Y%m%d-%H%M%S).tar.gz" -C /data .
-   ```
-
-2. **Flytt til ny maskin.** Opprett volumene og gjenopprett i riktig rekkefølge:
-
-   ```bash
-   COMPOSE="docker compose -f docker-compose.prod.yml"
-   $COMPOSE up -d postgres
-
-   $COMPOSE exec -T postgres pg_restore -U admin -d fsm_db --clean --if-exists \
-     < backups/fsm-YYYYMMDD-HHMMSS.dump
-
-   VOLUME="$(docker volume ls --format '{{.Name}}' | grep -E '_fsm_uploads$' | head -n 1)"
-   docker run --rm -v "$VOLUME:/data" -v "$PWD/backups:/backup:ro" postgres:15 \
-     sh -c 'cd /data && tar xzf /backup/uploads-YYYYMMDD-HHMMSS.tar.gz'
-   ```
-
-   Behold eierskap og rettigheter fra arkivet. Postgres-volumet må eies av
-   postgres-brukeren i imaget, og opplastingsvolumet må være skrivbart for
-   appbrukeren. Ikke bruk `chmod 777`; sammenlign eierskap med en fersk
-   installasjon hvis du er usikker.
-
-3. **Verifiser før du kutter over:** start appen, sjekk `/api/ready`, åpne en
-   kunde, en rapport-PDF og et vedlegg. Kontroller at antall rader og filer
-   stemmer med kilden.
-
-4. **Rull tilbake** ved feil: stopp appen, bytt tilbake til de gamle volumene
-   eller gjenopprett dumpen og opplastingsarkivet fra samme tidspunkt. Behold
-   den gamle kopien til den nye er verifisert.
-
-> **Advarsel:** Kjør aldri `docker system prune --volumes` på en
-> produksjonsmaskin. Det sletter `fsm_postgres_data` og `fsm_uploads`.
-
-Backup, kryptering, restore-test og rollback er beskrevet i
-[`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) (full runbook) og
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md#backup-og-restore) (kortversjon).
-
-## Drift
-
-- [Backup og gjenoppretting](docs/BACKUP-RESTORE.md) – full runbook med RPO/RTO,
-  Azure-native backup, restore-test, feilsøking og sjekklister. Se også
-  [drift og feilsøking](docs/OPERATIONS.md).
-- [Lagring](docs/STORAGE.md) – lokal disk eller S3/MinIO, nøkkelmapping og
-  gjenopptakbar migrering av eksisterende filer.
-- [Skalering og HA](docs/SCALING.md) – flere app-replikaer, Redis-kø/cache,
-  DB-tilkoblingsgrenser og utrulling.
-- [Azure-deployment](docs/AZURE.md) – VM, Docker Compose, Caddy, PostgreSQL
-  Flexible Server, Key Vault, Blob-backup og oppdateringsrutine.
+Rekkefølge, eierskap på volumene, `pg_dump`/`pg_restore`, verifisering og
+rollback er en runbook: [§6 i `docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md#6-gjenoppretting--runbook).
+Kjør aldri `docker system prune --volumes` i produksjon; det sletter begge volumene.
 
 ## Oppdatere til ny versjon
 
-1. Les [endringsloggen](CHANGELOG.md) og ta en fersk backup. I produksjon kan du
-   kreve backup før migrering med `REQUIRE_BACKUP_BEFORE_MIGRATE=true` og
-   `BACKUP_CONFIRMED=true`.
-2. Bytt `APP_IMAGE` til den nye, pinnede taggen i `.env`:
-
-   ```dotenv
-   APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.9.3
-   ```
-
-3. Kontroller hvilke images som faktisk brukes, hent og recreate:
-
-   ```bash
-   docker compose -f docker-compose.prod.yml config --images
-   docker compose -f docker-compose.prod.yml pull app
-   docker compose -f docker-compose.prod.yml up -d --force-recreate app
-   ```
-
-   Migrasjonene kjøres ved oppstart med `prisma migrate deploy`. De er additive
-   med mindre annet er dokumentert; sjekk endringsloggen ved store hopp.
-
-4. Verifiser:
-
-   ```bash
-   docker compose -f docker-compose.prod.yml ps
-   curl -fsS https://fsm.example.com/api/health
-   curl -fsS https://fsm.example.com/api/ready
-   docker compose -f docker-compose.prod.yml logs --tail=100 app
-   ```
-
-   Gjør en røyktest: logg inn, åpne en kunde, last opp en fil og åpne en
-   rapport-PDF.
-
+1. Les [endringsloggen](CHANGELOG.md) og ta en fersk backup. I produksjon kan
+   `REQUIRE_BACKUP_BEFORE_MIGRATE=true` kreve det før migrering.
+2. Sett `APP_IMAGE` i `.env` til den nye, pinnede taggen og hent imaget med
+   `docker compose -f docker-compose.prod.yml pull app`.
+3. Kjør migreringene ved å recreate appen
+   (`docker compose -f docker-compose.prod.yml up -d --force-recreate app`);
+   `prisma migrate deploy` kjøres ved oppstart.
+4. Verifiser `/api/health` og `/api/ready`, og gjør en røyktest: logg inn, åpne
+   en kunde, last opp en fil og åpne en rapport-PDF.
 5. **Rull tilbake** ved feil: sett `APP_IMAGE` tilbake til forrige kjente gode
-   tag eller digest, kjør `pull app` og `up -d app`, og verifiser igjen. Er
-   databasen migrert destruktivt, må du også gjenopprette database og
-   opplastinger fra backup.
+   tag eller digest, kjør `pull app` og `up -d app`, og verifiser igjen.
 
-Rydd gamle images bevisst med `docker image prune`, men behold minst forrige
-kjente gode image. Volumer skal ikke ryddes automatisk. Se
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md#rollback) for full rollback og
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md#produksjonssett-image-pinning) for
-pinning til digest.
+Full prosedyre for Compose – også [rollback](docs/OPERATIONS.md#rollback) og
+[pinning til digest](docs/OPERATIONS.md#produksjonssett-image-pinning) – står i
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md); Azure-oppsettet i [`docs/AZURE.md`](docs/AZURE.md).
 
 ## Lokal utvikling
 
@@ -327,31 +188,68 @@ Appen er da på <http://localhost:3000>. For OCR av skannede PDF-er trengs
 installert med norsk og engelsk språkdata. E2E, skjermbilder og
 utviklingsdetaljer står i [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## Brukermanual
-
-- [Norsk brukermanual (PDF)](docs/manual/FSM-brukermanual-nb.pdf)
-- [English user manual (PDF)](docs/manual/FSM-user-manual-en.pdf)
-- [Markdown-kilder og byggeinstruksjoner](docs/manual/README.md)
-
-Manualen er delt i kontor, tekniker og administrator, med egen introduksjon,
-SSO/SCIM-kapittel og oppslagsdel. `npm run manual:build` bygger PDF-ene på nytt.
-
 ## Dokumentasjon
 
-| Dokument | Innhold |
-| --- | --- |
-| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Produksjon, backup, rollback, proxy, SSO, opplasting og feilsøking |
-| [`docs/MODULES.md`](docs/MODULES.md) | Modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av |
-| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Backlog og gjenstående arbeid – status, prioritering og akseptansekriterier |
-| [`docs/BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md) | Full runbook for backup og gjenoppretting, RPO/RTO, PITR, Azure-native backup, øvelser og sjekklister |
-| [`docs/STORAGE.md`](docs/STORAGE.md) | Lagringsdrivere, S3/MinIO, nøkler og migrering |
-| [`docs/SCALING.md`](docs/SCALING.md) | HA, replikaer, Redis og kapasitet |
-| [`docs/API.md`](docs/API.md) | REST-API med eksempler; OpenAPI på `/api/v1/openapi.json` |
-| [`fsm-mobile`](https://github.com/EroticD/fsm-mobile) | Native Android-/iOS-app (eget repo) |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | Designsystem, farger og komponentregler |
-| [`SECURITY.md`](SECURITY.md) | Sikkerhetsmodell og rapportering |
-| [`docs/compliance/README.md`](docs/compliance/README.md) | ISO/IEC 27001:2022 og SOC 2: omfang, SoA, risikoregister, policyer og bevisverktøy (readiness, ikke sertifisering) |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Oppsett, tester og pull requests |
+Alle driftsdokumenter ligger i `docs/`; start med
+[`OPERATIONS.md`](docs/OPERATIONS.md) og [`BACKUP-RESTORE.md`](docs/BACKUP-RESTORE.md).
+
+**Drift**
+
+- [OPERATIONS.md](docs/OPERATIONS.md) – produksjon, miljøfiler, helse, proxy, SSO, feilsøking
+- [BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) – RPO/RTO, PITR, restore-test, rollback
+- [STORAGE.md](docs/STORAGE.md) – lokal disk eller S3/MinIO, nøkler, gjenopptakbar migrering
+- [SCALING.md](docs/SCALING.md) – replikaer, Redis-kø/cache, DB-grenser, utrulling
+- [AZURE.md](docs/AZURE.md) – VM, Compose, Caddy, Flexible Server, Key Vault, Blob-backup
+- [ROUTING.md](docs/ROUTING.md) – ruteleverandører, trafikk-ETA og tidslinjer
+
+**Moduler og integrasjoner**
+
+- [MODULES.md](docs/MODULES.md) – modulkatalog, avhengigheter, presets og hva som skjer når en modul slås av
+- [REV.md](docs/REV.md) – tilbud og fakturering (REV-01/REV-02)
+- [INVENTORY.md](docs/INVENTORY.md) – lager, reservasjon og innkjøpsordrer
+- [PAYROLL_EXPORT.md](docs/PAYROLL_EXPORT.md) – kjøreturer, utlegg og lønnsgrunnlag
+- [BI.md](docs/BI.md) – lønnsomhetssiden og rapportbyggeren
+- [PAYMENTS.md](docs/PAYMENTS.md) – betalingslenke via PSP (kort og Vipps)
+- [ACCOUNTING.md](docs/ACCOUNTING.md) – Fiken, Tripletex, PowerOffice Go og CSV
+- [EMAIL.md](docs/EMAIL.md) – transaksjons-e-post og utboks med retry
+- [PUSH.md](docs/PUSH.md) – pushvarsler via FCM og APNs
+- [API.md](docs/API.md) – REST-API med eksempler; OpenAPI på `/api/v1/openapi.json`
+
+**Utvikling og testing**
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) – oppsett, tester og pull requests
+- [TESTING.md](docs/TESTING.md) – Vitest-nivåer, Playwright og testdata
+- [DESIGN.md](docs/DESIGN.md) – designsystem, farger og komponentregler
+- [AGENTS.md](AGENTS.md) – agentinstrukser for kodearbeid ([CLAUDE.md](CLAUDE.md) er lik)
+
+**Sikkerhet og compliance**
+
+- [SECURITY.md](SECURITY.md) – sikkerhetsmodell og rapportering
+- [RBAC.md](docs/RBAC.md) – feltnivå-RBAC for sensitive data
+- [audit-retention.md](docs/audit-retention.md) – hash-kjede, retensjon og eksport av revisjonslogg
+- [privacy-erasure.md](docs/privacy-erasure.md) – GDPR-sletting og anonymisering av kundedata
+- [security-audit-2026-10-29.md](docs/security-audit-2026-10-29.md) – statisk sikkerhetsrevisjon (v0.7.5)
+- [compliance/README.md](docs/compliance/README.md) – ISO/IEC 27001:2022 og SOC 2: omfang og leseveiledning
+- [ISO27001-SOA.md](docs/compliance/ISO27001-SOA.md) – Statement of Applicability for alle 93 kontroller
+- [SOC2-TSC-MAPPING.md](docs/compliance/SOC2-TSC-MAPPING.md) – TSC-kriterier mot kontroller og bevis
+- [RISK-REGISTER.md](docs/compliance/RISK-REGISTER.md) – risiko med eiere og tiltak
+- [ASSET-REGISTER.md](docs/compliance/ASSET-REGISTER.md) – eiendeler og eiere
+- [DATA-CLASSIFICATION-RETENTION.md](docs/compliance/DATA-CLASSIFICATION-RETENTION.md) – dataklasser og lagringstid
+- [GAP-ANALYSIS.md](docs/compliance/GAP-ANALYSIS.md) – gjenstående arbeid før revisjon
+- [EVIDENCE-CHECKLIST.md](docs/compliance/EVIDENCE-CHECKLIST.md) – bevis og innsamling
+- [compliance/policies/](docs/compliance/policies/) – 19 policyer; [templates/](docs/compliance/templates/) – 7 maler og logger
+
+**Analyse og beslutninger**
+
+- [PLATFORM-ANALYSIS.md](docs/PLATFORM-ANALYSIS.md) – plattformen sammenlignet med markedet
+- [DECISIONS.md](docs/DECISIONS.md) – valg, avgrensninger og hva som er utsatt
+- [BACKLOG.md](docs/BACKLOG.md) – den eneste køen for gjenstående arbeid
+
+**Brukermanual**
+
+- [Norsk brukermanual (PDF)](docs/manual/FSM-brukermanual-nb.pdf) – kontor, tekniker, administrator
+- [English user manual (PDF)](docs/manual/FSM-user-manual-en.pdf) – samme inndeling
+- [manual/README.md](docs/manual/README.md) – Markdown-kilder og `npm run manual:build`
 
 ## Sikkerhet
 
