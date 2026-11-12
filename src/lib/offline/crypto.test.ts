@@ -132,9 +132,12 @@ describe("offline-kryptering – feil PIN og låsing", () => {
     const sealed = await encryptOfflinePayload("u1", "draft:a", "hemmelig");
 
     expect(isOfflineUnlocked("u1", createdAt)).toBe(true);
-    expect(isOfflineUnlocked("u1", createdAt + OFFLINE_IDLE_LOCK_MS + 1)).toBe(
-      false,
-    );
+    // Krypteringen oppdaterer lastUsedAt etter at createdAt ble tatt. Legg
+    // derfor god margin på, ellers er testen avhengig av hvor lang tid
+    // krypteringen tar på maskinen som kjører den.
+    expect(
+      isOfflineUnlocked("u1", createdAt + OFFLINE_IDLE_LOCK_MS + 60_000),
+    ).toBe(false);
     await expect(
       decryptOfflinePayload("u1", "draft:a", sealed),
     ).rejects.toBeInstanceOf(OfflineLockedError);
