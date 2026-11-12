@@ -109,6 +109,15 @@ export default async function ContractsPage({
     return text ? `/avtaler?${text}` : "/avtaler";
   };
 
+  const hasActiveFilters = Boolean(status || expiring || query);
+  // Ved treffløse filtre skal brukeren få nullstilt dem, ikke onboarding-teksten.
+  const resetHref = hrefWith({
+    status: null,
+    q: null,
+    utlop: null,
+    side: null,
+  });
+
   return (
     <PageShell>
       <PageHeader
@@ -176,7 +185,7 @@ export default async function ContractsPage({
               href="/avtaler"
               className={buttonClassName({ variant: "ghost", size: "sm" })}
             >
-              {t("reset")}
+              {t("contractsPage.resetFilters")}
             </Link>
           ) : null}
         </form>
@@ -184,8 +193,26 @@ export default async function ContractsPage({
 
       {contracts.length === 0 ? (
         <EmptyState
-          title={t("contractsPage.emptyTitle")}
-          description={t("contractsPage.emptyDescription")}
+          title={
+            hasActiveFilters
+              ? t("contractsPage.emptyFilteredTitle")
+              : t("contractsPage.emptyTitle")
+          }
+          description={
+            hasActiveFilters
+              ? t("contractsPage.emptyFilteredDescription")
+              : t("contractsPage.emptyDescription")
+          }
+          action={
+            hasActiveFilters ? (
+              <Link
+                href={resetHref}
+                className={buttonClassName({ variant: "primary", size: "sm" })}
+              >
+                {t("contractsPage.resetFilters")}
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
         <div className="space-y-2">

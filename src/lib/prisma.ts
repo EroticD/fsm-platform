@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { onShutdown } from './shutdown'
 
 /**
  * Maks antall samtidige PostgreSQL-tilkoblinger per appprosess. Med flere
@@ -45,6 +46,14 @@ declare global {
 }
 
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
+
+/**
+ * Lukk poolen kontrollert ved SIGTERM/SIGINT. Prioritet 100 gjør at dette
+ * kjører etter scheduler- og job-worker-oppryddingen, uansett hvilken modul
+ * som ble importert først: de må få gjøre ferdig spørringene sine før
+ * tilkoblingene lukkes.
+ */
+onShutdown(() => prisma.$disconnect(), { name: "prisma", priority: 100 })
 
 export default prisma
 

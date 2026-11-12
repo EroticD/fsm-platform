@@ -7,6 +7,7 @@ import { runSlaCleanupJob } from "@/server/sla-cleanup-job";
 import { slaCleanupIntervalMs } from "@/lib/sla-cleanup-config";
 import { logger } from "@/lib/logger";
 import { moduleEnabled } from "@/server/modules";
+import { onShutdown } from "@/lib/shutdown";
 
 /** Hvor ofte jobben sjekker avtaler, vedlikehold, garanti og SLA. */
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -16,6 +17,7 @@ const START_DELAY_MS = 10 * 1000;
 
 type SchedulerGlobal = typeof globalThis & {
   __fsmSchedulerStarted?: boolean;
+  __fsmSchedulerStop?: () => Promise<void>;
 };
 
 export type SchedulerRunResult = {
@@ -175,32 +177,102 @@ async function runOnce() {
  * bruker en global flagg fordi utviklingsserveren kan laste modulen på nytt.
  * Jobben kjører i den vanlige Node-prosessen; /api/cron/recurring kan i tillegg
  * kalles av en ekstern cron. Slås av med `RECURRING_SCHEDULER=false`.
+ *
+ * Ved SIGTERM/SIGINT stopper `stopScheduler()` intervallene og venter på
+ * kjøringen som eventuelt pågår, slik at en halvferdig SLA-sveip eller
+ * avtalegenerering ikke blir avbrutt midt i en transaksjon.
  */
 export function startScheduler() {
   const scope = globalThis as SchedulerGlobal;
   if (scope.__fsmSchedulerStarted) return;
   scope.__fsmSchedulerStarted = true;
 
-  const run = () => {
-    void runOnce();
+  const timers: NodeJS.Timeout[] = [];
+  const inFlight = new Set<Promise<void>>();
+  let stopped = false;
+  let mainRunActive = false;
+
+  const track = (work: Promise<unknown>, label: string) => {
+    const tracked: Promise<void> = work
+      .then(() => undefined)
+      .catch((error) => {
+        logger.error(`${label} failed`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(() => {
+        inFlight.delete(tracked);
+      });
+    inFlight.add(tracked);
   };
 
-  setTimeout(run, START_DELAY_MS);
-  setInterval(run, RUN_INTERVAL_MS);
+  const run = () => {
+    if (stopped) return;
+    // Ikke start en ny runde mens den forrige kjører: da finnes det alltid
+    // nøyaktig én kjøring å vente på ved nedstenging.
+    if (mainRunActive) return;
+    mainRunActive = true;
+    track(
+      runOnce().finally(() => {
+        mainRunActive = false;
+      }),
+      "scheduler: run",
+    );
+  };
+
+  timers.push(setTimeout(run, START_DELAY_MS));
+  timers.push(setInterval(run, RUN_INTERVAL_MS));
 
   // SLA-oppryddingen har eget intervall (SLA_CLEANUP_INTERVAL_HOURS) fordi
   // den kan kjøres oftere enn de øvrige tunge jobbene. runScheduledJobs gjør
   // også et due-sjekk-kall, så intervallet respekteres uansett hvem som vekker
   // den (intern timer eller /api/cron/recurring).
   const cleanupTimer = setInterval(() => {
-    void runSlaCleanupJob().catch((error) => {
-      logger.error("sla: cleanup timer failed", {
-        error: errorText(error),
-      });
-    });
+    if (stopped) return;
+    track(runSlaCleanupJob(), "sla: cleanup timer");
   }, slaCleanupIntervalMs());
   cleanupTimer.unref?.();
+  timers.push(cleanupTimer);
+
+  // Idempotent: gjentatte kall (signal + eksplisitt stopp) venter på samme
+  // avslutning i stedet for å returnere før jobbene er ferdige.
+  let stopPromise: Promise<void> | null = null;
+  const stop = (): Promise<void> => {
+    stopPromise ??= (async () => {
+      stopped = true;
+      for (const timer of timers) {
+        clearTimeout(timer);
+        clearInterval(timer);
+      }
+      // Vent på jobbene som allerede er i gang. Nye starter ikke, fordi
+      // `stopped` sjekkes i både `run` og SLA-timeren.
+      if (inFlight.size > 0) {
+        logger.info("scheduler: waiting for in-flight jobs", {
+          count: inFlight.size,
+        });
+        await Promise.allSettled([...inFlight]);
+      }
+    })();
+    return stopPromise;
+  };
+  scope.__fsmSchedulerStop = stop;
+
+  onShutdown(
+    async () => {
+      logger.info("scheduler: stopping");
+      await stop();
+      logger.info("scheduler: stopped");
+    },
+    { name: "scheduler" },
+  );
 }
+
+/** Stopper intervallene og venter på pågående kjøring. Brukes ved nedstenging. */
+export function stopScheduler(): Promise<void> {
+  const scope = globalThis as SchedulerGlobal;
+  return scope.__fsmSchedulerStop?.() ?? Promise.resolve();
+}
+
 
 /** Bakoverkompatibelt navn fra da jobben bare håndterte serviceavtaler. */
 export function startRecurringScheduler() {

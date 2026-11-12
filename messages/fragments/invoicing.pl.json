@@ -46,8 +46,11 @@
       "noDate": "Nie ustawiono",
       "due": "Termin płatności {date}",
       "outstanding": "Do zapłaty {amount}",
+      "emptyFilteredTitle": "Brak wyników dla ustawionych filtrów.",
+      "emptyFilteredDescription": "Spróbuj innego wyszukiwania lub usuń jeden lub więcej filtrów.",
       "emptyTitle": "Brak faktur",
-      "emptyDescription": "Utwórz fakturę na podstawie zakończonego zlecenia, oferty lub ręcznie."
+      "emptyDescription": "Utwórz fakturę na podstawie zakończonego zlecenia, oferty lub ręcznie.",
+      "resetFilters": "Wyczyść filtry"
     },
     "new": {
       "title": "Nowa faktura",

@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
-    exclude: ["**/*.integration.test.ts", "**/node_modules/**"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    exclude: ["**/*.integration.test.ts", "**/*.integration.test.tsx", "**/node_modules/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

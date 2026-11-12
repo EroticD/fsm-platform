@@ -1,13 +1,16 @@
 import { requireModulePage } from "@/lib/module-guards";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
 import {
+  addMonthsUtc,
   formatDateLocalized,
   formatDateRangeLocalized,
+  parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
 import CalendarShell from "@/app/kalender/CalendarShell";
@@ -124,27 +127,61 @@ export default async function CalendarPage({
     where: staffScope(user),
     orderBy: { name: "asc" },
     take: 200,
+    // Kortet viser bare navn og bruker id-en til å matche oppdrag.
+    select: { id: true, name: true },
   });
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  // Datovindu rundt perioden tavla faktisk dekker. Ressursoversikten er ikke
+  // en månedsgrid, men en stående tavle: montørkortene viser alle åpne
+  // oppdrag pluss de siste 30 dagene med fullførte. Vinduet er derfor et år
+  // bakover (mer enn nok for åpen backlog – fullførte eldre enn 30 dager
+  // faller uansett ut) og ett år framover, i tillegg til oppdrag uten dato.
+  // Uten dette vinduet måtte Postgres sortere hele oppdragstabellen for å
+  // fylle `take`-grensen. Forfalte oppdrag eldre enn vinduet vises fortsatt i
+  // varselseksjonen på /kalender/dispatch, som ikke har bakovergrense.
+  const todayDate = parseDateOnly(todayInOslo()) ?? new Date();
+  const monthStart = new Date(
+    Date.UTC(todayDate.getUTCFullYear(), todayDate.getUTCMonth(), 1),
+  );
+  const windowStart = addMonthsUtc(monthStart, -12);
+  const windowEnd = addMonthsUtc(monthStart, 12);
+
+  const boardWhere: Prisma.WorkOrderWhereInput = {
+    AND: [
+      workOrderScope(user),
+      {
+        status: { not: "CANCELLED" },
+        OR: [
+          { status: { not: "COMPLETED" } },
+          { scheduledFor: { gte: thirtyDaysAgo } },
+        ],
+      },
+      {
+        OR: [
+          { scheduledFor: null },
+          { scheduledFor: { gte: windowStart, lt: windowEnd } },
+        ],
+      },
+    ],
+  };
+
   const workOrders = await prisma.workOrder.findMany({
-    where: {
-      AND: [
-        workOrderScope(user),
-        {
-          status: { not: "CANCELLED" },
-          OR: [
-            { status: { not: "COMPLETED" } },
-            { scheduledFor: { gte: thirtyDaysAgo } },
-          ],
-        },
-      ],
-    },
-    include: {
-      customer: true,
-      technicians: true,
+    where: boardWhere,
+    // Bare feltene kortene under leser: tittel, status, periode, kundenavn og
+    // adresse (formatAddress) samt montørenes id-er for tildelingsmatchen.
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      scheduledFor: true,
+      scheduledTo: true,
+      customer: {
+        select: { name: true, address: true, postalCode: true, city: true },
+      },
+      technicians: { select: { id: true } },
     },
     orderBy: {
       scheduledFor: "asc",
@@ -161,6 +198,19 @@ export default async function CalendarPage({
           workOrder.status !== "COMPLETED",
       )
     : [];
+
+  // KPI-en telles i databasen med samme filter som tavla, i stedet for å
+  // utledes av de hentede radene (som er kappet til `take`).
+  const unassignedCount = office
+    ? await prisma.workOrder.count({
+        where: {
+          AND: [
+            boardWhere,
+            { status: { not: "COMPLETED" }, technicians: { none: {} } },
+          ],
+        },
+      })
+    : 0;
 
   const statusCounts = new Map<string, number>();
   for (const workOrder of workOrders) {
@@ -210,10 +260,10 @@ export default async function CalendarPage({
     {
       key: "unassigned",
       label: t("calendar.page.summaryUnassigned"),
-      value: unassignedJobs.length,
+      value: unassignedCount,
       icon: "alert",
       tone:
-        unassignedJobs.length > 0
+        unassignedCount > 0
           ? "border-[var(--risk-text,#b42318)] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
           : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
     },

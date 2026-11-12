@@ -507,5 +507,17 @@
         "errorGeneric": "Erasure could not be completed. Nothing was changed."
       }
     }
+  },
+  "contractsPage": {
+    "emptyFilteredTitle": "No matches with the current filters.",
+    "emptyFilteredDescription": "Try another search, or remove one or more filters.",
+    "resetFilters": "Reset filters"
+  },
+  "assets": {
+    "list": {
+      "emptyFilteredTitle": "No matches with the current filters.",
+      "emptyFilteredDescription": "Try another search, or remove one or more filters.",
+      "resetFilters": "Reset filters"
+    }
   }
 }

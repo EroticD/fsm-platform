@@ -46,8 +46,11 @@
       "noDate": "Nicht festgelegt",
       "due": "Fällig {date}",
       "outstanding": "Offen {amount}",
+      "emptyFilteredTitle": "Keine Treffer für die gesetzten Filter.",
+      "emptyFilteredDescription": "Versuchen Sie eine andere Suche oder entfernen Sie einen oder mehrere Filter.",
       "emptyTitle": "Noch keine Rechnungen",
-      "emptyDescription": "Erstellen Sie eine Rechnung aus einem abgeschlossenen Auftrag, einem Angebot oder manuell."
+      "emptyDescription": "Erstellen Sie eine Rechnung aus einem abgeschlossenen Auftrag, einem Angebot oder manuell.",
+      "resetFilters": "Filter zurücksetzen"
     },
     "new": {
       "title": "Neue Rechnung",

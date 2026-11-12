@@ -24,6 +24,15 @@ export async function register() {
     throw new Error("Ugyldig produksjonskonfigurasjon");
   }
 
+  // Kontrollert nedstenging må være på plass før noe annet starter. Docker
+  // sender SIGTERM ved stopp/omstart og dreper prosessen etter
+  // `stop_grace_period` (30 s). Uten denne håndteringen avslutter Node med én
+  // gang: pågående OCR/PDF-jobber blir stående RUNNING til requeue etter
+  // 30 minutter, og Prisma-poolen lukkes ikke. Håndteringen registrerer bare
+  // lyttere i Node-runtime (sjekket over), så Edge og bygg er urørt.
+  const { installShutdownHandlers } = await import("@/lib/shutdown");
+  installShutdownHandlers();
+
   if (process.env.RECURRING_SCHEDULER !== "false") {
     try {
       const { startScheduler } = await import("@/lib/scheduler");

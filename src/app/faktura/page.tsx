@@ -98,6 +98,15 @@ export default async function InvoicesPage({
   if (query) exportQuery.set("q", query);
   const exportHref = `/api/faktura/eksport${exportQuery.size ? `?${exportQuery.toString()}` : ""}`;
 
+  const hasActiveFilters = Boolean(status || overdue || query);
+  // Ved treffløse filtre skal brukeren få nullstilt dem, ikke onboarding-teksten.
+  const resetHref = hrefWith({
+    status: null,
+    q: null,
+    forfalt: null,
+    side: null,
+  });
+
   return (
     <PageShell>
       <PageHeader
@@ -188,7 +197,7 @@ export default async function InvoicesPage({
               href="/faktura"
               className={buttonClassName({ variant: "ghost" })}
             >
-              {t("reset")}
+              {t("invoicing.list.resetFilters")}
             </Link>
           ) : null}
         </form>
@@ -206,7 +215,28 @@ export default async function InvoicesPage({
       ) : null}
 
       {invoices.length === 0 ? (
-        <EmptyState title={t("invoicing.list.emptyTitle")} description={t("invoicing.list.emptyDescription")} />
+        <EmptyState
+          title={
+            hasActiveFilters
+              ? t("invoicing.list.emptyFilteredTitle")
+              : t("invoicing.list.emptyTitle")
+          }
+          description={
+            hasActiveFilters
+              ? t("invoicing.list.emptyFilteredDescription")
+              : t("invoicing.list.emptyDescription")
+          }
+          action={
+            hasActiveFilters ? (
+              <Link
+                href={resetHref}
+                className={buttonClassName({ variant: "primary", size: "sm" })}
+              >
+                {t("invoicing.list.resetFilters")}
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="space-y-2">
           {invoices.map((invoice) => (

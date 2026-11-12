@@ -5,6 +5,21 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Kvalitet og drift
+- Kontrollert nedstenging: SIGTERM/SIGINT stopper scheduler og job-worker, venter
+  på pågående jobb og lukker Prisma-poolen innen en samlet frist. Før ble
+  pågående OCR/PDF-jobber avbrutt og lå som `RUNNING` til requeue.
+- Dashbord, kalender og dispatch henter bare feltene de viser, ikke hele
+  `Customer`- og `User`-rader. Kalenderen har fått et datovindu, og antall
+  ufordelte telles i databasen.
+- Hurtigtildeling beholder side og filter i returlenken.
+- Tilbud, faktura, avtaler og enheter viser egen tomtilstand når filtre ikke gir
+  treff, med «Nullstill filtre» i stedet for onboarding-teksten.
+- Rapportskjemaet har «Sett alle til OK» per enhet med angre. Knappen fyller
+  bare tomme tilstandsfelt, så registrerte avvik overskrives aldri.
+- Utviklerverktøy: `npm run test:watch`, `.test.tsx` i Vitest og `npm run
+  db:drift` (samme sjekk som CI).
+
 ### Kunder
 - Kundeopprettelse og kunderedigering kan hente navn, adresse, postnummer,
   poststed og telefon fra Enhetsregisteret ut fra organisasjonsnummeret.

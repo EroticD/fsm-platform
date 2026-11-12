@@ -125,5 +125,17 @@
         "errorGeneric": "Nie udało się wykonać usunięcia. Nic nie zostało zmienione."
       }
     }
+  },
+  "contractsPage": {
+    "emptyFilteredTitle": "Brak wyników dla ustawionych filtrów.",
+    "emptyFilteredDescription": "Spróbuj innego wyszukiwania lub usuń jeden lub więcej filtrów.",
+    "resetFilters": "Wyczyść filtry"
+  },
+  "assets": {
+    "list": {
+      "emptyFilteredTitle": "Brak wyników dla ustawionych filtrów.",
+      "emptyFilteredDescription": "Spróbuj innego wyszukiwania lub usuń jeden lub więcej filtrów.",
+      "resetFilters": "Wyczyść filtry"
+    }
   }
 }

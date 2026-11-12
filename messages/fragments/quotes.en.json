@@ -29,6 +29,8 @@
       "searchPlaceholder": "Quote number, title or customer",
       "status": "Status",
       "allStatuses": "All statuses",
+      "emptyFilteredTitle": "No matches with the current filters.",
+      "emptyFilteredDescription": "Try another search, or remove one or more filters.",
       "emptyTitle": "No quotes yet",
       "emptyDescription": "Create the first quote and send the approval link to the customer.",
       "noNumber": "No quote number",
@@ -36,7 +38,8 @@
       "validUntil": "Valid until {date}",
       "version": "Version {version}",
       "updated": "Updated {date}",
-      "versioned": "A new version has been saved."
+      "versioned": "A new version has been saved.",
+      "resetFilters": "Reset filters"
     },
     "new": {
       "title": "New quote",

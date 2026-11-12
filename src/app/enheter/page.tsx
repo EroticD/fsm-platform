@@ -137,6 +137,16 @@ export default async function EquipmentPage({
   const hrefFor = (nextPage: number) =>
     buildEquipmentListHref(filters, nextPage);
 
+  const hasActiveFilters = Boolean(
+    query || (status && status !== "ALL") || categoryId || customerId,
+  );
+  // Ved treffløse filtre skal brukeren få nullstilt dem, ikke onboarding-teksten.
+  // Hierarkivalget er en visning, ikke et filter, og beholdes i nullstillingen.
+  const resetHref = buildEquipmentListHref(
+    { query: "", status: "", categoryId: "", customerId: "", hierarchy },
+    1,
+  );
+
   return (
     <PageShell>
       {feedbackKey && <CustomerToast message={t(feedbackKey)} />}
@@ -261,10 +271,25 @@ export default async function EquipmentPage({
       {(forestData ? forestItems.length === 0 : (listData?.items.length ?? 0) === 0) ? (
         <EmptyState
           icon={<Icon name="wrench" className="h-6 w-6" />}
-          title={t("assets.list.empty")}
-          description={t("assets.list.emptyHint")}
+          title={
+            hasActiveFilters
+              ? t("assets.list.emptyFilteredTitle")
+              : t("assets.list.empty")
+          }
+          description={
+            hasActiveFilters
+              ? t("assets.list.emptyFilteredDescription")
+              : t("assets.list.emptyHint")
+          }
           action={
-            hasPermission(user, "equipment.manage") ? (
+            hasActiveFilters ? (
+              <Link
+                href={resetHref}
+                className={buttonClassName({ variant: "primary", size: "sm" })}
+              >
+                {t("assets.list.resetFilters")}
+              </Link>
+            ) : hasPermission(user, "equipment.manage") ? (
               <Link
                 href="/enheter/ny"
                 className={buttonClassName({ variant: "primary", size: "sm" })}

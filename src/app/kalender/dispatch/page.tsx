@@ -53,16 +53,42 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 /** Sikkerhets tak for varselseksjonen; ufordelte/forfalte vises først. */
 const ATTENTION_LIMIT = 200;
 
+// Feltene varselsekortet faktisk rendrer (tittel, kunde, periode og
+// montørene som er tildelt). Hele `User`-raden velges ikke, slik at passord,
+// 2FA-hemmeligheter og rettighetslister holdes utenfor objektgrafen.
 type DispatchWorkOrderRow = Prisma.WorkOrderGetPayload<{
-  include: { customer: true; technicians: true; product: true };
+  select: {
+    id: true;
+    title: true;
+    scheduledFor: true;
+    scheduledTo: true;
+    customer: { select: { name: true } };
+    technicians: { select: { id: true; name: true; email: true } };
+  };
 }>;
 
 type DispatchVisitRow = Prisma.VisitGetPayload<{
-  include: {
+  select: {
+    id: true;
+    workOrderId: true;
+    startsAt: true;
+    endsAt: true;
+    allDay: true;
+    status: true;
     technicians: {
-      include: { user: { select: { id: true; name: true; email: true } } };
+      select: { user: { select: { id: true; name: true; email: true } } };
     };
-    workOrder: { include: { customer: true; product: true } };
+    workOrder: {
+      select: {
+        title: true;
+        status: true;
+        description: true;
+        customer: {
+          select: { name: true; address: true; postalCode: true; city: true };
+        };
+        product: { select: { model: true } };
+      };
+    };
   };
 }>;
 
@@ -125,10 +151,13 @@ export default async function DispatchPage({
   const [attentionRows, dateTotal, technicians] = await Promise.all([
     prisma.workOrder.findMany({
       where: attentionWhere,
-      include: {
-        customer: true,
-        technicians: true,
-        product: true,
+      select: {
+        id: true,
+        title: true,
+        scheduledFor: true,
+        scheduledTo: true,
+        customer: { select: { name: true } },
+        technicians: { select: { id: true, name: true, email: true } },
       },
       orderBy: [{ scheduledFor: "asc" }, { createdAt: "asc" }],
       take: ATTENTION_LIMIT,
@@ -152,13 +181,34 @@ export default async function DispatchPage({
   // egne montører, slik at kortet kan vises uten flere oppslag.
   const dateVisits = await prisma.visit.findMany({
     where: dateWhere,
-    include: {
+    // Kortet trenger bare tittel, status, beskrivelse, kunde (navn + adresse
+    // for formatAddress), utstyrsmodell og visittens egne montører.
+    select: {
+      id: true,
+      workOrderId: true,
+      startsAt: true,
+      endsAt: true,
+      allDay: true,
+      status: true,
       technicians: {
-        include: {
-          user: { select: { id: true, name: true, email: true } },
+        select: { user: { select: { id: true, name: true, email: true } } },
+      },
+      workOrder: {
+        select: {
+          title: true,
+          status: true,
+          description: true,
+          customer: {
+            select: {
+              name: true,
+              address: true,
+              postalCode: true,
+              city: true,
+            },
+          },
+          product: { select: { model: true } },
         },
       },
-      workOrder: { include: { customer: true, product: true } },
     },
     orderBy: [{ startsAt: "asc" }, { id: "asc" }],
     skip: pagination.skip,

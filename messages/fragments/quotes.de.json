@@ -29,6 +29,8 @@
       "searchPlaceholder": "Angebotsnummer, Titel oder Kunde",
       "status": "Status",
       "allStatuses": "Alle Status",
+      "emptyFilteredTitle": "Keine Treffer für die gesetzten Filter.",
+      "emptyFilteredDescription": "Versuchen Sie eine andere Suche oder entfernen Sie einen oder mehrere Filter.",
       "emptyTitle": "Noch keine Angebote",
       "emptyDescription": "Erstellen Sie das erste Angebot und senden Sie den Genehmigungslink an den Kunden.",
       "noNumber": "Keine Angebotsnummer",
@@ -36,7 +38,8 @@
       "validUntil": "Gültig bis {date}",
       "version": "Version {version}",
       "updated": "Aktualisiert {date}",
-      "versioned": "Eine neue Version wurde gespeichert."
+      "versioned": "Eine neue Version wurde gespeichert.",
+      "resetFilters": "Filter zurücksetzen"
     },
     "new": {
       "title": "Neues Angebot",

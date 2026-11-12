@@ -368,7 +368,15 @@ export default async function WorkOrdersPage({
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
 
-  const listReturnTo = linkFor(view);
+  // Returlenken fra hurtigtildeling skal peke tilbake til samme side i listen.
+  // `page` er allerede klemt mot [1, totalPages] over, så den er trygg å sette
+  // rett inn i en relativ URL på samme måte som sidebladdringen lenger ned.
+  const hrefForPage = (base: string, targetPage: number) =>
+    targetPage <= 1
+      ? base
+      : `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
+
+  const listReturnTo = hrefForPage(linkFor(view), page);
 
   const sortLinkFor = (key: SortKey) => {
     const params = new URLSearchParams();
@@ -870,11 +878,7 @@ export default async function WorkOrdersPage({
       <Pagination
         page={page}
         totalPages={totalPages}
-        hrefFor={(targetPage) => {
-          const base = linkFor(view);
-          if (targetPage <= 1) return base;
-          return `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
-        }}
+        hrefFor={(targetPage) => hrefForPage(linkFor(view), targetPage)}
         labels={paginationLabels(t)}
         summary={t("orders.list.page", { page, pages: totalPages })}
         className="pt-2"

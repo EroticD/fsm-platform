@@ -17,7 +17,13 @@ import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Icon from "@/components/icons";
-import { parseImageUrls, readLineComment, REPORT_STATUS_UNASSESSED } from "@/lib/report-answers";
+import {
+  commentTriggerOptions,
+  fieldOptions,
+  parseImageUrls,
+  readLineComment,
+  REPORT_STATUS_UNASSESSED,
+} from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
 import {
   makeUnit,
@@ -61,6 +67,66 @@ export type CustomerUnit = {
 };
 
 export type InitialReport = ReportSeed;
+
+/**
+ * OK-verdien for et tilstandsfelt, eller null når feltet ikke har noe
+ * OK-lignende valg.
+ *
+ * Verdien leses fra malens egne `options` (med standardvalgene som fallback via
+ * `fieldOptions`), så en mal som skriver «OK», «ok» eller «OK – i orden» får
+ * samme hurtigknapp. Et valg malen selv markerer som kommentarpliktig regnes
+ * ikke som trygt: da ville knappen skjult et krav om oppfølging.
+ */
+export function okChoiceValue(field: TemplateField): string | null {
+  if (field.type !== "STATUS") return null;
+  const value = fieldOptions(field).find((option) =>
+    /^ok\b/i.test(option.trim()),
+  );
+  if (!value) return null;
+  return commentTriggerOptions(field).includes(value) ? null : value;
+}
+
+/** Ett felt hurtigknappen kan fylle, med malens eksakte valgtekst. */
+export type AllOkTarget = { fieldId: string; value: string };
+
+/**
+ * Tilstandsfeltene i én enhet som kan settes til OK med ett trykk.
+ *
+ * Regelen er bevisst konservativ: bare felt uten svar fylles. Et felt som alt
+ * har en verdi – også «Avvik»/«Utbedres» – står urørt, så ett trykk aldri kan
+ * skjule et avvik montøren har registrert. Skjulte betingede felt hoppes over,
+ * fordi de ikke vises i skjemaet.
+ */
+export function collectAllOkTargets(
+  fields: TemplateField[],
+  answers: Record<string, unknown>,
+): AllOkTarget[] {
+  const targets: AllOkTarget[] = [];
+  for (const field of fields) {
+    if (!isFieldVisible(field, answers)) continue;
+    const value = okChoiceValue(field);
+    if (!value) continue;
+    if (hasAnswer(answers[field.id])) continue;
+    targets.push({ fieldId: field.id, value });
+  }
+  return targets;
+}
+
+/**
+ * Legger tilbake svarene enheten hadde før hurtigknappen. Felt som var tomme
+ * fjernes helt, slik at de blir stående ubesvart i stedet for som tom tekst.
+ */
+export function revertAllOkAnswers(
+  answers: Record<string, unknown>,
+  previous: Record<string, unknown>,
+): Record<string, unknown> {
+  const next = { ...answers };
+  for (const [fieldId, value] of Object.entries(previous)) {
+    if (value === undefined || value === null) delete next[fieldId];
+    else next[fieldId] = value;
+  }
+  return next;
+}
 
 /**
  * Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk.
@@ -527,6 +593,17 @@ export default function ReportForm({
     undo: null,
   });
   const [announcement, setAnnouncement] = useState("");
+  // «Sett alle til OK» per enhet: hva knappen fylte, slik at «Angre» kan legge
+  // tilbake nøyaktig de verdiene feltene hadde før trykket.
+  const [allOkUndo, setAllOkUndo] = useState<
+    Record<string, { count: number; previous: Record<string, unknown> }>
+  >({});
+  // Radiogruppene holder valget sitt i komponenten, så et felt som fylles fra
+  // state må tegnes på nytt for å vise OK. Vi remonterer bare feltene knappen
+  // faktisk rørte – resten (kommentarer, tekstsvar) står urørt i skjemaet.
+  const [fieldRevisions, setFieldRevisions] = useState<Record<string, number>>(
+    {},
+  );
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setFieldNeedsComment = (unitKey: string, fieldId: string, needs: boolean) =>
@@ -651,6 +728,82 @@ export default function ReportForm({
     }
     clearCompletionNotice(key);
     patchUnit(key, { status });
+  };
+
+  /**
+   * Setter alle tomme tilstandsfelt i én enhet til OK med ett trykk.
+   *
+   * Samme oppdatering som et enkeltvalg gjør: svaret skrives i skjemaets state
+   * (samme `answers`-objekt som `onValueChange` bruker), kommentarkravet for
+   * linjen nullstilles, og varselet om manglende svar for enheten ryddes.
+   * Felt som alt har et svar – også et avvik – røres ikke, se
+   * `collectAllOkTargets`. «Angre» får et øyeblikksbilde av de gamle verdiene.
+   */
+  const setAllFieldsOk = (unitKey: string) => {
+    const unit = stateRef.current.units.find((entry) => entry.key === unitKey);
+    if (!unit) return;
+    const targets = collectAllOkTargets(fields, unit.answers);
+    if (targets.length === 0) return;
+
+    const previous: Record<string, unknown> = {};
+    for (const target of targets) {
+      previous[target.fieldId] = unit.answers[target.fieldId];
+      setFieldNeedsComment(unitKey, target.fieldId, false);
+    }
+
+    setState((s) => ({
+      ...s,
+      units: s.units.map((entry) => {
+        if (entry.key !== unitKey) return entry;
+        const answers = { ...entry.answers };
+        for (const target of targets) answers[target.fieldId] = target.value;
+        return { ...entry, answers };
+      }),
+    }));
+    clearCompletionNotice(unitKey);
+    setAllOkUndo((prev) => ({
+      ...prev,
+      [unitKey]: { count: targets.length, previous },
+    }));
+    setFieldRevisions((prev) => {
+      const next = { ...prev };
+      for (const target of targets) {
+        const key = `${unitKey}:${target.fieldId}`;
+        next[key] = (next[key] ?? 0) + 1;
+      }
+      return next;
+    });
+    scheduleSave();
+  };
+
+  /** Legger tilbake verdiene feltene hadde før «Sett alle til OK». */
+  const undoAllFieldsOk = (unitKey: string) => {
+    const entry = allOkUndo[unitKey];
+    if (!entry) return;
+
+    setState((s) => ({
+      ...s,
+      units: s.units.map((unit) =>
+        unit.key === unitKey
+          ? { ...unit, answers: revertAllOkAnswers(unit.answers, entry.previous) }
+          : unit,
+      ),
+    }));
+    setAllOkUndo((prev) => {
+      const next = { ...prev };
+      delete next[unitKey];
+      return next;
+    });
+    // Feltene må tegnes på nytt for at radioene skal vise de gamle verdiene.
+    setFieldRevisions((prev) => {
+      const next = { ...prev };
+      for (const fieldId of Object.keys(entry.previous)) {
+        const key = `${unitKey}:${fieldId}`;
+        next[key] = (next[key] ?? 0) + 1;
+      }
+      return next;
+    });
+    scheduleSave();
   };
 
   useEffect(
@@ -1446,6 +1599,59 @@ export default function ReportForm({
               </fieldset>
             )}
 
+            {/* Hurtigknapp: ett trykk fyller alle tomme tilstandsfelt i denne
+                enheten med OK. Vises bare når enheten har minst to slike felt,
+                og rører aldri et felt som alt er besvart. Etter trykket blir
+                knappen til «Angre», som legger tilbake de gamle verdiene. */}
+            {(() => {
+              const okCapable = fields.filter(
+                (field) =>
+                  isFieldVisible(field, unit.answers) &&
+                  okChoiceValue(field) !== null,
+              );
+              if (okCapable.length < 2) return null;
+              const targets = collectAllOkTargets(fields, unit.answers);
+              const undoEntry = allOkUndo[unit.key];
+              if (targets.length === 0 && !undoEntry) return null;
+
+              return (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-signal/40 bg-signal/5 px-3 py-2">
+                  {targets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAllFieldsOk(unit.key)}
+                      className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border-2 border-signal/60 bg-signal/10 px-3 py-2 text-sm font-black text-ink transition hover:bg-signal/20"
+                    >
+                      <Icon name="check" className="h-4 w-4 shrink-0" />
+                      {t("orders.reportForm.allOk")}
+                    </button>
+                  )}
+                  {undoEntry && (
+                    <button
+                      type="button"
+                      onClick={() => undoAllFieldsOk(unit.key)}
+                      className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border-2 border-line bg-surface px-3 py-2 text-sm font-bold text-ink transition hover:border-signal/60"
+                    >
+                      {t("orders.reportForm.allOkUndo")}
+                    </button>
+                  )}
+                  {/* Kvittering som også leses opp: regionen finnes hele
+                      tiden, så meldingen annonseres når den dukker opp. */}
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="text-2xs font-bold text-ink/70"
+                  >
+                    {undoEntry
+                      ? t("orders.reportForm.allOkDone", {
+                          count: undoEntry.count,
+                        })
+                      : ""}
+                  </p>
+                </div>
+              );
+            })()}
+
             {/* SJEKKPUNKTER */}
             {fields.length > 0 && (
               <div className="space-y-4 border-t-2 border-gray-100 pt-4">
@@ -1456,7 +1662,9 @@ export default function ReportForm({
                   .filter((field) => isFieldVisible(field, unit.answers))
                   .map((field) => (
                     <FieldInput
-                      key={field.id}
+                      key={`${field.id}#${
+                        fieldRevisions[`${unit.key}:${field.id}`] ?? 0
+                      }`}
                       field={field}
                       name={`answer__${unit.key}__${field.id}`}
                       commentName={`linecomment__${unit.key}__${field.id}`}

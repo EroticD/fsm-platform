@@ -46,8 +46,11 @@
       "noDate": "Not set",
       "due": "Due {date}",
       "outstanding": "Outstanding {amount}",
+      "emptyFilteredTitle": "No matches with the current filters.",
+      "emptyFilteredDescription": "Try another search, or remove one or more filters.",
       "emptyTitle": "No invoices yet",
-      "emptyDescription": "Create an invoice from a completed work order, a quote, or manually."
+      "emptyDescription": "Create an invoice from a completed work order, a quote, or manually.",
+      "resetFilters": "Reset filters"
     },
     "new": {
       "title": "New invoice",

@@ -507,5 +507,17 @@
         "errorGeneric": "Slettingen kunne ikke utføres. Ingenting ble endret."
       }
     }
+  },
+  "contractsPage": {
+    "emptyFilteredTitle": "Ingen treff med filtrene som er satt.",
+    "emptyFilteredDescription": "Prøv et annet søk, eller fjern ett eller flere filtre.",
+    "resetFilters": "Nullstill filtre"
+  },
+  "assets": {
+    "list": {
+      "emptyFilteredTitle": "Ingen treff med filtrene som er satt.",
+      "emptyFilteredDescription": "Prøv et annet søk, eller fjern ett eller flere filtre.",
+      "resetFilters": "Nullstill filtre"
+    }
   }
 }

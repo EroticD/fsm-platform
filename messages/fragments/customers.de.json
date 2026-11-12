@@ -125,5 +125,17 @@
         "errorGeneric": "Die Löschung konnte nicht abgeschlossen werden. Es wurde nichts geändert."
       }
     }
+  },
+  "contractsPage": {
+    "emptyFilteredTitle": "Keine Treffer für die gesetzten Filter.",
+    "emptyFilteredDescription": "Versuchen Sie eine andere Suche oder entfernen Sie einen oder mehrere Filter.",
+    "resetFilters": "Filter zurücksetzen"
+  },
+  "assets": {
+    "list": {
+      "emptyFilteredTitle": "Keine Treffer für die gesetzten Filter.",
+      "emptyFilteredDescription": "Versuchen Sie eine andere Suche oder entfernen Sie einen oder mehrere Filter.",
+      "resetFilters": "Filter zurücksetzen"
+    }
   }
 }

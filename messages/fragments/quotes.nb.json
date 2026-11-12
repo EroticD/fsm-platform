@@ -29,6 +29,8 @@
       "searchPlaceholder": "Tilbudsnummer, tittel eller kunde",
       "status": "Status",
       "allStatuses": "Alle statuser",
+      "emptyFilteredTitle": "Ingen treff med filtrene som er satt.",
+      "emptyFilteredDescription": "Prøv et annet søk, eller fjern ett eller flere filtre.",
       "emptyTitle": "Ingen tilbud ennå",
       "emptyDescription": "Opprett det første tilbudet og send godkjenningslenken til kunden.",
       "noNumber": "Uten tilbudsnummer",
@@ -36,7 +38,8 @@
       "validUntil": "Gyldig til {date}",
       "version": "Versjon {version}",
       "updated": "Oppdatert {date}",
-      "versioned": "Ny versjon er lagret."
+      "versioned": "Ny versjon er lagret.",
+      "resetFilters": "Nullstill filtre"
     },
     "new": {
       "title": "Nytt tilbud",

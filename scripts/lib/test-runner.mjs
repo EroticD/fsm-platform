@@ -48,10 +48,22 @@ export function createFileAccess(repositoryRoot) {
 /**
  * Kjør Vitest med eksplisitte filer. Vi bruker vitest.mjs direkte i stedet for
  * npx, slik at CI ikke trenger nettverk og vi er sikre på riktig versjon.
+ *
+ * `watch: true` bytter `run` mot `watch`. Watch-modus avslutter aldri av seg
+ * selv, så den avvises når CI er satt; ellers ville en CI-jobb hengt til
+ * timeout. Dekning er ikke et argument her, så watch kan ikke kombineres med
+ * `--coverage` ved et uhell.
  */
-export function runVitest({ repositoryRoot, tests, integration = false }) {
+export function runVitest({ repositoryRoot, tests, integration = false, watch = false }) {
+  if (watch && (process.env.CI || process.env.VITEST_CI)) {
+    console.error(
+      "Watch-modus er avvist fordi CI er satt (CI/VITEST_CI). Bruk vanlig kjøring i CI.",
+    );
+    return 1;
+  }
+
   const vitest = path.join(repositoryRoot, "node_modules", "vitest", "vitest.mjs");
-  const args = [vitest, "run"];
+  const args = [vitest, watch ? "watch" : "run"];
   if (integration) {
     args.push("--config", "vitest.integration.config.ts");
   }

@@ -84,6 +84,10 @@ export default async function QuotesPage({
     return text ? `/tilbud?${text}` : "/tilbud";
   };
 
+  const hasActiveFilters = Boolean(status || query);
+  // Ved treffløse filtre skal brukeren få nullstilt dem, ikke onboarding-teksten.
+  const resetHref = hrefWith({ status: null, q: null, side: null });
+
   return (
     <PageShell>
       <PageHeader
@@ -152,14 +156,35 @@ export default async function QuotesPage({
               href="/tilbud"
               className={buttonClassName({ variant: "ghost" })}
             >
-              {t("reset")}
+              {t("quotes.list.resetFilters")}
             </Link>
           ) : null}
         </form>
       </Card>
 
       {quotes.length === 0 ? (
-        <EmptyState title={t("quotes.list.emptyTitle")} description={t("quotes.list.emptyDescription")} />
+        <EmptyState
+          title={
+            hasActiveFilters
+              ? t("quotes.list.emptyFilteredTitle")
+              : t("quotes.list.emptyTitle")
+          }
+          description={
+            hasActiveFilters
+              ? t("quotes.list.emptyFilteredDescription")
+              : t("quotes.list.emptyDescription")
+          }
+          action={
+            hasActiveFilters ? (
+              <Link
+                href={resetHref}
+                className={buttonClassName({ variant: "primary", size: "sm" })}
+              >
+                {t("quotes.list.resetFilters")}
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         <div data-quotes-list className="space-y-2">
           {quotes.map((quote) => (

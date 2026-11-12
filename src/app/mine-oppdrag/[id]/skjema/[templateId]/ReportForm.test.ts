@@ -31,7 +31,12 @@ vi.mock("@/components/SignaturePad", () => ({ default: () => null }));
 vi.mock("@/components/ConfirmDialog", () => ({ default: () => null }));
 vi.mock("@/components/ErrorBanner", () => ({ default: () => null }));
 
-import ReportForm, { type InitialReport } from "./ReportForm";
+import ReportForm, {
+  collectAllOkTargets,
+  okChoiceValue,
+  revertAllOkAnswers,
+  type InitialReport,
+} from "./ReportForm";
 import type { TemplateField } from "./FieldInput";
 
 const fields: TemplateField[] = [
@@ -285,5 +290,129 @@ describe("ReportForm – mobil hurtigfullføring", () => {
 
     expect(html).not.toContain("orders.reportForm.completeUnit");
     expect(html).toContain("orders.reportForm.approved");
+  });
+});
+
+describe("ReportForm – «Sett alle til OK»", () => {
+  const statusFields: TemplateField[] = [
+    { id: "s1", type: "STATUS", label: "Lås", required: true },
+    { id: "s2", type: "STATUS", label: "Hengsler", required: true },
+    { id: "s3", type: "STATUS", label: "Terskel", options: ["OK", "Avvik"] },
+  ];
+
+  it("fyller bare tomme tilstandsfelt og lar avvik stå", () => {
+    const targets = collectAllOkTargets(statusFields, { s2: "Avvik" });
+
+    expect(targets).toEqual([
+      { fieldId: "s1", value: "OK" },
+      { fieldId: "s3", value: "OK" },
+    ]);
+  });
+
+  it("hopper over skjulte betingede felt, felt uten OK-valg og felt som krever kommentar", () => {
+    const mixed: TemplateField[] = [
+      { id: "a", type: "STATUS", label: "A" },
+      {
+        id: "b",
+        type: "STATUS",
+        label: "B",
+        conditionalFieldId: "a",
+        conditionalValue: "Avvik",
+      },
+      { id: "c", type: "STATUS", label: "C", options: ["Ja", "Nei"] },
+      {
+        id: "d",
+        type: "STATUS",
+        label: "D",
+        options: ["OK", "Avvik"],
+        commentOptions: ["OK"],
+      },
+      { id: "e", type: "TEXT", label: "Tekst" },
+    ];
+
+    expect(collectAllOkTargets(mixed, {}).map((t) => t.fieldId)).toEqual(["a"]);
+    // Blir det betingede feltet synlig, kommer det med – men det besvarte
+    // kildefeltet står urørt.
+    expect(collectAllOkTargets(mixed, { a: "Avvik" }).map((t) => t.fieldId)).toEqual(
+      ["b"],
+    );
+  });
+
+  it("bruker malens egen skrivemåte for OK-valget", () => {
+    expect(
+      okChoiceValue({ id: "x", type: "STATUS", label: "X", options: ["ok", "Avvik"] }),
+    ).toBe("ok");
+    expect(
+      okChoiceValue({
+        id: "x",
+        type: "STATUS",
+        label: "X",
+        options: ["OK – i orden", "Avvik"],
+      }),
+    ).toBe("OK – i orden");
+    expect(
+      okChoiceValue({
+        id: "x",
+        type: "STATUS",
+        label: "X",
+        options: ["Godkjent", "Avvik"],
+      }),
+    ).toBeNull();
+    expect(okChoiceValue({ id: "x", type: "TEXT", label: "X" })).toBeNull();
+  });
+
+  it("angre gjenoppretter verdiene og fjerner det knappen fylte", () => {
+    const before: Record<string, unknown> = { s2: "Utbedres" };
+    const targets = collectAllOkTargets(statusFields, before);
+    const filled: Record<string, unknown> = { ...before };
+    const previous: Record<string, unknown> = {};
+    for (const target of targets) {
+      previous[target.fieldId] = before[target.fieldId];
+      filled[target.fieldId] = target.value;
+    }
+
+    // Avviket blir stående – bare de tomme feltene fylles.
+    expect(filled).toEqual({ s2: "Utbedres", s1: "OK", s3: "OK" });
+    const restored = revertAllOkAnswers(filled, previous);
+    expect(restored).toEqual({ s2: "Utbedres" });
+    expect("s1" in restored).toBe(false);
+    expect("s3" in restored).toBe(false);
+  });
+
+  it("viser knappen per enhet bare når minst to felt har et OK-valg", () => {
+    const html = render({
+      fields: statusFields,
+      initialReport: report({
+        units: [
+          {
+            productId: "",
+            label: "Port Nord",
+            serialNumber: "",
+            location: "",
+            status: "UNASSESSED",
+            comment: "",
+            answers: { s2: "Avvik" },
+          },
+        ],
+      }),
+    });
+
+    expect(html).toContain("orders.reportForm.allOk");
+    // Knappen ligger rett over sjekkpunktene, ikke inne i dem.
+    expect(html.indexOf("orders.reportForm.allOk")).toBeLessThan(
+      html.indexOf("orders.reportForm.checkpoints"),
+    );
+    // Kvitteringen vises ikke før knappen er brukt.
+    expect(html).not.toContain("orders.reportForm.allOkDone");
+  });
+
+  it("tilbyr ingen hurtigknapp når enheten har færre enn to OK-felt", () => {
+    const html = render({
+      fields: [statusFields[0]],
+      initialReport: report(),
+    });
+
+    expect(html).not.toContain("orders.reportForm.allOk");
+    expect(html).not.toContain("orders.reportForm.allOkUndo");
   });
 });

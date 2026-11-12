@@ -84,6 +84,20 @@ function awaitingStatuses(): WorkStatus[] {
 // avgrenset. Kolonnene kappes til `BOARD_COLUMN_LIMIT` etter prioritering.
 const BOARD_SCAN_LIMIT = 24;
 
+// Feltene kø, tavle og høyrespor faktisk leser (se PriorityQueue,
+// DashboardBoard og DashboardRail). Kunde og montører velges eksplisitt, slik
+// at hele `User`-raden – med passordhash, 2FA-hemmelighet, reset-token og
+// rettighetsliste – ikke havner i objektgrafen.
+const QUEUE_ORDER_SELECT = {
+  id: true,
+  title: true,
+  status: true,
+  scheduledFor: true,
+  scheduledTo: true,
+  customer: { select: { name: true } },
+  technicians: { select: { id: true, name: true } },
+} as const satisfies Prisma.WorkOrderSelect;
+
 // Dagens dato-grenser til bruk i spørringene. Kalenderdatoer er `date` i
 // databasen, så grensene regnes som rene datoer i Oslo – ikke lokal tid på
 // serveren, som kan være en annen tidssone.
@@ -367,25 +381,25 @@ async function DashboardOverview({
       where: overdueWhere(scope, visibleStatus, dateContext),
       orderBy: { scheduledFor: "asc" },
       take: BOARD_SCAN_LIMIT,
-      include: { customer: true, technicians: true },
+      select: QUEUE_ORDER_SELECT,
     }),
     prisma.workOrder.findMany({
       where: todayWhere(scope, visibleStatus, dateContext),
       orderBy: { scheduledFor: "asc" },
       take: BOARD_SCAN_LIMIT,
-      include: { customer: true, technicians: true },
+      select: QUEUE_ORDER_SELECT,
     }),
     prisma.workOrder.findMany({
       where: inProgressBucketWhere(scope, visibleStatus, dateContext),
       orderBy: [{ scheduledFor: { sort: "asc", nulls: "last" } }],
       take: BOARD_SCAN_LIMIT,
-      include: { customer: true, technicians: true },
+      select: QUEUE_ORDER_SELECT,
     }),
     prisma.workOrder.findMany({
       where: unassignedWhere(scope, visibleStatus),
       orderBy: [{ scheduledFor: { sort: "asc", nulls: "last" } }],
       take: UNASSIGNED_SCAN_LIMIT,
-      include: { customer: true, technicians: true },
+      select: QUEUE_ORDER_SELECT,
     }),
     prisma.user.findMany({
       where: { ...teamScope, isActive: true, role: { not: "CUSTOMER" } },
@@ -753,6 +767,8 @@ async function DashboardActivity({ locale }: { locale: string }) {
       // De vises i revisjonsloggen, men skal ikke fylle dashbordet.
       action: { notIn: ["Logget inn", "Logget inn med gjenopprettingskode"] },
     },
+    // Bare det aktivitetslinjen rendrer; metadata og id-er brukes ikke her.
+    select: { id: true, action: true, userName: true, createdAt: true },
     orderBy: { createdAt: "desc" },
     take: 8,
   });

@@ -34,6 +34,7 @@ import {
 } from "@/server/email-outbox";
 import { startPushWorker } from "@/server/push";
 import { moduleEnabled } from "@/server/modules";
+import { onShutdown } from "@/lib/shutdown";
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
  *
@@ -127,6 +128,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmSmsWorkerStarted?: boolean;
   __fsmEmailOutboxWorkerStarted?: boolean;
   __fsmPushWorkerStarted?: boolean;
+  __fsmPdfJobWorkerStop?: () => Promise<void>;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -754,21 +756,52 @@ export function startAuditRetentionCleanup(): void {
   timer.unref?.();
 }
 
-async function runWorkerLoop(workerIndex: number): Promise<void> {
+type WorkerLoopControl = {
+  stopped: boolean;
+  /** Løses når nedstenging er bedt om, slik at pauser avbrytes med én gang. */
+  stopPromise: Promise<void>;
+  requestStop: () => void;
+};
+
+function createLoopControl(): WorkerLoopControl {
+  let resolveStop: (() => void) | null = null;
+  const stopPromise = new Promise<void>((resolve) => {
+    resolveStop = resolve;
+  });
+  const control: WorkerLoopControl = {
+    stopped: false,
+    stopPromise,
+    requestStop: () => {
+      if (control.stopped) return;
+      control.stopped = true;
+      resolveStop?.();
+    },
+  };
+  return control;
+}
+
+async function runWorkerLoop(
+  workerIndex: number,
+  control: WorkerLoopControl,
+): Promise<void> {
   // Litt spredning, så ikke alle workerne spør databasen i samme øyeblikk.
-  await sleep(1_000 + workerIndex * 250);
+  await sleepOrStop(control, 1_000 + workerIndex * 250);
 
   for (;;) {
+    // Ved nedstenging avslutter vi før vi henter en ny jobb, men først etter
+    // at jobben som eventuelt kjører er ferdig (vi venter lenger nede).
+    if (control.stopped) return;
+
     try {
       // En avslått dokumentmodul skal stoppe køen også i en prosess som
       // allerede kjører. Sjekken er cachet og koster ikke en DB-spørring.
       if (!(await moduleEnabled("documents"))) {
-        await sleep(POLL_INTERVAL_MS);
+        await sleepOrStop(control, POLL_INTERVAL_MS);
         continue;
       }
       const job = await claimNextPdfTextJob();
       if (!job) {
-        await sleep(POLL_INTERVAL_MS);
+        await sleepOrStop(control, POLL_INTERVAL_MS);
         continue;
       }
       await processPdfTextJob(job);
@@ -776,8 +809,26 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
       logger.error("PDF-jobbworker: uventet feil", {
         error: error instanceof Error ? error.message : String(error),
       });
-      await sleep(POLL_INTERVAL_MS);
+      await sleepOrStop(control, POLL_INTERVAL_MS);
     }
+  }
+}
+
+/** Sover i `ms`, men våkner med én gang når nedstenging er bedt om. */
+async function sleepOrStop(
+  control: WorkerLoopControl,
+  ms: number,
+): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, ms);
+      }),
+      control.stopPromise,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -825,6 +876,13 @@ export async function startJobWorker(): Promise<void> {
   if (scope.__fsmPdfJobWorkerStarted) return;
   scope.__fsmPdfJobWorkerStarted = true;
 
+  // Én felles stoppsignal per prosess: alle PDF-løkkene og intervallene under
+  // avslutter på samme signal, og `stopJobWorker()` venter på at den jobben
+  // som kjører blir ferdig før Prisma-poolen lukkes.
+  const control = createLoopControl();
+  const loops: Promise<void>[] = [];
+  const timers: NodeJS.Timeout[] = [];
+
   const [documents, offline, booking, tracking, transfer, sms] =
     await Promise.all([
       moduleEnabled("documents"),
@@ -837,11 +895,9 @@ export async function startJobWorker(): Promise<void> {
 
   if (documents) {
     void requeueStalePdfTextJobs();
-    void Promise.all(
-      Array.from({ length: JOB_WORKER_CONCURRENCY }, (_, index) =>
-        runWorkerLoop(index),
-      ),
-    );
+    for (let index = 0; index < JOB_WORKER_CONCURRENCY; index += 1) {
+      loops.push(runWorkerLoop(index, control));
+    }
   }
 
   // Rydd utløpte kladder ved oppstart og deretter hvert sjette døgn.
@@ -879,6 +935,7 @@ export async function startJobWorker(): Promise<void> {
       TRANSFER_CLEANUP_INTERVAL_MS,
     );
     transferTimer.unref?.();
+    timers.push(transferTimer);
   }
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
@@ -893,6 +950,7 @@ export async function startJobWorker(): Promise<void> {
   pruneRateLimits();
   const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
   cleanupTimer.unref?.();
+  timers.push(cleanupTimer);
 
   // Utløpte cache-rader i databasen ryddes sammen med rate-limit-tellerne.
   // Redis-nøkler har egen TTL og trenger ingen tilsvarende jobb.
@@ -906,6 +964,7 @@ export async function startJobWorker(): Promise<void> {
   pruneCache();
   const cacheTimer = setInterval(pruneCache, 15 * 60_000);
   cacheTimer.unref?.();
+  timers.push(cacheTimer);
 
   // Send varsel-e-poster fra den vedvarende Notification-tabellen. En treg
   // SMTP-server blokkerer da ikke handlingen som utløste varselet.
@@ -919,6 +978,7 @@ export async function startJobWorker(): Promise<void> {
   processNotifications();
   const notificationTimer = setInterval(processNotifications, 60_000);
   notificationTimer.unref?.();
+  timers.push(notificationTimer);
 
   // Transaksjons-e-post (tilbud, faktura, betaling og booking) sendes fra
   // EmailMessage-utboksen. Request-stien legger bare raden i køen.
@@ -945,6 +1005,28 @@ export async function startJobWorker(): Promise<void> {
   notifyOverdue();
   const overdueTimer = setInterval(notifyOverdue, 6 * 60 * 60_000);
   overdueTimer.unref?.();
+  timers.push(overdueTimer);
+
+  // Ved SIGTERM/SIGINT: slutt å polle, vent på jobben som kjører, og la
+  // `prisma.ts` lukke poolen etterpå (høyere prioritet i registeret).
+  const stop = async () => {
+    control.requestStop();
+    for (const timer of timers) clearInterval(timer);
+    if (loops.length > 0) {
+      logger.info("PDF-jobbworker: venter på pågående jobb");
+      await Promise.allSettled(loops);
+    }
+  };
+  scope.__fsmPdfJobWorkerStop = stop;
+
+  onShutdown(
+    async () => {
+      logger.info("PDF-jobbworker: stopper");
+      await stop();
+      logger.info("PDF-jobbworker: stoppet");
+    },
+    { name: "job-worker" },
+  );
 
   logger.info("Text extraction: job worker started", {
     concurrency: JOB_WORKER_CONCURRENCY,
@@ -952,9 +1034,19 @@ export async function startJobWorker(): Promise<void> {
   });
 }
 
+/** Stopper PDF-pollingen og venter på jobben som kjører. Brukes ved nedstenging. */
+export function stopJobWorker(): Promise<void> {
+  const scope = globalThis as WorkerGlobal;
+  return scope.__fsmPdfJobWorkerStop?.() ?? Promise.resolve();
+}
+
 /** Bare for tester: nullstiller «startet»-flaggene. */
 export function resetJobWorkerForTests(): void {
   const scope = globalThis as WorkerGlobal;
+  // Stopp løkkene fra en tidligere kjøring før flaggene nullstilles, slik at
+  // de ikke fortsetter å polle ved siden av en ny start.
+  void scope.__fsmPdfJobWorkerStop?.();
+  scope.__fsmPdfJobWorkerStop = undefined;
   scope.__fsmPdfJobWorkerStarted = false;
   scope.__fsmDraftCleanupStarted = false;
   scope.__fsmWorkOrderRetentionStarted = false;

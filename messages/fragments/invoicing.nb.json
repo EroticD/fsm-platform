@@ -46,8 +46,11 @@
       "noDate": "Ikke satt",
       "due": "Forfall {date}",
       "outstanding": "Utestående {amount}",
+      "emptyFilteredTitle": "Ingen treff med filtrene som er satt.",
+      "emptyFilteredDescription": "Prøv et annet søk, eller fjern ett eller flere filtre.",
       "emptyTitle": "Ingen fakturaer ennå",
-      "emptyDescription": "Opprett en faktura fra et fullført oppdrag, et tilbud eller manuelt."
+      "emptyDescription": "Opprett en faktura fra et fullført oppdrag, et tilbud eller manuelt.",
+      "resetFilters": "Nullstill filtre"
     },
     "new": {
       "title": "Ny faktura",

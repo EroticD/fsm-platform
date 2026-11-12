@@ -29,6 +29,8 @@
       "searchPlaceholder": "Numer oferty, tytuł lub klient",
       "status": "Status",
       "allStatuses": "Wszystkie statusy",
+      "emptyFilteredTitle": "Brak wyników dla ustawionych filtrów.",
+      "emptyFilteredDescription": "Spróbuj innego wyszukiwania lub usuń jeden lub więcej filtrów.",
       "emptyTitle": "Brak ofert",
       "emptyDescription": "Utwórz pierwszą ofertę i wyślij klientowi link do zatwierdzenia.",
       "noNumber": "Brak numeru oferty",
@@ -36,7 +38,8 @@
       "validUntil": "Ważna do {date}",
       "version": "Wersja {version}",
       "updated": "Zaktualizowano {date}",
-      "versioned": "Zapisano nową wersję."
+      "versioned": "Zapisano nową wersję.",
+      "resetFilters": "Wyczyść filtry"
     },
     "new": {
       "title": "Nowa oferta",
