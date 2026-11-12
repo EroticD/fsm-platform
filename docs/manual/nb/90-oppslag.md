@@ -1,6 +1,6 @@
 # Oppslag, begreper og feilsøking
 
-*Gjelder FSM-plattformen versjon 0.9.4, 8. november 2026.*
+*Gjelder FSM-plattformen versjon 0.9.5, 8. november 2026.*
 
 Dette kapitlet forklarer rettigheter, statuser og begreper på tvers av rollene, viser hvordan funksjonene henger sammen, og hjelper deg å finne hvor du skal lete når noe mangler.
 
@@ -253,7 +253,7 @@ Aktivitetsloggen er en varig, ikke-redigerbar historikk over hvem som opprettet,
 
 En portalbruker er alltid koblet til en kontaktperson hos en kunde. Kontakten kan ha en delegasjon med egne valg for bestilling, dokumenter, avtaler og utstyr. En inaktiv delegasjon stenger portalen helt. En kontakt uten delegasjonsrad har full portaltilgang for bakoverkompatibilitet. Kontroller at brukeren er aktiv og har riktig kunde, at kontakten tilhører samme kunde, at delegasjonen er aktiv, og at deltilgangen for området som mangler, er slått på.
 
-> **Merk:** I 0.9.4 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
+> **Merk:** I 0.9.5 finnes det ikke eget skjema i grensesnittet for å redigere delegasjonen. Begrenset portaltilgang må settes opp og testes med den aktuelle kontoen.
 
 ### Kalender, rapporter og avtaler
 
@@ -342,7 +342,7 @@ Feltflaten lagrer kladder lokalt når nettet forsvinner. Kladden sendes når app
 
 Når du melder en feil, hjelper det å samle informasjonen under. Skriv kort hva du gjorde, hva du forventet, og hva som faktisk skjedde.
 
-- **Versjon:** FSM-plattformen 0.9.4, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
+- **Versjon:** FSM-plattformen 0.9.5, og hvor du så feilen (kontorflate, feltflate, kundeportal, PDF eller API).
 - **Tidspunkt:** Dato og klokkeslett med tidssone, helst Europe/Oslo.
 - **Bruker:** E-post, rolle, avdeling og eventuell kunde. Oppgi aldri passord eller engangskoder.
 - **Sak:** Oppdragsnummer eller -ID, tittel, kunde og dato. For rapport: rapportnummer eller -ID. For booking: referanse. For avtale: avtalenummer.
