@@ -124,10 +124,18 @@ async function outboxCount(page: Page): Promise<number> {
   return page.evaluate(
     () =>
       new Promise<number>((resolve, reject) => {
-        const request = indexedDB.open("fsm-offline", 1);
+        // Ikke pin versjonen: appen migrerer IndexedDB (DB_VERSION i
+        // src/lib/offline/db.ts), og en hardkodet versjon gir VersionError
+        // med mindre testen oppdateres i takt. Uten versjon åpnes gjeldende.
+        const request = indexedDB.open("fsm-offline");
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
+          if (!db.objectStoreNames.contains("outbox")) {
+            db.close();
+            resolve(0);
+            return;
+          }
           const transaction = db.transaction("outbox", "readonly");
           const all = transaction.objectStore("outbox").getAll();
           all.onerror = () => reject(all.error);
