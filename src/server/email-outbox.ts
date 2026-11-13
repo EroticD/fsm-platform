@@ -35,6 +35,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Vedvarende utboks for transaksjons-e-post.
@@ -720,7 +721,7 @@ export async function sendTestEmail(
   if (!actor.isActive || !can(actor, "settings.manage")) return fail("forbidden");
   const recipient = cleanEmail(to);
   if (!recipient) return fail("invalid");
-  if (!isSmtpConfigured()) return fail("error", { code: "smtp_not_configured" });
+  if (!isSmtpConfigured()) return fail("error", { code: "smtp_not_configured" satisfies ErrorCode });
 
   const queued = await enqueueEmail({
     to: recipient,
@@ -730,10 +731,10 @@ export async function sendTestEmail(
     idempotencyKey: `test-email:${actor.id}:${randomUUID()}`,
     force: true,
   });
-  if (!queued.id) return fail("error", { code: "enqueue_failed" });
+  if (!queued.id) return fail("error", { code: "enqueue_failed" satisfies ErrorCode });
 
   const outcome = await processEmailMessageById(queued.id);
-  if (outcome !== "sent") return fail("error", { code: "send_failed" });
+  if (outcome !== "sent") return fail("error", { code: "send_failed" satisfies ErrorCode });
   return ok({ id: queued.id });
 }
 

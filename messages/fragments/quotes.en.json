@@ -175,7 +175,8 @@
         "notDraft": "Only drafts can be sent.",
         "notSent": "Only sent quotes can get a new link.",
         "notAccepted": "Only accepted quotes can be converted.",
-        "conversionRace": "The quote changed. Refresh the page and try again."
+        "conversionRace": "The quote changed. Refresh the page and try again.",
+        "duplicate": "A quote with this number already exists."
       },
       "token": {
         "expired": "The link has expired.",

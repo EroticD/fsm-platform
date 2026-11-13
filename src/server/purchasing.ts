@@ -34,6 +34,7 @@ import {
   type PurchaseOrderStatusValue,
 } from "@/lib/purchasing";
 import { lockStockLevel } from "@/server/inventory";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Innkjøp (OPS-05 residual).
@@ -57,7 +58,7 @@ export const PURCHASING_ERROR_CODES = {
   invalidTransition: "purchasing.invalidTransition",
   overReceipt: "purchasing.overReceipt",
   nothingToOrder: "purchasing.nothingToOrder",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 const MAX_LINE_QUANTITY = 1_000_000;
 

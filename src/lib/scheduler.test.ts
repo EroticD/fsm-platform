@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   moduleEnabled: vi.fn(),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   recurring: vi.fn(async () => []),
   lifecycle: vi.fn(async () => ({ renewed: 0, expired: 0, generated: 0 })),
   maintenance: vi.fn(async () => []),
@@ -40,13 +41,29 @@ vi.mock("@/server/sla-cleanup-job", () => ({
   runSlaCleanupJob: mocks.slaCleanup,
 }));
 vi.mock("@/lib/logger", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  logger: mocks.log,
 }));
 
-import { runScheduledJobs } from "./scheduler";
+import {
+  createRunGate,
+  jitteredIntervalMs,
+  runScheduledJobs,
+  startScheduler,
+  stopScheduler,
+  SCHEDULER_JITTER_RATIO,
+} from "./scheduler";
+
+type SchedulerGlobalFlag = typeof globalThis & {
+  __fsmSchedulerStarted?: boolean;
+  __fsmSchedulerStop?: () => Promise<void>;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
+  const scope = globalThis as SchedulerGlobalFlag;
+  delete scope.__fsmSchedulerStarted;
+  delete scope.__fsmSchedulerStop;
   mocks.moduleEnabled.mockResolvedValue(false);
   mocks.lifecycle.mockResolvedValue({ renewed: 0, expired: 0, generated: 0 });
   mocks.recurring.mockResolvedValue([]);
@@ -114,5 +131,78 @@ describe("planlagte jobber og moduler", () => {
       enabled: true,
       skipped: "not_due",
     });
+  });
+});
+
+describe("jitter og overlappsvakt", () => {
+  const sixHours = 6 * 60 * 60 * 1000;
+
+  it("holder jitteren innenfor ±10 % av intervallet", () => {
+    for (let i = 0; i < 500; i += 1) {
+      const delay = jitteredIntervalMs(sixHours);
+      expect(delay).toBeGreaterThanOrEqual(
+        sixHours * (1 - SCHEDULER_JITTER_RATIO),
+      );
+      expect(delay).toBeLessThanOrEqual(
+        sixHours * (1 + SCHEDULER_JITTER_RATIO),
+      );
+    }
+
+    // Deterministiske ytterpunkter: random() = 0 gir maks negativt avvik.
+    expect(jitteredIntervalMs(sixHours, () => 0)).toBe(sixHours * 0.9);
+    expect(jitteredIntervalMs(sixHours, () => 0.999_999)).toBeLessThanOrEqual(
+      sixHours * 1.1,
+    );
+    // Skalerer ikke under et millisekund – da finnes det ikke rom for avvik.
+    expect(jitteredIntervalMs(0)).toBe(0);
+  });
+
+  it("slipper bare gjennom én kjøring om gangen og varsler ved overhopp", () => {
+    const onSkip = vi.fn();
+    const gate = createRunGate(onSkip);
+
+    expect(gate.tryStart()).toBe(true);
+    expect(gate.isActive()).toBe(true);
+    expect(gate.tryStart()).toBe(false);
+    expect(onSkip).toHaveBeenCalledTimes(1);
+
+    gate.finish();
+    expect(gate.isActive()).toBe(false);
+    expect(gate.tryStart()).toBe(true);
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+
+  it("hopper over og logger når timeren fyrer mens forrige kjøring fortsatt pågår", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.moduleEnabled.mockResolvedValue(true);
+      let release: () => void = () => {};
+      mocks.maintenance.mockImplementation(
+        () =>
+          new Promise<never[]>((resolve) => {
+            release = () => resolve([]);
+          }),
+      );
+
+      startScheduler();
+
+      // Første kjøring er uten jitter: fast startforsinkelse på 10 s.
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(mocks.maintenance).toHaveBeenCalledTimes(1);
+
+      // Neste timervarsel kommer innenfor 6 t ± 10 %, mens kjøringen henger.
+      await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
+      expect(mocks.maintenance).toHaveBeenCalledTimes(1);
+      expect(mocks.log.warn).toHaveBeenCalledWith(
+        "scheduler: previous run still in progress, skipping",
+        expect.objectContaining({ intervalMs: sixHours }),
+      );
+
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      await stopScheduler();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

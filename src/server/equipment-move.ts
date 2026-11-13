@@ -17,6 +17,7 @@ import {
 } from "./actor";
 import { equipmentScopeFor } from "./equipment";
 import { logServerError } from "@/lib/log-context";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Flytting av en enhet med hele servicehistorikken til en annen kunde.
@@ -45,7 +46,7 @@ export const EQUIPMENT_MOVE_ERROR_CODES = {
   targetDepartmentMissing: "equipment.errors.targetDepartmentMissing",
   subtreeTooLarge: "equipment.errors.subtreeTooLarge",
   stalePreview: "equipment.errors.stalePreview",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type EquipmentMoveCounts = {
   products: number;
@@ -420,14 +421,14 @@ async function buildMovePlan(
   const blockers: EquipmentMoveBlocker[] = [];
   const warnings: EquipmentMoveWarning[] = [];
   if (subtree.tooLarge) {
-    blockers.push({ code: "subtreeTooLarge", count: productIds.length });
+    blockers.push({ code: "subtreeTooLarge" satisfies ErrorCode, count: productIds.length });
   }
 
   const foreignChildren = subtree.products.filter(
     (product) => product.customerId !== root.customerId,
   );
   if (foreignChildren.length > 0) {
-    blockers.push({ code: "crossCustomerChild", count: foreignChildren.length });
+    blockers.push({ code: "crossCustomerChild" satisfies ErrorCode, count: foreignChildren.length });
   }
 
   const foreignWorkOrders = normalizedWorkOrders.filter(
@@ -438,7 +439,7 @@ async function buildMovePlan(
   );
   if (foreignWorkOrders.length > 0) {
     blockers.push({
-      code: "workOrderCustomerMismatch",
+      code: "workOrderCustomerMismatch" satisfies ErrorCode,
       count: foreignWorkOrders.length,
     });
   }
@@ -451,7 +452,7 @@ async function buildMovePlan(
   );
   if (foreignDocuments.length > 0) {
     blockers.push({
-      code: "documentCustomerMismatch",
+      code: "documentCustomerMismatch" satisfies ErrorCode,
       count: foreignDocuments.length,
     });
   }
@@ -466,7 +467,7 @@ async function buildMovePlan(
   );
   if (targetCustomerId && foreignContractLines.length > 0) {
     blockers.push({
-      code: "contractBlocked",
+      code: "contractBlocked" satisfies ErrorCode,
       count: foreignContractLines.length,
     });
   }
@@ -483,9 +484,9 @@ async function buildMovePlan(
       },
     });
     if (!targetRow) {
-      blockers.push({ code: "targetCustomerNotFound" });
+      blockers.push({ code: "targetCustomerNotFound" satisfies ErrorCode });
     } else if (targetRow.deletedAt) {
-      blockers.push({ code: "targetCustomerDeleted" });
+      blockers.push({ code: "targetCustomerDeleted" satisfies ErrorCode });
     } else {
       target = {
         id: targetRow.id,
@@ -502,12 +503,12 @@ async function buildMovePlan(
       select: { id: true },
     });
     if (!site) {
-      blockers.push({ code: "targetSiteMismatch" });
+      blockers.push({ code: "targetSiteMismatch" satisfies ErrorCode });
     } else {
       resolvedTargetSiteId = site.id;
     }
   } else if (targetSiteId) {
-    blockers.push({ code: "targetSiteMismatch" });
+    blockers.push({ code: "targetSiteMismatch" satisfies ErrorCode });
   }
 
   const needsDepartment =
@@ -521,9 +522,9 @@ async function buildMovePlan(
       needsDepartment,
     );
     targetDepartmentId = department.departmentId;
-    if (department.usedFallback) warnings.push({ code: "departmentFallback" });
+    if (department.usedFallback) warnings.push({ code: "departmentFallback" satisfies ErrorCode });
     if (needsDepartment && !targetDepartmentId) {
-      blockers.push({ code: "targetDepartmentMissing" });
+      blockers.push({ code: "targetDepartmentMissing" satisfies ErrorCode });
     }
   }
 
@@ -542,7 +543,7 @@ async function buildMovePlan(
         },
       });
       if (conflicts > 0) {
-        blockers.push({ code: "workOrderNumberConflict", count: conflicts });
+        blockers.push({ code: "workOrderNumberConflict" satisfies ErrorCode, count: conflicts });
       }
     }
   }
@@ -595,13 +596,13 @@ async function buildMovePlan(
 
   if (!noop) {
     if (!targetCustomerId) {
-      warnings.push({ code: "noTargetSelected" });
+      warnings.push({ code: "noTargetSelected" satisfies ErrorCode });
     }
     if (oldContractWorkOrderIds.length > 0) {
-      warnings.push({ code: "workOrderContractCleared" });
+      warnings.push({ code: "workOrderContractCleared" satisfies ErrorCode });
     }
     if (contactsToClear.length > 0) {
-      warnings.push({ code: "oldContactCleared" });
+      warnings.push({ code: "oldContactCleared" satisfies ErrorCode });
     }
   }
 

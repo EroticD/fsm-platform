@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { moduleForPath, moduleIsOn } from "@/lib/modules";
 import { readModuleStates } from "@/server/modules";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Maskinlesbar kontrakt for REST-API-et.
@@ -2274,7 +2275,7 @@ export const openApiDocument = {
                     message: "Visitten kan ikke endres.",
                     messageKey: "errors.api.visits.conflict",
                     details: {
-                      code: "visits.errors.overlap",
+                      code: "visits.errors.overlap" satisfies ErrorCode,
                       conflicts: [
                         {
                           visitId: "cm_visit",
@@ -2295,7 +2296,7 @@ export const openApiDocument = {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
                     messageKey: "errors.api.visits.conflict",
-                    details: { code: "visits.errors.legalHold" },
+                    details: { code: "visits.errors.legalHold" satisfies ErrorCode },
                   },
                 },
               },
@@ -2306,7 +2307,7 @@ export const openApiDocument = {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
                     messageKey: "errors.api.visits.conflict",
-                    details: { code: "visits.errors.visitLocked" },
+                    details: { code: "visits.errors.visitLocked" satisfies ErrorCode },
                   },
                 },
               },
@@ -2329,7 +2330,7 @@ export const openApiDocument = {
                     messageKey: "errors.api.visits.validation",
                     details: {
                       field: "endsAt",
-                      code: "visits.errors.invalidTimeRange",
+                      code: "visits.errors.invalidTimeRange" satisfies ErrorCode,
                     },
                   },
                 },
@@ -2342,7 +2343,7 @@ export const openApiDocument = {
                     message: "Feltene er ikke gyldige.",
                     messageKey: "errors.api.visits.validation",
                     details: {
-                      code: "visits.errors.statusTransition",
+                      code: "visits.errors.statusTransition" satisfies ErrorCode,
                       from: "DONE",
                       to: "ON_SITE",
                     },
@@ -2357,7 +2358,7 @@ export const openApiDocument = {
                     message: "Feltene er ikke gyldige.",
                     messageKey: "errors.api.visits.validation",
                     details: {
-                      code: "visits.errors.invalidTechnician",
+                      code: "visits.errors.invalidTechnician" satisfies ErrorCode,
                       technicianIds: ["cm_user"],
                     },
                   },

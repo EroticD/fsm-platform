@@ -175,7 +175,8 @@
         "notDraft": "Nur Entwürfe können gesendet werden.",
         "notSent": "Nur gesendete Angebote können einen neuen Link erhalten.",
         "notAccepted": "Nur angenommene Angebote können umgewandelt werden.",
-        "conversionRace": "Das Angebot wurde geändert. Aktualisieren Sie die Seite und versuchen Sie es erneut."
+        "conversionRace": "Das Angebot wurde geändert. Aktualisieren Sie die Seite und versuchen Sie es erneut.",
+        "duplicate": "Es gibt bereits ein Angebot mit dieser Nummer."
       },
       "token": {
         "expired": "Der Link ist abgelaufen.",

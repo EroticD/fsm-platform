@@ -15,6 +15,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** Omtaletokens er 32 tilfeldige byte, hex-kodet. */
 export const REVIEW_TOKEN_PATTERN = /^[a-f0-9]{64}$/;
@@ -67,7 +68,7 @@ export async function requestReview(
   }
 
   const id = cleanId(visitId);
-  if (!id) return fail("invalid", { code: "reviews.errors.invalidInput" });
+  if (!id) return fail("invalid", { code: "reviews.errors.invalidInput" satisfies ErrorCode });
 
   return prisma.$transaction(async (tx) => {
     const visit = await tx.visit.findFirst({
@@ -84,7 +85,7 @@ export async function requestReview(
     });
     if (!visit) return fail("not_found");
     if (visit.status !== "DONE") {
-      return fail("conflict", { code: "reviews.errors.notDone" });
+      return fail("conflict", { code: "reviews.errors.notDone" satisfies ErrorCode });
     }
 
     const token = newReviewToken();
@@ -204,12 +205,12 @@ export async function submitReview(
   input: SubmitReviewInput,
 ): Promise<ServiceResult<SubmitReviewResult>> {
   if (!REVIEW_TOKEN_PATTERN.test(token)) {
-    return fail("not_found", { code: "reviews.errors.invalidToken" });
+    return fail("not_found", { code: "reviews.errors.invalidToken" satisfies ErrorCode });
   }
 
   const score = input?.score;
   if (!Number.isInteger(score) || score < 1 || score > 5) {
-    return fail("invalid", { code: "reviews.errors.invalidScore" });
+    return fail("invalid", { code: "reviews.errors.invalidScore" satisfies ErrorCode });
   }
 
   const comment =
@@ -220,7 +221,7 @@ export async function submitReview(
   const limit = await allowRequestDb(`review-submit:${tokenHash}`, 10, 10 * 60_000);
   if (!limit.allowed) {
     return fail("rate_limited", {
-      code: "reviews.errors.rateLimited",
+      code: "reviews.errors.rateLimited" satisfies ErrorCode,
       retryAfterSeconds: limit.retryAfterSeconds,
     });
   }
@@ -242,9 +243,9 @@ export async function submitReview(
     select: { submittedAt: true, requestedAt: true },
   });
   if (existing?.submittedAt) {
-    return fail("conflict", { code: "reviews.errors.alreadySubmitted" });
+    return fail("conflict", { code: "reviews.errors.alreadySubmitted" satisfies ErrorCode });
   }
-  return fail("not_found", { code: "reviews.errors.invalidToken" });
+  return fail("not_found", { code: "reviews.errors.invalidToken" satisfies ErrorCode });
 }
 
 export type ReviewSummary = {

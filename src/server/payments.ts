@@ -25,6 +25,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Betalingsflyt mot PSP.
@@ -73,7 +74,7 @@ export async function createInvoicePaymentLink(
   const provider = getPaymentProvider();
   if (!provider || !provider.configured()) {
     // Stille no-op: ingen nettverkskall, ingen mutasjon, ingen hemmeligheter.
-    return fail("conflict", { code: "payments.disabled" });
+    return fail("conflict", { code: "payments.disabled" satisfies ErrorCode });
   }
 
   const id = String(invoiceId ?? "").trim();
@@ -96,14 +97,14 @@ export async function createInvoicePaymentLink(
   });
   if (!invoice) return fail("not_found");
   if (!["SENT", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status)) {
-    return fail("conflict", { code: "invoice.notPayable" });
+    return fail("conflict", { code: "invoice.notPayable" satisfies ErrorCode });
   }
   const outstanding = payableAmount(invoice);
-  if (outstanding.lte(0)) return fail("conflict", { code: "invoice.notPayable" });
+  if (outstanding.lte(0)) return fail("conflict", { code: "invoice.notPayable" satisfies ErrorCode });
 
   const currency = invoice.currency.toUpperCase();
   if (currency !== "NOK") {
-    return fail("conflict", { code: "payments.unsupportedCurrency" });
+    return fail("conflict", { code: "payments.unsupportedCurrency" satisfies ErrorCode });
   }
 
   let link;
@@ -142,7 +143,7 @@ export async function createInvoicePaymentLink(
         retryable: error.retryable,
       });
     }
-    return fail("error", { code: "payments.providerError", retryable: true });
+    return fail("error", { code: "payments.providerError" satisfies ErrorCode, retryable: true });
   }
 
   const now = new Date();

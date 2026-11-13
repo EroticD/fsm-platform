@@ -25,6 +25,7 @@ import {
   roundQuantity,
   suggestedPurchaseQuantity,
 } from "@/lib/inventory";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Lager og reservedeler (OPS-05).
@@ -48,7 +49,7 @@ export const INVENTORY_ERROR_CODES = {
   duplicateSku: "inventory.duplicateSku",
   reservationNotActive: "inventory.reservationNotActive",
   workOrderRequired: "inventory.workOrderRequired",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 const MOVEMENT_TYPES = ["IN", "OUT", "ADJUST"] as const;
 type AdjustMovementType = (typeof MOVEMENT_TYPES)[number];
@@ -1120,7 +1121,7 @@ export async function reserveStock(
         workOrder.status === "COMPLETED" ||
         workOrder.status === "CANCELLED"
       ) {
-        return fail("conflict", { code: "inventory.workOrderLocked" });
+        return fail("conflict", { code: "inventory.workOrderLocked" satisfies ErrorCode });
       }
     } else if (!visitId) {
       return fail("invalid", { code: INVENTORY_ERROR_CODES.workOrderRequired });

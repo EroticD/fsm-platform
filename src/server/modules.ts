@@ -15,6 +15,7 @@ import {
   modulePresetFromEnv,
   type ModuleKey,
 } from "@/lib/modules";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Leser og skriver installasjonsnivåmoduler.
@@ -180,7 +181,7 @@ export async function setModuleEnabled(
   if (!isModuleKey(key) || !MODULE_BY_KEY[key]) return fail("not_found");
   const moduleKey = key as ModuleKey;
   if (MODULE_BY_KEY[moduleKey].core) {
-    return fail("invalid", { code: "mod.coreLocked" });
+    return fail("invalid", { code: "mod.coreLocked" satisfies ErrorCode });
   }
 
   return prisma.$transaction(async (tx) => {
@@ -192,12 +193,12 @@ export async function setModuleEnabled(
     if (enabled) {
       const missing = missingDependencies(moduleKey, states);
       if (missing.length > 0) {
-        return fail("conflict", { code: "module.missingDependencies", modules: missing });
+        return fail("conflict", { code: "module.missingDependencies" satisfies ErrorCode, modules: missing });
       }
     } else {
       const dependents = enabledDependents(moduleKey, states);
       if (dependents.length > 0) {
-        return fail("conflict", { code: "module.hasDependents", modules: dependents });
+        return fail("conflict", { code: "module.hasDependents" satisfies ErrorCode, modules: dependents });
       }
     }
 

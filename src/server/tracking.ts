@@ -22,6 +22,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** SporingsTokens er 32 tilfeldige byte, hex-kodet (64 tegn). */
 export const TRACKING_TOKEN_PATTERN = /^[a-f0-9]{64}$/;
@@ -105,7 +106,7 @@ export async function createTrackingLink(
   }
 
   const id = cleanId(visitId);
-  if (!id) return fail("invalid", { code: "tracking.errors.invalidInput" });
+  if (!id) return fail("invalid", { code: "tracking.errors.invalidInput" satisfies ErrorCode });
 
   return prisma.$transaction(async (tx) => {
     const visit = await tx.visit.findFirst({
@@ -130,19 +131,19 @@ export async function createTrackingLink(
     if (!visit) return fail("not_found");
 
     if (!visit.workOrder.department.trackingEnabled) {
-      return fail("forbidden", { code: "tracking.errors.disabled" });
+      return fail("forbidden", { code: "tracking.errors.disabled" satisfies ErrorCode });
     }
     if (
       isClosedStatus(visit.workOrder.status) ||
       visit.status === "DONE" ||
       visit.status === "CANCELLED"
     ) {
-      return fail("conflict", { code: "tracking.errors.visitLocked" });
+      return fail("conflict", { code: "tracking.errors.visitLocked" satisfies ErrorCode });
     }
 
     const expiresAt = trackingLinkExpiresAt(visit.endsAt);
     if (expiresAt.getTime() <= Date.now()) {
-      return fail("invalid", { code: "tracking.errors.expired" });
+      return fail("invalid", { code: "tracking.errors.expired" satisfies ErrorCode });
     }
 
     await tx.trackingLink.updateMany({
@@ -190,7 +191,7 @@ export async function revokeTrackingLink(
   }
 
   const id = cleanId(trackingLinkId);
-  if (!id) return fail("invalid", { code: "tracking.errors.invalidInput" });
+  if (!id) return fail("invalid", { code: "tracking.errors.invalidInput" satisfies ErrorCode });
 
   return prisma.$transaction(async (tx) => {
     const link = await tx.trackingLink.findFirst({
@@ -641,7 +642,7 @@ export async function recordLocationPing(
     input.longitude < -180 ||
     input.longitude > 180
   ) {
-    return fail("invalid", { code: "tracking.errors.invalidCoordinates" });
+    return fail("invalid", { code: "tracking.errors.invalidCoordinates" satisfies ErrorCode });
   }
 
   const visit = await prisma.visit.findFirst({

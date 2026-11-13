@@ -27,6 +27,7 @@ import Card from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui";
 import { controlClassName } from "@/components/ui/controlStyles";
 import { buttonClassName } from "@/components/ui/Button";
+import SubmitButton from "@/components/SubmitButton";
 import { brandInset } from "@/components/ui/brandStyles";
 import Icon from "@/components/icons";
 
@@ -241,12 +242,12 @@ export default async function ExpensesPage({
             <Field id="trip-purpose" label={t("expenses.trip.purpose")}>
               <Input id="trip-purpose" name="purpose" />
             </Field>
-            <button
+            <SubmitButton
               className={`${buttonClassName({ variant: "primary" })} sm:col-span-2`}
-              type="submit"
+              pendingLabel={t("orders.edit.saving")}
             >
               {t("expenses.trip.submit")}
-            </button>
+            </SubmitButton>
           </form>
         </Card>
 
@@ -298,12 +299,12 @@ export default async function ExpensesPage({
                 errorLabel={t("expenses.expense.uploadError")}
               />
             </div>
-            <button
+            <SubmitButton
               className={`${buttonClassName({ variant: "primary" })} sm:col-span-2`}
-              type="submit"
+              pendingLabel={t("orders.edit.saving")}
             >
               {t("expenses.expense.submit")}
-            </button>
+            </SubmitButton>
           </form>
         </Card>
       </div>
@@ -365,12 +366,12 @@ export default async function ExpensesPage({
                         <form action={submitMileageTripAction}>
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={trip.id} />
-                          <button
+                          <SubmitButton
                             className={buttonClassName({ variant: "secondary", size: "sm" })}
-                            type="submit"
+                            pendingLabel={t("orders.fieldDetail.updating")}
                           >
                             {t("expenses.submitToApproval")}
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                     </td>
@@ -463,12 +464,12 @@ export default async function ExpensesPage({
                         <form action={submitExpenseAction}>
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={expense.id} />
-                          <button
+                          <SubmitButton
                             className={buttonClassName({ variant: "secondary", size: "sm" })}
-                            type="submit"
+                            pendingLabel={t("orders.fieldDetail.updating")}
                           >
                             {t("expenses.submitToApproval")}
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                     </td>

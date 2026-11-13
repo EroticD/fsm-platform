@@ -14,6 +14,7 @@ const QUOTE_ERROR_CODES = new Set([
   "quote.notSent",
   "quote.notAccepted",
   "quote.conversionRace",
+  "quote.duplicate",
   "token.expired",
   "token.used",
 ]);

@@ -175,7 +175,8 @@
         "notDraft": "Wysłać można tylko szkice.",
         "notSent": "Nowy link mogą otrzymać tylko wysłane oferty.",
         "notAccepted": "Konwertować można tylko zaakceptowane oferty.",
-        "conversionRace": "Oferta uległa zmianie. Odśwież stronę i spróbuj ponownie."
+        "conversionRace": "Oferta uległa zmianie. Odśwież stronę i spróbuj ponownie.",
+        "duplicate": "Oferta o tym numerze już istnieje."
       },
       "token": {
         "expired": "Link wygasł.",

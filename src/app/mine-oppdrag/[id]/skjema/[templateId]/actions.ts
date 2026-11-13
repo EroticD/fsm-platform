@@ -6,6 +6,10 @@ import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { moduleEnabled } from "@/server/modules";
+import { workOrderScope } from "@/lib/access";
+import prisma from "@/lib/prisma";
+import { addDaysUtc, parseDateOnly, todayInOslo } from "@/lib/dates";
+import { statusKeysByCategory } from "@/lib/work-order-status";
 import {
   saveDraft as saveDraftService,
   submitReport as submitReportService,
@@ -81,6 +85,36 @@ function redirectToFormError(
   redirect(`${target.path}${query ? `?${query}` : ""}`);
 }
 
+/**
+ * Neste tildelte oppdrag for montøren, eller `null` når det ikke finnes flere.
+ *
+ * Samme tekniske avgrensning som listen i `/mine-oppdrag` bruker for «Senere»:
+ * oppdraget er tildelt brukeren, har en status som ikke er lukket, og er
+ * planlagt etter dagens dato (Oslo-døgnet). Det gjeldende oppdraget holdes
+ * utenfor, slik at en innsending aldri kan sende montøren tilbake til seg selv.
+ * Rekkefølgen er den samme som i listen: tidligste planlagte først.
+ */
+async function nextAssignedWorkOrderId(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>,
+  workOrderId: string,
+): Promise<string | null> {
+  const startOfToday = parseDateOnly(todayInOslo()) ?? new Date();
+  const next = await prisma.workOrder.findFirst({
+    where: {
+      AND: [
+        workOrderScope(user),
+        { id: { not: workOrderId } },
+        { technicians: { some: { id: user.id } } },
+        { status: { notIn: statusKeysByCategory("CLOSED") } },
+        { scheduledFor: { gte: addDaysUtc(startOfToday, 1) } },
+      ],
+    },
+    orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  return next?.id ?? null;
+}
+
 export async function submitReport(formData: FormData) {
   if (!(await moduleEnabled("reports"))) redirect("/");
   const user = await getCurrentUser();
@@ -97,6 +131,18 @@ export async function submitReport(formData: FormData) {
     const templateId = cleanText(formData.get("templateId"), {
       maxLength: LIMITS.line,
     });
+
+    // «Lagre og neste oppdrag» gjelder feltportalen. Kontoret har ikke det
+    // samme feltløpet, og skal fortsatt lande på oppdraget sitt.
+    if (user && workOrderId && result.returnTo.startsWith("/mine-oppdrag/")) {
+      const nextId = await nextAssignedWorkOrderId(user, workOrderId);
+      if (nextId) {
+        // Neste tildelte oppdrag overtar kvitteringen: siden viser toasten og
+        // fjerner `status` selv, se `CustomerToast` i oppdragssiden.
+        redirect(`/mine-oppdrag/${nextId}?status=rapport-sendt`);
+      }
+    }
+
     const separator = result.returnTo.includes("?") ? "&" : "?";
     redirect(
       templateId

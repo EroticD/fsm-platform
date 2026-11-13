@@ -36,6 +36,7 @@ import {
 } from "./actor";
 import { markResponded, markResolved } from "./sla";
 import { recomputeWorkOrderSchedule } from "@/lib/work-order-schedule";
+import type { ErrorCode } from "@/lib/error-codes";
 
 export { recomputeWorkOrderSchedule };
 
@@ -201,7 +202,7 @@ export const VISIT_ERROR_CODES = {
   loggedDayConflict: "visits.errors.loggedDayConflict",
   pastDayConflict: "visits.errors.pastDayConflict",
   travelFromNotAvailable: "visits.errors.travelFromNotAvailable",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 /**
  * Konflikt når en datoperiode ikke kan avstemmes uten å fjerne en dag som

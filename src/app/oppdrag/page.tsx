@@ -14,6 +14,7 @@ import PageShell from "@/components/PageShell";
 import Card from "@/components/ui/Card";
 import { buttonClassName } from "@/components/ui/Button";
 import StatusBadge from "@/components/StatusBadge";
+import SubmitButton from "@/components/SubmitButton";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon, { type IconName } from "@/components/icons";
 import OrderViewTabs from "./ViewTabs";
@@ -615,8 +616,23 @@ export default async function WorkOrdersPage({
                       scheduledEnd < dates.startOfToday &&
                       !closedStatuses().includes(wo.status);
                     return (
-                      <tr key={wo.id} className="transition">
+                      <tr key={wo.id} className="relative transition">
                         <td className="whitespace-nowrap px-3 py-2 align-top">
+                          {/*
+                           * Dekkende radlenke: hele raden er klikkbar til
+                           * oppdraget. Lenken er aria-hidden og ute av
+                           * tabrekkefølgen fordi tittellenken i andre kolonne
+                           * allerede er den tilgjengelige inngangen; den
+                           * ligger bak indre kontroller som er løftet til
+                           * z-10 (montørskjema og «Åpne»-lenken).
+                           */}
+                          <Link
+                            href={`/oppdrag/${wo.id}`}
+                            prefetch={false}
+                            aria-hidden="true"
+                            tabIndex={-1}
+                            className="absolute inset-0 z-0"
+                          />
                           <span className="block text-xs font-bold tabular-nums">
                             {formatDateRangeLocalized(
                               wo.scheduledFor,
@@ -635,7 +651,7 @@ export default async function WorkOrdersPage({
                             <Link
                               href={`/oppdrag/${wo.id}`}
                               prefetch={false}
-                              className="line-clamp-2 font-bold leading-5 text-[var(--ink,#101310)] hover:underline"
+                              className="relative z-10 line-clamp-2 font-bold leading-5 text-[var(--ink,#101310)] hover:underline"
                             >
                               {wo.title}
                             </Link>
@@ -657,7 +673,7 @@ export default async function WorkOrdersPage({
                         <td className="whitespace-nowrap px-3 py-2 align-top">
                           <StatusBadge status={wo.status} />
                         </td>
-                        <td className="max-w-[15rem] px-3 py-2 align-top text-xs">
+                        <td className="relative z-10 max-w-[15rem] px-3 py-2 align-top text-xs">
                           {wo.technicians.length > 0 ? (
                             <span className="block truncate font-bold">
                               {wo.technicians
@@ -699,15 +715,15 @@ export default async function WorkOrdersPage({
                                   </option>
                                 ))}
                               </select>
-                              <button
-                                type="submit"
+                              <SubmitButton
+                                pendingLabel={t("orders.fieldDetail.updating")}
                                 className={buttonClassName({
                                   variant: "secondary",
                                   size: "sm",
                                 })}
                               >
                                 {t("orders.list.assign")}
-                              </button>
+                              </SubmitButton>
                             </form>
                           ) : (
                             <span className="font-bold text-[var(--risk-text,#b42318)]">
@@ -731,7 +747,7 @@ export default async function WorkOrdersPage({
                           </span>
                         </td>
                         <td
-                          className="whitespace-nowrap"
+                          className="relative z-10 whitespace-nowrap"
                           style={{ textAlign: "right" }}
                         >
                           <Link
@@ -855,15 +871,15 @@ export default async function WorkOrdersPage({
                               </option>
                             ))}
                           </select>
-                          <button
-                            type="submit"
+                          <SubmitButton
+                            pendingLabel={t("orders.fieldDetail.updating")}
                             className={buttonClassName({
                               variant: "secondary",
                               size: "sm",
                             })}
                           >
                             {t("orders.list.assign")}
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                     </div>

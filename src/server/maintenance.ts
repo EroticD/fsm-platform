@@ -30,12 +30,33 @@ import {
   type ServiceResult,
 } from "./actor";
 import { logServerError } from "@/lib/log-context";
+import { logger } from "@/lib/logger";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** Fast nøkkel for den globale vedlikeholdskjøringen. Per-plan-låsen under er
  * den som gir idempotens når to kjøringer treffer samme plan. */
 export const MAINTENANCE_ADVISORY_LOCK_ID = 918274;
 
 export const MAINTENANCE_PAGE_SIZE = 50;
+
+/** Standard antall planer som genereres samtidig i den periodiske jobben. */
+export const MAINTENANCE_CONCURRENCY = 3;
+
+/** Øvre grense, så en feilkonfigurert MAINTENANCE_CONCURRENCY ikke tømmer
+ * Prisma-poolen for tilkoblinger. */
+const MAX_MAINTENANCE_CONCURRENCY = 8;
+
+/**
+ * Leser `MAINTENANCE_CONCURRENCY` (standard 3). Hver plan har sin egen
+ * transaksjon og advisory-lås, så parallelliteten påvirker ikke idempotensen.
+ */
+export function maintenanceConcurrency(
+  env: Record<string, string | undefined> = process.env,
+): number {
+  const parsed = Number.parseInt(env.MAINTENANCE_CONCURRENCY?.trim() ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return MAINTENANCE_CONCURRENCY;
+  return Math.min(parsed, MAX_MAINTENANCE_CONCURRENCY);
+}
 
 export const MAINTENANCE_ERROR_CODES = {
   invalidInput: "maintenance.errors.invalidInput",
@@ -50,7 +71,7 @@ export const MAINTENANCE_ERROR_CODES = {
   invalidTemplate: "maintenance.errors.invalidTemplate",
   planInUse: "maintenance.errors.planInUse",
   alreadyGenerated: "maintenance.errors.alreadyGenerated",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type MaintenanceGenerationResult = {
   planId: string;
@@ -689,9 +710,17 @@ export async function generateMaintenanceOccurrence(
 /**
  * Kjører alle kalenderplaner som er innenfor ledetiden. Hver plan har sin egen
  * transaksjon og lås, så to samtidige kjøringer gir nøyaktig én forekomst.
+ *
+ * Planene behandles med begrenset parallellitet (`MAINTENANCE_CONCURRENCY`,
+ * standard 3, tak 8). Hver plan har egen transaksjon og egen per-plan-lås, så
+ * parallelliteten endrer ikke låsesemantikken; den gjør bare at 200 planer
+ * ikke må vente på hver sin tur rundt nettverksrundturen.
+ * Resultatet ligger i samme rekkefølge som planene ble hentet, uavhengig av
+ * hvilken plan som ble ferdig først.
  */
 export async function generateDueMaintenanceWorkOrders(
   now = new Date(),
+  options: { concurrency?: number; env?: Record<string, string | undefined> } = {},
 ): Promise<MaintenanceGenerationResult[]> {
   const today = todayUtc(now);
   const plans = await prisma.maintenancePlan.findMany({
@@ -706,16 +735,49 @@ export async function generateDueMaintenanceWorkOrders(
     select: { id: true, nextDueDate: true, leadDays: true },
   });
 
-  const results: MaintenanceGenerationResult[] = [];
-  for (const plan of plans) {
-    if (
-      plan.nextDueDate &&
-      plan.nextDueDate > addDaysUtc(today, plan.leadDays)
-    ) {
-      continue;
+  const due = plans.filter(
+    (plan) =>
+      !plan.nextDueDate || plan.nextDueDate <= addDaysUtc(today, plan.leadDays),
+  );
+  if (due.length === 0) return [];
+
+  const results: MaintenanceGenerationResult[] = new Array(due.length);
+  const configured =
+    options.concurrency ?? maintenanceConcurrency(options.env ?? process.env);
+  const limit = Math.min(due.length, Math.max(1, configured));
+
+  let next = 0;
+  let failed = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = next++;
+      if (index >= due.length) return;
+      const plan = due[index];
+      try {
+        results[index] = await generateMaintenanceOccurrence(plan.id, now);
+      } catch (error) {
+        // generateMaintenanceOccurrence fanger normalt selv; dette er siste
+        // skanse, slik at én uventet feil ikke stopper de andre planene.
+        results[index] = {
+          planId: plan.id,
+          skipped: "error",
+          error: error instanceof Error ? error.message : "Ukjent feil",
+        };
+      }
+      if (results[index].skipped === "error") failed += 1;
     }
-    results.push(await generateMaintenanceOccurrence(plan.id, now));
+  };
+
+  await Promise.all(Array.from({ length: limit }, () => worker()));
+
+  if (failed > 0) {
+    logger.warn("maintenance: generation finished with errors", {
+      failed,
+      processed: due.length,
+      concurrency: limit,
+    });
   }
+
   return results;
 }
 

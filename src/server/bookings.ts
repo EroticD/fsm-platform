@@ -31,6 +31,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { logServerError } from "@/lib/log-context";
+import type { ErrorCode } from "@/lib/error-codes";
 
 const QUEUE_PAGE_SIZE = 30;
 
@@ -112,7 +113,7 @@ function parsePlannedWindow(input: {
 
   const date = parseDateOnly(dateText);
   if (!date || !BOOKING_TIME_VALUE.test(from) || !BOOKING_TIME_VALUE.test(to)) {
-    return fail("invalid", { code: "invalid_time" });
+    return fail("invalid", { code: "invalid_time" satisfies ErrorCode });
   }
 
   const window = requestedWindow({
@@ -121,7 +122,7 @@ function parsePlannedWindow(input: {
     requestedTo: to,
   });
   if (window.endsAt.getTime() <= window.startsAt.getTime()) {
-    return fail("invalid", { code: "invalid_time" });
+    return fail("invalid", { code: "invalid_time" satisfies ErrorCode });
   }
 
   return ok({
@@ -348,12 +349,12 @@ export async function confirmBooking(
           !BOOKING_TIME_VALUE.test(booking.requestedFrom) ||
           !BOOKING_TIME_VALUE.test(booking.requestedTo)
         ) {
-          return fail("conflict", { code: "needs_planning" });
+          return fail("conflict", { code: "needs_planning" satisfies ErrorCode });
         }
         const date = toDateOnly(booking.requestedDate);
         const requestedDate = parseDateOnly(date);
         if (!requestedDate) {
-          return fail("conflict", { code: "needs_planning" });
+          return fail("conflict", { code: "needs_planning" satisfies ErrorCode });
         }
         const requested = requestedWindow({
           requestedDate,
@@ -361,7 +362,7 @@ export async function confirmBooking(
           requestedTo: booking.requestedTo,
         });
         if (requested.endsAt.getTime() <= requested.startsAt.getTime()) {
-          return fail("invalid", { code: "invalid_time" });
+          return fail("invalid", { code: "invalid_time" satisfies ErrorCode });
         }
         window = {
           date: requestedDate,
@@ -390,7 +391,7 @@ export async function confirmBooking(
             leadHours: 0,
           });
       const technician = candidates[0];
-      if (!technician) return fail("conflict", { code: "no_technician" });
+      if (!technician) return fail("conflict", { code: "no_technician" satisfies ErrorCode });
 
       await lockTechnicians(tx, [technician.id]);
       const available = await assertTechnicianSlotAvailable(tx, {
@@ -407,7 +408,7 @@ export async function confirmBooking(
         allowVisitOverlap: true,
       });
       if (!available.ok) {
-        return fail("conflict", { code: "technician_unavailable" });
+        return fail("conflict", { code: "technician_unavailable" satisfies ErrorCode });
       }
 
       let visitId = booking.visitId;

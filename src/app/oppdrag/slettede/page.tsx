@@ -6,6 +6,7 @@ import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import Card from "@/components/ui/Card";
 import { buttonClassName } from "@/components/ui/Button";
+import SubmitButton from "@/components/SubmitButton";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import Icon from "@/components/icons";
@@ -125,12 +126,12 @@ export default async function DeletedWorkOrdersPage({
               </div>
               <form action={restoreWorkOrder}>
                 <input type="hidden" name="workOrderId" value={order.id} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel={t("orders.edit.saving")}
                   className={buttonClassName({ variant: "primary", size: "sm" })}
                 >
                   {t("orders.detail.restore")}
-                </button>
+                </SubmitButton>
               </form>
             </Card>
           ))}

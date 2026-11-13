@@ -46,6 +46,7 @@ import {
 } from "./actor";
 import { assignVisitInTransaction } from "./visits";
 import { logServerError } from "@/lib/log-context";
+import type { ErrorCode } from "@/lib/error-codes";
 
 const MAX_CANDIDATES = 200;
 const MAX_VISITS = 100;
@@ -61,7 +62,7 @@ export const DISPATCH_ERROR_CODES = {
   noCandidate: "dispatch.errors.noCandidate",
   conflict: "dispatch.errors.conflict",
   applyFailed: "dispatch.errors.applyFailed",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type DispatchOptions = {
   now?: Date;

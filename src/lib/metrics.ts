@@ -115,9 +115,74 @@ export type CollectMetricsOptions = {
     bavail: number;
   }>;
   readFile?: (file: string, encoding: "utf8") => Promise<string>;
+  /**
+   * Cache for den ferdige snapshotten. Standard er prosessens delte cache, slik
+   * at Prometheus-skrapinger hvert 30. sekund gjenbruker én innsamling i stedet
+   * for å kjøre ni `COUNT` + filsystemkall hver gang. `false` slår av cachen
+   * (nyttig i tester og ved feilsøking).
+   */
+  cache?: MetricsCache | false;
 };
 
 const DEFAULT_BACKUP_MAX_AGE_HOURS = 26;
+
+/** Hvor lenge en innsamling gjenbrukes når METRICS_CACHE_SECONDS ikke er satt. */
+export const DEFAULT_METRICS_CACHE_SECONDS = 12;
+
+/**
+ * Leser `METRICS_CACHE_SECONDS`. 0 slår av cachen; ugyldige verdier faller
+ * tilbake til standarden, så en skrivefeil ikke gir evig cache.
+ */
+export function metricsCacheSeconds(
+  env: Record<string, string | undefined> = process.env,
+): number {
+  const raw = env.METRICS_CACHE_SECONDS?.trim();
+  if (!raw) return DEFAULT_METRICS_CACHE_SECONDS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_METRICS_CACHE_SECONDS;
+  }
+  return parsed;
+}
+
+export type MetricsCache = {
+  /** Returnerer en snapshot som fortsatt er innenfor TTL, ellers null. */
+  read(nowMs: number, ttlMs: number): MetricsSnapshot | null;
+  write(nowMs: number, snapshot: MetricsSnapshot): void;
+  clear(): void;
+};
+
+/**
+ * Enkel en-slot-cache. Prosessen har én konfigurasjon (opplastingskatalog,
+ * backupfil, miljø), så det er ingen grunn til å nøkle på mer enn tid.
+ */
+export function createMetricsCache(): MetricsCache {
+  let entry: { collectedAtMs: number; snapshot: MetricsSnapshot } | null = null;
+  return {
+    read(nowMs, ttlMs) {
+      if (!entry) return null;
+      const ageMs = nowMs - entry.collectedAtMs;
+      // Går klokken bakover (NTP-justering), er tidligere svar ikke til å stole
+      // på som «ferskt».
+      if (ageMs < 0 || ageMs >= ttlMs) return null;
+      return entry.snapshot;
+    },
+    write(nowMs, snapshot) {
+      entry = { collectedAtMs: nowMs, snapshot };
+    },
+    clear() {
+      entry = null;
+    },
+  };
+}
+
+/** Delt cache for prosessen; deles av alle skrapinger mot /api/metrics. */
+export const metricsCache = createMetricsCache();
+
+/** Tømmer den delte cachen. Brukes av tester og etter konfigurasjonsendringer. */
+export function clearMetricsCache(): void {
+  metricsCache.clear();
+}
 
 export function backupMaxAgeSeconds(
   env: Record<string, string | undefined> = process.env,
@@ -279,7 +344,38 @@ function slaCleanupStatus(
   };
 }
 
-export async function collectMetrics({
+/**
+ * Samler alle driftsmålinger. Resultatet caches i noen sekunder
+ * (`METRICS_CACHE_SECONDS`, standard 12, 0 = av), slik at Prometheus og
+ * eksterne prober som skraper oftere enn databasen bør belastes deler svar.
+ * `Cache-Control: no-store` på ruten gjelder fortsatt: dette er en
+ * serverintern cache, ikke en HTTP-cache.
+ */
+export async function collectMetrics(
+  options: CollectMetricsOptions,
+): Promise<MetricsSnapshot> {
+  const {
+    env = process.env,
+    now = new Date(),
+    cache = metricsCache,
+  } = options;
+
+  const ttlMs = metricsCacheSeconds(env) * 1000;
+  const cacheable = cache !== false && ttlMs > 0;
+  const cacheClock = now.getTime();
+
+  if (cacheable) {
+    const cached = cache.read(cacheClock, ttlMs);
+    if (cached) return cached;
+  }
+
+  const snapshot = await collectMetricsUncached({ ...options, env, now });
+
+  if (cacheable) cache.write(cacheClock, snapshot);
+  return snapshot;
+}
+
+async function collectMetricsUncached({
   prisma,
   env = process.env,
   now = new Date(),

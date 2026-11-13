@@ -6,6 +6,11 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 ## Unreleased (dev)
 
 ### Felt
+- «Avslutt kjøring» har 44 px trykkflate, og manglende sjekkpunkter er egne
+  hoppknapper som scroller til og fokuserer feltet. Kommateksten ligger igjen
+  som skjermlesertekst.
+- Etter innsending går feltflyten til neste tildelte oppdrag med kvittering når
+  et slikt finnes; ellers som før. Kontorløpet er uendret.
 - Bilder tatt uten dekning lagres i IndexedDB og lastes opp automatisk når
   nettet kommer tilbake. Køen overlever refresh og OS-drap av PWA, vises som
   ventende miniatyrer, og ryddes når rapporten er sendt.
@@ -18,6 +23,28 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
   URL-en etter at toasten er vist; feilparametere blir stående.
 - Utlegg viser lokaliserte datoer, bruker `IsoDateInput`, har synlig
   statusfilter og paginering (i minnet, siden tjenesten henter maks 200).
+
+### Kontor
+- Oppdragslisten har klikkbar rad med tittellenken som tilgjengelig inngang, og
+  indre kontroller ligger over radlenken.
+- Tildeling, gjenoppretting og utleggsskjemaene bruker `SubmitButton`, så
+  knappen låses og viser «lagrer …» mens serverhandlingen går.
+
+### Utvikling
+- `src/lib/error-codes.ts` har 162 typede feilkoder. Produsenter bruker
+  `satisfies ErrorCode`, og en test feiler hvis en kode produseres uten å stå i
+  registeret eller mangler i modulens feedback-mappe. `tilbud` manglet
+  `quote.duplicate` og har fått den.
+- `npm run seed:demo` fyller utviklingsbasen med kunde, avtale, oppdrag,
+  rapport, tilbud, faktura, lager og utlegg. Idempotent, nekter i produksjon og
+  krever `SEED_DEMO_CONFIRM=ja`.
+
+### Drift
+- Scheduleren har ±10 % jitter per runde og hopper over kjøringer som overlapper,
+  med logglinje. Vedlikeholdsgenereringen kjører opptil 3 planer samtidig
+  (`MAINTENANCE_CONCURRENCY`) med isolerte feil og uendret rekkefølge.
+- `/api/metrics` deler innsamlingen i 12 sekunder (`METRICS_CACHE_SECONDS`), så
+  samtidige Prometheus-skrapinger ikke gjør ni `COUNT` hver.
 
 ### Drift
 - SLA-sveipet henter forretningskalenderen én gang per avdeling per kjøring

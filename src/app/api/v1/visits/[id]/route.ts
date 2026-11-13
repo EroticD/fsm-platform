@@ -18,6 +18,7 @@ import {
   setVisitStatus,
   updateVisit,
 } from "@/server/visits";
+import type { ErrorCode } from "@/lib/error-codes";
 
 export const runtime = "nodejs";
 
@@ -252,7 +253,7 @@ export async function PATCH(
   if (hasMove && (!hasStartsAt || !hasEndsAt)) {
     return apiError("validation_error", 422, { messageKey: "errors.api.visits.rangeTogether", details: {
         field: hasStartsAt ? "endsAt" : "startsAt",
-        code: "visits.errors.invalidTimeRange",
+        code: "visits.errors.invalidTimeRange" satisfies ErrorCode,
       } });
   }
 
@@ -283,7 +284,7 @@ export async function PATCH(
     if (endsAt.getTime() <= startsAt.getTime()) {
       return apiError("validation_error", 422, { messageKey: "errors.api.visits.endBeforeStart", details: {
         field: "endsAt",
-        code: "visits.errors.invalidTimeRange",
+        code: "visits.errors.invalidTimeRange" satisfies ErrorCode,
       } });
     }
 
@@ -296,7 +297,7 @@ export async function PATCH(
     ) {
       return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.invalidStatus", details: {
         field: "status",
-        code: "visits.errors.statusTransition",
+        code: "visits.errors.statusTransition" satisfies ErrorCode,
       } });
     }
 
@@ -343,7 +344,7 @@ export async function PATCH(
         !Number.isInteger(body.sequence) ||
         body.sequence < 0
       ) {
-        return apiError("validation_error", 422, { messageKey: "errors.api.visits.sequenceInteger", details: { field: "sequence", code: "visits.errors.invalidSequence" } });
+        return apiError("validation_error", 422, { messageKey: "errors.api.visits.sequenceInteger", details: { field: "sequence", code: "visits.errors.invalidSequence" satisfies ErrorCode } });
       }
       input.sequence = body.sequence;
     }

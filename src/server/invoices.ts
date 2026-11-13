@@ -42,6 +42,7 @@ import {
   type ServiceFailure,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Fakturatjenesten.
@@ -633,7 +634,7 @@ export async function createInvoice(
     });
     return ok({ id: created.id });
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicate" });
+    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicate" satisfies ErrorCode });
     throw error;
   }
 }
@@ -653,7 +654,7 @@ export async function updateInvoice(
     select: { id: true, status: true, customerId: true, workOrderId: true, reportId: true, quoteId: true },
   });
   if (!current) return fail("not_found");
-  if (current.status !== "DRAFT") return fail("conflict", { code: "invoice.locked" });
+  if (current.status !== "DRAFT") return fail("conflict", { code: "invoice.locked" satisfies ErrorCode });
 
   const source = await resolveSource(actor, {
     ...input,
@@ -741,7 +742,7 @@ export async function sendInvoice(
       if (invoice.invoiceNumber) {
         return ok({ invoiceNumber: invoice.invoiceNumber, alreadySent: true });
       }
-      if (invoice.status !== "DRAFT") return fail("conflict", { code: "invoice.notDraft" });
+      if (invoice.status !== "DRAFT") return fail("conflict", { code: "invoice.notDraft" satisfies ErrorCode });
 
       const settings = await tx.billingSettings.findUnique({
         where: { id: "default" },
@@ -812,7 +813,7 @@ export async function sendInvoice(
 
     return result;
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicateNumber" });
+    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicateNumber" satisfies ErrorCode });
     throw error;
   }
 }
@@ -929,10 +930,10 @@ export async function registerPayment(
       }
 
       if (!["SENT", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.status)) {
-        return fail("conflict", { code: "invoice.notPayable" });
+        return fail("conflict", { code: "invoice.notPayable" satisfies ErrorCode });
       }
       const outstanding = payableAmount(invoice);
-      if (amount.gt(outstanding)) return fail("conflict", { code: "invoice.amountTooHigh" });
+      if (amount.gt(outstanding)) return fail("conflict", { code: "invoice.amountTooHigh" satisfies ErrorCode });
 
       const payment = await tx.payment.create({
         data: {
@@ -1084,10 +1085,10 @@ export async function registerCreditNote(
       });
       if (!invoice) return fail("not_found");
       if (!["SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"].includes(invoice.status)) {
-        return fail("conflict", { code: "invoice.notCreditable" });
+        return fail("conflict", { code: "invoice.notCreditable" satisfies ErrorCode });
       }
       const available = payableAmount(invoice);
-      if (total.gt(available)) return fail("conflict", { code: "invoice.amountTooHigh" });
+      if (total.gt(available)) return fail("conflict", { code: "invoice.amountTooHigh" satisfies ErrorCode });
 
       const vatRate = new Prisma.Decimal(invoice.vatRate);
       const base = roundMoney(total.div(vatRate.div(100).add(1)));
@@ -1153,7 +1154,7 @@ export async function registerCreditNote(
       return ok({ creditNoteId: creditNote.id, creditNoteNumber, status: nextStatus });
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicateNumber" });
+    if (isUniqueViolation(error)) return fail("conflict", { code: "invoice.duplicateNumber" satisfies ErrorCode });
     throw error;
   }
 }

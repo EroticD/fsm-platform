@@ -175,7 +175,8 @@
         "notDraft": "Bare kladder kan sendes.",
         "notSent": "Bare sendte tilbud kan få ny lenke.",
         "notAccepted": "Bare godkjente tilbud kan konverteres.",
-        "conversionRace": "Tilbudet ble endret. Oppdater siden og prøv igjen."
+        "conversionRace": "Tilbudet ble endret. Oppdater siden og prøv igjen.",
+        "duplicate": "Det finnes allerede et tilbud med samme nummer."
       },
       "token": {
         "expired": "Lenken er utløpt.",

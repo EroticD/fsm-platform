@@ -330,10 +330,19 @@ export default async function TechnicianWorkOrderPage({
     restored?: string;
     visitOk?: string;
     visitError?: string;
+    /** Kvittering fra en serverhandling, f.eks. etter «Lagre og neste oppdrag». */
+    status?: string;
   }>;
 }) {
-  const { error, reportSubmitted, removed, restored, visitOk, visitError } =
-    await searchParams;
+  const {
+    error,
+    reportSubmitted,
+    removed,
+    restored,
+    visitOk,
+    visitError,
+    status: statusParam,
+  } = await searchParams;
 
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
@@ -849,6 +858,17 @@ export default async function TechnicianWorkOrderPage({
           />
         )}
 
+        {/* Etter «Lagre og neste oppdrag» lander montøren her med kvitteringen.
+            Den fjerner `status` fra adressen når den er vist, slik at refresh og
+            en delt lenke ikke gjentar bekreftelsen. */}
+        {statusParam === "rapport-sendt" && (
+          <CustomerToast
+            message={t("orders.fieldDetail.nextAssignmentToast")}
+            tone="success"
+            clearParams={["status"]}
+          />
+        )}
+
         {error === "locked" && (
           <ErrorBanner message={t("orders.errors.lockedField")} />
         )}
@@ -1275,7 +1295,7 @@ export default async function TechnicianWorkOrderPage({
                               <input type="hidden" name="visitId" value={visit.id} />
                               <button
                                 type="submit"
-                                className="inline-flex min-h-8 items-center rounded-lg border border-signal/40 px-2 py-0.5 text-2xs font-bold text-signal transition hover:bg-signal/15"
+                                className="inline-flex min-h-11 items-center rounded-lg border border-signal/40 px-3 py-1.5 text-xs font-bold text-signal transition hover:bg-signal/15"
                               >
                                 {t("orders.fieldDetail.visits.finishTravelFrom")}
                               </button>

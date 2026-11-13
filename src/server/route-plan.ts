@@ -38,6 +38,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** Visittstatuser som ruteplanleggeren kan flytte. */
 const PLANNABLE_STATUSES: VisitStatus[] = ["PLANNED", "ASSIGNED"];
@@ -64,7 +65,7 @@ export const ROUTE_ERROR_CODES = {
   overlap: "route.errors.overlap",
   orderMismatch: "route.errors.orderMismatch",
   applyFailed: "route.errors.applyFailed",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type RouteSkippedReason =
   | "missing_coordinates"

@@ -33,6 +33,7 @@ import {
   type ServiceFailure,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Tilbudstjenesten.
@@ -448,7 +449,7 @@ export async function createQuote(
     });
     return ok({ id: created.id });
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("conflict", { code: "quote.duplicate" });
+    if (isUniqueViolation(error)) return fail("conflict", { code: "quote.duplicate" satisfies ErrorCode });
     throw error;
   }
 }
@@ -469,7 +470,7 @@ export async function updateQuote(
     select: { id: true, status: true, customerId: true },
   });
   if (!existing) return fail("not_found");
-  if (existing.status !== "DRAFT") return fail("conflict", { code: "quote.locked" });
+  if (existing.status !== "DRAFT") return fail("conflict", { code: "quote.locked" satisfies ErrorCode });
 
   const title = cleanText(input.title, { maxLength: LIMITS.title });
   if (!title) return fail("invalid");
@@ -622,9 +623,9 @@ export async function sendQuote(
     },
   });
   if (!quote) return fail("not_found");
-  if (quote.status !== "DRAFT") return fail("conflict", { code: "quote.notDraft" });
+  if (quote.status !== "DRAFT") return fail("conflict", { code: "quote.notDraft" satisfies ErrorCode });
   if (quote.validUntil && quote.validUntil.getTime() < todayUtc().getTime()) {
-    return fail("conflict", { code: "quote.expired" });
+    return fail("conflict", { code: "quote.expired" satisfies ErrorCode });
   }
   const settings = await getSettings();
 
@@ -646,7 +647,7 @@ export async function sendQuote(
       });
       return { token, version: quote.version };
     });
-    if (!result) return fail("conflict", { code: "quote.notDraft" });
+    if (!result) return fail("conflict", { code: "quote.notDraft" satisfies ErrorCode });
 
     // E-posten legges i den vedvarende utboksen etter at statusen er committet.
     // En SMTP-feil kan derfor aldri rulle tilbake «sendt»-statusen.
@@ -666,7 +667,7 @@ export async function sendQuote(
 
     return ok(result);
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("conflict", { code: "quote.duplicate" });
+    if (isUniqueViolation(error)) return fail("conflict", { code: "quote.duplicate" satisfies ErrorCode });
     throw error;
   }
 }
@@ -685,7 +686,7 @@ export async function reissueQuoteToken(
     select: { id: true, status: true },
   });
   if (!quote) return fail("not_found");
-  if (quote.status !== "SENT") return fail("conflict", { code: "quote.notSent" });
+  if (quote.status !== "SENT") return fail("conflict", { code: "quote.notSent" satisfies ErrorCode });
   const settings = await getSettings();
   const token = await prisma.$transaction(async (tx) => {
     const value = await issueToken(tx, cleanId, settings.approvalTokenTtlHours);
@@ -714,7 +715,7 @@ export async function createQuoteVersion(
     select: { id: true, status: true, version: true, title: true },
   });
   if (!quote) return fail("not_found");
-  if (quote.status !== "DRAFT") return fail("conflict", { code: "quote.locked" });
+  if (quote.status !== "DRAFT") return fail("conflict", { code: "quote.locked" satisfies ErrorCode });
 
   const next = await prisma.$transaction(async (tx) => {
     await snapshotQuote(tx, cleanId, actor);
@@ -837,17 +838,17 @@ export async function acceptQuoteByToken(
       return ok({ quoteId: quote.id, status: "ACCEPTED" as const, alreadyAccepted: true });
     }
     if (quote.tokenUsedAt || quote.status !== "SENT") {
-      return fail("conflict", { code: "token.used" });
+      return fail("conflict", { code: "token.used" satisfies ErrorCode });
     }
     if (!quote.tokenExpiresAt || quote.tokenExpiresAt.getTime() <= Date.now()) {
-      return fail("conflict", { code: "token.expired" });
+      return fail("conflict", { code: "token.expired" satisfies ErrorCode });
     }
     if (quote.validUntil && quote.validUntil.getTime() < todayUtc().getTime()) {
       await tx.quote.update({
         where: { id: quote.id },
         data: { status: "EXPIRED" },
       });
-      return fail("conflict", { code: "quote.expired" });
+      return fail("conflict", { code: "quote.expired" satisfies ErrorCode });
     }
 
     await tx.quote.update({
@@ -899,10 +900,10 @@ export async function rejectQuoteByToken(
       return ok({ quoteId: quote.id, status: "REJECTED" as const });
     }
     if (quote.tokenUsedAt || quote.status !== "SENT") {
-      return fail("conflict", { code: "token.used" });
+      return fail("conflict", { code: "token.used" satisfies ErrorCode });
     }
     if (!quote.tokenExpiresAt || quote.tokenExpiresAt.getTime() <= Date.now()) {
-      return fail("conflict", { code: "token.expired" });
+      return fail("conflict", { code: "token.expired" satisfies ErrorCode });
     }
 
     await tx.quote.update({
@@ -1161,7 +1162,7 @@ export async function convertQuoteToWorkOrder(
   if (quote.convertedWorkOrderId) {
     return ok({ workOrderId: quote.convertedWorkOrderId });
   }
-  if (quote.status !== "ACCEPTED") return fail("conflict", { code: "quote.notAccepted" });
+  if (quote.status !== "ACCEPTED") return fail("conflict", { code: "quote.notAccepted" satisfies ErrorCode });
 
   try {
     const workOrderId = await prisma.$transaction(async (tx) => {
@@ -1245,7 +1246,7 @@ export async function convertQuoteToWorkOrder(
       });
       return workOrder.id;
     });
-    if (!workOrderId) return fail("conflict", { code: "quote.conversionRace" });
+    if (!workOrderId) return fail("conflict", { code: "quote.conversionRace" satisfies ErrorCode });
     return ok({ workOrderId });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -1254,7 +1255,7 @@ export async function convertQuoteToWorkOrder(
         select: { convertedWorkOrderId: true },
       });
       if (converted?.convertedWorkOrderId) return ok({ workOrderId: converted.convertedWorkOrderId });
-      return fail("conflict", { code: "quote.conversionRace" });
+      return fail("conflict", { code: "quote.conversionRace" satisfies ErrorCode });
     }
     throw error;
   }

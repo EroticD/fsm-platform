@@ -40,6 +40,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { logServerError } from "@/lib/log-context";
+import type { ErrorCode } from "@/lib/error-codes";
 
 export const EQUIPMENT_PAGE_SIZE = 20;
 export const EQUIPMENT_MAX_PAGE_SIZE = 100;
@@ -67,7 +68,7 @@ export const EQUIPMENT_ERROR_CODES = {
   qrMissing: "equipment.errors.qrMissing",
   qrInvalid: "equipment.errors.qrInvalid",
   qrDuplicate: "equipment.errors.qrDuplicate",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type EquipmentListParams = {
   q?: string;

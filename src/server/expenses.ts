@@ -37,6 +37,7 @@ import {
   type ServiceResult,
 } from "@/server/actor";
 import { requireModule } from "@/server/modules";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Kjøreturer, utlegg og lønnsgrunnlag (FLD-01).
@@ -57,7 +58,7 @@ export const EXPENSE_ERROR_CODES = {
   reasonRequired: "expenses.errors.reasonRequired",
   periodOverlap: "expenses.errors.periodOverlap",
   invalidPeriod: "expenses.errors.invalidPeriod",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 const MAX_PERIOD_DAYS = 366;
 const UPLOAD_STORED_NAME = /^[A-Za-z0-9._-]{1,200}$/;

@@ -24,6 +24,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Regnskapssynk mot Fiken, Tripletex, PowerOffice Go eller CSV.
@@ -198,7 +199,7 @@ export async function testAccountingConnection(
         metadata: { provider: provider.name, ok: false, reason: "not_configured" },
       });
     });
-    return fail("conflict", { code: "accounting.notConfigured" });
+    return fail("conflict", { code: "accounting.notConfigured" satisfies ErrorCode });
   }
 
   let result: Awaited<ReturnType<typeof provider.testConnection>>;
@@ -438,17 +439,17 @@ export async function syncInvoiceToAccounting(
     return fail("forbidden");
   }
   const settings = await getAccountingSettings();
-  if (!settings.enabled) return fail("conflict", { code: "accounting.disabled" });
+  if (!settings.enabled) return fail("conflict", { code: "accounting.disabled" satisfies ErrorCode });
 
   const providerName = resolveAccountingProviderName();
   const provider = getAccountingProvider(providerName);
-  if (!provider.configured()) return fail("conflict", { code: "accounting.notConfigured" });
+  if (!provider.configured()) return fail("conflict", { code: "accounting.notConfigured" satisfies ErrorCode });
 
   const cleanId = String(invoiceId ?? "").trim();
   if (!cleanId) return fail("not_found");
   const invoice = await loadInvoiceForSync(actor, cleanId);
   if (!invoice) return fail("not_found");
-  if (!invoice.invoiceNumber) return fail("conflict", { code: "invoice.notDraft" });
+  if (!invoice.invoiceNumber) return fail("conflict", { code: "invoice.notDraft" satisfies ErrorCode });
 
   const key = `accounting:${providerName}:${invoice.id}`;
   const existing = await prisma.accountingSync.findUnique({
@@ -495,13 +496,13 @@ export async function syncInvoiceToAccounting(
         error !== null &&
         (error as { code?: string }).code === "P2002"
       ) {
-        return fail("conflict", { code: "accounting.concurrent" });
+        return fail("conflict", { code: "accounting.concurrent" satisfies ErrorCode });
       }
       throw error;
     }
   }
 
-  if (!sync) return fail("error", { code: "accounting.syncFailed", retryable: true });
+  if (!sync) return fail("error", { code: "accounting.syncFailed" satisfies ErrorCode, retryable: true });
 
   let customerExternalId: string;
   let invoiceResult: AccountingSyncResult;
@@ -515,10 +516,10 @@ export async function syncInvoiceToAccounting(
       error instanceof AccountingError ? error.code : "provider_error";
     await recordSyncFailure(actor, sync.id, invoice.id, providerName, reason);
     if (error instanceof AccountingError && error.code === "not_configured") {
-      return fail("conflict", { code: "accounting.notConfigured" });
+      return fail("conflict", { code: "accounting.notConfigured" satisfies ErrorCode });
     }
     return fail("error", {
-      code: "accounting.syncFailed",
+      code: "accounting.syncFailed" satisfies ErrorCode,
       retryable: error instanceof AccountingError ? error.retryable : true,
       provider: providerName,
     });

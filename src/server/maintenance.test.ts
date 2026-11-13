@@ -28,10 +28,12 @@ const mocks = vi.hoisted(() => ({
   audit: vi.fn(),
   createDefaultVisit: vi.fn(),
   getDefaultDepartmentId: vi.fn(),
+  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/logger", () => ({ logger: mocks.log }));
 vi.mock("@/server/visits", () => ({
   createDefaultVisit: mocks.createDefaultVisit,
 }));
@@ -44,6 +46,7 @@ import {
   deleteMaintenancePlan,
   evaluateMeterMaintenance,
   generateDueMaintenanceWorkOrders,
+  maintenanceConcurrency,
   updateMaintenancePlan,
 } from "./maintenance";
 
@@ -343,5 +346,83 @@ describe("kalendergenerering", () => {
 
     expect(result).toEqual([]);
     expect(mocks.prisma.maintenancePlan.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("behandler alle planer med begrenset parallellitet, beholder rekkefølgen og teller feil", async () => {
+    const now = new Date("2026-10-30T08:00:00.000Z");
+    const due = new Date("2026-10-29T00:00:00.000Z");
+    const duePlans = Array.from({ length: 7 }, (_, index) => ({
+      id: `plan-${index + 1}`,
+      nextDueDate: due,
+      leadDays: 14,
+    }));
+    mocks.prisma.maintenancePlan.findMany.mockResolvedValue([
+      ...duePlans.slice(0, 3),
+      // Utenfor ledetiden: skal verken behandles eller telle med i resultatet.
+      {
+        id: "plan-framtid",
+        nextDueDate: new Date("2027-06-01T00:00:00.000Z"),
+        leadDays: 14,
+      },
+      ...duePlans.slice(3),
+    ]);
+
+    let active = 0;
+    let maxActive = 0;
+    mocks.prisma.maintenancePlan.findUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        if (where.id === "plan-5") throw new Error("plan feilet");
+        return {
+          id: where.id,
+          title: `Plan ${where.id}`,
+          trigger: "CALENDAR",
+          isActive: true,
+          customerId: "cust",
+          departmentId: "dep-a",
+          productId: null,
+          templateId: null,
+          nextDueDate: due,
+          intervalMonths: 12,
+          leadDays: 14,
+          customer: { id: "cust", name: "Kunde", deletedAt: null },
+        };
+      },
+    );
+
+    const result = await generateDueMaintenanceWorkOrders(now, {
+      concurrency: 3,
+    });
+
+    // Samme rekkefølge som planene ble hentet, uavhengig av hvem som ble
+    // ferdig først.
+    expect(result.map((item) => item.planId)).toEqual(
+      duePlans.map((plan) => plan.id),
+    );
+    expect(result.filter((item) => item.skipped === "error")).toEqual([
+      { planId: "plan-5", skipped: "error", error: "plan feilet" },
+    ]);
+    // Feilen stoppet ikke de andre planene.
+    expect(
+      result.filter((item) => item.workOrderId === "wo-new"),
+    ).toHaveLength(6);
+    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(7);
+    // Aldri over grensen, men faktisk mer enn én om gangen.
+    expect(maxActive).toBe(3);
+    expect(mocks.log.warn).toHaveBeenCalledWith(
+      "maintenance: generation finished with errors",
+      { failed: 1, processed: 7, concurrency: 3 },
+    );
+  });
+
+  it("leser MAINTENANCE_CONCURRENCY med standard 3 og tak på 8", () => {
+    expect(maintenanceConcurrency({})).toBe(3);
+    expect(maintenanceConcurrency({ MAINTENANCE_CONCURRENCY: "2" })).toBe(2);
+    expect(maintenanceConcurrency({ MAINTENANCE_CONCURRENCY: "0" })).toBe(3);
+    expect(maintenanceConcurrency({ MAINTENANCE_CONCURRENCY: "tull" })).toBe(3);
+    expect(maintenanceConcurrency({ MAINTENANCE_CONCURRENCY: "99" })).toBe(8);
   });
 });

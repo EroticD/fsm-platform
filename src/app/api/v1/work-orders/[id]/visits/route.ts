@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 import type { ServiceActor, ServiceFailure } from "@/server/actor";
 import { createVisit } from "@/server/visits";
+import type { ErrorCode } from "@/lib/error-codes";
 
 export const runtime = "nodejs";
 
@@ -222,7 +223,7 @@ export async function POST(
   if (endsAt.getTime() <= startsAt.getTime()) {
     return apiError("validation_error", 422, { messageKey: "errors.api.visits.endBeforeStart", details: {
       field: "endsAt",
-      code: "visits.errors.invalidTimeRange",
+      code: "visits.errors.invalidTimeRange" satisfies ErrorCode,
     } });
   }
 
@@ -256,7 +257,7 @@ export async function POST(
     ) {
       return apiError("validation_error", 422, { messageKey: "errors.api.visits.sequenceInteger", details: {
         field: "sequence",
-        code: "visits.errors.invalidSequence",
+        code: "visits.errors.invalidSequence" satisfies ErrorCode,
       } });
     }
     sequence = body.sequence;

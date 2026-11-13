@@ -15,10 +15,61 @@ const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** Vent litt etter oppstart, så migreringer og database er klare. */
 const START_DELAY_MS = 10 * 1000;
 
+/** Maks avvik fra intervallet, som andel. */
+export const SCHEDULER_JITTER_RATIO = 0.1;
+
 type SchedulerGlobal = typeof globalThis & {
   __fsmSchedulerStarted?: boolean;
   __fsmSchedulerStop?: () => Promise<void>;
 };
+
+/**
+ * Trekker neste kjøring litt tilfeldig rundt intervallet (±10 %), slik at
+ * flere replikaer som starter samtidig ikke treffer databasen på samme sekund.
+ *
+ * Første kjøring bruker fast `START_DELAY_MS` uten jitter, så oppstart og
+ * tester er forutsigbare. `random` er injiserbar for deterministiske tester.
+ */
+export function jitteredIntervalMs(
+  intervalMs: number,
+  random: () => number = Math.random,
+): number {
+  const spread = Math.floor(intervalMs * SCHEDULER_JITTER_RATIO);
+  if (spread <= 0) return intervalMs;
+  // random() ∈ [0, 1) → avvik ∈ (-spread, +spread].
+  const offset = Math.round((random() * 2 - 1) * spread);
+  return intervalMs + Math.max(-spread, Math.min(spread, offset));
+}
+
+export type RunGate = {
+  /** Tar kontrollen hvis ingen kjøring pågår. Ellers kalles `onSkip`. */
+  tryStart: () => boolean;
+  /** Frigir kontrollen etter en kjøring. */
+  finish: () => void;
+  isActive: () => boolean;
+};
+
+/**
+ * Vakt som slipper gjennom nøyaktig én kjøring om gangen. En timer som fyrer
+ * mens forrige runde fortsatt jobber skal hoppe over, ikke stable seg opp.
+ */
+export function createRunGate(onSkip: () => void = () => {}): RunGate {
+  let active = false;
+  return {
+    tryStart: () => {
+      if (active) {
+        onSkip();
+        return false;
+      }
+      active = true;
+      return true;
+    },
+    finish: () => {
+      active = false;
+    },
+    isActive: () => active,
+  };
+}
 
 export type SchedulerRunResult = {
   recurring: Awaited<ReturnType<typeof generateDueRecurringWorkOrders>>;
@@ -187,10 +238,17 @@ export function startScheduler() {
   if (scope.__fsmSchedulerStarted) return;
   scope.__fsmSchedulerStarted = true;
 
-  const timers: NodeJS.Timeout[] = [];
+  const timers = new Set<NodeJS.Timeout>();
   const inFlight = new Set<Promise<void>>();
   let stopped = false;
-  let mainRunActive = false;
+  const gate = createRunGate(() => {
+    // Vanligvis bare et tegn på at forrige runde brukte lengre tid enn
+    // intervallet (eller at jitteren la to runder tett). Vi hopper over i
+    // stedet for å stable opp flere samtidige tunge jobber.
+    logger.warn("scheduler: previous run still in progress, skipping", {
+      intervalMs: RUN_INTERVAL_MS,
+    });
+  });
 
   const track = (work: Promise<unknown>, label: string) => {
     const tracked: Promise<void> = work
@@ -210,18 +268,33 @@ export function startScheduler() {
     if (stopped) return;
     // Ikke start en ny runde mens den forrige kjører: da finnes det alltid
     // nøyaktig én kjøring å vente på ved nedstenging.
-    if (mainRunActive) return;
-    mainRunActive = true;
+    if (!gate.tryStart()) return;
     track(
       runOnce().finally(() => {
-        mainRunActive = false;
+        gate.finish();
       }),
       "scheduler: run",
     );
   };
 
-  timers.push(setTimeout(run, START_DELAY_MS));
-  timers.push(setInterval(run, RUN_INTERVAL_MS));
+  // Jitteren legges på hver enkelt forsinkelse, ikke på et fast intervall, så
+  // hver runde får nytt avvik. Første kjøring er uten jitter.
+  const scheduleNextRun = () => {
+    if (stopped) return;
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      run();
+      scheduleNextRun();
+    }, jitteredIntervalMs(RUN_INTERVAL_MS));
+    timers.add(timer);
+  };
+
+  const firstRun = setTimeout(() => {
+    timers.delete(firstRun);
+    run();
+  }, START_DELAY_MS);
+  timers.add(firstRun);
+  scheduleNextRun();
 
   // SLA-oppryddingen har eget intervall (SLA_CLEANUP_INTERVAL_HOURS) fordi
   // den kan kjøres oftere enn de øvrige tunge jobbene. runScheduledJobs gjør
@@ -232,7 +305,7 @@ export function startScheduler() {
     track(runSlaCleanupJob(), "sla: cleanup timer");
   }, slaCleanupIntervalMs());
   cleanupTimer.unref?.();
-  timers.push(cleanupTimer);
+  timers.add(cleanupTimer);
 
   // Idempotent: gjentatte kall (signal + eksplisitt stopp) venter på samme
   // avslutning i stedet for å returnere før jobbene er ferdige.
@@ -244,6 +317,7 @@ export function startScheduler() {
         clearTimeout(timer);
         clearInterval(timer);
       }
+      timers.clear();
       // Vent på jobbene som allerede er i gang. Nye starter ikke, fordi
       // `stopped` sjekkes i både `run` og SLA-timeren.
       if (inFlight.size > 0) {

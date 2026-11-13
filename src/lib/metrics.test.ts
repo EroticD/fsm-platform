@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   backupMaxAgeSeconds,
+  clearMetricsCache,
   collectMetrics,
   diskUsageFromStatfs,
+  metricsCacheSeconds,
   readBackupStatus,
   serializePrometheus,
   type MetricsPrisma,
@@ -37,6 +39,29 @@ function fakePrisma(overrides: Partial<MetricsPrisma> = {}): MetricsPrisma {
 }
 
 const now = new Date("2026-11-02T12:00:00.000Z");
+
+beforeEach(() => {
+  // Cachen er prosessvid; hver test skal starte med tom cache.
+  clearMetricsCache();
+});
+
+/** Felles IO-stubber, så cachetestene kan variere bare prisma og tid. */
+function collectOptions(
+  prisma: MetricsPrisma,
+  at: Date = now,
+  env: Record<string, string | undefined> = {},
+) {
+  return {
+    prisma,
+    env,
+    now: at,
+    uploadDir: "/tmp/uploads",
+    mkdir: async () => undefined,
+    access: async () => undefined,
+    statfs: async () => ({ bsize: 1, blocks: 1, bfree: 1, bavail: 1 }),
+    readFile: async () => "{}",
+  };
+}
 
 describe("metrics", () => {
   it("regner ut diskbruk fra statfs", () => {
@@ -189,5 +214,52 @@ describe("metrics", () => {
       lastStatus: "succeeded",
       stale: false,
     });
+  });
+
+  it("leser METRICS_CACHE_SECONDS med standard 12 og 0 som av", () => {
+    expect(metricsCacheSeconds({})).toBe(12);
+    expect(metricsCacheSeconds({ METRICS_CACHE_SECONDS: "15" })).toBe(15);
+    expect(metricsCacheSeconds({ METRICS_CACHE_SECONDS: "0" })).toBe(0);
+    // Ugyldige verdier skal ikke gi evig cache.
+    expect(metricsCacheSeconds({ METRICS_CACHE_SECONDS: "tull" })).toBe(12);
+    expect(metricsCacheSeconds({ METRICS_CACHE_SECONDS: "-3" })).toBe(12);
+  });
+
+  it("deler én innsamling mellom to skrapinger innenfor TTL og samler på nytt etter utløp", async () => {
+    const queryRaw = vi.fn(async () => []);
+    const prisma = fakePrisma({
+      $queryRaw: queryRaw as unknown as MetricsPrisma["$queryRaw"],
+    });
+    const env = { METRICS_CACHE_SECONDS: "12" };
+
+    const first = await collectMetrics(collectOptions(prisma, now, env));
+    const withinTtl = new Date(now.getTime() + 5_000);
+    const second = await collectMetrics(
+      collectOptions(prisma, withinTtl, env),
+    );
+
+    // Ni COUNT + filsystemkall er kjørt nøyaktig én gang for to skrapinger.
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+    expect(second.time).toBe(now.toISOString());
+
+    const afterTtl = new Date(now.getTime() + 13_000);
+    const third = await collectMetrics(collectOptions(prisma, afterTtl, env));
+
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(third.time).toBe(afterTtl.toISOString());
+  });
+
+  it("samler på nytt for hver skraping når METRICS_CACHE_SECONDS=0", async () => {
+    const queryRaw = vi.fn(async () => []);
+    const prisma = fakePrisma({
+      $queryRaw: queryRaw as unknown as MetricsPrisma["$queryRaw"],
+    });
+    const env = { METRICS_CACHE_SECONDS: "0" };
+
+    await collectMetrics(collectOptions(prisma, now, env));
+    await collectMetrics(collectOptions(prisma, now, env));
+
+    expect(queryRaw).toHaveBeenCalledTimes(2);
   });
 });

@@ -24,6 +24,7 @@ import {
   type ServiceResult,
 } from "@/server/actor";
 import { createWorkOrder } from "./work-orders";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /**
  * Innmeldte ordrer fra andre ordresystemer.
@@ -61,7 +62,7 @@ export const EXTERNAL_ORDER_ERROR_CODES = {
   invalidPriority: "orders.invalidPriority",
   invalidDate: "orders.invalidDate",
   invalidLines: "orders.invalidLines",
-} as const;
+} as const satisfies Record<string, ErrorCode>;
 
 export type ExternalOrderLine = {
   description: string;
@@ -543,7 +544,7 @@ export async function createExternalOrder(
           where: { id: siteId, customerId: customer.id },
           select: { id: true },
         });
-        if (!site) return fail("invalid", { code: "orders.invalidSite" });
+        if (!site) return fail("invalid", { code: "orders.invalidSite" satisfies ErrorCode });
       }
 
       const workOrder = await createWorkOrder(

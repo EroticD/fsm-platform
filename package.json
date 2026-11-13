@@ -21,6 +21,7 @@
     "test:mapping": "node --test scripts/tests/test-mapping.test.mjs",
     "seed": "node scripts/seed.mjs",
     "seed:e2e": "node scripts/seed-e2e.mjs",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "screenshots": "node scripts/capture-screenshots.mjs",
     "screenshots:all": "node scripts/capture-all-screenshots.mjs",
     "screenshots:manual": "node scripts/capture-manual-screenshots.mjs",

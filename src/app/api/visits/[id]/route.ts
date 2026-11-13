@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 import { moveVisit } from "@/server/visits";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** ISO 8601 med dato og klokkeslett. FullCalendar sender alltid dette. */
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/;
@@ -89,7 +90,7 @@ export async function PATCH(
   const endsAt = parseInstant(parsed.data?.endsAt);
   if (!startsAt || !endsAt || endsAt.getTime() <= startsAt.getTime()) {
     return NextResponse.json(
-      { error: "ugyldig-data", code: "visits.errors.invalidTimeRange" },
+      { error: "ugyldig-data", code: "visits.errors.invalidTimeRange" satisfies ErrorCode },
       { status: 400 },
     );
   }

@@ -91,6 +91,45 @@ export function okChoiceValue(field: TemplateField): string | null {
 export type AllOkTarget = { fieldId: string; value: string };
 
 /**
+ * Anker-id for ett sjekkpunkt i én enhet.
+ *
+ * Samme id settes på feltwrapperen i skjemaet og brukes av hopplenkene i
+ * varselet om manglende svar, slik at `getElementById` alltid peker på det
+ * faktiske feltet – også når to enheter har samme mal.
+ */
+export function checkpointAnchorId(
+  formId: string,
+  unitKey: string,
+  fieldId: string,
+): string {
+  return `${formId}-${unitKey}-${fieldId}`;
+}
+
+/**
+ * Ruller til et sjekkpunkt og setter fokus på første svaralternativ, så
+ * montøren kan svare med én gang – uten å lete i et langt skjema på mobil.
+ * Returnerer false når ankeret ikke finnes (feltet er skjult eller fjernet).
+ */
+export function focusCheckpoint(anchorId: string): boolean {
+  if (typeof document === "undefined") return false;
+  const target = document.getElementById(anchorId);
+  if (!target) return false;
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "center",
+  });
+  const focusable = target.querySelector<HTMLElement>(
+    'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  );
+  focusable?.focus({ preventScroll: true });
+  return true;
+}
+
+/**
  * Tilstandsfeltene i én enhet som kan settes til OK med ett trykk.
  *
  * Regelen er bevisst konservativ: bare felt uten svar fylles. Et felt som alt
@@ -590,6 +629,14 @@ export default function ReportForm({
   const [completionNotices, setCompletionNotices] = useState<
     Record<string, UnitCompletionNotice>
   >({});
+  /**
+   * Anker-id-ene til de manglende sjekkpunktene i varselet, per enhet. De
+   * ligger ved siden av `completionNotices` fordi varseltypen er ren logikk uten
+   * kjennskap til DOM-id-er.
+   */
+  const [completionTargets, setCompletionTargets] = useState<
+    Record<string, { id: string; label: string }[]>
+  >({});
   const [undoState, dispatchUndo] = useReducer(completionUndoReducer, {
     undo: null,
   });
@@ -640,6 +687,28 @@ export default function ReportForm({
       delete next[key];
       return next;
     });
+    setCompletionTargets((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  /** Holder anker-id-ene i takt med varselet for én enhet. */
+  const setUnitCompletionTargets = (
+    key: string,
+    targets: { id: string; label: string }[],
+  ) => {
+    setCompletionTargets((prev) => {
+      if (targets.length === 0) {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: targets };
+    });
   };
 
   /**
@@ -666,6 +735,7 @@ export default function ReportForm({
           ...prev,
           [unit.key]: { kind: "deviation" },
         }));
+        setUnitCompletionTargets(unit.key, []);
         return;
       }
       if (check.blocker.kind === "unit-label") {
@@ -673,6 +743,7 @@ export default function ReportForm({
           ...prev,
           [unit.key]: { kind: "unit-label" },
         }));
+        setUnitCompletionTargets(unit.key, []);
         return;
       }
 
@@ -692,6 +763,15 @@ export default function ReportForm({
               fields: missing.map((entry) => entry.label),
             };
       setCompletionNotices((prev) => ({ ...prev, [unit.key]: notice }));
+      // Hvert manglende punkt får adressen til feltet sitt, slik at varselet
+      // kan tilby ett trykk per punkt i stedet for én lang tekst.
+      setUnitCompletionTargets(
+        unit.key,
+        missing.map((entry) => ({
+          id: checkpointAnchorId(formId, unit.key, entry.fieldId),
+          label: entry.label,
+        })),
+      );
       return;
     }
 
@@ -1420,6 +1500,8 @@ export default function ReportForm({
                   unitNumber={index + 1}
                   status={unit.status}
                   notice={completionNotices[unit.key]}
+                  missingFields={completionTargets[unit.key]}
+                  onJumpToField={focusCheckpoint}
                   undoAvailable={undoState.undo?.unitKey === unit.key}
                   onComplete={() => completeUnit(unit, index + 1)}
                   onUndo={undoCompletion}
@@ -1666,37 +1748,46 @@ export default function ReportForm({
                 {fields
                   .filter((field) => isFieldVisible(field, unit.answers))
                   .map((field) => (
-                    <FieldInput
+                    // Ankeret gjør at et manglende sjekkpunkt kan nås med ett
+                    // trykk fra varselet i mobilhodet. `scroll-mt-48` holder
+                    // feltet unna den faste stegstripen.
+                    <div
                       key={`${field.id}#${
                         fieldRevisions[`${unit.key}:${field.id}`] ?? 0
                       }`}
-                      field={field}
-                      name={`answer__${unit.key}__${field.id}`}
-                      commentName={`linecomment__${unit.key}__${field.id}`}
-                      defaultValue={unit.answers[field.id]}
-                      defaultComment={readLineComment(unit.answers, field.id)}
-                      onNeedsComment={(needs) =>
-                        setFieldNeedsComment(unit.key, field.id, needs)
-                      }
-                      onValueChange={(value) => {
-                        // Et svar som retter opp en manglende verdi gjør den
-                        // gamle forklaringen utdatert.
-                        clearCompletionNotice(unit.key);
-                        patchUnit(unit.key, {
-                          answers: { ...unit.answers, [field.id]: value },
-                        });
-                      }}
-                      onImageCountChange={(count) => {
-                        clearCompletionNotice(unit.key);
-                        registerPhotoCount(`${unit.key}:${field.id}`, count);
-                      }}
-                      workOrderId={workOrderId}
-                      anchorId={
-                        field.type === "IMAGE" && field.id === firstImageFieldId
-                          ? "bilder"
-                          : undefined
-                      }
-                    />
+                      id={checkpointAnchorId(formId, unit.key, field.id)}
+                      className="scroll-mt-48"
+                    >
+                      <FieldInput
+                        field={field}
+                        name={`answer__${unit.key}__${field.id}`}
+                        commentName={`linecomment__${unit.key}__${field.id}`}
+                        defaultValue={unit.answers[field.id]}
+                        defaultComment={readLineComment(unit.answers, field.id)}
+                        onNeedsComment={(needs) =>
+                          setFieldNeedsComment(unit.key, field.id, needs)
+                        }
+                        onValueChange={(value) => {
+                          // Et svar som retter opp en manglende verdi gjør den
+                          // gamle forklaringen utdatert.
+                          clearCompletionNotice(unit.key);
+                          patchUnit(unit.key, {
+                            answers: { ...unit.answers, [field.id]: value },
+                          });
+                        }}
+                        onImageCountChange={(count) => {
+                          clearCompletionNotice(unit.key);
+                          registerPhotoCount(`${unit.key}:${field.id}`, count);
+                        }}
+                        workOrderId={workOrderId}
+                        anchorId={
+                          field.type === "IMAGE" &&
+                          field.id === firstImageFieldId
+                            ? "bilder"
+                            : undefined
+                        }
+                      />
+                    </div>
                   ))}
               </div>
             )}

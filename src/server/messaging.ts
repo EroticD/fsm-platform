@@ -23,6 +23,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import type { ErrorCode } from "@/lib/error-codes";
 
 /** Avdelingssperren for meldingstråder, lik oppdragenes. */
 export function messageThreadScopeFor(
@@ -362,7 +363,7 @@ export async function sendThreadMessage(
   });
   if (!queued.ok) {
     return queued.reason === "forbidden"
-      ? fail("forbidden", { code: "sms.errors.noConsent" })
+      ? fail("forbidden", { code: "sms.errors.noConsent" satisfies ErrorCode })
       : queued;
   }
 

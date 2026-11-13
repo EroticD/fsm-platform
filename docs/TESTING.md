@@ -49,6 +49,33 @@ npm run test:mapping
 Uten `--integration`/`--all` kjører `test:module` enhetstester. Legg til
 `--integration` for bare integrasjonstester, eller `--all` for begge.
 
+## Demo-data for P2-modulene
+
+`scripts/seed-demo.ts` fyller tilbud, faktura, lager og utlegg med et lite,
+realistisk datasett, slik at modulene kan utvikles og QA-es uten manuell
+klikking:
+
+```bash
+SEED_DEMO_CONFIRM=ja npm run seed:demo
+```
+
+Skriptet er bare for utviklings- og testdatabaser. Det nekter å kjøre når
+`NODE_ENV=production`, og nekter uten `SEED_DEMO_CONFIRM=ja`. Kjøringen er
+idempotent: alle rader har faste demo-id-er og skrives med `upsert`, så den kan
+gjentas fritt. Ingenting slettes, og rader som ikke er demo-rader røres ikke.
+
+Settet består av én kunde med org.nr og to kontakter, ett utstyr, én
+serviceavtale, to oppdrag (ett åpent, ett fullført med låst rapport), ett
+tilbud med to linjer, én ubetalt faktura, én lagerartikkel med beholdning og
+ett utlegg. Skriptet skriver en oppsummering av hva som ble opprettet og hva
+som fantes fra før.
+
+Brukere opprettes bare for roller som mangler en aktiv bruker. Nye
+demobrukere får `demo.admin@example.test`, `demo.kontor@example.test` og
+`demo.montor@example.test` med passordene `DemoAdmin123!`, `DemoKontor123!` og
+`DemoMontor123!`; finnes rollen allerede, gjenbrukes den eksisterende brukeren
+og passordet står uendret.
+
 ## Mapping fra endrede filer til tester
 
 `scripts/test-changed.mjs` leser endrede filer fra git og bruker

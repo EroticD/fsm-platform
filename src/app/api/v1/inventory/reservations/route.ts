@@ -3,6 +3,7 @@ import { apiError, apiJson } from "@/lib/api-response";
 import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 import { reserveStock } from "@/server/inventory";
 import { inventoryError } from "../_shared";
+import type { ErrorCode } from "@/lib/error-codes";
 
 export const runtime = "nodejs";
 
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   if (!text(body.workOrderId) && !text(body.visitId)) {
     return apiError("validation_error", 422, {
       messageKey: "errors.api.inventory.validation",
-      details: { field: "workOrderId", code: "inventory.workOrderRequired" },
+      details: { field: "workOrderId", code: "inventory.workOrderRequired" satisfies ErrorCode },
     });
   }
 

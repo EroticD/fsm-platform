@@ -20,6 +20,8 @@ export default function UnitCompletionHeader({
   unitNumber,
   status,
   notice,
+  missingFields = [],
+  onJumpToField,
   undoAvailable,
   onComplete,
   onUndo,
@@ -28,6 +30,14 @@ export default function UnitCompletionHeader({
   unitNumber: number;
   status: UnitStatus;
   notice?: UnitCompletionNotice;
+  /**
+   * De manglende sjekkpunktene med anker-id, i samme rekkefølge som
+   * `notice.fields`. Hvert punkt blir en egen hopplenke i stedet for én lang
+   * kommaseparert tekst.
+   */
+  missingFields?: { id: string; label: string }[];
+  /** Ruller til feltet og setter fokus på første svaralternativ. */
+  onJumpToField?: (anchorId: string) => void;
   undoAvailable: boolean;
   onComplete: () => void;
   onUndo: () => void;
@@ -149,33 +159,51 @@ export default function UnitCompletionHeader({
       ? t("orders.reportForm.swipeReleaseHint")
       : t("orders.reportForm.swipeProgress", { percent: progress })
     : t("orders.reportForm.swipeCompleteHint");
-  const noticeLines: string[] = [];
+  const leadLines: string[] = [];
+  // Manglende sjekkpunkter vises som egne hopplenker. Anker-id-ene kommer fra
+  // skjemaet, som eier feltene; her er de bare adresser.
+  const missingPoints =
+    notice?.kind === "missing" || notice?.kind === "trigger"
+      ? missingFields.filter((entry) => entry.id !== "")
+      : [];
+  const missingLabels =
+    notice?.kind === "missing"
+      ? notice.fields
+      : notice?.kind === "trigger"
+        ? (notice.missingFields ?? [])
+        : [];
+  const missingCount =
+    notice?.kind === "missing"
+      ? notice.count
+      : notice?.kind === "trigger"
+        ? (notice.missingCount ?? 0)
+        : 0;
+  // Hele setningen beholdes for skjermlesere, også når hvert punkt er en knapp.
+  const missingSummary =
+    missingCount > 0 && missingLabels.length > 0
+      ? t("orders.reportForm.swipeMissingAnswers", {
+          count: missingCount,
+          fields: missingLabels.join(", "),
+        })
+      : null;
+
   if (notice?.kind === "unit-label") {
-    noticeLines.push(t("orders.reportForm.swipeUnitLabelMissing"));
-  } else if (notice?.kind === "missing") {
-    noticeLines.push(
-      t("orders.reportForm.swipeMissingAnswers", {
-        count: notice.count,
-        fields: notice.fields.join(", "),
-      }),
-    );
+    leadLines.push(t("orders.reportForm.swipeUnitLabelMissing"));
   } else if (notice?.kind === "trigger") {
-    noticeLines.push(
+    leadLines.push(
       t("orders.reportForm.swipeDeviationTrigger", {
         field: notice.field,
         value: notice.value,
       }),
     );
-    if ((notice.missingCount ?? 0) > 0 && notice.missingFields) {
-      noticeLines.push(
-        t("orders.reportForm.swipeMissingAnswers", {
-          count: notice.missingCount ?? 0,
-          fields: notice.missingFields.join(", "),
-        }),
-      );
-    }
   } else if (notice?.kind === "deviation") {
-    noticeLines.push(t("orders.reportForm.swipeDeviationBlocked"));
+    leadLines.push(t("orders.reportForm.swipeDeviationBlocked"));
+  }
+
+  // Uten anker-id-er (eller for en fremmed bruker av komponenten) faller
+  // forklaringen tilbake til den kommaseparerte teksten.
+  if (missingSummary && missingPoints.length === 0) {
+    leadLines.push(missingSummary);
   }
 
   return (
@@ -273,19 +301,49 @@ export default function UnitCompletionHeader({
         </div>
       </div>
 
-      {noticeLines.length > 0 && (
+      {(leadLines.length > 0 || missingPoints.length > 0) && (
         <div
           role="alert"
           className="mt-2 flex items-start gap-1.5 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900"
         >
           <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {noticeLines.map((line, index) => (
+          <div className="min-w-0 space-y-1.5">
+            {leadLines.map((line, index) => (
               <span key={index} className="block">
                 {line}
               </span>
             ))}
-          </span>
+
+            {missingPoints.length > 0 && (
+              <>
+                {/* Hele forklaringen beholdes for skjermlesere; hvert punkt er
+                    samtidig en knapp som tar montøren rett til feltet. */}
+                {missingSummary && (
+                  <p className="sr-only">{missingSummary}</p>
+                )}
+                <ul className="flex flex-wrap gap-1.5">
+                  {missingPoints.map((point) => (
+                    <li key={point.id}>
+                      <button
+                        type="button"
+                        onClick={() => onJumpToField?.(point.id)}
+                        aria-label={t("orders.reportForm.jumpToMissingField", {
+                          field: point.label,
+                        })}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-lg border-2 border-amber-400 bg-amber-100 px-2.5 text-xs font-black text-amber-900 underline decoration-2 underline-offset-2 transition hover:bg-amber-200"
+                      >
+                        <Icon
+                          name="chevronDown"
+                          className="h-3.5 w-3.5 shrink-0"
+                        />
+                        {point.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         </div>
       )}
 
