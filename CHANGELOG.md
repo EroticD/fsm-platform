@@ -5,6 +5,30 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Felt
+- Bilder tatt uten dekning lagres i IndexedDB og lastes opp automatisk når
+  nettet kommer tilbake. Køen overlever refresh og OS-drap av PWA, vises som
+  ventende miniatyrer, og ryddes når rapporten er sendt.
+- «Neste jobb» har egen lenke til oppdraget, «Ta oppdrag» går til oppdraget i
+  stedet for toppen av listen, og «Vis flere» beholder posisjonen via anker.
+
+### Kontor
+- `?side=` klemmes til siste side i tilbud, faktura og avtaler.
+- Kvitteringsparametere (`?versioned=`, `?overdueSweep=`, `?meldt=`) fjernes fra
+  URL-en etter at toasten er vist; feilparametere blir stående.
+- Utlegg viser lokaliserte datoer, bruker `IsoDateInput`, har synlig
+  statusfilter og paginering (i minnet, siden tjenesten henter maks 200).
+
+### Drift
+- SLA-sveipet henter forretningskalenderen én gang per avdeling per kjøring
+  (før: to oppslag per klokke), og forfalte varsler behandler hele etterslepet
+  med `orderBy` og paginering i stedet for å stoppe etter 100. Mottakere hentes
+  én gang per avdeling.
+- `npm run pdfs:compress` komprimerer opplastede PDF-er med Ghostscript
+  (`/ebook`), beholder originalen som hardlenke i `uploads/.pdf-originals/` og
+  bytter bare når filen blir minst 10 % mindre. Tørrkjøring mot dev-biblioteket
+  anslår 0,8–1,6 GB besparelse. Ghostscript er lagt i Docker-imaget.
+
 ### Kvalitet og drift
 - Feltappen har ett-trykks «Fullfør oppdrag» med samme bekreftelse som før;
   statusvelgeren beholdes for andre statuser.

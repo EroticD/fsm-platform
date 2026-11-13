@@ -52,6 +52,9 @@ function toWindow(row: {
  * Laster avdelingens åpningstider og helligdager. Mangler avdelingen rader,
  * brukes standarden hverdager 08–16. En avdeling som bevisst har lagret alle
  * dager som stengt (0/0) får ingen åpningstid – standarden brukes ikke da.
+ *
+ * Kalles dette mange ganger for de samme avdelingene i én kjøring, bruk
+ * `loadCachedBusinessCalendar` med en delt `BusinessCalendarCache`.
  */
 export async function loadBusinessCalendar(
   client: DbClient,
@@ -81,6 +84,44 @@ export async function loadBusinessCalendar(
       .map((holiday) => toDateOnly(holiday.date))
       .filter(Boolean),
   };
+}
+
+/**
+ * Kalender-cache for én kjøring, nøklet på avdelings-id.
+ *
+ * Bevisst en Map som eieren lager per kjøring – ikke en modulglobal cache.
+ * Åpningstider og helligdager kan endres når som helst, og en sveip som varer
+ * i sekunder skal se det som er lagret nå. En ny kjøring starter derfor alltid
+ * med tom cache og henter kalenderen på nytt.
+ */
+export type BusinessCalendarCache = Map<string, Promise<BusinessCalendar>>;
+
+/** Lager en tom cache. Send den samme instansen til alle oppslag i én kjøring. */
+export function createBusinessCalendarCache(): BusinessCalendarCache {
+  return new Map();
+}
+
+/**
+ * Som `loadBusinessCalendar`, men henter hver avdeling bare én gang per cache.
+ * Brukes av sveip som regner om mange klokker for de samme avdelingene.
+ */
+export async function loadCachedBusinessCalendar(
+  client: DbClient,
+  departmentId: string | null | undefined,
+  cache: BusinessCalendarCache,
+): Promise<BusinessCalendar> {
+  const key = departmentId ?? "";
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const pending = loadBusinessCalendar(client, departmentId);
+  cache.set(key, pending);
+  // En feilet spørring skal ikke bli liggende: da ville hver klokke i samme
+  // sveip fått samme feil uten å prøve databasen på nytt.
+  void pending.catch(() => {
+    if (cache.get(key) === pending) cache.delete(key);
+  });
+  return pending;
 }
 
 export type BusinessHoursRow = {

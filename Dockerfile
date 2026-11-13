@@ -118,8 +118,10 @@ RUN groupadd --system --gid 1001 nodejs \
 # poppler-utils gir pdftotext/pdftoppm, som tekstuttrekk og OCR bygger på.
 # qpdf fjerner aktivt innhold (JavaScript, /Launch, innebygde filer) fra
 # rapport-PDF-er før de leveres. Se src/lib/pdf-active-content.ts.
+# ghostscript brukes av `npm run pdfs:compress` for å krympe skannede
+# dokumenter i dokumentbiblioteket (se docs/OPERATIONS.md).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils qpdf \
+ && apt-get install -y --no-install-recommends poppler-utils qpdf ghostscript \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tessdata --chown=nextjs:nodejs /tessdata /app/tessdata

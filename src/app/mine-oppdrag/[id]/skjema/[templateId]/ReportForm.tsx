@@ -13,6 +13,7 @@ import { useLocale, useTranslations } from "next-intl";
 import FieldInput, { type TemplateField } from "./FieldInput";
 import UnitCompletionHeader from "./UnitCompletionHeader";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import { ReportImageScope } from "@/components/ImageUploadField";
 import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -1163,6 +1164,10 @@ export default function ReportForm({
     : undefined;
 
   return (
+    // Bildefeltene trenger rapportens mal for å kunne gjenopprette bilder som
+    // ble tatt uten nett. `FieldInput` får den ikke i dag, så den sendes via
+    // context i stedet for å endre felt-API-et.
+    <ReportImageScope workOrderId={workOrderId} templateId={templateId}>
     <form
       ref={formRef}
       action={submitReport}
@@ -1863,5 +1868,6 @@ export default function ReportForm({
         }}
       />
     </form>
+    </ReportImageScope>
   );
 }

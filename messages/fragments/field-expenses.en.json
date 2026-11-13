@@ -15,6 +15,11 @@
     "receipt": "Receipt",
     "document": "Document",
     "statusLabel": "Status",
+    "filter": {
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "reset": "Reset filters"
+    },
     "actions": "Actions",
     "openWorkOrder": "Work order",
     "submitToApproval": "Submit for approval",
@@ -46,7 +51,9 @@
       "listTitle": "My mileage",
       "empty": "No mileage has been registered.",
       "route": "Route",
-      "approvalTitle": "Mileage awaiting approval"
+      "approvalTitle": "Mileage awaiting approval",
+      "pagination": "Mileage pages",
+      "emptyFiltered": "No mileage with this status."
     },
     "expense": {
       "title": "Expense",
@@ -60,7 +67,9 @@
       "submit": "Register expense",
       "listTitle": "My expenses",
       "empty": "No expenses have been registered.",
-      "approvalTitle": "Expenses awaiting approval"
+      "approvalTitle": "Expenses awaiting approval",
+      "pagination": "Expense pages",
+      "emptyFiltered": "No expenses with this status."
     },
     "office": {
       "title": "Expenses and payroll",

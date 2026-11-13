@@ -1082,6 +1082,20 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
   (skriver). Kjøringen fyller også `Upload.contentHash` for eldre rader, er
   idempotent og krever lokal lagring. Hvert filnavn beholdes, og sletting
   fjerner bare radens egen lenke.
+- **PDF-komprimering:** skannede dokumenter i dokumentbiblioteket krympes med
+  `npm run pdfs:compress` (tørrkjøring: lister kandidater og anslag) og
+  `npm run pdfs:compress -- --apply` (skriver). `--min-bytes` hopper over små
+  filer, `--limit N` tar de N største først, og `--quality ebook|screen|printer`
+  velger Ghostscript-forvalget – `ebook` (150 dpi) er standard og gir typisk
+  30–60 % på skannede PDF-er, mens `screen` (72 dpi) gir mer og `printer`
+  (300 dpi) mindre. Bare filer som blir minst 10 % mindre byttes ut, og
+  `Document.fileSize` oppdateres bare da; en fil som feiler blir liggende
+  uendret. Rapporter er allerede komprimert ved generering, og OCR-teksten
+  ligger i `Document.pageTexts`, så fulltekstsøket påvirkes ikke. Originalen
+  legges først i `uploads/.pdf-originals/<dato>/` som hardlenke (koster ingen
+  ekstra disk), slik at en fil kan hentes tilbake. Kontroller noen PDF-er etter
+  kjøringen og slett deretter mappen. Skriptet krever `STORAGE_DRIVER=local` og
+  `ghostscript`, som er installert i imaget.
 - OCR-teksten lagres én gang, som `Document.pageTexts`. `contentText` holdes
   bare for eldre importer; eksport bygger den fra sidene.
 - `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil. Ruten

@@ -385,6 +385,7 @@
       "timeNotSet": "Time not set",
       "allDay": "All day",
       "openWorkOrder": "Open work order",
+      "openJobDetails": "Open work order",
       "overdueEmpty": "No overdue work orders.",
       "availableEmpty": "No available work orders right now.",
       "laterEmpty": "No upcoming work orders.",
@@ -742,7 +743,7 @@
       "uploadFailedOne": "Could not upload {name}",
       "uploadFailedMany": "Could not upload {count} images: {names}",
       "hint": "Images are compressed before upload. You can select several images at once.",
-      "networkRequired": "Images upload immediately and require a network connection. Without a connection they stay in the list and can be retried when you are back online.",
+      "networkRequired": "Images upload right away. Without a connection they are saved on this device and sent automatically when you are back online.",
       "offline": "You are offline. Images can be selected, but upload when you are back online.",
       "takePhoto": "📷 Take photo",
       "choosePhoto": "🖼️ Choose image",
@@ -755,7 +756,8 @@
       "uploaded": "{count, plural, one {✅ # image uploaded} other {✅ # images uploaded}}",
       "viewImage": "View image",
       "removeFile": "Remove {name}",
-      "attachmentAlt": "Attachment {number}"
+      "attachmentAlt": "Attachment {number}",
+      "savedLocally": "Saved on this device — sent when you are back online"
     },
     "map": {
       "visitsToday": "Today's visits",

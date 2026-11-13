@@ -1,8 +1,25 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { uploadErrorMessage } from "@/lib/upload-error";
+import { currentOfflineUserId } from "@/lib/offline/draft-outbox";
+import {
+  flushOfflineImages,
+  listOfflineImages,
+  offlineReportId,
+  queueOfflineImage,
+  removeOfflineImage,
+} from "@/lib/offline/image-outbox";
 import Icon from "@/components/icons";
 
 /**
@@ -13,6 +30,14 @@ import Icon from "@/components/icons";
  * skjemaet i et skjult felt (som en JSON-liste). Da slipper server action-en å
  * håndtere filer, og rapporten lagrer bare små tekstverdier (URL-er).
  *
+ * Uten nett – eller når opplastingen feiler med en nettverksfeil – havner
+ * bildet i den lokale bildekøen (`@/lib/offline/image-outbox`) i stedet for
+ * bare i React-state. Køen ligger i IndexedDB og overlever refresh, at OS-et
+ * dreper PWA-en og nettleserkrasj. Ved mount leses køen inn igjen som
+ * ventende miniatyrer, og ved `online` lastes den opp på nytt gjennom samme
+ * `/api/upload`-vei som før. Først når serveren har svart med en URL, fjernes
+ * bildet fra køen og feltet viser den ferdige URL-en.
+ *
  * Eldre rapporter har én enkelt URL som ren tekst. Leserne godtar begge deler
  * (se src/lib/report-answers.ts).
  *
@@ -21,17 +46,93 @@ import Icon from "@/components/icons";
  * bildene følger med i både lokal og serverlagret kladd uten egne felter.
  */
 
-type UploadStatus = "pending" | "uploading" | "done" | "error";
+type UploadStatus = "pending" | "queued" | "uploading" | "done" | "error";
 
 type UploadItem = {
   id: string;
   name: string;
-  /** Finnes bare for filer som ennå ikke er lastet opp. */
+  /** Finnes bare for filer som ennå ikke er lastet opp eller køet. */
   file?: File;
   status: UploadStatus;
   url?: string;
   error?: string;
+  /** Id i den lokale bildekøen når bildet venter på nett. */
+  queuedId?: string;
+  /** Objekt-URL til en miniatyr av et køet bilde. Frigis ved unmount. */
+  previewUrl?: string;
 };
+
+/**
+ * Rapportens identitet for bildekøen.
+ *
+ * `ReportForm` eier `templateId`, men `FieldInput` – som rendrer dette feltet –
+ * får den ikke i dag. En liten context lar feltet bygge samme rapport-id som
+ * oppryddingen etter innsending bruker, uten å endre felt-API-et eller
+ * opplastingskallet.
+ */
+type ReportScope = { workOrderId: string; templateId: string };
+
+const ReportScopeContext = createContext<ReportScope | null>(null);
+
+export function ReportImageScope({
+  workOrderId,
+  templateId,
+  children,
+}: {
+  workOrderId: string;
+  templateId: string;
+  children: ReactNode;
+}) {
+  const value = useMemo(
+    () => ({ workOrderId, templateId }),
+    [workOrderId, templateId],
+  );
+  return (
+    <ReportScopeContext.Provider value={value}>
+      {children}
+    </ReportScopeContext.Provider>
+  );
+}
+
+/**
+ * Feltets adresse i skjemaet: `answer__<unitKey>__<fieldId>` (se FieldInput).
+ * Køen trenger enheten og feltet for å kunne vise bildene igjen i riktig
+ * bildefelt etter en remount.
+ */
+function fieldAddress(name: string): { unitKey: string; fieldId: string } {
+  const prefix = "answer__";
+  const rest = name.startsWith(prefix) ? name.slice(prefix.length) : name;
+  const separator = rest.indexOf("__");
+  return separator === -1
+    ? { unitKey: "", fieldId: rest }
+    : { unitKey: rest.slice(0, separator), fieldId: rest.slice(separator + 2) };
+}
+
+/**
+ * `fetch` avviser med TypeError når nettet svikter. En HTTP-feil (413, 415,
+ * 500) er derimot et svar fra serveren og blir ikke bedre av å vente på nett.
+ */
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  return (
+    Boolean(error) &&
+    typeof error === "object" &&
+    (error as { network?: unknown }).network === true
+  );
+}
+
+/** Miniatyr for et køet bilde. Returnerer undefined uten objekt-URL-støtte. */
+function createPreview(blob: Blob): string | undefined {
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    return undefined;
+  }
+  try {
+    return URL.createObjectURL(blob);
+  } catch {
+    return undefined;
+  }
+}
+
 
 /** Mobilbilder er store; 1600 px er rikelig for servicebilder. */
 const MAX_IMAGE_DIMENSION = 1600;
@@ -115,6 +216,23 @@ export default function ImageUploadField({
   onCountChange?: (count: number) => void;
 }) {
   const t = useTranslations("common");
+  const scope = useContext(ReportScopeContext);
+  const workOrder = workOrderId ?? scope?.workOrderId ?? "";
+  // Rapporten er oppdrag+mal. `templateId` kommer fra ReportImageScope, slik
+  // at oppryddingen etter innsending kan treffe nøyaktig samme kø.
+  const reportId = workOrder
+    ? offlineReportId(workOrder, scope?.templateId ?? "")
+    : "";
+  // Køen adresserer bildet med enhet og felt, ikke med det tilfeldige
+  // useId-et som brukes for DOM-id-er.
+  const { unitKey, fieldId: queueFieldId } = fieldAddress(name);
+  const fieldRef = useRef({ unitKey, fieldId: queueFieldId });
+  fieldRef.current = { unitKey, fieldId: queueFieldId };
+  const userId = currentOfflineUserId();
+  // Hver køede miniatyr er en objekt-URL som må frigis, ellers lekker
+  // nettleseren minne til alle bildene feltet noen gang har vist.
+  const previewsRef = useRef(new Set<string>());
+  const mountedRef = useRef(true);
   const fieldId = useId();
   const cameraId = `${fieldId}-camera`;
   const galleryId = `${fieldId}-gallery`;
@@ -182,7 +300,7 @@ export default function ImageUploadField({
   const uploadOne = async (file: File) => {
     const body = new FormData();
     body.append("file", file);
-    if (workOrderId) body.append("workOrderId", workOrderId);
+    if (workOrder) body.append("workOrderId", workOrder);
     const res = await fetch("/api/upload", { method: "POST", body });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.fileUrl) {
@@ -198,20 +316,199 @@ export default function ImageUploadField({
     return json.fileUrl as string;
   };
 
-  const uploadItem = async (item: UploadItem) => {
-    if (!item.file) return;
+  const trackPreview = (blob: Blob): string | undefined => {
+    const url = createPreview(blob);
+    if (url) previewsRef.current.add(url);
+    return url;
+  };
 
-    // Offline skal ikke gi en rød feil: filen ligger klart i køen og lastes
-    // opp automatisk når nettleseren melder at nettet er tilbake.
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const uploadFailureMessage = (error: unknown, name: string): string =>
+    error instanceof Error && error.message
+      ? error.message
+      : t("orders.imageUpload.uploadFailedOne", { name });
+
+  /**
+   * Legger filen i den lokale bildekøen i stedet for å holde den i React-state.
+   *
+   * Komprimeringen gjøres før lagring: den krever ikke nett, og en køet
+   * mobilfil på flere megabyte er unødvendig stor å beholde på enheten.
+   */
+  const queueItem = async (item: UploadItem, fallbackName: string) => {
+    if (!item.file) return;
+    if (!reportId) {
       setItems((current) =>
         current.map((entry) =>
           entry.id === item.id
-            ? { ...entry, status: "pending", error: undefined }
+            ? {
+                ...entry,
+                status: "error",
+                error: t("orders.imageUpload.uploadFailedOne", {
+                  name: fallbackName,
+                }),
+              }
             : entry,
         ),
       );
+      return;
+    }
+
+    let prepared: File = item.file;
+    try {
+      prepared = await compressImage(item.file);
+    } catch {
+      prepared = item.file;
+    }
+
+    try {
+      const result = await queueOfflineImage({
+        // Samme id som raden i feltet, slik at URL-en kan settes tilbake på
+        // riktig rad når opplastingen lykkes.
+        id: item.id,
+        reportId,
+        unitKey: fieldRef.current.unitKey,
+        fieldId: fieldRef.current.fieldId,
+        file: prepared,
+        userId,
+      });
+      if (result !== "queued") {
+        // IndexedDB er utilgjengelig (privat modus, gamle nettlesere). Da er
+        // React-state det eneste vi har: behold filen som ventende, som før.
+        setItems((current) =>
+          current.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, status: "pending", error: undefined }
+              : entry,
+          ),
+        );
+        return;
+      }
+      const previewUrl = trackPreview(prepared);
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                name: prepared.name || entry.name,
+                status: "queued",
+                queuedId: item.id,
+                previewUrl,
+                file: undefined,
+                error: undefined,
+              }
+            : entry,
+        ),
+      );
+    } catch (error) {
+      // Full kvote eller annen IndexedDB-feil: da er bildet ikke sikret, og
+      // montøren må se det i stedet for en falsk «lagret lokalt».
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                status: "error",
+                error: uploadFailureMessage(error, fallbackName),
+              }
+            : entry,
+        ),
+      );
+    }
+  };
+
+  /**
+   * Tømmer køen for rapporten gjennom samme `/api/upload`-vei som vanlig
+   * opplasting. Bilder serveren kvitterer for, fjernes fra køen og får URL-en
+   * i feltet; resten blir liggende til neste forsøk.
+   */
+  const flushQueued = async () => {
+    if (!reportId) return;
+    let result;
+    try {
+      result = await flushOfflineImages(
+        reportId,
+        async (image) => {
+          const file =
+            typeof File === "function"
+              ? new File([image.blob], image.name, { type: image.type })
+              : (image.blob as File);
+          return uploadOne(file);
+        },
+        // Bare dette feltets bilder: et skjema kan ha flere bildefelter.
+        { userId, unitKey, fieldId: queueFieldId },
+      );
+    } catch {
+      // Nettet forsvant under tømmingen. Postene ligger fortsatt i køen.
+      return;
+    }
+    if (result.uploaded.length === 0) return;
+
+    const urls = new Map(result.uploaded.map((entry) => [entry.id, entry.url]));
+    setItems((current) =>
+      current.map((entry) => {
+        if (!entry.queuedId) return entry;
+        const url = urls.get(entry.queuedId);
+        if (!url) return entry;
+        if (entry.previewUrl) {
+          URL.revokeObjectURL(entry.previewUrl);
+          previewsRef.current.delete(entry.previewUrl);
+        }
+        return {
+          ...entry,
+          status: "done" as const,
+          url,
+          queuedId: undefined,
+          previewUrl: undefined,
+          error: undefined,
+        };
+      }),
+    );
+  };
+
+  /**
+   * Leser køen ved mount. Det er dette som gjør at bildene overlever en
+   * refresh eller at PWA-en ble drept av OS-et: de ligger i IndexedDB, ikke i
+   * React-state, og vises som ventende miniatyrer i riktig felt.
+   */
+  const loadQueued = async () => {
+    if (!reportId) return;
+    const images = await listOfflineImages(reportId, {
+      userId,
+      unitKey,
+      fieldId: queueFieldId,
+    });
+    if (!mountedRef.current) return;
+    const known = new Set(
+      itemsRef.current.flatMap((item) => (item.queuedId ? [item.queuedId] : [])),
+    );
+    const additions = images
+      .filter((image) => !known.has(image.id))
+      .map((image) => ({
+        id: `queued-${image.id}`,
+        name: image.name,
+        status: "queued" as const,
+        queuedId: image.id,
+        previewUrl: trackPreview(image.blob),
+      }));
+    if (additions.length === 0) return;
+    setItems((current) => {
+      const already = new Set(
+        current.flatMap((item) => (item.queuedId ? [item.queuedId] : [])),
+      );
+      const fresh = additions.filter(
+        (item) => item.queuedId && !already.has(item.queuedId),
+      );
+      return fresh.length > 0 ? [...current, ...fresh] : current;
+    });
+  };
+
+  const uploadItem = async (item: UploadItem) => {
+    if (!item.file) return;
+
+    // Offline skal ikke gi en rød feil: bildet sikres i den lokale køen og
+    // lastes opp automatisk når nettleseren melder at nettet er tilbake.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
       wasOfflineRef.current = true;
+      await queueItem(item, item.name);
       return;
     }
 
@@ -234,17 +531,21 @@ export default function ImageUploadField({
         ),
       );
     } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : t("orders.imageUpload.uploadFailedOne", { name: item.name });
+      // Nettet kan forsvinne mellom offline-sjekken og svaret. Da er bildet
+      // fortsatt bare i minnet, og skal sikres i køen i stedet for å bli en
+      // rød feil montøren må håndtere.
+      if (isNetworkFailure(error)) {
+        wasOfflineRef.current = true;
+        await queueItem(item, item.name);
+        return;
+      }
       setItems((current) =>
         current.map((entry) =>
           entry.id === item.id
             ? {
                 ...entry,
                 status: "error",
-                error: message,
+                error: uploadFailureMessage(error, item.name),
               }
             : entry,
         ),
@@ -281,6 +582,14 @@ export default function ImageUploadField({
   };
 
   const retry = (item: UploadItem) => {
+    // Et køet bilde har ingen fil i minnet lenger – det ligger i IndexedDB og
+    // lastes opp ved å tømme køen på nytt.
+    if (item.queuedId) {
+      uploadChain.current = uploadChain.current.then(async () => {
+        await flushQueued();
+      });
+      return;
+    }
     if (!item.file) return;
     uploadChain.current = uploadChain.current.then(() => uploadItem(item));
   };
@@ -291,18 +600,33 @@ export default function ImageUploadField({
         (item.status === "error" || item.status === "pending") && item.file,
     );
     for (const item of failed) retry(item);
+    if (items.some((item) => item.queuedId)) {
+      uploadChain.current = uploadChain.current.then(async () => {
+        await flushQueued();
+      });
+    }
   };
 
-  // Når nettet kommer tilbake, prøver vi køen automatisk. Montøren slipper å
-  // trykke «prøv igjen» for hver fil som ventet på dekning.
+  // Når nettet kommer tilbake, tømmes bildekøen og filer som ventet i minnet
+  // lastes opp. Montøren slipper å trykke «prøv igjen» for hver fil.
   const retryRef = useRef(retry);
+  const flushRef = useRef(flushQueued);
+  const loadRef = useRef(loadQueued);
   useEffect(() => {
-    // Hold siste retry-funksjon tilgjengelig for online-effekten uten å
-    // registrere nettleserlytteren på nytt for hver rendering.
+    // Hold siste funksjoner tilgjengelig for effektene uten å registrere
+    // nettleserlytteren på nytt for hver rendering.
     retryRef.current = retry;
+    flushRef.current = flushQueued;
+    loadRef.current = loadQueued;
   });
   useEffect(() => {
-    if (!online || !wasOfflineRef.current) return;
+    if (!online) return;
+    // Køen ligger i IndexedDB, ikke i denne komponenten. Derfor tømmes den
+    // også på nytt når feltet er montert på nytt mens nettet er tilbake.
+    uploadChain.current = uploadChain.current.then(async () => {
+      await flushRef.current();
+    });
+    if (!wasOfflineRef.current) return;
     wasOfflineRef.current = false;
     const queue = itemsRef.current.filter(
       (item) =>
@@ -311,7 +635,42 @@ export default function ImageUploadField({
     for (const item of queue) retryRef.current(item);
   }, [online]);
 
+  // Køen overlever remount: les ventende bilder fra IndexedDB, vis dem som
+  // miniatyrer, og tøm køen med en gang hvis vi allerede er online.
+  useEffect(() => {
+    if (!reportId) return;
+    mountedRef.current = true;
+    void (async () => {
+      await loadRef.current();
+      if (!mountedRef.current) return;
+      uploadChain.current = uploadChain.current.then(async () => {
+        await flushRef.current();
+      });
+    })();
+  }, [reportId, unitKey, queueFieldId]);
+
+  // Frigjør miniatyr-URL-ene når feltet forsvinner fra skjermen.
+  useEffect(() => {
+    const previews = previewsRef.current;
+    return () => {
+      mountedRef.current = false;
+      for (const url of previews) URL.revokeObjectURL(url);
+      previews.clear();
+    };
+  }, []);
+
   const removeItem = (id: string) => {
+    const entry = itemsRef.current.find((item) => item.id === id);
+    if (entry?.queuedId) {
+      void removeOfflineImage(entry.queuedId).catch(() => {
+        // IndexedDB er utilgjengelig. Raden forsvinner uansett fra feltet, og
+        // køen ryddes når rapporten sendes inn.
+      });
+    }
+    if (entry?.previewUrl) {
+      URL.revokeObjectURL(entry.previewUrl);
+      previewsRef.current.delete(entry.previewUrl);
+    }
     setItems((current) => current.filter((item) => item.id !== id));
   };
 
@@ -329,6 +688,8 @@ export default function ImageUploadField({
     switch (item.status) {
       case "pending":
         return t("orders.imageUpload.pendingFile");
+      case "queued":
+        return t("orders.imageUpload.savedLocally");
       case "uploading":
         return t("orders.imageUpload.uploadingFile");
       case "error":
@@ -346,7 +707,9 @@ export default function ImageUploadField({
         ? "text-success"
         : item.status === "uploading"
           ? "text-success"
-          : "text-muted";
+          : item.status === "queued"
+            ? "text-signal"
+            : "text-muted";
 
   return (
     <div className="field-card space-y-3 p-4">
@@ -435,7 +798,18 @@ export default function ImageUploadField({
                 }`}
               >
                 <div className="flex min-w-0 flex-1 items-start gap-2">
-                  {item.status === "done" && item.url ? (
+                  {item.status === "queued" && item.previewUrl ? (
+                    // Miniatyr fra den lokale køen: bildet er ennå ikke lastet
+                    // opp, men montøren skal se hva som ligger og venter.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.previewUrl}
+                      alt={t("orders.imageUpload.attachmentAlt", {
+                        number: index + 1,
+                      })}
+                      className="h-12 w-12 shrink-0 rounded-lg border border-signal/40 object-cover"
+                    />
+                  ) : item.status === "done" && item.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.url}
@@ -471,7 +845,7 @@ export default function ImageUploadField({
                       {item.status === "uploading" && (
                         <Icon name="sync" className="h-3.5 w-3.5 animate-spin" />
                       )}
-                      {item.status === "pending" && (
+                      {(item.status === "pending" || item.status === "queued") && (
                         <Icon name="clock" className="h-3.5 w-3.5" />
                       )}
                       {item.status === "error" && (
@@ -505,8 +879,10 @@ export default function ImageUploadField({
                     </a>
                   )}
 
-                  {(item.status === "error" || item.status === "pending") &&
-                    item.file && (
+                  {(item.status === "error" ||
+                    item.status === "pending" ||
+                    item.status === "queued") &&
+                    (item.file || item.queuedId) && (
                       <button
                         type="button"
                         onClick={() => retry(item)}

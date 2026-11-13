@@ -1172,6 +1172,7 @@
         "timeNotSet": "Nie ustawiono godziny",
         "allDay": "Cały dzień",
         "openWorkOrder": "Otwórz zlecenie",
+        "openJobDetails": "Otwórz zlecenie",
         "overdueEmpty": "Brak zaległych zleceń.",
         "availableEmpty": "Brak dostępnych zleceń.",
         "laterEmpty": "Brak nadchodzących zleceń.",
@@ -1529,7 +1530,7 @@
         "uploadFailedOne": "Nie udało się przesłać {name}",
         "uploadFailedMany": "Nie udało się przesłać obrazów ({count}): {names}",
         "hint": "Obrazy są kompresowane przed przesłaniem. Możesz wybrać kilka obrazów jednocześnie.",
-        "networkRequired": "Obrazy są przesyłane natychmiast i wymagają połączenia z siecią. Bez połączenia pozostają na liście i można spróbować ponownie po powrocie online.",
+        "networkRequired": "Zdjęcia są przesyłane od razu. Bez połączenia zapisujemy je na tym urządzeniu i wysyłamy automatycznie po powrocie do sieci.",
         "offline": "Jesteś offline. Obrazy można wybrać, ale zostaną przesłane po powrocie do sieci.",
         "takePhoto": "📷 Zrób zdjęcie",
         "choosePhoto": "🖼️ Wybierz obraz",
@@ -1542,7 +1543,8 @@
         "uploaded": "{count, plural, one {✅ przesłano # obraz} few {✅ przesłano # obrazy} many {✅ przesłano # obrazów} other {✅ przesłano # obrazu}}",
         "viewImage": "Wyświetl obraz",
         "removeFile": "Usuń {name}",
-        "attachmentAlt": "Załącznik {number}"
+        "attachmentAlt": "Załącznik {number}",
+        "savedLocally": "Zapisano lokalnie — wysłane po powrocie do sieci"
       },
       "map": {
         "visitsToday": "Dzisiejsze wizyty",

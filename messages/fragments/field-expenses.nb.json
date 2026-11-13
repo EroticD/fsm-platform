@@ -15,6 +15,11 @@
     "receipt": "Kvittering",
     "document": "Dokument",
     "statusLabel": "Status",
+    "filter": {
+      "status": "Status",
+      "allStatuses": "Alle statuser",
+      "reset": "Nullstill filter"
+    },
     "actions": "Handlinger",
     "openWorkOrder": "Oppdrag",
     "submitToApproval": "Send til godkjenning",
@@ -46,7 +51,9 @@
       "listTitle": "Mine kjøreturer",
       "empty": "Ingen kjøreturer er registrert.",
       "route": "Rute",
-      "approvalTitle": "Kjøreturer til godkjenning"
+      "approvalTitle": "Kjøreturer til godkjenning",
+      "pagination": "Sider for kjøreturer",
+      "emptyFiltered": "Ingen kjøreturer i denne statusen."
     },
     "expense": {
       "title": "Utlegg",
@@ -60,7 +67,9 @@
       "submit": "Registrer utlegg",
       "listTitle": "Mine utlegg",
       "empty": "Ingen utlegg er registrert.",
-      "approvalTitle": "Utlegg til godkjenning"
+      "approvalTitle": "Utlegg til godkjenning",
+      "pagination": "Sider for utlegg",
+      "emptyFiltered": "Ingen utlegg i denne statusen."
     },
     "office": {
       "title": "Utlegg og lønn",

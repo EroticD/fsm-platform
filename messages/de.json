@@ -1172,6 +1172,7 @@
         "timeNotSet": "Uhrzeit nicht festgelegt",
         "allDay": "Ganztägig",
         "openWorkOrder": "Auftrag öffnen",
+        "openJobDetails": "Auftrag öffnen",
         "overdueEmpty": "Keine überfälligen Aufträge.",
         "availableEmpty": "Derzeit keine verfügbaren Aufträge.",
         "laterEmpty": "Keine kommenden Aufträge.",
@@ -1529,7 +1530,7 @@
         "uploadFailedOne": "{name} konnte nicht hochgeladen werden",
         "uploadFailedMany": "{count} Bilder konnten nicht hochgeladen werden: {names}",
         "hint": "Bilder werden vor dem Hochladen komprimiert. Sie können mehrere Bilder gleichzeitig auswählen.",
-        "networkRequired": "Bilder werden sofort hochgeladen und erfordern eine Netzwerkverbindung. Ohne Verbindung bleiben sie in der Liste und können erneut hochgeladen werden, sobald Sie wieder online sind.",
+        "networkRequired": "Bilder werden sofort hochgeladen. Ohne Verbindung werden sie auf diesem Gerät gespeichert und automatisch gesendet, sobald du wieder online bist.",
         "offline": "Sie sind offline. Bilder können ausgewählt werden, werden aber erst hochgeladen, wenn Sie wieder online sind.",
         "takePhoto": "📷 Foto aufnehmen",
         "choosePhoto": "🖼️ Bild auswählen",
@@ -1542,7 +1543,8 @@
         "uploaded": "{count, plural, one {✅ # Bild hochgeladen} other {✅ # Bilder hochgeladen}}",
         "viewImage": "Bild anzeigen",
         "removeFile": "{name} entfernen",
-        "attachmentAlt": "Anhang {number}"
+        "attachmentAlt": "Anhang {number}",
+        "savedLocally": "Lokal gespeichert — wird gesendet, sobald du online bist"
       },
       "map": {
         "visitsToday": "Heutige Besuche",

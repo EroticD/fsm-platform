@@ -32,7 +32,11 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
-import { loadBusinessCalendar } from "./business-hours";
+import {
+  createBusinessCalendarCache,
+  loadBusinessCalendar,
+  loadCachedBusinessCalendar,
+} from "./business-hours";
 
 type Tx = Prisma.TransactionClient;
 
@@ -595,11 +599,17 @@ export async function sweepSlaClocks(now = new Date()): Promise<SlaSweepResult> 
     notified: 0,
   };
 
+  // Kalenderen hentes én gang per avdeling per sveip. Cachen lever bare så
+  // lenge sveipet gjør: endres åpningstider eller helligdager, ser neste
+  // kjøring det, fordi den starter med en tom cache.
+  const calendars = createBusinessCalendarCache();
+
   for (const clock of clocks) {
     result.checked += 1;
-    const calendar = await loadBusinessCalendar(
+    const calendar = await loadCachedBusinessCalendar(
       prisma as unknown as Tx,
       clock.policy.departmentId ?? clock.workOrder.departmentId,
+      calendars,
     );
     const respondBy = clock.resolvedAt
       ? clock.respondBy

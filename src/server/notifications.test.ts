@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
       upsert: vi.fn(),
     },
     user: { findMany: vi.fn(), findUnique: vi.fn() },
-    workOrder: { findUnique: vi.fn() },
+    workOrder: { findMany: vi.fn(), findUnique: vi.fn() },
     customer: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -37,6 +37,7 @@ import {
   listNotifications,
   listRecentNotifications,
   markNotificationRead,
+  notifyOverdueWorkOrders,
   notifyUser,
   notifyWorkOrderEvent,
   openNotification,
@@ -71,6 +72,7 @@ beforeEach(() => {
   mocks.prisma.notificationPreference.upsert.mockResolvedValue({});
   mocks.prisma.user.findMany.mockResolvedValue([]);
   mocks.prisma.user.findUnique.mockResolvedValue({ isActive: true });
+  mocks.prisma.workOrder.findMany.mockResolvedValue([]);
   mocks.sendNotificationEmail.mockResolvedValue(true);
 });
 
@@ -784,5 +786,95 @@ describe("varseltjenesten", () => {
         }),
       }),
     );
+  });
+});
+
+describe("varsel om forfalte oppdrag", () => {
+  const NOW = new Date("2026-11-13T09:00:00.000Z");
+
+  function overdueRow(index: number, departmentId = "dep-a") {
+    return {
+      id: `wo-${index}`,
+      title: `Oppdrag ${index}`,
+      departmentId,
+      customerId: null,
+      customer: null,
+      technicians: [{ id: `tech-${index}` }],
+    };
+  }
+
+  function workOrderQuery(call: number) {
+    return mocks.prisma.workOrder.findMany.mock.calls[call][0] as {
+      orderBy?: unknown;
+      take?: number;
+      skip?: number;
+      cursor?: unknown;
+    };
+  }
+
+  it("behandler alle forfalte oppdrag, ikke bare de første 100", async () => {
+    const rows = Array.from({ length: 150 }, (_, index) => overdueRow(index));
+    mocks.prisma.workOrder.findMany
+      .mockResolvedValueOnce(rows.slice(0, 100))
+      .mockResolvedValueOnce(rows.slice(100));
+
+    const created = await notifyOverdueWorkOrders(NOW);
+
+    expect(created).toBe(150);
+    expect(mocks.prisma.notification.create).toHaveBeenCalledTimes(150);
+    expect(mocks.prisma.workOrder.findMany).toHaveBeenCalledTimes(2);
+
+    // Eldste forfall først, og siden to hentes med cursor – ikke på nytt fra toppen.
+    expect(workOrderQuery(0).orderBy).toEqual([
+      { scheduledFor: "asc" },
+      { id: "asc" },
+    ]);
+    expect(workOrderQuery(0).cursor).toBeUndefined();
+    expect(workOrderQuery(1).cursor).toEqual({ id: "wo-99" });
+    expect(workOrderQuery(1).skip).toBe(1);
+
+    const dedupeKeys = mocks.prisma.notification.create.mock.calls.map(
+      (call) => (call[0] as { data: { dedupeKey: string } }).data.dedupeKey,
+    );
+    expect(new Set(dedupeKeys).size).toBe(150);
+    expect(dedupeKeys).toContain("overdue:wo-149:2026-11-13:tech-149");
+  });
+
+  it("henter kontorbrukerne én gang per avdeling, ikke per oppdrag", async () => {
+    const rows = [
+      ...Array.from({ length: 60 }, (_, index) => overdueRow(index, "dep-a")),
+      ...Array.from({ length: 60 }, (_, index) =>
+        overdueRow(60 + index, "dep-b"),
+      ),
+    ].map((row) => ({ ...row, technicians: [] }));
+    mocks.prisma.workOrder.findMany
+      .mockResolvedValueOnce(rows.slice(0, 100))
+      .mockResolvedValueOnce(rows.slice(100));
+    mocks.prisma.user.findMany.mockImplementation(
+      async (args: { where: { departmentId?: string } }) => {
+        if (args.where.departmentId === "dep-a") return [{ id: "office-a" }];
+        if (args.where.departmentId === "dep-b") return [{ id: "office-b" }];
+        return [];
+      },
+    );
+
+    const created = await notifyOverdueWorkOrders(NOW);
+
+    // To avdelinger gir to mottakeroppslag, ikke 120.
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledTimes(2);
+    expect(created).toBe(120);
+    expect(mocks.prisma.notification.create).toHaveBeenCalledTimes(120);
+  });
+
+  it("avslutter når siste side er tom", async () => {
+    const rows = Array.from({ length: 100 }, (_, index) => overdueRow(index));
+    mocks.prisma.workOrder.findMany
+      .mockResolvedValueOnce(rows)
+      .mockResolvedValueOnce([]);
+
+    const created = await notifyOverdueWorkOrders(NOW);
+
+    expect(created).toBe(100);
+    expect(mocks.prisma.workOrder.findMany).toHaveBeenCalledTimes(2);
   });
 });

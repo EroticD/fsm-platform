@@ -9,8 +9,10 @@ import Card from "@/components/ui/Card";
 import { buttonClassName } from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
-import Pagination, { paginationLabels } from "@/components/Pagination";
+import Pagination, { clampPage, paginationLabels } from "@/components/Pagination";
 import ErrorBanner from "@/components/ErrorBanner";
+import CustomerToast from "@/components/customer/CustomerToast";
+import { parsePage } from "@/lib/pagination";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -46,13 +48,28 @@ export default async function QuotesPage({
   const params = await searchParams;
   const status = params.status && isQuoteStatus(params.status) ? params.status : null;
   const query = (params.q ?? "").trim().slice(0, 100);
-  const page = Math.max(1, Number(params.side ?? "1") || 1);
-  const result = await listQuotes(user, { status, query, page, pageSize: PAGE_SIZE });
+  const requestedPage = parsePage(params.side);
+  const first = await listQuotes(user, {
+    status,
+    query,
+    page: requestedPage,
+    pageSize: PAGE_SIZE,
+  });
+  if (!first.ok) redirect("/");
+
+  // En gammel `?side=999` skal lande på siste side, ikke gi en tom liste med
+  // gyldig paginering. Sidetallet klemmes derfor mot totalen før vi eventuelt
+  // henter siste side på nytt.
+  const totalPages = Math.max(1, Math.ceil(first.data.total / PAGE_SIZE));
+  const page = clampPage(requestedPage, totalPages);
+  const result =
+    page === requestedPage
+      ? first
+      : await listQuotes(user, { status, query, page, pageSize: PAGE_SIZE });
   if (!result.ok) redirect("/");
 
   const canManage = hasPermission(user, "customers.manage");
-  const { quotes, total } = result.data;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const { quotes } = result.data;
   const statusLabel = (value: string) => t(`quotes.status.${value}`);
 
   const errorKeys = new Set([
@@ -109,9 +126,10 @@ export default async function QuotesPage({
 
       {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
       {params.versioned ? (
-        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
-          {t("quotes.list.versioned")}
-        </p>
+        <CustomerToast
+          message={t("quotes.list.versioned")}
+          clearParams={["versioned"]}
+        />
       ) : null}
 
       <Card className="p-3 sm:p-4">

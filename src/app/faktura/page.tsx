@@ -9,9 +9,11 @@ import Card from "@/components/ui/Card";
 import { buttonClassName } from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
-import Pagination, { paginationLabels } from "@/components/Pagination";
+import Pagination, { clampPage, paginationLabels } from "@/components/Pagination";
 import ErrorBanner from "@/components/ErrorBanner";
 import SubmitButton from "@/components/SubmitButton";
+import CustomerToast from "@/components/customer/CustomerToast";
+import { parsePage } from "@/lib/pagination";
 import { requireModulePage } from "@/lib/module-guards";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -56,13 +58,35 @@ export default async function InvoicesPage({
   const status = params.status && isInvoiceStatus(params.status) ? params.status : null;
   const overdue = params.forfalt === "1";
   const query = (params.q ?? "").trim().slice(0, 100);
-  const page = Math.max(1, Number(params.side ?? "1") || 1);
-  const result = await listInvoices(user, { status, overdue, query, page, pageSize: PAGE_SIZE });
+  const requestedPage = parsePage(params.side);
+  const first = await listInvoices(user, {
+    status,
+    overdue,
+    query,
+    page: requestedPage,
+    pageSize: PAGE_SIZE,
+  });
+  if (!first.ok) redirect("/");
+
+  // En gammel `?side=999` skal lande på siste side, ikke gi en tom liste med
+  // gyldig paginering. Sidetallet klemmes derfor mot totalen før vi eventuelt
+  // henter siste side på nytt.
+  const totalPages = Math.max(1, Math.ceil(first.data.total / PAGE_SIZE));
+  const page = clampPage(requestedPage, totalPages);
+  const result =
+    page === requestedPage
+      ? first
+      : await listInvoices(user, {
+          status,
+          overdue,
+          query,
+          page,
+          pageSize: PAGE_SIZE,
+        });
   if (!result.ok) redirect("/");
 
   const canManage = hasPermission(user, "customers.manage");
-  const { invoices, total } = result.data;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const { invoices } = result.data;
   const statusLabel = (value: string) => t(`invoicing.status.${value}`);
   const errorMessages: Record<string, string> = {
     forbidden: t("invoicing.errors.forbidden"),
@@ -148,9 +172,12 @@ export default async function InvoicesPage({
 
       {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
       {params.overdueSweep ? (
-        <p className="rounded-xl border border-[color-mix(in_srgb,var(--success-text,#283509)_22%,transparent)] bg-[var(--success-surface,#eef7d6)] px-4 py-3 text-sm font-bold text-[var(--success-text,#283509)]">
-          {t("invoicing.list.overdueSweep", { count: Number(params.overdueSweep) || 0 })}
-        </p>
+        <CustomerToast
+          message={t("invoicing.list.overdueSweep", {
+            count: Number(params.overdueSweep) || 0,
+          })}
+          clearParams={["overdueSweep"]}
+        />
       ) : null}
 
       <Card className="p-3 sm:p-4">

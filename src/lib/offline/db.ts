@@ -31,12 +31,19 @@ import {
 import type { OfflineVisitStatus } from "./visit-status-rules";
 
 const DB_NAME = "fsm-offline";
-// Versjon 2 la til køen for offline-registrerte visittstatusser. Nye stores
-// opprettes i `onupgradeneeded`, så eksisterende kladder og outbox beholdes.
-const DB_VERSION = 2;
+// Versjon 2 la til køen for offline-registrerte visittstatusser, og versjon 3
+// køen for bilder som er tatt uten nett. Hver ny store opprettes i
+// `onupgradeneeded`, så eksisterende kladder, outbox og statuser beholdes.
+// Migreringen er additiv: ingen eksisterende store endres eller slettes.
+const DB_VERSION = 3;
 const DRAFT_STORE = "drafts";
 const OUTBOX_STORE = "outbox";
 const VISIT_STATUS_STORE = "visit-statuses";
+// Ingen egne indekser på `images`: hver rapport har få bilder, og alle
+// oppslag går uansett gjennom `getAll()` med filter, akkurat som for
+// visittstatusene. Det holder migreringen enkel og unngår indeksvedlikehold
+// ved hver skriving.
+const IMAGE_STORE = "images";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_OFFLINE_DRAFT_MAX_AGE_DAYS = 7;
@@ -152,6 +159,33 @@ export type EnqueueVisitStatusResult =
   | "unavailable";
 
 /**
+ * Et bilde som venter på opplasting.
+ *
+ * Bildet lagres som en Blob sammen med navn, type og størrelse. Det krypteres
+ * bevisst ikke: innholdet er binært, og en kryptert Blob ville krevd den
+ * PIN-opplåste nøkkelen før bildet kunne legges i køen. Da ville et bilde tatt
+ * før opplåsing aldri blitt sikret mot refresh eller at OS-et dreper PWA-en –
+ * som er hele poenget med køen. Metadataene er den samme informasjonen
+ * kamerarullen viser, og bildet forlater aldri enheten før opplastingen.
+ */
+export type OfflineImage = {
+  id: string;
+  /** Rapportens identitet (`oppdrag:mal`), se `offlineReportId`. */
+  reportId: string;
+  /** Enheten i skjemaet bildet hører til, f.eks. «unit-0». */
+  unitKey: string;
+  fieldId: string;
+  /** Eieren av køen, eller null når brukeren ikke er kjent i nettleseren. */
+  userId: string | null;
+  name: string;
+  type: string;
+  size: number;
+  blob: Blob;
+  /** Når bildet ble tatt eller valgt (epoch ms). */
+  createdAt: number;
+};
+
+/**
  * Postene som faktisk ligger i IndexedDB. `payload` er ciphertext for alle
  * poster som er skrevet etter at SEC-01 ble innført. Eldre poster uten `enc`
  * er klartekst og migreres ved første opplåsing.
@@ -215,6 +249,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(VISIT_STATUS_STORE)) {
         db.createObjectStore(VISIT_STATUS_STORE, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(IMAGE_STORE)) {
+        db.createObjectStore(IMAGE_STORE, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -676,6 +713,70 @@ export async function clearPendingVisitStatuses(): Promise<void> {
   });
 }
 
+/**
+ * Legger et bilde i den lokale bildekøen. `put` er idempotent på `id`, slik at
+ * en gjentatt lagring av samme oppføring ikke gir duplikater.
+ *
+ * Returverdien skiller en vellykket lagring fra en utilgjengelig IndexedDB
+ * (privat modus, gamle nettlesere), slik at feltet kan falle tilbake til å
+ * holde filen i minnet.
+ */
+export async function putOfflineImage(image: OfflineImage): Promise<boolean> {
+  const result = await withStore(IMAGE_STORE, "readwrite", async (store) => {
+    store.put(image);
+    return undefined;
+  });
+  return result !== null;
+}
+
+/** Alle køede bilder, uten filter. Rekkefølgen er IndexedDBs nøkkelrekkefølge. */
+export async function listStoredOfflineImages(): Promise<OfflineImage[]> {
+  const result = await withStore(IMAGE_STORE, "readonly", async (store) =>
+    requestResult<OfflineImage[]>(store.getAll()),
+  );
+  return result ?? [];
+}
+
+export async function removeOfflineImage(id: string): Promise<void> {
+  await withStore(IMAGE_STORE, "readwrite", async (store) => {
+    store.delete(id);
+    return undefined;
+  });
+}
+
+/**
+ * Sletter køede bilder som matcher filteret og returnerer antallet.
+ *
+ * `reportId` utelates bare ved full rydding. `userId: null` betyr «alle eiere».
+ * Med en konkret `userId` tas også poster uten kjent eier med: de er laget på
+ * denne enheten før brukeren ble husket, og vises i samme kø.
+ */
+export async function clearOfflineImages(
+  match: { reportId?: string; userId?: string | null } = {},
+): Promise<number> {
+  let removed = 0;
+  await withStore(IMAGE_STORE, "readwrite", async (store) => {
+    const rows = (await requestResult<OfflineImage[]>(store.getAll())) ?? [];
+    for (const row of rows) {
+      if (match.reportId !== undefined && row.reportId !== match.reportId) {
+        continue;
+      }
+      if (
+        match.userId !== undefined &&
+        match.userId !== null &&
+        row.userId !== match.userId &&
+        row.userId !== null
+      ) {
+        continue;
+      }
+      store.delete(row.id);
+      removed += 1;
+    }
+    return undefined;
+  });
+  return removed;
+}
+
 export async function countOutbox(): Promise<number> {
   const result = await withStore(OUTBOX_STORE, "readonly", async (store) =>
     requestResult<number>(store.count()),
@@ -845,6 +946,11 @@ export async function clearOfflineDataForUser(userId: string): Promise<void> {
     });
     return undefined;
   });
+
+  // Bilder er like mye brukerens data som kladdene, og skal bort når brukeren
+  // bevisst forkaster egne offline-poster. Køen inneholder bare bilder som
+  // ennå ikke er lastet opp.
+  await clearOfflineImages({ userId });
 }
 
 /** Sletter alle lokale kladder og outbox-oppføringer for alle brukere. */
@@ -859,6 +965,10 @@ export async function clearOfflineData(): Promise<void> {
     return undefined;
   });
   await withStore(VISIT_STATUS_STORE, "readwrite", async (store) => {
+    store.clear();
+    return undefined;
+  });
+  await withStore(IMAGE_STORE, "readwrite", async (store) => {
     store.clear();
     return undefined;
   });

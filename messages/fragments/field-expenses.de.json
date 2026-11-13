@@ -15,6 +15,11 @@
     "receipt": "Beleg",
     "document": "Dokument",
     "statusLabel": "Status",
+    "filter": {
+      "status": "Status",
+      "allStatuses": "Alle Status",
+      "reset": "Filter zurücksetzen"
+    },
     "actions": "Aktionen",
     "openWorkOrder": "Auftrag",
     "submitToApproval": "Zur Genehmigung einreichen",
@@ -46,7 +51,9 @@
       "listTitle": "Meine Fahrten",
       "empty": "Es wurden keine Fahrten erfasst.",
       "route": "Strecke",
-      "approvalTitle": "Fahrten zur Genehmigung"
+      "approvalTitle": "Fahrten zur Genehmigung",
+      "pagination": "Seiten der Fahrten",
+      "emptyFiltered": "Keine Fahrten mit diesem Status."
     },
     "expense": {
       "title": "Auslage",
@@ -60,7 +67,9 @@
       "submit": "Auslage erfassen",
       "listTitle": "Meine Auslagen",
       "empty": "Es wurden keine Auslagen erfasst.",
-      "approvalTitle": "Auslagen zur Genehmigung"
+      "approvalTitle": "Auslagen zur Genehmigung",
+      "pagination": "Seiten der Auslagen",
+      "emptyFiltered": "Keine Auslagen mit diesem Status."
     },
     "office": {
       "title": "Auslagen und Lohn",

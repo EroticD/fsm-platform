@@ -385,6 +385,7 @@
       "timeNotSet": "Tid ikke satt",
       "allDay": "Hele dagen",
       "openWorkOrder": "Åpne oppdrag",
+      "openJobDetails": "Åpne oppdraget",
       "overdueEmpty": "Ingen forfalte oppdrag.",
       "availableEmpty": "Ingen ledige oppdrag akkurat nå.",
       "laterEmpty": "Ingen kommende oppdrag.",
@@ -742,7 +743,7 @@
       "uploadFailedOne": "Kunne ikke laste opp {name}",
       "uploadFailedMany": "Kunne ikke laste opp {count} bilder: {names}",
       "hint": "Bildene komprimeres før opplasting. Du kan velge flere bilder samtidig.",
-      "networkRequired": "Bilder lastes opp med en gang og krever nett. Uten nett blir de liggende i listen og kan prøves på nytt når du er tilkoblet.",
+      "networkRequired": "Bilder lastes opp med en gang. Uten nett lagres de på denne enheten og sendes automatisk når du er tilkoblet igjen.",
       "offline": "Du er offline. Bilder kan velges, men lastes først opp når du er på nett igjen.",
       "takePhoto": "📷 Ta bilde",
       "choosePhoto": "🖼️ Velg bilde",
@@ -755,7 +756,8 @@
       "uploaded": "{count, plural, one {✅ # bilde lastet opp} other {✅ # bilder lastet opp}}",
       "viewImage": "Se bilde",
       "removeFile": "Fjern {name}",
-      "attachmentAlt": "Vedlegg {number}"
+      "attachmentAlt": "Vedlegg {number}",
+      "savedLocally": "Lagret lokalt — sendes når du er online"
     },
     "map": {
       "visitsToday": "Dagens visninger",

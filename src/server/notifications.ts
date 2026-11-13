@@ -474,33 +474,61 @@ export async function notifyUser(
   }
 }
 
+/** Oppdragsfeltene varslene trenger for å finne mottakerne. */
+const WORK_ORDER_NOTIFICATION_SELECT = {
+  id: true,
+  title: true,
+  departmentId: true,
+  customerId: true,
+  customer: { select: { name: true } },
+  // Inaktive kontoer skal aldri få varsler, selv om de fortsatt står
+  // oppført på et gammelt oppdrag.
+  technicians: { where: { isActive: true }, select: { id: true } },
+} as const;
+
+type WorkOrderNotificationTarget = {
+  id: string;
+  title: string;
+  departmentId: string;
+  customerId: string | null;
+  customer: { name: string | null } | null;
+  technicians: { id: string }[];
+};
+
+/** Varseltypene som også går til kontoret i oppdragets avdeling. */
+const OFFICE_NOTIFICATION_TYPES: ReadonlySet<NotificationType> = new Set<
+  NotificationType
+>(["BOOKING", "REPORT_READY", "CONTRACT_DUE", "OVERDUE", "SLA_AT_RISK", "SLA_BREACHED"]);
+
+async function officeRecipientIds(departmentId: string): Promise<string[]> {
+  const office = await prisma.user.findMany({
+    where: {
+      departmentId,
+      role: { in: ["ADMIN", "OFFICE"] },
+      isActive: true,
+    },
+    select: { id: true },
+    take: 100,
+  });
+  return office.map((user) => user.id);
+}
+
 /**
- * Varsler de som følger et oppdrag. Teknikere får alltid; kontoret får
- * booking/rapportvarsler, og kundeportalen får «rapport klar».
+ * Lager varselet for alle mottakerne til ett oppdrag.
+ *
+ * `preloaded.officeRecipientIds` brukes av bulkjobber som allerede har hentet
+ * kontorbrukerne for avdelingen, slik at mottakerne ikke slås opp på nytt per
+ * oppdrag.
  */
-export async function notifyWorkOrderEvent(
-  workOrderId: string,
+async function deliverWorkOrderNotification(
+  workOrder: WorkOrderNotificationTarget,
   type: NotificationType,
   title: string,
   body: string,
   href: string,
   dedupeKey: string,
+  preloaded: { officeRecipientIds?: readonly string[] } = {},
 ): Promise<number> {
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
-    select: {
-      id: true,
-      title: true,
-      departmentId: true,
-      customerId: true,
-      customer: { select: { name: true } },
-      // Inaktive kontoer skal aldri få varsler, selv om de fortsatt står
-      // oppført på et gammelt oppdrag.
-      technicians: { where: { isActive: true }, select: { id: true } },
-    },
-  });
-  if (!workOrder) return 0;
-
   // Kilde-etiketten fryses per hendelse, slik at varselet fortsatt viser hvor
   // det kom fra selv om oppdraget eller kunden senere endres.
   const sourceLabel = workOrderSourceLabel(
@@ -511,24 +539,11 @@ export async function notifyWorkOrderEvent(
 
   const recipients = new Set(workOrder.technicians.map((user) => user.id));
 
-  if (
-    type === "BOOKING" ||
-    type === "REPORT_READY" ||
-    type === "CONTRACT_DUE" ||
-    type === "OVERDUE" ||
-    type === "SLA_AT_RISK" ||
-    type === "SLA_BREACHED"
-  ) {
-    const office = await prisma.user.findMany({
-      where: {
-        departmentId: workOrder.departmentId,
-        role: { in: ["ADMIN", "OFFICE"] },
-        isActive: true,
-      },
-      select: { id: true },
-      take: 100,
-    });
-    for (const user of office) recipients.add(user.id);
+  if (OFFICE_NOTIFICATION_TYPES.has(type)) {
+    const office =
+      preloaded.officeRecipientIds ??
+      (await officeRecipientIds(workOrder.departmentId));
+    for (const userId of office) recipients.add(userId);
   }
 
   if (type === "REPORT_READY" && workOrder.customerId) {
@@ -560,34 +575,102 @@ export async function notifyWorkOrderEvent(
   return created;
 }
 
-/** Varsler én gang per dag om oppdrag som er forfalt. */
+/**
+ * Varsler de som følger et oppdrag. Teknikere får alltid; kontoret får
+ * booking/rapportvarsler, og kundeportalen får «rapport klar».
+ */
+export async function notifyWorkOrderEvent(
+  workOrderId: string,
+  type: NotificationType,
+  title: string,
+  body: string,
+  href: string,
+  dedupeKey: string,
+): Promise<number> {
+  const workOrder = await prisma.workOrder.findUnique({
+    where: { id: workOrderId },
+    select: WORK_ORDER_NOTIFICATION_SELECT,
+  });
+  if (!workOrder) return 0;
+
+  return deliverWorkOrderNotification(
+    workOrder,
+    type,
+    title,
+    body,
+    href,
+    dedupeKey,
+  );
+}
+
+/** Hvor mange forfalte oppdrag som hentes per spørring i sveipet. */
+const OVERDUE_BATCH_SIZE = 100;
+
+/**
+ * Varsler én gang per dag om oppdrag som er forfalt.
+ *
+ * Alle forfalte oppdrag behandles, ikke bare de første 100: siden eldste
+ * forfall sorteres først, blir de mest forfalte alltid varslet først, og
+ * resten hentes i nye sider til listen er tom. Kontorbrukerne hentes én gang
+ * per avdeling per kjøring, ikke per oppdrag. Idempotensen ligger i
+ * `dedupeKey` (`overdue:<oppdrag>:<dato>:<bruker>`), så et oppdrag som allerede
+ * er varslet i dag gir ingen ny rad.
+ */
 export async function notifyOverdueWorkOrders(
   now = new Date(),
 ): Promise<number> {
   const today = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
-  const workOrders = await prisma.workOrder.findMany({
-    where: {
-      deletedAt: null,
-      scheduledFor: { lt: today },
-      status: { notIn: statusKeysByCategory("CLOSED") },
-    },
-    select: { id: true, title: true },
-    take: 100,
-  });
+  const where: Prisma.WorkOrderWhereInput = {
+    deletedAt: null,
+    scheduledFor: { lt: today },
+    status: { notIn: statusKeysByCategory("CLOSED") },
+  };
+  const dateKey = toDateOnly(today);
+
+  // Mottakerne avhenger bare av avdelingen, ikke av oppdraget. Samme avdeling
+  // slås derfor opp maksimalt én gang per kjøring.
+  const officeByDepartment = new Map<string, string[]>();
+  const officeFor = async (departmentId: string): Promise<string[]> => {
+    const cached = officeByDepartment.get(departmentId);
+    if (cached) return cached;
+    const ids = await officeRecipientIds(departmentId);
+    officeByDepartment.set(departmentId, ids);
+    return ids;
+  };
 
   let created = 0;
-  for (const workOrder of workOrders) {
-    created += await notifyWorkOrderEvent(
-      workOrder.id,
-      "OVERDUE",
-      "Oppdrag er forfalt",
-      `Oppdraget «${workOrder.title}» er forfalt.`,
-      `/oppdrag/${workOrder.id}`,
-      `overdue:${workOrder.id}:${toDateOnly(today)}`,
-    );
+  let cursor: string | undefined;
+
+  for (;;) {
+    const workOrders = await prisma.workOrder.findMany({
+      where,
+      // Eldste forfall først, med id som stabil bryter for pagineringen.
+      orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
+      take: OVERDUE_BATCH_SIZE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: WORK_ORDER_NOTIFICATION_SELECT,
+    });
+
+    for (const workOrder of workOrders) {
+      created += await deliverWorkOrderNotification(
+        workOrder,
+        "OVERDUE",
+        "Oppdrag er forfalt",
+        `Oppdraget «${workOrder.title}» er forfalt.`,
+        `/oppdrag/${workOrder.id}`,
+        `overdue:${workOrder.id}:${dateKey}`,
+        {
+          officeRecipientIds: await officeFor(workOrder.departmentId),
+        },
+      );
+    }
+
+    if (workOrders.length < OVERDUE_BATCH_SIZE) break;
+    cursor = workOrders[workOrders.length - 1].id;
   }
+
   return created;
 }
 

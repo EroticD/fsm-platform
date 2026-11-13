@@ -44,6 +44,7 @@
     "transfer:reconcile": "tsx scripts/reconcile-transfers.ts",
     "storage:migrate": "tsx scripts/migrate-uploads-to-s3.ts",
     "uploads:dedupe": "tsx scripts/dedupe-uploads.ts",
+    "pdfs:compress": "tsx scripts/compress-pdfs.ts",
     "visits:backfill:daily": "tsx scripts/backfill-daily-visits.ts",
     "sla:cleanup": "tsx scripts/cancel-uncontracted-sla.ts",
     "registry:check": "tsx scripts/check-customer-registry.ts",

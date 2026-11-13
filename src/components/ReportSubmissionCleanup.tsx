@@ -11,6 +11,10 @@ import {
   OUTBOX_CHANGED_EVENT,
   removeOutboxForReport,
 } from "@/lib/offline/draft-outbox";
+import {
+  clearOfflineImagesForReport,
+  offlineReportId,
+} from "@/lib/offline/image-outbox";
 
 /**
  * Rydder lokal kladd og ventende outbox-oppføringer etter en vellykket
@@ -55,6 +59,12 @@ export default function ReportSubmissionCleanup({
       try {
         await clearDraftLocally({ userId, workOrderId, templateId });
         await removeOutboxForReport({ workOrderId, templateId });
+        // Bilder som fortsatt ventet på nett, hører til denne rapporten og
+        // skal ikke lastes opp etter at den er signert og låst.
+        await clearOfflineImagesForReport(
+          offlineReportId(workOrderId, templateId),
+          { userId },
+        );
         // Bare det innsendte skjemaet skal bort. Andre cached forms og
         // oppdragssider må fortsatt kunne åpnes offline.
         await clearOfflinePage(

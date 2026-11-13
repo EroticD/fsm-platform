@@ -529,7 +529,8 @@ export default async function TechnicianDashboard({
     if (a > LIST_PAGE_SIZE) params.set("a", String(a));
     if (u > LIST_PAGE_SIZE) params.set("u", String(u));
     if (h > LIST_PAGE_SIZE) params.set("h", String(h));
-    return `/mine-oppdrag?${params.toString()}`;
+    const query = params.toString();
+    return query ? `/mine-oppdrag?${query}` : "/mine-oppdrag";
   };
 
   /**
@@ -572,7 +573,10 @@ export default async function TechnicianDashboard({
 
     revalidatePath("/mine-oppdrag");
     revalidatePath(`/mine-oppdrag/${target.id}`);
-    redirect("/mine-oppdrag?claimed=1");
+    // Montøren skal rett til oppdraget: der ligger beskrivelse, utstyr,
+    // tidligere rapporter og skjemaene. Listen er feil destinasjon – den
+    // starter på toppen, og kortet kan ligge langt nede eller være avkortet.
+    redirect(`/mine-oppdrag/${target.id}`);
   }
 
   const claimError =
@@ -863,21 +867,28 @@ export default async function TechnicianDashboard({
     key: "a" | "u" | "h",
     current: number,
     total: number,
-    surface: CardSurface = "dark",
+    {
+      surface = "dark",
+      section,
+    }: { surface?: CardSurface; section: string },
   ) => {
-    if (total <= current) return null;
+    // Ankeret ligger på selve «Vis flere»-knappen, slik at en ny side med
+    // flere kort ikke kaster montøren tilbake til toppen av listen.
+    const anchor = `flere-${section}`;
     return (
-      <p className="text-center">
-        <Link
-          href={moreHref(key, current, total)}
-          className={`inline-flex min-h-11 items-center px-5 py-2.5 text-sm font-bold transition hover:brightness-105 ${
-            surface === "paper" ? "field-sheet" : "field-card"
-          }`}
-        >
-          {t("orders.fieldList.loadMore", {
-            count: Math.min(LIST_PAGE_SIZE, total - current),
-          })}
-        </Link>
+      <p id={anchor} className="scroll-mt-6 text-center">
+        {total > current && (
+          <Link
+            href={`${moreHref(key, current, total)}#${anchor}`}
+            className={`inline-flex min-h-11 items-center px-5 py-2.5 text-sm font-bold transition hover:brightness-105 ${
+              surface === "paper" ? "field-sheet" : "field-card"
+            }`}
+          >
+            {t("orders.fieldList.loadMore", {
+              count: Math.min(LIST_PAGE_SIZE, total - current),
+            })}
+          </Link>
+        )}
       </p>
     );
   };
@@ -1096,6 +1107,19 @@ export default async function TechnicianDashboard({
                   />
                 </Link>
 
+                {/* Hovedknappen går rett til skjemaet. Beskrivelse, utstyr og
+                    forrige rapport ligger på oppdraget, så montøren trenger en
+                    egen vei dit uten å lete i listen. */}
+                {heroTemplateId && (
+                  <Link
+                    href={`/mine-oppdrag/${hero.id}`}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--field-line)] bg-surface/5 px-4 text-sm font-black text-paper no-underline transition hover:border-signal/60 hover:bg-surface/10"
+                  >
+                    <Icon name="file" className="h-4 w-4" />
+                    {t("orders.fieldList.openJobDetails")}
+                  </Link>
+                )}
+
                 <div className="flex gap-2">
                   {heroPhone && (
                     <a
@@ -1303,7 +1327,7 @@ export default async function TechnicianDashboard({
             <div className="space-y-2">
               {overdueVisible.map((wo) => renderCard(wo, "overdue"))}
             </div>
-            {loadMore("a", assignedLimit, overdueTotal)}
+            {loadMore("a", assignedLimit, overdueTotal, { section: "forfalt" })}
           </PrioritySection>
 
           <PrioritySection
@@ -1319,7 +1343,9 @@ export default async function TechnicianDashboard({
             <div className="space-y-2">
               {unassignedVisible.map((wo) => renderCard(wo, "available"))}
             </div>
-            {loadMore("u", unassignedLimit, unassignedTotal)}
+            {loadMore("u", unassignedLimit, unassignedTotal, {
+              section: "ledige",
+            })}
           </PrioritySection>
         </div>
 
@@ -1344,7 +1370,10 @@ export default async function TechnicianDashboard({
               )}
             </div>
           )}
-          {loadMore("a", assignedLimit, laterTotal, "paper")}
+          {loadMore("a", assignedLimit, laterTotal, {
+            surface: "paper",
+            section: "senere",
+          })}
         </PaperSheet>
 
         {/* HISTORIKK: fullførte oppdrag holdes utenfor prioritetsstakken. */}
@@ -1360,7 +1389,10 @@ export default async function TechnicianDashboard({
                 renderCard(wo, "history", "paper"),
               )}
             </div>
-            {loadMore("h", historyLimit, completedTotal, "paper")}
+            {loadMore("h", historyLimit, completedTotal, {
+              surface: "paper",
+              section: "historikk",
+            })}
           </PaperSheet>
         )}
       </div>

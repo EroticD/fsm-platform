@@ -15,6 +15,11 @@
     "receipt": "Paragon",
     "document": "Dokument",
     "statusLabel": "Status",
+    "filter": {
+      "status": "Status",
+      "allStatuses": "Wszystkie statusy",
+      "reset": "Wyczyść filtry"
+    },
     "actions": "Działania",
     "openWorkOrder": "Zlecenie",
     "submitToApproval": "Wyślij do zatwierdzenia",
@@ -46,7 +51,9 @@
       "listTitle": "Moje przejazdy",
       "empty": "Nie zarejestrowano żadnych przejazdów.",
       "route": "Trasa",
-      "approvalTitle": "Przejazdy oczekujące na zatwierdzenie"
+      "approvalTitle": "Przejazdy oczekujące na zatwierdzenie",
+      "pagination": "Strony kilometrówek",
+      "emptyFiltered": "Brak kilometrówek o tym statusie."
     },
     "expense": {
       "title": "Wydatek",
@@ -60,7 +67,9 @@
       "submit": "Zarejestruj wydatek",
       "listTitle": "Moje wydatki",
       "empty": "Nie zarejestrowano żadnych wydatków.",
-      "approvalTitle": "Wydatki oczekujące na zatwierdzenie"
+      "approvalTitle": "Wydatki oczekujące na zatwierdzenie",
+      "pagination": "Strony wydatków",
+      "emptyFiltered": "Brak wydatków o tym statusie."
     },
     "office": {
       "title": "Wydatki i płace",

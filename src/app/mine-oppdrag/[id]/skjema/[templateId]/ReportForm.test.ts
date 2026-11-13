@@ -26,7 +26,11 @@ vi.mock("@/lib/offline/draft-outbox", () => ({
   saveDraftLocally: vi.fn(),
 }));
 vi.mock("@/components/MarkdownEditor", () => ({ default: () => null }));
-vi.mock("@/components/ImageUploadField", () => ({ default: () => null }));
+vi.mock("@/components/ImageUploadField", () => ({
+  default: () => null,
+  // Providere må sende barna videre, ellers forsvinner hele skjemaet.
+  ReportImageScope: ({ children }: { children?: unknown }) => children,
+}));
 vi.mock("@/components/SignaturePad", () => ({ default: () => null }));
 vi.mock("@/components/ConfirmDialog", () => ({ default: () => null }));
 vi.mock("@/components/ErrorBanner", () => ({ default: () => null }));

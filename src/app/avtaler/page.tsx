@@ -6,7 +6,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
-import Pagination, { paginationLabels } from "@/components/Pagination";
+import Pagination, { clampPage, paginationLabels } from "@/components/Pagination";
 import EmptyState from "@/components/EmptyState";
 import Card from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui";
@@ -14,6 +14,7 @@ import { buttonClassName } from "@/components/ui/Button";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { formatDateLocalized } from "@/lib/dates";
+import { parsePage } from "@/lib/pagination";
 import {
   isContractStatus,
   listContracts,
@@ -65,19 +66,35 @@ export default async function ContractsPage({
     params.status && isContractStatus(params.status) ? params.status : null;
   const expiring = params.utlop === "snart";
   const query = (params.q ?? "").trim().slice(0, 100);
-  const page = Math.max(1, Number(params.side ?? "1") || 1);
+  const requestedPage = parsePage(params.side);
 
-  const result = await listContracts(user, {
+  const first = await listContracts(user, {
     status,
     expiringDays: expiring ? 60 : null,
     query,
-    page,
+    page: requestedPage,
     pageSize: PAGE_SIZE,
   });
+  if (!first.ok) redirect("/");
+
+  // En gammel `?side=999` skal lande på siste side, ikke gi en tom liste med
+  // gyldig paginering. Sidetallet klemmes derfor mot totalen før vi eventuelt
+  // henter siste side på nytt.
+  const totalPages = Math.max(1, Math.ceil(first.data.total / PAGE_SIZE));
+  const page = clampPage(requestedPage, totalPages);
+  const result =
+    page === requestedPage
+      ? first
+      : await listContracts(user, {
+          status,
+          expiringDays: expiring ? 60 : null,
+          query,
+          page,
+          pageSize: PAGE_SIZE,
+        });
   if (!result.ok) redirect("/");
 
   const { contracts, total } = result.data;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const statusLabel = (value: string) => {
     switch (value) {
@@ -305,7 +322,7 @@ export default async function ContractsPage({
 
       {total > PAGE_SIZE ? (
         <Pagination
-          page={Math.min(page, totalPages)}
+          page={page}
           totalPages={totalPages}
           hrefFor={(nextPage) =>
             hrefWith({ side: nextPage > 1 ? String(nextPage) : null })
