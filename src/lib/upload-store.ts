@@ -1,10 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
 import prisma from "@/lib/prisma";
 import {
   deleteUploadFile,
   statUploadFile,
+  uploadStorage,
   writeUploadFile,
 } from "@/lib/uploads";
+import { hashFileStream, linkFileOver } from "@/lib/upload-dedupe";
 
 /** Signaturbilder er små; 5 MB dekodet er rikelig for en underskrift. */
 const MAX_SIGNATURE_BYTES = 5 * 1024 * 1024;
@@ -153,6 +156,132 @@ export async function storeDataImage(
   return `/uploads/${storedName}`;
 }
 
+export type StoredUploadFile = {
+  storedName: string;
+  /** SHA-256 av det lagrede innholdet, satt på `Upload`-raden. */
+  contentHash: string;
+  /** Sant når filen ble hardlenket til en identisk, eldre opplasting. */
+  deduped: boolean;
+};
+
+/**
+ * Absolutt sti for en lagringsnøkkel, men bare når lagringen er lokal.
+ * S3 (og testdobbeltgjengere uten `uploadStorage`) gir null, og da skrives
+ * filen som normalt.
+ */
+async function localUploadPath(storedName: string): Promise<string | null> {
+  try {
+    const storage = uploadStorage();
+    if (storage.kind !== "local") return null;
+    return storage.localPath(storedName);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lager `storedName` som en hardlenke til en eldre opplasting med samme
+ * innhold. Filen får nytt navn, men deler inode med originalen, så innholdet
+ * bare lagres én gang. `storedName` er unik i databasen, så hver rad eier sin
+ * egen lenke og sletting av én rad fjerner aldri en annen rads fil.
+ *
+ * Returnerer false når ingenting ble lenket – da skriver kalleren filen selv.
+ * Alle feil svelges med vilje: dedupe er en diskoptimalisering, ikke noe en
+ * opplasting skal feile på.
+ */
+async function linkExistingContent(
+  storedName: string,
+  contentHash: string,
+): Promise<boolean> {
+  if (!contentHash) return false;
+
+  const target = await localUploadPath(storedName);
+  if (!target) return false;
+
+  let candidates: { storedName: string }[];
+  try {
+    candidates = await prisma.upload.findMany({
+      where: { contentHash },
+      select: { storedName: true },
+      orderBy: { createdAt: "asc" },
+      take: 5,
+    });
+  } catch {
+    return false;
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate.storedName || candidate.storedName === storedName) continue;
+    const source = await localUploadPath(candidate.storedName);
+    if (!source) continue;
+
+    try {
+      const info = await fs.stat(source);
+      if (!info.isFile()) continue;
+      // Atomisk: lenken lages under et midlertidig navn og renames over målet.
+      await linkFileOver(source, target);
+      return true;
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Skriver en ferdig behandlet buffer til opplastingsmappen og returnerer
+ * innholdshashen. En identisk fil som allerede ligger der, gjenbrukes som
+ * hardlenke i stedet for å skrive en ny kopi.
+ */
+export async function storeUploadBytes(input: {
+  storedName: string;
+  data: Buffer;
+  mimeType: string;
+}): Promise<StoredUploadFile> {
+  const contentHash = createHash("sha256").update(input.data).digest("hex");
+
+  if (await linkExistingContent(input.storedName, contentHash)) {
+    return { storedName: input.storedName, contentHash, deduped: true };
+  }
+
+  await writeUploadFile(input.storedName, input.data, input.mimeType);
+  return { storedName: input.storedName, contentHash, deduped: false };
+}
+
+/**
+ * Som `storeUploadBytes`, men for filer som allerede ligger i en midlertidig
+ * fil. Innholdet leses strømmende for hashing, slik at en stor PDF ikke må
+ * inn i minnet. Kilden røres ikke når den lenkes; kalleren rydder den.
+ */
+export async function storeUploadFromFile(input: {
+  storedName: string;
+  sourcePath: string;
+  mimeType: string;
+}): Promise<StoredUploadFile> {
+  let contentHash = "";
+  try {
+    contentHash = await hashFileStream(input.sourcePath);
+  } catch {
+    // Uten hash kan vi ikke dedupe, men opplastingen skal fortsatt lykkes.
+    contentHash = "";
+  }
+
+  if (contentHash && (await linkExistingContent(input.storedName, contentHash))) {
+    return { storedName: input.storedName, contentHash, deduped: true };
+  }
+
+  await uploadStorage().writeFromFile(input.storedName, input.sourcePath, {
+    contentType: input.mimeType,
+    cacheControl: "private, no-store",
+  });
+  return {
+    storedName: input.storedName,
+    contentHash,
+    deduped: false,
+  };
+}
+
 /**
  * Sletter en tidligere signaturfil, men bare når `Upload`-raden faktisk eies av
  * det samme oppdraget. Filer som tilhører en annen rapport, kunde eller et
@@ -178,6 +307,12 @@ export async function deleteUploadIfOwned(
       },
     });
     if (result.count === 0) return;
+
+    // `storedName` er unik, men hardlenker gjør at flere rader kan dele samme
+    // innhold under ulike navn. Denne raden eier bare sitt eget navn, så vi
+    // fjerner lenken bare når ingen annen rad peker på samme navn.
+    const remaining = await prisma.upload.count({ where: { storedName } });
+    if (remaining > 0) return;
 
     // Slett raden først. Da kan ikke filen lenger nås gjennom /uploads, selv om
     // slettingen i lagringslaget skulle feile.

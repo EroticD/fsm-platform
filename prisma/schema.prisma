@@ -1502,10 +1502,13 @@ model Document {
   fileSize    Int     @default(0)
   mimeType    String  @default("application/pdf")
 
-  // Ekstrahert tekst fra PDF for fulltekst-søk. pageTexts er JSON-array
-  // [{page: number, text: string}] for side-spesifikk navigasjon.
-  contentText String?
+  // OCR-tekst per side, JSON-array [{page, text}]. Dette er kilden til
+  // fulltekstsøket (searchTsv bygges fra den), og den eneste teksten vi lagrer
+  // for nye dokumenter.
   pageTexts   String?
+  // Eldre rader og importerte pakker kan ha samlet tekst her. Nye rader lagrer
+  // den ikke; eksport bygger den fra pageTexts (se src/lib/document-text.ts).
+  contentText String?
 
   // PostgreSQL-generert tsvector for fulltekst-søk. Prisma kan ikke uttrykke
   // GENERATED-kolonnen, så den opprettes i migreringen.

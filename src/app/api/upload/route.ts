@@ -30,6 +30,10 @@ import {
   reserveUploadQuota,
 } from "@/lib/upload-quota";
 import { moduleApiGuard } from "@/lib/module-guards";
+import {
+  storeUploadBytes,
+  storeUploadFromFile,
+} from "@/lib/upload-store";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +108,7 @@ export async function POST(request: Request) {
   await fs.mkdir(tempDir, { recursive: true }).catch(() => undefined);
   let tempPath: string | null = null;
   let storageKey: string | null = null;
+  let storedContentHash: string | null = null;
   let quotaReservationId: string | null = null;
 
   const removeTemp = async () => {
@@ -373,25 +378,27 @@ export async function POST(request: Request) {
         }
 
         // Filene ligger utenfor public/ og leses gjennom /uploads/[...sti].
-        // Lagringslaget avgjør om de havner på disk eller i S3/MinIO.
+        // Lagringslaget avgjør om de havner på disk eller i S3/MinIO, og
+        // gjenbruker en identisk fil som hardlenke når den finnes lokalt.
         const finalName = `${
           path.basename(fileName, path.extname(fileName))
         }.${extension}`;
-        await uploadStorage().write(finalName, buffer, {
-          contentType: finalMime,
-          cacheControl: "private, no-store",
+        return await storeUploadBytes({
+          storedName: finalName,
+          data: buffer,
+          mimeType: finalMime,
         });
-        return finalName;
       });
       if (imageFailed || !processed) {
         return jsonError("image_processing_failed", 415, "errors.api.upload.imageFailed");
       }
-      storageKey = processed;
+      storageKey = processed.storedName;
+      storedContentHash = processed.contentHash;
       await removeTemp();
 
       return await storeUpload({
-        fileName: path.basename(processed),
-        storageKey: processed,
+        fileName: processed.storedName,
+        storageKey: processed.storedName,
         originalName: file.fileName,
         mimeType: finalMime,
         size: finalBytes,
@@ -400,21 +407,25 @@ export async function POST(request: Request) {
         departmentId,
         customerId: ownerCustomerId,
         uploadedById: user.id,
+        contentHash: storedContentHash,
       }, quotaReservationId);
     }
 
     // PDF-er og GIF-er skrives direkte fra den midlertidige filen. Da slipper
-    // vi å holde en full kopi av en stor fil i minnet.
-    await uploadStorage().writeFromFile(fileName, file.tempPath, {
-      contentType: finalMime,
-      cacheControl: "private, no-store",
+    // vi å holde en full kopi av en stor fil i minnet. Er innholdet identisk
+    // med en eldre opplasting, lages det en hardlenke i stedet for en kopi.
+    const stored = await storeUploadFromFile({
+      storedName: fileName,
+      sourcePath: file.tempPath,
+      mimeType: finalMime,
     });
-    storageKey = fileName;
+    storageKey = stored.storedName;
+    storedContentHash = stored.contentHash || null;
     await removeTemp();
 
     return await storeUpload({
       fileName,
-      storageKey,
+      storageKey: stored.storedName,
       originalName: file.fileName,
       mimeType: finalMime,
       size: finalBytes,
@@ -423,6 +434,7 @@ export async function POST(request: Request) {
       departmentId,
       customerId: ownerCustomerId,
       uploadedById: user.id,
+      contentHash: storedContentHash,
     }, quotaReservationId);
   } catch (error) {
     console.error("Upload failed:", error);
@@ -461,6 +473,8 @@ async function storeUpload(input: {
   departmentId: string | null;
   customerId: string | null;
   uploadedById: string;
+  /** SHA-256 av innholdet; null bare når hashing ikke var mulig. */
+  contentHash: string | null;
 }, reservationId: string): Promise<Response> {
   // Registrer metadata og frigjør reservasjonen i samme transaksjon. Feiler
   // det, fjernes filen igjen slik at disken ikke får filer uten
@@ -478,6 +492,7 @@ async function storeUpload(input: {
         departmentId: input.departmentId,
         customerId: input.customerId,
         uploadedById: input.uploadedById,
+        contentHash: input.contentHash,
       },
     });
     if (!committed.ok) {

@@ -12,6 +12,7 @@ import {
 import type { ModuleKey } from "@/lib/modules";
 import { contentAddressedPath } from "./manifest";
 import { compareById } from "./normalise";
+import { documentText } from "@/lib/document-text";
 import type {
   ExportOptions,
   TransferDataset,
@@ -776,7 +777,7 @@ export async function collectExportDataset(
       fileName: document.fileName,
       fileSize: document.fileSize,
       mimeType: document.mimeType,
-      contentText: document.contentText,
+      contentText: documentText(document),
       pageTexts: document.pageTexts,
       folderId: document.folderId,
       tagIds: document.tags.map((tag) => tag.id),

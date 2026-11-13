@@ -329,12 +329,14 @@ export async function processPdfTextJob(
     });
     if (!document) throw new Error("The document no longer exists");
 
-    const { text, pages } = await extractPdfText(document.filePath);
+    const { pages } = await extractPdfText(document.filePath);
 
+    // Bare `pageTexts` skrives. `contentText` er samme tekst slått sammen, og
+    // duplikatet fjernes – eksporten bygger feltet fra `pageTexts` ved behov.
+    // `searchTsv` oppdateres av databasetriggeren.
     await prisma.document.update({
       where: { id: document.id },
       data: {
-        contentText: text || null,
         pageTexts: pages.length > 0 ? JSON.stringify(pages) : null,
       },
     });

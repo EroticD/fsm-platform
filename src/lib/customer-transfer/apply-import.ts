@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { getStorageDriver } from "@/lib/storage";
+import { pagesFromJson } from "@/lib/document-text";
 import { writeFinalFilesLedger } from "./reconcile";
 import { isValidExternalQrValue, normalizeExternalQrValue } from "@/lib/equipment-qr";
 import { generateWorkOrderReference } from "@/lib/work-order-reference";
@@ -1051,6 +1052,14 @@ async function importDocuments(ctx: ApplyContext) {
     const productId = targetFor(ctx, "Product", document.productId) ?? null;
     if (!customerId && !productId) continue;
     const file = allocateFile(ctx, document.packagePath);
+    const pageTexts = stringOrNull(document.pageTexts);
+    // `pageTexts` er fasit når den inneholder sider. `contentText` er samme
+    // tekst slått sammen, og skal ikke lagres som duplikat – bare eldre pakker
+    // som ikke har `pageTexts` får feltet skrevet.
+    const contentText =
+      pageTexts && pagesFromJson(pageTexts).length > 0
+        ? null
+        : stringOrNull(document.contentText);
     const created = await tx.document.create({
       data: {
         title: String(document.title),
@@ -1059,8 +1068,8 @@ async function importDocuments(ctx: ApplyContext) {
         filePath: file?.url ?? "",
         fileSize: file?.data.length ?? numberOrNull(document.fileSize) ?? 0,
         mimeType: file?.mimeType ?? stringOrNull(document.mimeType) ?? "application/pdf",
-        contentText: stringOrNull(document.contentText),
-        pageTexts: stringOrNull(document.pageTexts),
+        contentText,
+        pageTexts,
         folderId: targetFor(ctx, "DocumentFolder", document.folderId) ?? null,
         customerId,
         productId,

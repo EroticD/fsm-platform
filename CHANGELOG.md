@@ -5,7 +5,19 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
-Ingen endringer ennå.
+### Lagring
+- Opplastinger dedupliseres med hardlenker: like filer (samme SHA-256) deler
+  inode, og hvert filnavn beholdes. Ved opplasting gjenkjennes innholdet via
+  `Upload.contentHash`, og `npm run uploads:dedupe -- --apply` rydder
+  eksisterende filer og fyller hash for eldre rader. Målt i utviklingsmiljøet:
+  2,87 GB av 5,5 GB var duplikater; etter kjøring 2,6 GB, uten endrede filnavn
+  eller URL-er.
+- OCR-tekst lagres ikke lenger to ganger. `job-worker` skriver bare
+  `pageTexts`, `searchTsv` bygges fra sidene, og eksport/import utleder
+  `contentText` fra `pageTexts` (`src/lib/document-text.ts`). Migrasjonen tømmer
+  `contentText` der sideteksten finnes og skriver om triggeren. Målt: 22 MB
+  frigjort i databasen; `Document` gikk fra 109 MB til 63 MB etter
+  `VACUUM (FULL, ANALYZE)`.
 
 ## 0.9.5 — 2026-11-13
 

@@ -1555,7 +1555,9 @@ export async function reindexDocuments(
   const docs = await prisma.document.findMany({
     where: {
       deletedAt: null,
-      OR: [{ contentText: null }, { contentText: "" }],
+      // pageTexts er kilden til OCR-teksten. contentText er tom for nye rader,
+      // så et filter på den ville reindeksert hele basen hver gang.
+      OR: [{ pageTexts: null }, { pageTexts: "" }],
     },
     select: { id: true, filePath: true },
     take: 500,

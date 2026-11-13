@@ -755,11 +755,19 @@ export async function searchDocuments(
   const headline = Prisma.sql`CASE
     WHEN numnode(q.tsq) > 0 THEN ts_headline(
       'norwegian',
-      -- contentText leses av PostgreSQL for å lage utdraget, men sendes
-      -- aldri til Node. Det holder minnebruken borte fra app-prosessen.
+      -- Utdraget bygges fra sideteksten, som er kilden etter at contentText
+      -- sluttet å bli lagret. Teksten leses av PostgreSQL og sendes aldri til
+      -- Node, så minnebruken i app-prosessen er uendret.
       coalesce(d."title", '') || ' ' ||
       coalesce(d."description", '') || ' ' ||
-      coalesce(d."contentText", ''),
+      CASE
+        WHEN d."pageTexts" IS NOT NULL AND btrim(d."pageTexts") LIKE '[%'
+        THEN coalesce((
+          SELECT string_agg(e->>'text', ' ')
+          FROM jsonb_array_elements(d."pageTexts"::jsonb) AS e
+        ), '')
+        ELSE coalesce(d."contentText", '')
+      END,
       q.tsq,
       'MaxFragments=2,MaxWords=18,MinWords=5'
     )

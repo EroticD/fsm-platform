@@ -1076,6 +1076,14 @@ SCIM-flaten ligger under `/api/scim/v2` og krever `Authorization: Bearer
 - Standard er lokal disk: filer ligger i `UPLOAD_DIR` (standard `./uploads`, i
   Docker `/app/uploads`). Med `STORAGE_DRIVER=s3` ligger de i S3/MinIO, men
   URL-ene er fortsatt `/uploads/<filnavn>`. Se [`STORAGE.md`](STORAGE.md).
+- Identiske filer lagres bare én gang: opplastingen hasher innholdet og lager
+  en hardlenke når samme innhold finnes fra før. Eksisterende filer
+  dedupliseres med `npm run uploads:dedupe` (tørrkjøring) og `-- --apply`
+  (skriver). Kjøringen fyller også `Upload.contentHash` for eldre rader, er
+  idempotent og krever lokal lagring. Hvert filnavn beholdes, og sletting
+  fjerner bare radens egen lenke.
+- OCR-teksten lagres én gang, som `Document.pageTexts`. `contentText` holdes
+  bare for eldre importer; eksport bygger den fra sidene.
 - `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil. Ruten
   bruker samme lagringslag som opplastingen, så den virker uendret med S3.
 - Per-fil-grenser: 15 MB for bilder og 50 MB for PDF (`UPLOAD_MAX_IMAGE_MB`,

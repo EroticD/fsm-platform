@@ -16,6 +16,9 @@ vi.mock("@/lib/prisma", () => ({
       delete: vi.fn(),
       deleteMany: vi.fn(),
       findMany: vi.fn(),
+      // Sletting av en delt hardlenke sjekker hvor mange rader som peker på
+      // samme storedName; uten mocken feiler renningen i deleteUploadIfOwned.
+      count: vi.fn().mockResolvedValue(0),
     },
     workOrder: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
     searchLog: { deleteMany: vi.fn() },
@@ -67,6 +70,7 @@ const mocked = prisma as unknown as {
     delete: Mock;
     deleteMany: Mock;
     findMany: Mock;
+    count: Mock;
   };
   workOrder: { findMany: Mock; findFirst: Mock; delete: Mock };
   searchLog: { deleteMany: Mock };
@@ -178,9 +182,10 @@ describe("processPdfTextJob", () => {
 
     expect(outcome).toBe("done");
     expect(mockedExtract).toHaveBeenCalledWith("/uploads/a.pdf");
+    // Bare pageTexts skrives; contentText er samme tekst og skal ikke dupliseres.
     expect(mocked.document.update).toHaveBeenCalledWith({
       where: { id: "doc-1" },
-      data: { contentText: "Hei", pageTexts: JSON.stringify(pages) },
+      data: { pageTexts: JSON.stringify(pages) },
     });
     expect(mocked.documentJob.update).toHaveBeenCalledWith({
       where: { id: "job-1" },
