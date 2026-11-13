@@ -8,9 +8,14 @@ const mocks = vi.hoisted(() => ({
   }),
   getCurrentUser: vi.fn(),
   workOrderFindFirst: vi.fn(),
+  reportFindFirst: vi.fn(),
   auditLogFindMany: vi.fn(async () => []),
   userFindMany: vi.fn(async () => []),
   templateFindMany: vi.fn(async () => []),
+  /** Propene ryddekomponenten faktisk fikk, så testen ser hvilket oppdrag ryddes. */
+  cleanupProps: [] as Record<string, unknown>[],
+  /** Svaret på oppslaget etter det forrige oppdraget (`sent`). */
+  sentWorkOrder: null as { id: string } | null,
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -38,6 +43,7 @@ vi.mock("@/lib/access", () => ({
 vi.mock("@/lib/prisma", () => ({
   default: {
     workOrder: { findFirst: mocks.workOrderFindFirst },
+    report: { findFirst: mocks.reportFindFirst },
     auditLog: { findMany: mocks.auditLogFindMany },
     user: { findMany: mocks.userFindMany },
     template: { findMany: mocks.templateFindMany },
@@ -55,7 +61,12 @@ vi.mock("@/components/MarkdownEditor", () => ({ default: () => null }));
 vi.mock("@/components/WorkOrderAttachments", () => ({ default: () => null }));
 vi.mock("@/components/ConfirmSubmitForm", () => ({ default: () => null }));
 vi.mock("@/components/SubmitButton", () => ({ default: () => null }));
-vi.mock("@/components/ReportSubmissionCleanup", () => ({ default: () => null }));
+vi.mock("@/components/ReportSubmissionCleanup", () => ({
+  default: (props: Record<string, unknown>) => {
+    mocks.cleanupProps.push(props);
+    return null;
+  },
+}));
 vi.mock("@/components/AuditLogTable", () => ({ default: () => null }));
 vi.mock("@/components/customer/CustomerToast", () => ({ default: () => null }));
 
@@ -192,11 +203,20 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Id-en til oppdraget rapporten ble sendt fra, i testene for neste oppdrag. */
+const SENT_WORK_ORDER_ID = "wo-0";
+
 async function render(
   overrides: Record<string, unknown> = {},
   searchParams: Record<string, string> = {},
 ) {
-  mocks.workOrderFindFirst.mockResolvedValue(makeWorkOrder(overrides));
+  const mainWorkOrder = makeWorkOrder(overrides);
+  // Oppslaget etter det forrige oppdraget (`sent`) gjelder en annen id, og får
+  // sitt eget svar – ellers ville siden sett samme oppdrag to ganger.
+  mocks.workOrderFindFirst.mockImplementation(
+    async (args: { where?: { id?: string } }) =>
+      args?.where?.id === SENT_WORK_ORDER_ID ? mocks.sentWorkOrder : mainWorkOrder,
+  );
   const element = await TechnicianWorkOrderPage({
     params: Promise.resolve({ id: "wo-1" }),
     searchParams: Promise.resolve(searchParams),
@@ -206,6 +226,9 @@ async function render(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.cleanupProps.length = 0;
+  mocks.sentWorkOrder = null;
+  mocks.reportFindFirst.mockResolvedValue(null);
   mocks.getCurrentUser.mockResolvedValue(technician);
   mocks.auditLogFindMany.mockResolvedValue([]);
   mocks.userFindMany.mockResolvedValue([]);
@@ -490,5 +513,61 @@ describe("feltdetalj – dagens arbeidsøkt", () => {
     expect(errorHtml).toContain(
       "orders.fieldDetail.visits.errors.statusTransition",
     );
+  });
+});
+
+describe("feltdetalj – rydding etter «Lagre og neste oppdrag»", () => {
+  const sentParams = {
+    status: "rapport-sendt",
+    sent: SENT_WORK_ORDER_ID,
+    sentTemplate: "tpl-1",
+  };
+
+  it("rydder kladden for det innsendte oppdraget når rapporten er låst", async () => {
+    mocks.sentWorkOrder = { id: SENT_WORK_ORDER_ID };
+    mocks.reportFindFirst.mockResolvedValue({ templateId: "tpl-1" });
+
+    await render({}, sentParams);
+
+    expect(mocks.cleanupProps).toEqual([
+      expect.objectContaining({
+        userId: "tech-1",
+        workOrderId: SENT_WORK_ORDER_ID,
+        templateId: "tpl-1",
+        verified: true,
+        showReceipt: false,
+      }),
+    ]);
+    // Låsingen kontrolleres på serveren – ikke bare ut fra query-parameteren.
+    expect(mocks.reportFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workOrderId: SENT_WORK_ORDER_ID,
+          templateId: "tpl-1",
+          isLocked: true,
+          deletedAt: null,
+        }),
+      }),
+    );
+  });
+
+  it("rydder ikke når rapporten fortsatt er ulåst", async () => {
+    mocks.sentWorkOrder = { id: SENT_WORK_ORDER_ID };
+    // Ulåst rapport faller utenfor `isLocked: true`, så oppslaget gir null.
+    mocks.reportFindFirst.mockResolvedValue(null);
+
+    await render({}, sentParams);
+
+    expect(mocks.cleanupProps).toEqual([]);
+  });
+
+  it("rydder ikke når det forrige oppdraget er ukjent for brukeren", async () => {
+    mocks.sentWorkOrder = null;
+    mocks.reportFindFirst.mockResolvedValue({ templateId: "tpl-1" });
+
+    await render({}, sentParams);
+
+    expect(mocks.cleanupProps).toEqual([]);
+    expect(mocks.reportFindFirst).not.toHaveBeenCalled();
   });
 });

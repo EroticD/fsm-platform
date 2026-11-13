@@ -139,7 +139,18 @@ export async function submitReport(formData: FormData) {
       if (nextId) {
         // Neste tildelte oppdrag overtar kvitteringen: siden viser toasten og
         // fjerner `status` selv, se `CustomerToast` i oppdragssiden.
-        redirect(`/mine-oppdrag/${nextId}?status=rapport-sendt`);
+        //
+        // `sent` peker på rapporten som nettopp ble låst. Uten den ville
+        // målsiden ikke kunne rydde lokal kladd og offline-bilder for den
+        // forrige rapporten, og enheten ville vist gamle data neste gang
+        // montøren åpnet skjemaet. Begge id-ene er allerede synlige i
+        // adressen til skjemaet; målsiden verifiserer låsingen på serveren.
+        const marker = new URLSearchParams({ status: "rapport-sendt" });
+        if (templateId) {
+          marker.set("sent", workOrderId);
+          marker.set("sentTemplate", templateId);
+        }
+        redirect(`/mine-oppdrag/${nextId}?${marker.toString()}`);
       }
     }
 

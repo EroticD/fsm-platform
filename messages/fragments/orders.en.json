@@ -77,7 +77,16 @@
       "sortUrgency": "Most urgent first",
       "sortNewest": "Newest first",
       "chooseTechnician": "Choose technician",
-      "assign": "Assign"
+      "assign": "Assign",
+      "savedViews": {
+        "heading": "Saved views",
+        "save": "Save view",
+        "nameLabel": "View name",
+        "namePlaceholder": "E.g. overdue in Oslo",
+        "cancel": "Cancel",
+        "nameRequired": "The view needs a name.",
+        "deleteView": "Delete the view {name}"
+      }
     },
     "formSections": {
       "customerPlace": "Customer and location",

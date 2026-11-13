@@ -849,7 +849,16 @@
         "sortUrgency": "Dringendste zuerst",
         "sortNewest": "Neueste zuerst",
         "chooseTechnician": "Techniker auswählen",
-        "assign": "Zuweisen"
+        "assign": "Zuweisen",
+        "savedViews": {
+          "heading": "Gespeicherte Ansichten",
+          "save": "Ansicht speichern",
+          "nameLabel": "Name der Ansicht",
+          "namePlaceholder": "Z. B. überfällig in Oslo",
+          "cancel": "Abbrechen",
+          "nameRequired": "Die Ansicht braucht einen Namen.",
+          "deleteView": "Ansicht {name} löschen"
+        }
       },
       "formSections": {
         "customerPlace": "Kunde und Standort",
@@ -1736,7 +1745,16 @@
         "openCustomer": "Kundenkarte für {name} öffnen",
         "noContact": "Keine Kontaktperson",
         "neverServiced": "Keine abgeschlossenen Aufträge",
-        "unitsNotice": "Geräte und Einheiten befinden sich auf der Kundenkarte. Wählen Sie einen Kunden und öffnen Sie den Tab Geräte, um die Maschinen zu sehen."
+        "unitsNotice": "Geräte und Einheiten befinden sich auf der Kundenkarte. Wählen Sie einen Kunden und öffnen Sie den Tab Geräte, um die Maschinen zu sehen.",
+        "savedViews": {
+          "heading": "Gespeicherte Ansichten",
+          "save": "Ansicht speichern",
+          "nameLabel": "Name der Ansicht",
+          "namePlaceholder": "Z. B. überfällig in Oslo",
+          "cancel": "Abbrechen",
+          "nameRequired": "Die Ansicht braucht einen Namen.",
+          "deleteView": "Ansicht {name} löschen"
+        }
       },
       "detail": {
         "notFound": "Kunde nicht gefunden",

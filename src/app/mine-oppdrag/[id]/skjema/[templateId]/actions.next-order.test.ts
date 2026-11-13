@@ -92,7 +92,7 @@ describe("submitReport – neste oppdrag", () => {
     mocks.nextOrder = { id: "wo2" };
 
     await expect(submitReport(formData("/mine-oppdrag/wo1"))).rejects.toThrow(
-      "NEXT_REDIRECT:/mine-oppdrag/wo2?status=rapport-sendt",
+      "NEXT_REDIRECT:/mine-oppdrag/wo2?status=rapport-sendt&sent=wo1&sentTemplate=tpl1",
     );
   });
 

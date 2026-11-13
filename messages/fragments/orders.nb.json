@@ -77,7 +77,16 @@
       "sortUrgency": "Haster først",
       "sortNewest": "Nyeste først",
       "chooseTechnician": "Velg montør",
-      "assign": "Tildel"
+      "assign": "Tildel",
+      "savedViews": {
+        "heading": "Lagrede visninger",
+        "save": "Lagre visning",
+        "nameLabel": "Navn på visningen",
+        "namePlaceholder": "F.eks. forfalte i Oslo",
+        "cancel": "Avbryt",
+        "nameRequired": "Visningen må ha et navn.",
+        "deleteView": "Slett visningen {name}"
+      }
     },
     "formSections": {
       "customerPlace": "Kunde og sted",

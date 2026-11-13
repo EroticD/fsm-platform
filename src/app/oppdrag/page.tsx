@@ -16,6 +16,7 @@ import { buttonClassName } from "@/components/ui/Button";
 import StatusBadge from "@/components/StatusBadge";
 import SubmitButton from "@/components/SubmitButton";
 import Pagination, { paginationLabels } from "@/components/Pagination";
+import SavedViews, { ListSearchShortcuts } from "@/components/SavedViews";
 import Icon, { type IconName } from "@/components/icons";
 import OrderViewTabs from "./ViewTabs";
 import { quickAssignTechnician } from "./assign-actions";
@@ -78,6 +79,20 @@ const LIST_ERROR_MESSAGE_KEYS: Record<string, string> = {
 
 function isSortKey(value: string | undefined): value is SortKey {
   return value === "urgency" || value === "newest";
+}
+
+/**
+ * Bygger `?…` av søkeparameterne slik de faktisk står i adressen. Lagrede
+ * visninger skal inneholde nøyaktig det brukeren ser, også `side` og `tag`.
+ */
+function queryString(params: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const trimmed = value?.trim();
+    if (trimmed) search.set(key, trimmed);
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
 }
 
 function defaultSortFor(view: ViewKey): SortKey {
@@ -246,7 +261,8 @@ export default async function WorkOrdersPage({
   const canCreate = hasPermission(user, "workorders.create");
   const canAssign = hasPermission(user, "workorders.assign");
 
-  const { vis, q, side, tag, sort: rawSort, error, ok } = await searchParams;
+  const params = await searchParams;
+  const { vis, q, side, tag, sort: rawSort, error, ok } = params;
   const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
   // Kansellerte oppdrag er historikk for kontoret; montørene skal ikke se dem.
   const view: ViewKey =
@@ -310,6 +326,16 @@ export default async function WorkOrdersPage({
   // En gammel `?side=999` skal lande på siste side, ikke en tom side.
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(requestedPage, totalPages);
+
+  // Lagrede visninger skal gjenskape listen – ikke flash-meldingene. Derfor
+  // bare filtervalgene, med `side` kun når brukeren står på en annen side.
+  const currentQuery = queryString({
+    vis: view !== "alle" ? view : undefined,
+    q: search || undefined,
+    tag: tagFilter || undefined,
+    sort: isSortKey(rawSort) ? rawSort : undefined,
+    side: page > 1 ? String(page) : undefined,
+  });
 
   const orders = await prisma.workOrder.findMany({
     where: activeWhere,
@@ -483,7 +509,9 @@ export default async function WorkOrdersPage({
           ) : null}
           <input
             type="search"
+            id="orders-search"
             name="q"
+            data-list-search=""
             aria-label={t("orders.list.search")}
             defaultValue={search}
             placeholder={t("orders.list.searchPlaceholder")}
@@ -529,6 +557,22 @@ export default async function WorkOrdersPage({
             );
           })}
         </div>
+
+        {/* Lagrede visninger og tastatursnarveier for søkefeltet. */}
+        <ListSearchShortcuts />
+        <SavedViews
+          storageKey="fsm:saved-views:oppdrag"
+          currentQuery={currentQuery}
+          labels={{
+            heading: t("orders.list.savedViews.heading"),
+            save: t("orders.list.savedViews.save"),
+            nameLabel: t("orders.list.savedViews.nameLabel"),
+            namePlaceholder: t("orders.list.savedViews.namePlaceholder"),
+            cancel: t("orders.list.savedViews.cancel"),
+            nameRequired: t("orders.list.savedViews.nameRequired"),
+            deleteView: t("orders.list.savedViews.deleteView"),
+          }}
+        />
 
         {tagFilter ? (
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -750,9 +794,17 @@ export default async function WorkOrdersPage({
                           className="relative z-10 whitespace-nowrap"
                           style={{ textAlign: "right" }}
                         >
+                          {/*
+                           * Raden har ett tabbstopp: tittellenken i andre
+                           * kolonne. «Åpne» er samme destinasjon og holdes
+                           * utenfor tabrekkefølgen, slik at tastaturbrukeren
+                           * ikke må gjennom to like lenker per rad.
+                           */}
                           <Link
                             href={`/oppdrag/${wo.id}`}
                             prefetch={false}
+                            aria-hidden="true"
+                            tabIndex={-1}
                             className={buttonClassName({
                               variant: "secondary",
                               size: "sm",

@@ -849,7 +849,16 @@
         "sortUrgency": "Najpilniejsze najpierw",
         "sortNewest": "Najnowsze najpierw",
         "chooseTechnician": "Wybierz technika",
-        "assign": "Przypisz"
+        "assign": "Przypisz",
+        "savedViews": {
+          "heading": "Zapisane widoki",
+          "save": "Zapisz widok",
+          "nameLabel": "Nazwa widoku",
+          "namePlaceholder": "Np. zaległe w Oslo",
+          "cancel": "Anuluj",
+          "nameRequired": "Widok musi mieć nazwę.",
+          "deleteView": "Usuń widok {name}"
+        }
       },
       "formSections": {
         "customerPlace": "Klient i lokalizacja",
@@ -1736,7 +1745,16 @@
         "openCustomer": "Otwórz kartę klienta {name}",
         "noContact": "Brak osoby kontaktowej",
         "neverServiced": "Brak zakończonych zleceń",
-        "unitsNotice": "Sprzęt i urządzenia znajdują się na karcie klienta. Wybierz klienta i otwórz zakładkę Urządzenia, aby zobaczyć maszyny."
+        "unitsNotice": "Sprzęt i urządzenia znajdują się na karcie klienta. Wybierz klienta i otwórz zakładkę Urządzenia, aby zobaczyć maszyny.",
+        "savedViews": {
+          "heading": "Zapisane widoki",
+          "save": "Zapisz widok",
+          "nameLabel": "Nazwa widoku",
+          "namePlaceholder": "Np. zaległe w Oslo",
+          "cancel": "Anuluj",
+          "nameRequired": "Widok musi mieć nazwę.",
+          "deleteView": "Usuń widok {name}"
+        }
       },
       "detail": {
         "notFound": "Nie znaleziono klienta",

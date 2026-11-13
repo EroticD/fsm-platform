@@ -34,7 +34,16 @@
       "openCustomer": "Open the customer card for {name}",
       "noContact": "No contact person",
       "neverServiced": "No completed work orders",
-      "unitsNotice": "Equipment and units live on the customer card. Choose a customer and open the Equipment tab to see the machines."
+      "unitsNotice": "Equipment and units live on the customer card. Choose a customer and open the Equipment tab to see the machines.",
+      "savedViews": {
+        "heading": "Saved views",
+        "save": "Save view",
+        "nameLabel": "View name",
+        "namePlaceholder": "E.g. overdue in Oslo",
+        "cancel": "Cancel",
+        "nameRequired": "The view needs a name.",
+        "deleteView": "Delete the view {name}"
+      }
     },
     "detail": {
       "notFound": "Customer not found",

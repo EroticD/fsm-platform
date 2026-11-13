@@ -38,6 +38,7 @@ import { buttonClassName } from "@/components/ui/Button";
 import { brandInset } from "@/components/ui/brandStyles";
 import Icon from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
+import SavedViews, { ListSearchShortcuts } from "@/components/SavedViews";
 import SubmitButton from "@/components/SubmitButton";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
@@ -52,6 +53,20 @@ const SORT_OPTIONS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
 
 function isSortKey(value: string | undefined): value is SortKey {
   return value === "name" || value === "city" || value === "orgNumber";
+}
+
+/**
+ * Bygger `?…` av søkeparameterne slik de står i adressen, slik at en lagret
+ * visning fanger nøyaktig det brukeren ser – også side, sortering og filter.
+ */
+function queryString(params: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const trimmed = value?.trim();
+    if (trimmed) search.set(key, trimmed);
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -135,6 +150,16 @@ export default async function KunderPage({
   const total = await prisma.customer.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(requestedPage, totalPages);
+
+  // Lagrede visninger skal gjenskape listen – ikke toast-kodene. Samme
+  // parametere som `linkFor` under, så en lagret visning åpner likt.
+  const currentQuery = queryString({
+    q: search || undefined,
+    slettet: showDeleted ? "1" : undefined,
+    sort: sortKey !== "name" ? sortKey : undefined,
+    dir: sortDir !== "asc" ? sortDir : undefined,
+    side: page > 1 ? String(page) : undefined,
+  });
 
   const customers = await prisma.customer.findMany({
     where,
@@ -298,7 +323,9 @@ export default async function KunderPage({
                 />
                 <input
                   type="search"
+                  id="customers-search"
                   name="q"
+                  data-list-search=""
                   defaultValue={search}
                   aria-label={t("customers.list.searchPlaceholder")}
                   placeholder={t("customers.list.searchPlaceholder")}
@@ -349,6 +376,22 @@ export default async function KunderPage({
               })}
             </div>
           </div>
+
+          {/* Lagrede visninger og tastatursnarveier for søkefeltet. */}
+          <ListSearchShortcuts />
+          <SavedViews
+            storageKey="fsm:saved-views:kunder"
+            currentQuery={currentQuery}
+            labels={{
+              heading: t("customers.list.savedViews.heading"),
+              save: t("customers.list.savedViews.save"),
+              nameLabel: t("customers.list.savedViews.nameLabel"),
+              namePlaceholder: t("customers.list.savedViews.namePlaceholder"),
+              cancel: t("customers.list.savedViews.cancel"),
+              nameRequired: t("customers.list.savedViews.nameRequired"),
+              deleteView: t("customers.list.savedViews.deleteView"),
+            }}
+          />
 
           {/* Ny kunde er fortsatt sammenlagt som standard. Etter en serverfeil
               åpnes den igjen, slik at feltene brukeren skrev er synlige. */}
@@ -591,17 +634,28 @@ export default async function KunderPage({
                     return (
                       <tr key={customer.id} className="group relative transition">
                         <td className="max-w-[22rem] px-3 py-2 align-top">
+                          {/*
+                           * Raden har ett tabbstopp: tittellenken under. Den
+                           * dekkende raden er en museflate og holdes utenfor
+                           * tabrekkefølgen, slik at raden ikke nås to ganger.
+                           */}
+                          <Link
+                            href={`/kunder/${customer.id}`}
+                            prefetch={false}
+                            aria-hidden="true"
+                            tabIndex={-1}
+                            className="absolute inset-0 z-0"
+                          />
                           <Link
                             href={`/kunder/${customer.id}`}
                             prefetch={false}
                             aria-label={t("customers.list.openCustomer", {
                               name: customer.name,
                             })}
-                            className="absolute inset-0 z-0"
-                          />
-                          <span className="relative z-10 block truncate font-bold text-[var(--ink,#101310)]">
+                            className="relative z-10 block truncate font-bold text-[var(--ink,#101310)] hover:underline"
+                          >
                             {customer.name}
-                          </span>
+                          </Link>
                           <span className="relative z-10 mt-0.5 block text-xs text-[var(--muted,#62685f)]">
                             {customer.orgNumber || "–"}
                           </span>
@@ -682,9 +736,13 @@ export default async function KunderPage({
                               </form>
                             ) : (
                               <>
+                                {/* Samme mål som tittellenken; holdes utenfor
+                                    tabrekkefølgen så raden har ett stopp. */}
                                 <Link
                                   href={`/kunder/${customer.id}`}
                                   prefetch={false}
+                                  aria-hidden="true"
+                                  tabIndex={-1}
                                   className={buttonClassName({
                                     variant: "primary",
                                     size: "sm",
@@ -896,9 +954,13 @@ export default async function KunderPage({
                     </form>
                   ) : (
                     <>
+                      {/* Kortets tittellenke er radens tabbstopp. Knappen
+                          under peker samme sted og holdes utenfor. */}
                       <Link
                         href={`/kunder/${customer.id}`}
                         prefetch={false}
+                        aria-hidden="true"
+                        tabIndex={-1}
                         className={buttonClassName({
                           variant: "primary",
                           size: "sm",

@@ -34,7 +34,16 @@
       "openCustomer": "Åpne kundekortet for {name}",
       "noContact": "Ingen kontaktperson",
       "neverServiced": "Ingen fullførte oppdrag",
-      "unitsNotice": "Utstyr og enheter ligger på kundekortet. Velg en kunde og åpne fanen «Utstyr» for å se maskinene."
+      "unitsNotice": "Utstyr og enheter ligger på kundekortet. Velg en kunde og åpne fanen «Utstyr» for å se maskinene.",
+      "savedViews": {
+        "heading": "Lagrede visninger",
+        "save": "Lagre visning",
+        "nameLabel": "Navn på visningen",
+        "namePlaceholder": "F.eks. forfalte i Oslo",
+        "cancel": "Avbryt",
+        "nameRequired": "Visningen må ha et navn.",
+        "deleteView": "Slett visningen {name}"
+      }
     },
     "detail": {
       "notFound": "Kunden finnes ikke",

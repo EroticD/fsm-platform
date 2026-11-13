@@ -23,7 +23,8 @@ import {
 } from "@/lib/sla";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { todayUtc } from "@/lib/dates";
-import { notifyWorkOrderEvent } from "@/server/notifications";
+import { neutralizeUrls } from "@/lib/neutralize-urls";
+import { notifyUser, type NotificationType } from "@/server/notifications";
 import {
   can,
   fail,
@@ -562,6 +563,195 @@ export type SlaSweepResult = {
 };
 
 /**
+ * Oppdragsfeltene SLA-varselet trenger for å finne mottakerne.
+ *
+ * Samme utvalg som `WORK_ORDER_NOTIFICATION_SELECT` i `notifications.ts`.
+ * `customerId` er utelatt med vilje: kundeportalen varsles bare om
+ * `REPORT_READY`, og et SLA-brudd går aldri dit.
+ */
+const SLA_NOTIFICATION_WORK_ORDER_SELECT = {
+  id: true,
+  title: true,
+  departmentId: true,
+  customer: { select: { name: true } },
+  // Inaktive kontoer skal ikke få varsler, selv om de står på et gammelt
+  // oppdrag – samme filter som i notifications.ts.
+  technicians: { where: { isActive: true }, select: { id: true } },
+} as const;
+
+type SlaNotificationWorkOrder = {
+  id: string;
+  title: string;
+  departmentId: string;
+  customer: { name: string | null } | null;
+  technicians: { id: string }[];
+};
+
+/**
+ * Oppslagscache for varslingen i én sveip.
+ *
+ * Mange klokker gjelder samme oppdrag og samme avdeling. Uten cache ble både
+ * oppdraget og kontorbrukerne slått opp på nytt for hver klokke som byttet
+ * tilstand – opptil 500 ganger per sveip. Nå gjøres oppslaget maks én gang per
+ * `workOrderId` og én gang per `departmentId`.
+ *
+ * Størrelsen er bundet av sveipet selv: `sweepSlaClocks` henter maks 500
+ * klokker, så nøklene kan aldri bli flere enn 500 oppdrag og like mange
+ * avdelinger. Cachen eies av funksjonskallet (ikke modulglobal) og kastes når
+ * sveipet er ferdig, slik at endret tittel eller nye kontoransatte slår
+ * gjennom i neste kjøring. En feilet spørring bufres som «ingen mottakere» i
+ * stedet for å bli forsøkt på nytt for hver klokke på samme oppdrag.
+ */
+type SlaNotificationCache = {
+  workOrders: Map<string, Promise<SlaNotificationWorkOrder | null>>;
+  office: Map<string, Promise<string[]>>;
+};
+
+function createSlaNotificationCache(): SlaNotificationCache {
+  return { workOrders: new Map(), office: new Map() };
+}
+
+/** Oppdraget, hentet maks én gang per sveip. `null` = finnes ikke eller feilet. */
+function loadSlaNotificationWorkOrder(
+  cache: SlaNotificationCache,
+  workOrderId: string,
+): Promise<SlaNotificationWorkOrder | null> {
+  const cached = cache.workOrders.get(workOrderId);
+  if (cached) return cached;
+
+  const pending = prisma.workOrder
+    .findUnique({
+      where: { id: workOrderId },
+      select: SLA_NOTIFICATION_WORK_ORDER_SELECT,
+    })
+    .then((workOrder): SlaNotificationWorkOrder | null => workOrder)
+    .catch(() => null);
+  cache.workOrders.set(workOrderId, pending);
+  return pending;
+}
+
+/**
+ * Kontorbrukerne i avdelingen, hentet maks én gang per sveip.
+ *
+ * Samme filter og tak som `officeRecipientIds` i `notifications.ts`; den
+ * funksjonen er ikke eksportert, og sveipet må kunne hente mottakerne uten å
+ * gå via `notifyWorkOrderEvent` (som slår opp oppdraget på nytt).
+ */
+function loadSlaOfficeRecipients(
+  cache: SlaNotificationCache,
+  departmentId: string,
+): Promise<string[]> {
+  const cached = cache.office.get(departmentId);
+  if (cached) return cached;
+
+  const pending = prisma.user
+    .findMany({
+      where: {
+        departmentId,
+        role: { in: ["ADMIN", "OFFICE"] },
+        isActive: true,
+      },
+      select: { id: true },
+      take: 100,
+    })
+    .then((users) => users.map((user) => user.id))
+    .catch(() => []);
+  cache.office.set(departmentId, pending);
+  return pending;
+}
+
+const SOURCE_LABEL_MAX = 200;
+
+function cleanSourcePart(value: unknown): string {
+  const text = cleanText(value, { maxLength: SOURCE_LABEL_MAX });
+  if (!text) return "";
+  return neutralizeUrls(text, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, SOURCE_LABEL_MAX);
+}
+
+/**
+ * Kilde-etiketten på varselet, f.eks. «Oppdrag: tittel · kunde».
+ *
+ * Samme regel som `workOrderSourceLabel` i `notifications.ts`, gjentatt her
+ * fordi sveipet kaller `notifyUser` direkte med et forhåndshentet oppdrag.
+ * Uten etiketten ville `notifyUser` selv slått opp oppdraget på nytt for hver
+ * mottaker.
+ */
+function slaSourceLabel(
+  title: string | null | undefined,
+  customerName: string | null | undefined,
+): string {
+  const cleanTitle = cleanSourcePart(title);
+  if (!cleanTitle) return "Oppdrag: internt oppdrag";
+  const cleanCustomer = cleanSourcePart(customerName);
+  return cleanCustomer
+    ? `Oppdrag: ${cleanTitle} · ${cleanCustomer}`
+    : `Oppdrag: ${cleanTitle}`;
+}
+
+/**
+ * Varsler mottakerne til ett oppdrag om én SLA-overgang.
+ *
+ * Speiler `deliverWorkOrderNotification` i `notifications.ts`: teknikere på
+ * oppdraget pluss kontoret i oppdragets avdeling, samme dedupe-nøkkel
+ * (`sla:<tilstand>:<klokke>:<bruker>`) og samme kanaler. Forskjellen er at
+ * oppdraget og kontorbrukerne kommer fra sveipets cache, slik at de ikke slås
+ * opp per klokke.
+ */
+async function notifySlaTransition(
+  cache: SlaNotificationCache,
+  clockId: string,
+  workOrderId: string,
+  state: "AT_RISK" | "BREACHED",
+  title: string,
+  body: string,
+): Promise<number> {
+  const workOrder = await loadSlaNotificationWorkOrder(cache, workOrderId);
+  if (!workOrder) return 0;
+
+  const recipients = new Set(workOrder.technicians.map((user) => user.id));
+  for (const userId of await loadSlaOfficeRecipients(
+    cache,
+    workOrder.departmentId,
+  )) {
+    recipients.add(userId);
+  }
+  if (recipients.size === 0) return 0;
+
+  const type: NotificationType =
+    state === "BREACHED" ? "SLA_BREACHED" : "SLA_AT_RISK";
+  const dedupeKey = `sla:${state.toLowerCase()}:${clockId}`;
+  const href = `/oppdrag/${workOrder.id}`;
+  // Kilde-etiketten fryses per hendelse, som i notifications.ts.
+  const sourceLabel = slaSourceLabel(
+    workOrder.title,
+    workOrder.customer?.name,
+  );
+
+  let created = 0;
+  for (const userId of recipients) {
+    try {
+      const result = await notifyUser({
+        userId,
+        type,
+        title,
+        body,
+        href,
+        sourceLabel,
+        dedupeKey: `${dedupeKey}:${userId}`,
+      });
+      if (result) created += 1;
+    } catch {
+      // Ett varsel som feiler skal ikke stoppe resten av sveipet: klokkene
+      // oppdateres uansett, og neste sveip prøver tilstanden på nytt.
+    }
+  }
+  return created;
+}
+
+/**
  * Sveiper aktive klokker. Bare overgangen til AT_RISK/BREACHED varsler, og
  * oppdateringen er betinget på forrige tilstand. To samtidige sveip gir derfor
  * nøyaktig én varselrad per klokke og tilstand.
@@ -603,6 +793,9 @@ export async function sweepSlaClocks(now = new Date()): Promise<SlaSweepResult> 
   // lenge sveipet gjør: endres åpningstider eller helligdager, ser neste
   // kjøring det, fordi den starter med en tom cache.
   const calendars = createBusinessCalendarCache();
+  // Samme regel for varslingen: oppdraget og kontorbrukerne hentes én gang per
+  // sveip, ikke én gang per klokke som bytter tilstand.
+  const recipientCache = createSlaNotificationCache();
 
   for (const clock of clocks) {
     result.checked += 1;
@@ -684,13 +877,13 @@ export async function sweepSlaClocks(now = new Date()): Promise<SlaSweepResult> 
           ? `Oppdraget «${clock.workOrder.title}» har brutt ${deadline.kind === "response" ? "svartiden" : "løsningstiden"} (${clock.policy.name}).`
           : `Oppdraget «${clock.workOrder.title}» har ${Math.max(0, remaining)} minutter igjen til ${deadline.kind === "response" ? "svartiden" : "løsningstiden"} (${clock.policy.name}).`;
 
-      result.notified += await notifyWorkOrderEvent(
+      result.notified += await notifySlaTransition(
+        recipientCache,
+        clock.id,
         clock.workOrder.id,
-        next.state === "BREACHED" ? "SLA_BREACHED" : "SLA_AT_RISK",
+        next.state === "BREACHED" ? "BREACHED" : "AT_RISK",
         title,
         body,
-        `/oppdrag/${clock.workOrder.id}`,
-        `sla:${next.state.toLowerCase()}:${clock.id}`,
       );
     }
   }

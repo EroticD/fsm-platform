@@ -24,12 +24,17 @@ import {
  * gjenopprettes eller replayes over den. `?reportSubmitted` blir stående til
  * brukeren lukker kvitteringen, slik at en refresh viser den samme bekreftelsen.
  * Selve parameteren fjernes først ved lukking – da er ryddingen allerede gjort.
+ *
+ * `showReceipt={false}` brukes når ryddingen gjelder rapporten som nettopp ble
+ * sendt, men siden som vises er det *neste* oppdraget. Da skal kvitteringen
+ * fortsatt være toasten for neste oppdrag, ikke et kort for det forrige.
  */
 export default function ReportSubmissionCleanup({
   userId,
   workOrderId,
   templateId,
   verified,
+  showReceipt = true,
 }: {
   userId: string;
   workOrderId: string;
@@ -39,6 +44,8 @@ export default function ReportSubmissionCleanup({
    * oppdraget. Query-parameteren alene er ikke nok.
    */
   verified: boolean;
+  /** Skjuler kvitteringskortet, men rydder lokal data som vanlig. */
+  showReceipt?: boolean;
 }) {
   const t = useTranslations("common");
   const pathname = usePathname();
@@ -96,7 +103,10 @@ export default function ReportSubmissionCleanup({
     }
   };
 
-  if (!verified || !visible) return null;
+  if (!verified) return null;
+  // Ryddingen er allerede kjørt i effekten over; her avgjøres bare om
+  // kvitteringskortet skal vises.
+  if (!showReceipt || !visible) return null;
 
   return (
     <div

@@ -318,6 +318,52 @@ function draftUnits(dataJson: string): ProgressUnit[] {
     : [];
 }
 
+/**
+ * Bekrefter at rapporten bak `sent` faktisk er låst og sendt før siden rydder
+ * lokal kladd og offline-bilder for den.
+ *
+ * «Lagre og neste oppdrag» hopper til et annet oppdrag enn rapporten som ble
+ * sendt, så kvitteringssiden kan ikke lese låsingen fra sin egen `reports`.
+ * Query-parameteren alene er ikke nok: en delt lenke skal aldri kunne slette en
+ * aktiv kladd. Derfor kreves både at oppdraget er innenfor brukerens tilgang og
+ * at det finnes en låst, ikke-slettet rapport for malen.
+ */
+async function verifiedSentReportTarget(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>,
+  sentWorkOrderId: string | undefined,
+  sentTemplateId: string | undefined,
+): Promise<{ workOrderId: string; templateId: string } | null> {
+  const parsedWorkOrderId = idSchema.safeParse(sentWorkOrderId);
+  const parsedTemplateId = idSchema.safeParse(sentTemplateId);
+  if (!parsedWorkOrderId.success || !parsedTemplateId.success) return null;
+
+  const workOrderId = parsedWorkOrderId.data;
+  const templateId = parsedTemplateId.data;
+
+  // Samme tilgangskontroll som oppdragssiden ellers bruker. Uten den kunne en
+  // lenke pekt på et oppdrag brukeren ikke har noe med å gjøre.
+  const accessible = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+    select: { id: true },
+  });
+  if (!accessible) return null;
+
+  // Rapporten må være låst (signert og sendt) og ikke slettet. En åpen eller
+  // slettet rapport kan fortsatt ha en aktiv lokal kladd som ikke skal røres.
+  const lockedReport = await prisma.report.findFirst({
+    where: {
+      workOrderId,
+      templateId,
+      isLocked: true,
+      deletedAt: null,
+    },
+    select: { templateId: true },
+  });
+  return lockedReport?.templateId
+    ? { workOrderId, templateId: lockedReport.templateId }
+    : null;
+}
+
 export default async function TechnicianWorkOrderPage({
   params,
   searchParams,
@@ -332,6 +378,12 @@ export default async function TechnicianWorkOrderPage({
     visitError?: string;
     /** Kvittering fra en serverhandling, f.eks. etter «Lagre og neste oppdrag». */
     status?: string;
+    /**
+     * Rapporten som nettopp ble sendt, når «Lagre og neste oppdrag» hoppet til
+     * et annet oppdrag. Må verifiseres mot serveren før lokal kladd ryddes.
+     */
+    sent?: string;
+    sentTemplate?: string;
   }>;
 }) {
   const {
@@ -342,6 +394,8 @@ export default async function TechnicianWorkOrderPage({
     visitOk,
     visitError,
     status: statusParam,
+    sent,
+    sentTemplate,
   } = await searchParams;
 
   const resolvedParams = await params;
@@ -415,6 +469,15 @@ export default async function TechnicianWorkOrderPage({
   const reportSubmittedVerified = verifiedSubmittedTemplateId(
     reportSubmitted,
     workOrder.reports,
+  );
+
+  // Etter «Lagre og neste oppdrag» ligger rapporten som ble sendt på et annet
+  // oppdrag. Da må ryddingen av dens lokale kladd verifiseres mot serveren her,
+  // siden denne siden ikke har rapporten i sitt eget `reports`-sett.
+  const sentCleanupTarget = await verifiedSentReportTarget(
+    user,
+    sent,
+    sentTemplate,
   );
 
   const isAdmin = user.role === "ADMIN";
@@ -860,12 +923,13 @@ export default async function TechnicianWorkOrderPage({
 
         {/* Etter «Lagre og neste oppdrag» lander montøren her med kvitteringen.
             Den fjerner `status` fra adressen når den er vist, slik at refresh og
-            en delt lenke ikke gjentar bekreftelsen. */}
+            en delt lenke ikke gjentar bekreftelsen. `sent`-markørene fjernes
+            samtidig – ryddingen under er allerede kjørt. */}
         {statusParam === "rapport-sendt" && (
           <CustomerToast
             message={t("orders.fieldDetail.nextAssignmentToast")}
             tone="success"
-            clearParams={["status"]}
+            clearParams={["status", "sent", "sentTemplate"]}
           />
         )}
 
@@ -879,6 +943,16 @@ export default async function TechnicianWorkOrderPage({
 
         {error && !["locked", "ugyldig-status"].includes(error) && (
           <ErrorBanner message={t("orders.errors.generic")} />
+        )}
+
+        {sentCleanupTarget && (
+          <ReportSubmissionCleanup
+            userId={user.id}
+            workOrderId={sentCleanupTarget.workOrderId}
+            templateId={sentCleanupTarget.templateId}
+            verified
+            showReceipt={false}
+          />
         )}
 
         {reportSubmittedVerified && (

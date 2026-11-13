@@ -34,6 +34,7 @@ import FieldLiveStatus from "@/components/field/FieldLiveStatus";
 import FieldProgressRing from "@/components/field/FieldProgressRing";
 import FieldStatLink from "@/components/field/FieldStatLink";
 import FieldModeStrip from "@/components/field/FieldModeStrip";
+import TodayWarmup from "@/components/mine-oppdrag/TodayWarmup";
 import { isValidCoordinates } from "@/lib/maps-links";
 
 /** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
@@ -634,6 +635,9 @@ export default async function TechnicianDashboard({
   const routeDistanceLabel =
     routeKm === null ? "" : formatRouteDistance(routeKm, locale);
   const laterTodayPreview = todayAfterHero.slice(0, 3);
+  // Dagens tildelte oppdrag, i den rekkefølgen montøren møter dem. Id-ene går
+  // til TodayWarmup, som forhåndshenter detaljsidene mens nettet er der.
+  const todayOrderIds = todayVisible.map((wo) => wo.id);
   const refreshParams = new URLSearchParams();
   if (searchQuery) refreshParams.set("q", searchQuery);
   for (const key of ["a", "u", "h"] as const) {
@@ -905,6 +909,8 @@ export default async function TechnicianDashboard({
       className={`min-h-screen ${DARK_APP} p-4 pb-32 sm:p-6 sm:pb-12`}
     >
       <div className="mx-auto max-w-3xl space-y-6">
+        <TodayWarmup orderIds={todayOrderIds} />
+
         {resolvedParams.claimed && (
           <CustomerToast message={t("orders.fieldList.claimed")} />
         )}
