@@ -116,7 +116,7 @@ driften:
 | Opplasting | 4 samtidige kroppslesinger per instans, 50 MB per PDF, 2 GiB per bruker/24 t og 10 GiB per kunde | `UPLOAD_BODY_CONCURRENCY`, `UPLOAD_MAX_DOCUMENT_MB`, `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt sette egne grenser |
 | Lagring | Lokal disk (`STORAGE_DRIVER=local`); `/uploads/<filnavn>` er uendret | `STORAGE_DRIVER=s3` + `S3_*`, se [`STORAGE.md`](STORAGE.md) |
 | Kø/cache/rate limit | Database (`QUEUE_DRIVER=db`) | `QUEUE_DRIVER=redis` + `REDIS_URL`; `CACHE_DRIVER`/`RATE_LIMIT_DRIVER` kan overstyres, se [`SCALING.md`](SCALING.md) |
-| DB-tilkoblinger | 10 per appprosess (`DATABASE_POOL_MAX`) | Senk/hev bevisst; replikaer × pool må være under `max_connections` |
+| DB-tilkoblinger | 10 per appprosess (`DATABASE_POOL_MAX`), 10 s ventetid på ledig tilkobling og 30 s per SQL-setning | `DATABASE_POOL_MAX`, `DATABASE_CONNECT_TIMEOUT_MS`, `DATABASE_STATEMENT_TIMEOUT_MS` og `DATABASE_APP_NAME`; replikaer × pool må være under `max_connections` |
 | 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
 | API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 

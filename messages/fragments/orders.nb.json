@@ -421,6 +421,7 @@
       "update": "Oppdater",
       "currentStatus": "Nåværende status",
       "completeConfirm": "Fullføre oppdraget? Oppdraget og rapporten låses for redigering.",
+      "completeNow": "Fullfør oppdrag",
       "cancelWorkOrder": "Kanseller oppdrag",
       "noStatusPermission": "Du har ikke rettighet til å endre status.",
       "scheduledDate": "Planlagt Dato",

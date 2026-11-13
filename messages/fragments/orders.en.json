@@ -421,6 +421,7 @@
       "update": "Update",
       "currentStatus": "Current status",
       "completeConfirm": "Complete this work order? The work order and report are locked for editing.",
+      "completeNow": "Complete job",
       "cancelWorkOrder": "Cancel work order",
       "noStatusPermission": "You do not have permission to change the status.",
       "scheduledDate": "Scheduled Date",

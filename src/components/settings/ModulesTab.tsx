@@ -1,6 +1,8 @@
 "use client";
 
+import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import Icon from "@/components/icons";
 import type { ModuleKey } from "@/lib/modules";
 
@@ -23,6 +25,85 @@ type ModulesTabProps = {
   ok?: boolean;
   canManage: boolean;
 };
+
+/**
+ * Én modulbryter med bekreftelse.
+ *
+ * Skjemaet sendes først når brukeren har bekreftet i dialogen. `requestSubmit()`
+ * kaller samme server action med samme payload som et vanlig innsending ville
+ * gjort; bare den blokkerende `window.confirm` er byttet ut med en
+ * tilgjengelig dialog (fokusfelle, Escape, oversatte knapper).
+ */
+function ModuleToggleForm({
+  module,
+  action,
+  disabled,
+  nextEnabled,
+  confirmMessage,
+  buttonClassName,
+  buttonLabel,
+}: {
+  module: ModuleRowView;
+  action: (formData: FormData) => void | Promise<void>;
+  disabled: boolean;
+  nextEnabled: boolean;
+  confirmMessage: string;
+  buttonClassName: string;
+  buttonLabel: string;
+}) {
+  const t = useTranslations("common");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmed = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleCancel = useCallback(() => setConfirmOpen(false), []);
+  const handleConfirm = useCallback(() => {
+    confirmed.current = true;
+    setConfirmOpen(false);
+    formRef.current?.requestSubmit();
+  }, []);
+
+  return (
+    <>
+      <form
+        ref={formRef}
+        action={action}
+        className="shrink-0"
+        onSubmit={(event) => {
+          // Deaktiverte kombinasjoner skal aldri nå serveren, heller ikke via
+          // Enter eller en programmatisk innsending.
+          if (disabled) {
+            event.preventDefault();
+            return;
+          }
+          if (confirmed.current) {
+            confirmed.current = false;
+            return;
+          }
+          event.preventDefault();
+          setConfirmOpen(true);
+        }}
+      >
+        <input type="hidden" name="key" value={module.key} />
+        <input
+          type="hidden"
+          name="enabled"
+          value={nextEnabled ? "true" : "false"}
+        />
+        <button type="submit" disabled={disabled} className={buttonClassName}>
+          {buttonLabel}
+        </button>
+      </form>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={t("components.confirm.title")}
+        description={confirmMessage}
+        onCancel={handleCancel}
+        onConfirm={handleConfirm}
+      />
+    </>
+  );
+}
 
 /**
  * Administrasjon av installasjonsnivåmoduler.
@@ -81,6 +162,7 @@ export default function ModulesTab({
           const blockedByDependents =
             module.enabled && module.enabledDependents.length > 0;
           const blocked = module.core || !canManage;
+          const disabled = blocked || blockedByDependencies || blockedByDependents;
           const nextEnabled = !module.enabled;
 
           return (
@@ -153,42 +235,27 @@ export default function ModulesTab({
                 )}
               </div>
 
-              <form
+              <ModuleToggleForm
+                module={module}
                 action={action}
-                className="shrink-0"
-                onSubmit={(event) => {
-                  if (blocked || blockedByDependencies || blockedByDependents) {
-                    event.preventDefault();
-                    return;
-                  }
-                  const message = module.enabled
+                disabled={disabled}
+                nextEnabled={nextEnabled}
+                confirmMessage={
+                  module.enabled
                     ? t("settings.modules.confirmDisable", { module: label })
-                    : t("settings.modules.confirmEnable", { module: label });
-                  if (!window.confirm(message)) event.preventDefault();
-                }}
-              >
-                <input type="hidden" name="key" value={module.key} />
-                <input
-                  type="hidden"
-                  name="enabled"
-                  value={nextEnabled ? "true" : "false"}
-                />
-                <button
-                  type="submit"
-                  disabled={
-                    blocked || blockedByDependencies || blockedByDependents
-                  }
-                  className={`inline-flex min-h-10 items-center justify-center rounded-[10px] border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                    module.enabled
-                      ? "border-[var(--line,#dedcd1)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
-                      : "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
-                  }`}
-                >
-                  {module.enabled
+                    : t("settings.modules.confirmEnable", { module: label })
+                }
+                buttonLabel={
+                  module.enabled
                     ? t("settings.modules.disable")
-                    : t("settings.modules.enable")}
-                </button>
-              </form>
+                    : t("settings.modules.enable")
+                }
+                buttonClassName={`inline-flex min-h-10 items-center justify-center rounded-[10px] border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  module.enabled
+                    ? "border-[var(--line,#dedcd1)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                    : "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                }`}
+              />
             </li>
           );
         })}

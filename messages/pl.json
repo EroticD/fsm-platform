@@ -1208,6 +1208,7 @@
         "update": "Aktualizuj",
         "currentStatus": "Bieżący status",
         "completeConfirm": "Zakończyć to zlecenie? Zlecenie i raport zostaną zablokowane do edycji.",
+        "completeNow": "Zakończ zlecenie",
         "cancelWorkOrder": "Anuluj zlecenie",
         "noStatusPermission": "Nie masz uprawnień do zmiany statusu.",
         "scheduledDate": "Zaplanowana data",

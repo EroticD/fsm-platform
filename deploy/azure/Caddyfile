@@ -43,7 +43,7 @@
 	# den globale 55 MB-grensen stoppet en gyldig import med 413.
 	handle /api/innstillinger/kunder/import* {
 		request_body {
-			max_size 520MB
+			max_size 520MiB
 		}
 		import fsm_proxy
 	}

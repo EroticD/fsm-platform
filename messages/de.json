@@ -1208,6 +1208,7 @@
         "update": "Aktualisieren",
         "currentStatus": "Aktueller Status",
         "completeConfirm": "Diesen Auftrag abschließen? Der Auftrag und der Bericht werden zum Bearbeiten gesperrt.",
+        "completeNow": "Auftrag abschließen",
         "cancelWorkOrder": "Auftrag stornieren",
         "noStatusPermission": "Sie haben keine Berechtigung, den Status zu ändern.",
         "scheduledDate": "Geplantes Datum",

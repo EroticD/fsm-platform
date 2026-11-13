@@ -5,6 +5,20 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+### Kvalitet og drift
+- Feltappen har ett-trykks «Fullfør oppdrag» med samme bekreftelse som før;
+  statusvelgeren beholdes for andre statuser.
+- Kundeskjemaene beholder verdiene og åpner `<details>` når serveren avviser
+  lagringen, så en duplikatfeil ikke tømmer det brukeren har skrevet.
+- Modulbryterne bruker `ConfirmDialog` i stedet for `window.confirm`.
+- Kundeimporten har egen body-grense i proxyen (520 MiB) i stedet for den
+  globale 55 MB, så store ZIP-er når appen og får appens forklarende feil.
+  Gjelder både nginx- og Caddy-oppsettet.
+- Prisma-poolen har `connectionTimeoutMillis`, `statement_timeout` og
+  `application_name`, overstyrbare med `DATABASE_CONNECT_TIMEOUT_MS`,
+  `DATABASE_STATEMENT_TIMEOUT_MS` og `DATABASE_APP_NAME`.
+- `.nvmrc` peker på Node 26, og `.npmrc` håndhever `engines` (`>=24`).
+
 ### Lagring
 - Opplastinger dedupliseres med hardlenker: like filer (samme SHA-256) deler
   inode, og hvert filnavn beholdes. Ved opplasting gjenkjennes innholdet via

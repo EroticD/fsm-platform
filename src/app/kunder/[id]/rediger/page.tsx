@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ErrorBanner from "@/components/ErrorBanner";
+import FormValuePersistence from "@/components/FormValuePersistence";
 import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
@@ -101,7 +102,18 @@ export default async function EditCustomerPage({
         as="section"
         className="min-w-0 space-y-5 p-4 [--focus-ring:var(--ink,#101310)] sm:p-5"
       >
-        <form action={updateCustomer} className="space-y-5">
+        <form
+          id="office-edit-customer"
+          action={updateCustomer}
+          className="space-y-5"
+        >
+          {/* Bevarer feltene over redirecten når lagringen feiler, slik at
+              en feil ikke tømmer skjemaet brukeren nettopp fylte ut. */}
+          <FormValuePersistence
+            formId="office-edit-customer"
+            storageKey={`fsm:office-edit-customer:${customerId}`}
+            restore={Boolean(error)}
+          />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field
               id="customer-edit-name"

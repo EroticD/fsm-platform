@@ -6,6 +6,8 @@
 #     sende med sin egen X-Forwarded-For og påvirke rate-limit-nøkkelen.
 #   * Body-grensen er 55 MB (50 MB PDF + multipart-overhead), litt over
 #     appens egen grense, slik at appen kan svare med en tydelig 413.
+#   * Kundeimport har en egen grense på 520 MiB, fordi appen tar imot ZIP opp
+#     til 512 MiB (proxyClientMaxBodySize i next.config.ts).
 #   * Lange tidsavbrudd for PDF/OCR og store opplastinger.
 #
 # I .env:
@@ -15,14 +17,9 @@
 # Står det flere proxyer foran appen, må TRUST_PROXY_HOPS økes og bare
 # kantsonen skal overskrive X-Forwarded-For. Se deploy/proxy/README.md.
 
-fsm.example.com {
-	encode zstd gzip
-
-	# Caddy avviser større kropper før de når appen.
-	request_body {
-		max_size 55MB
-	}
-
+# Felles proxyoppsett, slik at de to handle-blokkene under ikke kan komme i
+# utakt. Caddys `handle` er terminerende: bare én av dem kjører per forespørsel.
+(fsm_proxy) {
 	reverse_proxy 127.0.0.1:3000 {
 		# Overskriv alle videresendingsheadere. Uten dette kan klienten
 		# bestemme både IP og protokoll.
@@ -38,6 +35,30 @@ fsm.example.com {
 			read_timeout 300s
 			write_timeout 300s
 		}
+	}
+}
+
+fsm.example.com {
+	encode zstd gzip
+
+	# Kundeimport: appen godtar ZIP opp til 512 MiB, og håndhever grensen selv.
+	# Uten dette ville den globale 55 MB-grensen avvist en gyldig import før
+	# appen fikk svart. 520MiB er binære megabyte (545 MB), altså 8 MiB over
+	# appens grense, slik at det er appen som svarer med sin egen 413.
+	# Merk: `MB` i Caddy er 10^6 byte, mens `MiB` er 2^20 – bruk MiB her.
+	handle /api/innstillinger/kunder/import* {
+		request_body {
+			max_size 520MiB
+		}
+		import fsm_proxy
+	}
+
+	# Alt annet: litt over appens 50 MB-grense for PDF.
+	handle {
+		request_body {
+			max_size 55MB
+		}
+		import fsm_proxy
 	}
 
 	# Sikkerhetsheadere. Appen setter flere selv, men proxyen kan legge til

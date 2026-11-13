@@ -29,6 +29,7 @@ import CustomerToast from "@/components/customer/CustomerToast";
 import { CUSTOMER_CONTROL, LEGACY_SURFACE } from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
+import FormValuePersistence from "@/components/FormValuePersistence";
 import ValidatedForm from "@/components/forms/ValidatedForm";
 import PageHeader from "@/components/PageHeader";
 import PageShell from "@/components/PageShell";
@@ -349,16 +350,31 @@ export default async function KunderPage({
             </div>
           </div>
 
-          {/* Ny kunde er fortsatt sammenlagt som standard. */}
+          {/* Ny kunde er fortsatt sammenlagt som standard. Etter en serverfeil
+              åpnes den igjen, slik at feltene brukeren skrev er synlige. */}
           {office && !showDeleted && (
-            <details className="border-t border-[var(--line,#dedcd1)] pt-3">
+            <details
+              className="border-t border-[var(--line,#dedcd1)] pt-3"
+              open={Boolean(error)}
+            >
               <summary
                 className={`${buttonClassName({ variant: "primary", size: "sm" })} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
               >
                 <Icon name="plus" className="h-4 w-4 shrink-0" />
                 {t("customers.list.newCustomer")}
               </summary>
-              <ValidatedForm action={addCustomer} className="mt-3 space-y-3">
+              <ValidatedForm
+                id="office-create-customer"
+                action={addCustomer}
+                className="mt-3 space-y-3"
+              >
+                {/* Verdiene lagres ved innsending og legges tilbake når
+                    siden vises igjen med ?error=. */}
+                <FormValuePersistence
+                  formId="office-create-customer"
+                  storageKey="fsm:office-create-customer"
+                  restore={Boolean(error)}
+                />
                 <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                   <div>
                     <label

@@ -44,10 +44,28 @@ headeren.
 
 ## Tidsavbrudd og body-grense
 
-- `client_max_body_size` / `request_body max_size`: **55 MB**. Appen godtar
-  50 MB PDF pluss multipart-overhead og svarer selv med 413.
+- `client_max_body_size` / `request_body max_size`: **55 MB** globalt. Appen
+  godtar 50 MB PDF pluss multipart-overhead og svarer selv med 413.
+- Kundeimport (`/api/innstillinger/kunder/import…`) har **520m / 520MiB**.
+  Appen tar imot en ZIP på opptil 500 MiB og har en hard grense på 512 MiB for
+  hele forespørselsbodyen (`experimental.proxyClientMaxBodySize` i
+  `next.config.ts`). Uten en egen grense ville den globale 55 MB-grensen gitt
+  413 i proxyen før appen fikk svart, og brukeren ville sett en generisk
+  proxyfeil i stedet for appens forklarende feil. De 8 MiB ekstra er slakk for
+  multipart-overhead, slik at appen fortsatt er den som avviser for store
+  pakker.
+  - nginx bruker prefikset `^~ /api/innstillinger/kunder/import` (uten
+    avsluttende skråstrek), fordi POST-en går til stien uten `/` på slutten.
+  - Caddy bruker `handle /api/innstillinger/kunder/import*`; `handle` er
+    terminerende, så de to blokkene kan ikke begge kjøre.
+  - Enheter: nginx `m` og Caddy `MiB` er 2^20 byte. Caddy `MB` er 10^6 byte –
+    520 MB ville vært ~496 MiB, altså under appens grense.
 - `proxy_read_timeout` / `response_header_timeout`: **300 s** for PDF/OCR.
 - `proxy_connect_timeout` / `dial_timeout`: **5 s**.
+- nginx har `proxy_request_buffering on`, så en stor import bufres midlertidig
+  til disk før den sendes videre. Sett av plass i `client_body_temp_path`
+  (typisk `/var/lib/nginx/body`) for minst én maksimal import per samtidig
+  opplasting.
 
 Test etter endring:
 

@@ -451,6 +451,13 @@ export default async function TechnicianWorkOrderPage({
   const statusOptions = allowedStatusOptions.filter(
     (status) => status !== "CANCELLED",
   );
+  // Ett-trykks fullføring. Vises bare når statusen faktisk kan settes til
+  // COMPLETED for denne brukeren – samme regelverk som select-flyten.
+  // Kansellerte oppdrag er allerede redirectet bort over, og fullførte er låst.
+  const canCompleteNow =
+    canUpdate &&
+    workOrder.status !== "COMPLETED" &&
+    allowedStatusOptions.includes("COMPLETED");
   const reportsEnabled = await moduleEnabled("reports");
   const canWriteReports =
     reportsEnabled && hasPermission(user, "reports.write");
@@ -930,6 +937,23 @@ export default async function TechnicianWorkOrderPage({
                 </p>
               ) : canUpdate ? (
                 <>
+                  {canCompleteNow && (
+                    <ConfirmSubmitForm
+                      action={updateStatus}
+                      confirmMessage={t("orders.fieldDetail.completeConfirm")}
+                      className="mb-3 flex flex-wrap items-center gap-2"
+                    >
+                      <input type="hidden" name="workOrderId" value={workOrderId} />
+                      <input type="hidden" name="status" value="COMPLETED" />
+                      <SubmitButton
+                        pendingLabel={t("orders.fieldDetail.updating")}
+                        className="signal-button min-h-11 w-full px-4 text-sm font-bold whitespace-nowrap sm:w-auto"
+                      >
+                        <Icon name="check" className="h-4 w-4" />
+                        {t("orders.fieldDetail.completeNow")}
+                      </SubmitButton>
+                    </ConfirmSubmitForm>
+                  )}
                   {/*
                     Uten en egen klientkomponent kan vi ikke lese select-verdien
                     i React. CSS-en bytter derfor mellom en deaktivert knapp
