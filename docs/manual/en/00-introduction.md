@@ -1,6 +1,6 @@
 # Introduction and system overview
 
-*Applies to FSM Platform version 0.9.5, 8 November 2026.*
+*Applies to FSM Platform version 0.9.6, 13 November 2026.*
 
 ## What FSM Platform is
 
@@ -20,6 +20,10 @@ This manual uses four standard roles. An administrator can create custom roles a
 | **Customer portal user** | Customer or contact | Books service, follows visits, reads reports and views their own equipment | Their own customer, with the portal access granted |
 
 > **Note:** "Office" is a role, not a physical place. A service manager can work from a phone and still have the office role.
+
+## What's new in 0.9.6
+
+0.9.6 makes the field app safer offline: photos are stored locally and uploaded when the network returns, missing checkpoints are jump buttons, and a work order can be completed in one tap. Search across customers, work orders, documents and contacts uses expression indexes. Uploaded PDFs can be compressed with `npm run pdfs:compress`, and `/api/metrics` shares its collection for twelve seconds. Error codes are typed in `src/lib/error-codes.ts`, and `npm run seed:demo` fills a development database with demo data.
 
 ## What's new in 0.9.5
 

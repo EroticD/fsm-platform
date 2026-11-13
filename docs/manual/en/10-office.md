@@ -2,7 +2,7 @@
 
 This chapter is for office staff: you receive enquiries, create and plan work
 orders, assign technicians, follow up reports and keep customer, equipment and
-agreement data up to date. It applies to FSM Platform 0.9.5 (8 November 2026).
+agreement data up to date. It applies to FSM Platform 0.9.6 (13 November 2026).
 
 Work orders and service agreements belong to a department: you normally see only
 your own department, while an administrator sees everything. Customers,

@@ -1,6 +1,6 @@
 # Oppslag, begreper og feilsøking
 
-*Gjelder FSM-plattformen versjon 0.9.5, 8. november 2026.*
+*Gjelder FSM-plattformen versjon 0.9.6, 13. november 2026.*
 
 Dette kapitlet forklarer rettigheter, statuser og begreper på tvers av rollene, viser hvordan funksjonene henger sammen, og hjelper deg å finne hvor du skal lete når noe mangler.
 

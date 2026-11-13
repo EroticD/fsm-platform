@@ -5,6 +5,8 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+## 0.9.6 — 2026-11-13
+
 ### Felt
 - «Avslutt kjøring» har 44 px trykkflate, og manglende sjekkpunkter er egne
   hoppknapper som scroller til og fokuserer feltet. Kommateksten ligger igjen
