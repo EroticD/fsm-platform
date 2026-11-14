@@ -1,6 +1,6 @@
 # Technician
 
-The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.9.6 (2026-11-13).
+The field app for the **Technician** role: sign-in, My work orders, work order details, checklists, units, offline drafts and submission. Version 0.9.7 (2026-11-13).
 
 The bottom bar has **Today** (`/mine-oppdrag`), **Work orders**, **Notifications** and **More**. **More** opens the same menu as the hamburger button at the top. Language, notification sound, reports, customers/equipment and settings are in that menu.
 

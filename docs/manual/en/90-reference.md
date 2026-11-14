@@ -1,6 +1,6 @@
 # Reference, glossary and troubleshooting
 
-*Applies to FSM Platform version 0.9.6, 13 November 2026.*
+*Applies to FSM Platform version 0.9.7, 13 November 2026.*
 
 This chapter is the reference section. It explains permissions, statuses and terms across roles, shows how features connect, and helps you find where to look when something is missing.
 

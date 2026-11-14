@@ -5,6 +5,8 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 
 ## Unreleased (dev)
 
+## 0.9.7 — 2026-11-14
+
 ## 0.9.6 — 2026-11-13
 
 ### Felt

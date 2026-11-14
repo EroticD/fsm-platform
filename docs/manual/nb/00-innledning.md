@@ -1,6 +1,6 @@
 # Introduksjon og systemoversikt
 
-*Gjelder FSM-plattformen versjon 0.9.6, 13. november 2026.*
+*Gjelder FSM-plattformen versjon 0.9.7, 13. november 2026.*
 
 ## Hva FSM-plattformen er
 
@@ -19,9 +19,9 @@ Kontoret skal kunne planlegge uten sideliggende regneark, montøren skal kunne j
 
 > **Merk:** «Kontor» er en rolle, ikke en fysisk plass. Administrator kan lage egne roller og gi enkeltbrukere tilpassede rettigheter.
 
-## Hva er nytt i 0.9.6
+## Hva er nytt i 0.9.7
 
-0.9.6 gjør feltappen tryggere uten dekning: bilder lagres lokalt og sendes når nettet kommer tilbake, manglende sjekkpunkter er hoppknapper, og et oppdrag kan fullføres med ett trykk. Søk i kunder, oppdrag, dokumenter og kontakter bruker uttrykksindekser. Opplastede PDF-er kan komprimeres med `npm run pdfs:compress`, og `/api/metrics` deler innsamlingen i tolv sekunder. Feilkoder er typet i `src/lib/error-codes.ts`, og `npm run seed:demo` fyller en utviklingsbase med demodata.
+0.9.7 gjør feltappen tryggere uten dekning: bilder lagres lokalt og sendes når nettet kommer tilbake, manglende sjekkpunkter er hoppknapper, og et oppdrag kan fullføres med ett trykk. Søk i kunder, oppdrag, dokumenter og kontakter bruker uttrykksindekser. Opplastede PDF-er kan komprimeres med `npm run pdfs:compress`, og `/api/metrics` deler innsamlingen i tolv sekunder. Feilkoder er typet i `src/lib/error-codes.ts`, og `npm run seed:demo` fyller en utviklingsbase med demodata.
 
 ## Hva er nytt i 0.9.5
 
